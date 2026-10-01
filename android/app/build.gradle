@@ -83,15 +83,6 @@ android {
         }
     }
 
-    splits {
-        abi {
-            enable true
-            reset()
-            include "arm64-v8a"
-            universalApk false
-        }
-    }
-
     if (hasKeyStore) {
         signingConfigs {
             release {
