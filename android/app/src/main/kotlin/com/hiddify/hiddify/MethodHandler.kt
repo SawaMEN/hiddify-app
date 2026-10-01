@@ -94,7 +94,9 @@ class MethodHandler(
                             )
                             Libbox.redirectStderr(File(Settings.workingDir, "stderr2.log").path)
                             success("")
-                        }.onFailure(::error)
+                        }.onFailure { throwable ->
+                            error(throwable)
+                        }
                     }
                 }
             }
