@@ -50,13 +50,13 @@ jobs:
         timeout-minutes: 10
         run: flutter pub get
 
-      - name: Generate Dart sources
-        timeout-minutes: 15
-        run: dart run build_runner build --delete-conflicting-outputs
-
       - name: Generate translations
         timeout-minutes: 5
         run: dart run slang
+
+      - name: Generate Dart sources
+        timeout-minutes: 15
+        run: dart run build_runner build
 
       - name: Download Android core
         timeout-minutes: 10
