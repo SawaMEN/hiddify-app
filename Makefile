@@ -53,7 +53,7 @@ android-apk-release:
 	  --build-target-platform=android-arm64 \
 	  --build-dart-define=sentry_dsn=$(SENTRY_DSN)
 	@echo "Android ARM64-v8a APK output:"
-	@find build/app/outputs/flutter-apk -maxdepth 1 -type f -name '*arm64-v8a*.apk' -print
+	@find build/app/outputs/flutter-apk -maxdepth 1 -type f \( -name 'app-release.apk' -o -name '*arm64-v8a*.apk' \) -print
 
 clean:
 	flutter clean
