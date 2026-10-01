@@ -46,8 +46,21 @@ jobs:
       - name: Install build dependencies
         run: make android-apk-install-deps
 
-      - name: Prepare Android build
-        run: make android-apk-prepare
+      - name: Resolve Dart dependencies
+        timeout-minutes: 10
+        run: flutter pub get
+
+      - name: Generate Dart sources
+        timeout-minutes: 15
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Generate translations
+        timeout-minutes: 5
+        run: dart run slang
+
+      - name: Download Android core
+        timeout-minutes: 10
+        run: make android-libs
 
       - name: Build Android release APK
         env:
