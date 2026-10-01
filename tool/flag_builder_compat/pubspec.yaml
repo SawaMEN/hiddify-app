@@ -1,0 +1,10 @@
+name: flag_builder
+version: 0.0.1
+publish_to: none
+
+environment:
+  sdk: ">=3.13.0 <4.0.0"
+
+dependencies:
+  build: ^4.0.11
+  path: ^1.9.1
