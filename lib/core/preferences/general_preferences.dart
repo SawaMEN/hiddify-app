@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:hiddify/core/app_info/app_info_provider.dart';
 import 'package:hiddify/core/model/environment.dart';
 import 'package:hiddify/core/model/region.dart';
 import 'package:hiddify/core/preferences/preferences_provider.dart';
