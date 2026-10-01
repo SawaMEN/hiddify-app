@@ -135,6 +135,8 @@ dev_dependencies:
   slang_build_runner: ^4.4.0
   flutter_gen_runner: ^5.4.0
   dart_mappable_builder: ^4.2.1
+  flag_builder:
+    path: tool/flag_builder_compat
   # protoc_builder: ^0.4.1
   # google_protobuf: ^3.20.1;
 
