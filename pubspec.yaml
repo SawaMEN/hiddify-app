@@ -125,7 +125,6 @@ dev_dependencies:
   # flutter_test:
   #   sdk: flutter
   lint: ^2.3.0
-  build_web_compilers: 4.4.19
   build_runner: 2.4.15
   json_serializable: 6.9.5
   freezed: 2.5.8
