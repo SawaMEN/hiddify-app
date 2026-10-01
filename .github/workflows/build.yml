@@ -89,15 +89,28 @@ jobs:
             --build-target-platform=android-arm64 \
             --build-dart-define=sentry_dsn="${SENTRY_DSN}"
 
-      - name: Collect ARM64 APK
+      - name: Collect and verify ARM64 APK
         run: |
           mkdir -p out
-          APK_PATH="$(find build/app/outputs/flutter-apk -maxdepth 1 -type f -name '*arm64-v8a*.apk' | head -n 1)"
+          APK_PATH="$(find build/app/outputs/flutter-apk -maxdepth 1 -type f \( -name 'app-release.apk' -o -name '*arm64-v8a*.apk' \) | head -n 1)"
           if [ -z "$APK_PATH" ]; then
-            echo "ARM64 APK was not produced"
-            find build/app/outputs -type f -maxdepth 4 -print || true
+            echo "Android release APK was not produced"
+            find build/app/outputs -maxdepth 4 -type f -print || true
             exit 1
           fi
+
+          if unzip -Z1 "$APK_PATH" | grep -Eq '^lib/(armeabi-v7a|x86|x86_64)/'; then
+            echo "APK contains unsupported non-ARM64 native libraries"
+            unzip -Z1 "$APK_PATH" | grep '^lib/' | sort -u
+            exit 1
+          fi
+
+          if ! unzip -Z1 "$APK_PATH" | grep -q '^lib/arm64-v8a/'; then
+            echo "APK does not contain ARM64 native libraries"
+            unzip -Z1 "$APK_PATH" | grep '^lib/' | sort -u || true
+            exit 1
+          fi
+
           cp "$APK_PATH" "out/${APK_NAME}"
           ls -lh out/
 
