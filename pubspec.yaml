@@ -27,9 +27,9 @@ dependencies:
   fpdart: ^1.1.0
   freezed_annotation: ^2.4.1
   json_annotation: ^4.9.0
-  hooks_riverpod: ^2.4.10
+  hooks_riverpod: ^3.4.3
   flutter_hooks: ^0.20.5
-  riverpod_annotation: ^2.3.4
+  riverpod_annotation: ^4.0.7
   rxdart: ^0.28.0
   drift: ^2.21.0
   drift_flutter: ^0.2.1
@@ -126,10 +126,10 @@ dev_dependencies:
   #   sdk: flutter
   lint: ^2.3.0
   build_web_compilers: ^4.0.11
-  build_runner: ^2.4.13
+  build_runner: ^2.16.1
   json_serializable: ^6.7.1
   freezed: ^2.4.7
-  riverpod_generator: ^2.4.3
+  riverpod_generator: ^4.0.9
   drift_dev: ^2.21.0
   ffigen: ^19.1.0
   slang_build_runner: ^4.4.0
