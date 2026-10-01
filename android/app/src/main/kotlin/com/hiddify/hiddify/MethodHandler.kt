@@ -10,10 +10,13 @@ import com.hiddify.hiddify.constant.Status
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import java.io.File
+import kotlinx.coroutines.withContext
 
 class MethodHandler(
     private val scope: CoroutineScope,
@@ -48,89 +51,109 @@ class MethodHandler(
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
-            Trigger.AddGrpcClientPublicKey.method -> {
-                scope.launch(Dispatchers.IO) {
-                    result.runCatching {
-                        val args = call.arguments as Map<*, *>
-                        Settings.grpcFlutterPublicKey = args["clientPublicKey"] as ByteArray
-                        success("")
-                    }
-                }
+            Trigger.AddGrpcClientPublicKey.method -> launchResult(
+                result = result,
+                errorCode = "android_add_grpc_key_failed",
+            ) {
+                val args = call.arguments as Map<*, *>
+                Settings.grpcFlutterPublicKey = args["clientPublicKey"] as ByteArray
+                ""
             }
 
-            Trigger.GetGrpcServerPublicKey.method -> {
-                scope.launch(Dispatchers.IO) {
-                    result.runCatching {
-                        success(Mobile.getServerPublicKey())
-                    }
-                }
+            Trigger.GetGrpcServerPublicKey.method -> launchResult(
+                result = result,
+                errorCode = "android_get_grpc_key_failed",
+            ) {
+                Mobile.getServerPublicKey()
             }
 
-            Trigger.Setup.method -> {
-                scope.launch(Dispatchers.IO) {
-                    result.runCatching {
-                        val args = call.arguments as Map<*, *>
-                        Settings.baseDir = args["baseDir"] as String
-                        Settings.workingDir = args["workingDir"] as String
-                        Settings.tempDir = args["tempDir"] as String
-                        Settings.debugMode = args["debug"] as Boolean? ?: false
-                        val mode = args["mode"] as Int
-                        val grpcPort = args["grpcPort"] as Int
+            Trigger.Setup.method -> launchResult(
+                result = result,
+                errorCode = "android_setup_failed",
+            ) {
+                val args = call.arguments as Map<*, *>
+                Settings.baseDir = args["baseDir"] as String
+                Settings.workingDir = args["workingDir"] as String
+                Settings.tempDir = args["tempDir"] as String
+                Settings.debugMode = args["debug"] as Boolean? ?: false
+                val mode = args["mode"] as Int
+                val grpcPort = args["grpcPort"] as Int
 
-                        Log.d(TAG, "debug mode: ${Settings.debugMode}")
-                        runCatching {
-                            Mobile.setup(
-                                SetupOptions().also {
-                                    it.basePath = Settings.baseDir
-                                    it.workingDir = Settings.workingDir
-                                    it.tempDir = Settings.tempDir
-                                    it.fixAndroidStack = Bugs.fixAndroidStack
-                                    it.mode = mode.toLong()
-                                    it.listen = "127.0.0.1:$grpcPort"
-                                    it.secret = ""
-                                    it.debug = Settings.debugMode
-                                },
-                                null,
-                            )
-                            Libbox.redirectStderr(File(Settings.workingDir, "stderr2.log").path)
-                            success("")
-                        }.onFailure { throwable ->
-                            error(throwable)
-                        }
-                    }
-                }
+                Log.d(TAG, "debug mode: ${Settings.debugMode}")
+                Mobile.setup(
+                    SetupOptions().also {
+                        it.basePath = Settings.baseDir
+                        it.workingDir = Settings.workingDir
+                        it.tempDir = Settings.tempDir
+                        it.fixAndroidStack = Bugs.fixAndroidStack
+                        it.mode = mode.toLong()
+                        it.listen = "127.0.0.1:$grpcPort"
+                        it.secret = ""
+                        it.debug = Settings.debugMode
+                    },
+                    null,
+                )
+                Libbox.redirectStderr(File(Settings.workingDir, "stderr2.log").path)
+                ""
             }
 
-            Trigger.Start.method -> {
-                scope.launch {
-                    result.runCatching {
-                        val args = call.arguments as Map<*, *>
-                        Settings.activeConfigPath = args["path"] as String? ?: ""
-                        Settings.activeProfileName = args["name"] as String? ?: ""
-                        Settings.debugMode = args["debug"] as Boolean? ?: false
-                        Settings.grpcServiceModePort = args["grpcPort"] as Int
-                        Settings.startCoreAfterStartingService = false
+            Trigger.Start.method -> launchResult(
+                result = result,
+                dispatcher = Dispatchers.Main.immediate,
+                errorCode = "android_start_failed",
+            ) {
+                val args = call.arguments as Map<*, *>
+                Settings.activeConfigPath = args["path"] as String? ?: ""
+                Settings.activeProfileName = args["name"] as String? ?: ""
+                Settings.debugMode = args["debug"] as Boolean? ?: false
+                Settings.grpcServiceModePort = args["grpcPort"] as Int
+                Settings.startCoreAfterStartingService = false
 
-                        mainActivity.startService()
-                        success(true)
-                    }
-                }
+                mainActivity.startService()
+                true
             }
 
-            Trigger.Stop.method -> {
-                scope.launch {
-                    result.runCatching {
-                        val started = mainActivity.serviceStatus.value == Status.Started
-                        if (!started) {
-                            Log.w(TAG, "service is not running")
-                        }
-                        BoxService.stop()
-                        success(true)
-                    }
+            Trigger.Stop.method -> launchResult(
+                result = result,
+                dispatcher = Dispatchers.Main.immediate,
+                errorCode = "android_stop_failed",
+            ) {
+                val started = mainActivity.serviceStatus.value == Status.Started
+                if (!started) {
+                    Log.w(TAG, "service is not running")
                 }
+                BoxService.stop()
+                true
             }
 
             else -> result.notImplemented()
+        }
+    }
+
+    private fun launchResult(
+        result: MethodChannel.Result,
+        errorCode: String,
+        dispatcher: CoroutineDispatcher = Dispatchers.IO,
+        block: suspend () -> Any?,
+    ) {
+        scope.launch(dispatcher) {
+            try {
+                val value = block()
+                withContext(Dispatchers.Main.immediate) {
+                    result.success(value)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (t: Throwable) {
+                Log.e(TAG, errorCode, t)
+                withContext(Dispatchers.Main.immediate) {
+                    result.error(
+                        errorCode,
+                        t.message ?: t.javaClass.simpleName,
+                        Log.getStackTraceString(t),
+                    )
+                }
+            }
         }
     }
 }

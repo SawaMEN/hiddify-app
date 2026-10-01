@@ -24,6 +24,7 @@ import com.hiddify.hiddify.Settings
 import com.hiddify.hiddify.constant.Action
 import com.hiddify.hiddify.constant.Alert
 import com.hiddify.hiddify.constant.Status
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,7 +32,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import java.io.File
 
 class BoxService(
     private val service: Service,
@@ -100,6 +100,7 @@ class BoxService(
     private var activeProfileName = ""
 
     private suspend fun startService() {
+        var coreSetupSucceeded = false
         try {
             status.postValue(Status.Starting)
             Log.d(TAG, "starting service")
@@ -140,22 +141,26 @@ class BoxService(
                     },
                     platformInterface,
                 )
+                coreSetupSucceeded = true
             } catch (e: Exception) {
                 stopAndAlert(Alert.CreateService, e.message)
                 return
             }
 
-            status.postValue(Status.Started)
-
             if (Settings.startCoreAfterStartingService) {
                 Mobile.start("", "")
             }
 
+            status.postValue(Status.Started)
             withContext(Dispatchers.Main) {
                 notification.show(activeProfileName, R.string.status_started)
             }
             notification.start()
         } catch (e: Exception) {
+            if (coreSetupSucceeded) {
+                runCatching { Mobile.close(4L) }
+                    .onFailure { Log.e(TAG, "failed to close core after start error", it) }
+            }
             stopAndAlert(Alert.StartService, e.message)
         }
     }
@@ -170,7 +175,8 @@ class BoxService(
         notification.close()
         status.postValue(Status.Starting)
 
-        fileDescriptor?.close()
+        runCatching { fileDescriptor?.close() }
+            .onFailure { Log.w(TAG, "failed to close TUN before reload", it) }
         fileDescriptor = null
 
         Mobile.stop()
@@ -205,17 +211,18 @@ class BoxService(
         notification.close()
 
         serviceScope.launch {
-            runCatching {
-                fileDescriptor?.close()
-            }
+            runCatching { fileDescriptor?.close() }
+                .onFailure { Log.w(TAG, "failed to close TUN", it) }
             fileDescriptor = null
 
-            DefaultNetworkMonitor.stop()
+            runCatching { DefaultNetworkMonitor.stop() }
+                .onFailure { Log.w(TAG, "failed to stop network monitor", it) }
             Settings.startedByUser = false
 
+            runCatching { Mobile.close(4L) }
+                .onFailure { Log.e(TAG, "failed to close mobile core", it) }
+
             withContext(Dispatchers.Main) {
-                runCatching { Mobile.close(4L) }
-                    .onFailure { Log.e(TAG, "failed to close mobile core", it) }
                 status.value = Status.Stopped
                 service.stopSelf()
             }
@@ -224,6 +231,13 @@ class BoxService(
 
     private suspend fun stopAndAlert(type: Alert, message: String? = null) {
         Settings.startedByUser = false
+
+        runCatching { fileDescriptor?.close() }
+            .onFailure { Log.w(TAG, "failed to close TUN after service error", it) }
+        fileDescriptor = null
+        runCatching { DefaultNetworkMonitor.stop() }
+            .onFailure { Log.w(TAG, "failed to stop network monitor after service error", it) }
+
         withContext(Dispatchers.Main) {
             unregisterReceiver()
             notification.close()
@@ -231,6 +245,7 @@ class BoxService(
                 callback.onServiceAlert(type.ordinal, message)
             }
             status.value = Status.Stopped
+            service.stopSelf()
         }
     }
 
@@ -266,6 +281,9 @@ class BoxService(
 
     fun onDestroy() {
         unregisterReceiver()
+        runCatching { fileDescriptor?.close() }
+            .onFailure { Log.w(TAG, "failed to close TUN on destroy", it) }
+        fileDescriptor = null
         binder.close()
         serviceScope.cancel()
     }

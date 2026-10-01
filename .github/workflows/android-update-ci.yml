@@ -1,9 +1,7 @@
 name: Android Update CI
 
 on:
-  push:
-    branches:
-      - android-update
+  workflow_dispatch:
   pull_request:
     paths:
       - 'android/**'
