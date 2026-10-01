@@ -41,7 +41,6 @@ jobs:
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL || true
           rm -rf ~/.gradle/caches || true
-          sudo apt-get autoremove -y
           sudo apt-get clean
 
       - name: Setup Java
@@ -76,6 +75,9 @@ jobs:
 
       - name: Prepare Android
         run: make android-apk-prepare
+
+      - name: Analyze Dart errors
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
 
       - name: Build Android ARM64 APK
         env:
