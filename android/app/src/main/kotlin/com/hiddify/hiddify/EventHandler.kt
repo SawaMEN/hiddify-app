@@ -8,7 +8,9 @@ import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.JSONMethodCodec
 
-class EventHandler : FlutterPlugin {
+class EventHandler(
+    private val activity: MainActivity,
+) : FlutterPlugin {
 
     companion object {
         const val TAG = "A/EventHandler"
@@ -18,64 +20,78 @@ class EventHandler : FlutterPlugin {
 
     private var statusChannel: EventChannel? = null
     private var alertsChannel: EventChannel? = null
-
     private var statusObserver: Observer<Status>? = null
     private var alertsObserver: Observer<ServiceEvent?>? = null
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-        statusChannel = EventChannel(flutterPluginBinding.binaryMessenger, SERVICE_STATUS, JSONMethodCodec.INSTANCE)
-        alertsChannel = EventChannel(flutterPluginBinding.binaryMessenger, SERVICE_ALERTS, JSONMethodCodec.INSTANCE)
+        statusChannel = EventChannel(
+            flutterPluginBinding.binaryMessenger,
+            SERVICE_STATUS,
+            JSONMethodCodec.INSTANCE,
+        )
+        alertsChannel = EventChannel(
+            flutterPluginBinding.binaryMessenger,
+            SERVICE_ALERTS,
+            JSONMethodCodec.INSTANCE,
+        )
 
-        statusChannel!!.setStreamHandler(object : EventChannel.StreamHandler {
+        statusChannel?.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                statusObserver = Observer {
-                    Log.d(TAG, "new status: $it")
-                    val map = listOf(
-                        Pair("status", it.name)
-                    )
-                        .toMap()
-                    events?.success(map)
+                removeStatusObserver()
+                statusObserver = Observer { status ->
+                    Log.d(TAG, "new status: $status")
+                    events?.success(mapOf("status" to status.name))
+                }.also { observer ->
+                    activity.serviceStatus.observeForever(observer)
                 }
-                MainActivity.instance.serviceStatus.observeForever(statusObserver!!)
             }
 
             override fun onCancel(arguments: Any?) {
-                if (statusObserver != null)
-                    MainActivity.instance.serviceStatus.removeObserver(statusObserver!!)
+                removeStatusObserver()
             }
         })
 
-        alertsChannel!!.setStreamHandler(object : EventChannel.StreamHandler {
+        alertsChannel?.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
-                alertsObserver = Observer {
-                    if (it == null) return@Observer
-                    Log.d(TAG, "new alert: $it")
-                    val map = listOf(
-                        Pair("status", it.status.name),
-                        Pair("alert", it.alert?.name),
-                        Pair("message", it.message)
+                removeAlertsObserver()
+                alertsObserver = Observer { event ->
+                    if (event == null) return@Observer
+                    Log.d(TAG, "new alert: $event")
+                    events?.success(
+                        listOf(
+                            "status" to event.status.name,
+                            "alert" to event.alert?.name,
+                            "message" to event.message,
+                        ).mapNotNull { (key, value) -> value?.let { key to it } }.toMap(),
                     )
-                        .mapNotNull { p -> p.second?.let { Pair(p.first, p.second) } }
-                        .toMap()
-                    events?.success(map)
+                }.also { observer ->
+                    activity.serviceAlerts.observeForever(observer)
                 }
-                MainActivity.instance.serviceAlerts.observeForever(alertsObserver!!)
             }
 
             override fun onCancel(arguments: Any?) {
-                if (alertsObserver != null)
-                    MainActivity.instance.serviceAlerts.removeObserver(alertsObserver!!)
+                removeAlertsObserver()
             }
         })
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-        if (statusObserver != null)
-            MainActivity.instance.serviceStatus.removeObserver(statusObserver!!)
+        removeStatusObserver()
+        removeAlertsObserver()
         statusChannel?.setStreamHandler(null)
-        if (alertsObserver != null)
-            MainActivity.instance.serviceAlerts.removeObserver(alertsObserver!!)
         alertsChannel?.setStreamHandler(null)
+        statusChannel = null
+        alertsChannel = null
+    }
+
+    private fun removeStatusObserver() {
+        statusObserver?.let(activity.serviceStatus::removeObserver)
+        statusObserver = null
+    }
+
+    private fun removeAlertsObserver() {
+        alertsObserver?.let(activity.serviceAlerts::removeObserver)
+        alertsObserver = null
     }
 }
 
