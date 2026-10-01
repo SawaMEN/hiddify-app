@@ -44,7 +44,6 @@ jobs:
           flutter --version
           java -version
           echo "ANDROID_HOME=$ANDROID_HOME"
-          sdkmanager --version
 
       - name: Install build dependencies
         run: make android-apk-install-deps
