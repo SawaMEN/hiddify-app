@@ -54,7 +54,7 @@ dependencies:
   launch_at_startup: ^0.5.1
   sentry_flutter: ^8.14.0
   sentry_dart_plugin: ^2.4.1
-  sqlite3_flutter_libs: ^0.5.28
+  sqlite3_flutter_libs: ^0.6.0+eol
 
   path: ^1.9.0
   loggy: ^2.0.3
@@ -91,9 +91,9 @@ dependencies:
     git: https://github.com/hiddify-com/flutter_circle_flags.git
   fixnum: ^1.1.0
   # # for using protobuf install protoc from this link -> https://github.com/protocolbuffers/protobuf/releases
-  # # then add path to "environment variable" e.g. -> C:\src\protoc-28.3-win64\bin
+  # # then add path to "environment variable" e.g. C:\src\protoc-28.3-win64\bin
   # # then active "protoc_plugin" by running this command -> dart pub global activate protoc_plugin
-  # # then add path to "environment variable" e.g. -> C:\Users\%USERPROFILE%\AppData\Local\Pub\Cache\global_packages\protoc_plugin\bin
+  # # then add path to "environment variable" e.g. C:\Users\%USERPROFILE%\AppData\Local\Pub\Cache\global_packages\protoc_plugin\bin
   protobuf: ^5.0.0
   grpc: ^4.0.1
   dynamic_color: ^1.7.0
