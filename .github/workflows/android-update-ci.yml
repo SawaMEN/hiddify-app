@@ -1,0 +1,59 @@
+name: Android Update CI
+
+on:
+  push:
+    branches:
+      - android-update
+  pull_request:
+    paths:
+      - 'android/**'
+      - 'lib/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - 'dependencies.properties'
+      - 'Makefile'
+      - '.github/workflows/android-update-ci.yml'
+
+concurrency:
+  group: android-update-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: zulu
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Flutter 3.47.5
+        uses: subosito/flutter-action@v2.21.0
+        with:
+          flutter-version: '3.47.5'
+          channel: stable
+          cache: true
+
+      - name: Toolchain info
+        run: |
+          flutter --version
+          java -version
+
+      - name: Install build dependencies
+        run: make android-apk-install-deps
+
+      - name: Prepare Android build
+        run: make android-apk-prepare
+
+      - name: Build Android release APK
+        env:
+          SENTRY_DSN: ''
+        run: flutter build apk --release --target=lib/main.dart
