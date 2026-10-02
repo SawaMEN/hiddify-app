@@ -32,7 +32,7 @@ jobs:
           java-version: '17'
 
       - name: Setup Flutter 3.47.5
-        uses: subosito/flutter-action@v2.21.0
+        uses: subosito/flutter-action@v2.23.0
         with:
           flutter-version: '3.47.5'
           channel: stable
@@ -57,7 +57,7 @@ jobs:
 
       - name: Generate Dart sources
         timeout-minutes: 10
-        run: dart run build_runner build --delete-conflicting-outputs --build-filter='lib/**'
+        run: dart run build_runner build --build-filter='lib/**'
 
       - name: Analyze Dart
         timeout-minutes: 10
