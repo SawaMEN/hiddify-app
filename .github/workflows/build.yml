@@ -100,7 +100,26 @@ jobs:
         run: make android-apk-prepare
 
       - name: Analyze Dart errors
-        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+        id: analyze
+        shell: bash
+        run: |
+          set +e
+          flutter analyze --no-fatal-warnings --no-fatal-infos 2>&1 | tee analyze.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload Dart analyzer log
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: dart-analyze-log
+          path: analyze.log
+          retention-days: 1
+
+      - name: Fail on Dart analyzer errors
+        if: ${{ steps.analyze.outputs.status != '0' }}
+        run: exit "${{ steps.analyze.outputs.status }}"
 
       - name: Build Android ARM64 APK
         env:
