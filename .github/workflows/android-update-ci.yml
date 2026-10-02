@@ -57,7 +57,7 @@ jobs:
 
       - name: Generate Dart sources
         timeout-minutes: 4
-        run: dart run build_runner build --delete-conflicting-outputs --use-experimental-resolver --build-filter='lib/**'
+        run: dart run build_runner build --delete-conflicting-outputs --build-filter='lib/**'
 
       - name: Download Android core
         timeout-minutes: 10
