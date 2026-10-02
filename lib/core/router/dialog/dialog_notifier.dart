@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:hiddify/core/preferences/actions_at_closing.dart';
-import 'package:hiddify/core/router/dialog/widgets/action_at_closing_dialog.dart';
 import 'package:hiddify/core/router/dialog/widgets/chain_license_dialog.dart';
 import 'package:hiddify/core/router/dialog/widgets/confirmation_dialog.dart';
 import 'package:hiddify/core/router/dialog/widgets/custom_alert_dialog.dart';
@@ -19,7 +17,6 @@ import 'package:hiddify/core/router/dialog/widgets/setting_slider_dialog.dart';
 import 'package:hiddify/core/router/dialog/widgets/setting_text_dialog.dart';
 import 'package:hiddify/core/router/dialog/widgets/sort_profiles_dialog.dart';
 import 'package:hiddify/core/router/dialog/widgets/unknown_domains_warning_dialog.dart';
-import 'package:hiddify/core/router/dialog/widgets/window_closing_dialog.dart';
 import 'package:hiddify/core/router/go_router/go_router_notifier.dart';
 import 'package:hiddify/features/app_update/model/remote_version_entity.dart';
 import 'package:hiddify/features/common/qr_code_dialog.dart';
@@ -40,13 +37,7 @@ class DialogNotifier extends _$DialogNotifier {
   Future<T?> _show<T>(Widget child) async {
     final context = rootNavKey.currentContext;
     if (context == null) return null;
-    // ref.read(popupCountNotifierProvider.notifier).increase();
-    return await Navigator.of(context).push<T>(DialogRoute(context: context, builder: (context) => child)).then((
-      value,
-    ) {
-      // ref.read(popupCountNotifierProvider.notifier).decrease();
-      return value;
-    });
+    return await Navigator.of(context).push<T>(DialogRoute(context: context, builder: (context) => child));
   }
 
   Future<String?> showQrScanner() async {
@@ -113,10 +104,6 @@ class DialogNotifier extends _$DialogNotifier {
           ConfirmationDialog(title: title, message: message, icon: icon, positiveBtnTxt: positiveBtnTxt),
         ) ??
         false;
-  }
-
-  Future<ActionsAtClosing?> showActionAtClosing({required ActionsAtClosing selected}) async {
-    return await _show<ActionsAtClosing?>(ActionsAtClosingDialog(selected: selected));
   }
 
   Future<bool> showExperimentalFeatureNotice() async {
@@ -235,10 +222,6 @@ class DialogNotifier extends _$DialogNotifier {
 
   Future<bool?> showSave({required String title, required String description}) async {
     return await _show<bool?>(SaveDialog(title: title, description: description));
-  }
-
-  Future<void> showWindowClosing() async {
-    return await _show<void>(const WindowClosingDialog());
   }
 
   Future<void> showCustomAlert({String? title, required String message}) async {

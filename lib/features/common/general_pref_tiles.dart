@@ -3,7 +3,6 @@ import 'package:hiddify/core/analytics/analytics_controller.dart';
 import 'package:hiddify/core/localization/locale_extensions.dart';
 import 'package:hiddify/core/localization/locale_preferences.dart';
 import 'package:hiddify/core/localization/translations.dart';
-import 'package:hiddify/core/preferences/general_preferences.dart';
 import 'package:hiddify/core/router/dialog/dialog_notifier.dart';
 import 'package:hiddify/core/theme/app_theme_mode.dart';
 import 'package:hiddify/core/theme/theme_preferences.dart';
@@ -15,8 +14,8 @@ class LocalePrefTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).requireValue;
-
     final locale = ref.watch(localePreferencesProvider);
+
     return ListTile(
       title: Text(t.pages.settings.general.locale),
       subtitle: Text(locale.localeName),
@@ -47,7 +46,6 @@ class EnableAnalyticsPrefTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).requireValue;
-
     final enabled = ref.watch(analyticsControllerProvider).requireValue;
 
     return SwitchListTile.adaptive(
@@ -75,7 +73,6 @@ class ThemeModePrefTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).requireValue;
-
     final themeMode = ref.watch(themePreferencesProvider);
 
     return ListTile(
@@ -99,29 +96,6 @@ class ThemeModePrefTile extends ConsumerWidget {
             );
         if (selectedThemeMode != null) {
           await ref.read(themePreferencesProvider.notifier).changeThemeMode(selectedThemeMode);
-        }
-      },
-    );
-  }
-}
-
-class ClosingPrefTile extends ConsumerWidget {
-  const ClosingPrefTile({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = ref.watch(translationsProvider).requireValue;
-
-    final action = ref.watch(Preferences.actionAtClose);
-
-    return ListTile(
-      title: Text(t.pages.settings.general.actionAtClosing),
-      subtitle: Text(action.present(t)),
-      leading: const Icon(Icons.logout_rounded),
-      onTap: () async {
-        final selectedAction = await ref.read(dialogNotifierProvider.notifier).showActionAtClosing(selected: action);
-        if (selectedAction != null) {
-          await ref.read(Preferences.actionAtClose.notifier).update(selectedAction);
         }
       },
     );

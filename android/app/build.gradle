@@ -76,16 +76,21 @@ android {
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
         multiDexEnabled true
+
+        ndk {
+            abiFilters "arm64-v8a"
+        }
     }
 
-    splits {
-        abi {
-            enable true
-            reset()
-            //noinspection ChromeOsAbiSupport
-            include "x86_64", "armeabi-v7a", "arm64-v8a"
-
-            universalApk true
+    packaging {
+        jniLibs {
+            excludes += [
+                "**/armeabi/*.so",
+                "**/armeabi-v7a/*.so",
+                "**/x86/*.so",
+                "**/x86_64/*.so",
+                "**/riscv64/*.so",
+            ]
         }
     }
 
@@ -108,8 +113,7 @@ android {
                 signingConfig signingConfigs.debug
             }
             ndk {
-                //noinspection ChromeOsAbiSupport
-                abiFilters "x86_64", "armeabi-v7a", "arm64-v8a"
+                abiFilters "arm64-v8a"
                 debugSymbolLevel 'FULL'
             }
         }
@@ -119,7 +123,6 @@ android {
         viewBinding true
         aidl true
     }
-
 }
 
 flutter {
@@ -139,7 +142,4 @@ dependencies {
     implementation 'io.grpc:grpc-okhttp:1.64.0'
     implementation 'io.grpc:grpc-protobuf-lite:1.64.0'
     implementation 'io.grpc:grpc-stub:1.64.0'
-//    protoPath(project(':hiddify_api'))
-//    implementation project(':hiddify_api')
-
 }
