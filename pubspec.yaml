@@ -36,7 +36,6 @@ dependencies:
   url_launcher: ^6.3.2
   sentry_flutter: ^8.14.0
   sentry_dart_plugin: ^2.4.1
-  sqlite3_flutter_libs: 0.5.31
   path: ^1.9.0
   loggy: ^2.0.3
   meta: ^1.15.0
