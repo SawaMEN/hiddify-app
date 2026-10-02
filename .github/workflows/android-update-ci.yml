@@ -8,9 +8,9 @@ on:
       - 'lib/**'
       - 'pubspec.yaml'
       - 'pubspec.lock'
-      - 'pubspec_overrides.yaml'
       - 'dependencies.properties'
       - 'Makefile'
+      - 'tool/**'
       - '.github/workflows/android-update-ci.yml'
 
 concurrency:
@@ -56,8 +56,12 @@ jobs:
         run: dart run slang
 
       - name: Generate Dart sources
-        timeout-minutes: 4
+        timeout-minutes: 10
         run: dart run build_runner build --delete-conflicting-outputs --build-filter='lib/**'
+
+      - name: Analyze Dart
+        timeout-minutes: 10
+        run: flutter analyze --no-fatal-warnings --no-fatal-infos
 
       - name: Download Android core
         timeout-minutes: 10
