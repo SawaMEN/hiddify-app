@@ -83,6 +83,18 @@ android {
         }
     }
 
+    packaging {
+        jniLibs {
+            excludes += [
+                "**/armeabi/*.so",
+                "**/armeabi-v7a/*.so",
+                "**/x86/*.so",
+                "**/x86_64/*.so",
+                "**/riscv64/*.so",
+            ]
+        }
+    }
+
     if (hasKeyStore) {
         signingConfigs {
             release {
