@@ -2,7 +2,7 @@ import 'dart:developer';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-class RiverpodObserver extends ProviderObserver {
+final class RiverpodObserver extends ProviderObserver {
   @override
   void didAddProvider(ProviderObserverContext context, Object? value) {
     final provider = context.provider;
