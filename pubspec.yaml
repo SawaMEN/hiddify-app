@@ -16,7 +16,7 @@ dependencies:
 
   slang: ^4.19.2
   slang_flutter: ^4.19.0
-  fpdart: ^1.1.0
+  fpdart: ^1.2.0
   freezed_annotation: ^3.1.0
   json_annotation: ^4.12.0
   hooks_riverpod: ^3.4.3
@@ -31,30 +31,30 @@ dependencies:
   path_provider: ^2.1.6
   mobile_scanner: ^7.4.2
   flutter_native_splash: ^2.4.8
-  share_plus: ^10.1.0
-  package_info_plus: ^8.1.0
+  share_plus: ^13.3.1
+  package_info_plus: ^10.2.2
   url_launcher: ^6.3.2
-  sentry_flutter: ^8.14.0
-  sentry_dart_plugin: ^2.4.1
+  sentry_flutter: ^9.30.1
+  sentry_dart_plugin: ^3.4.0
   path: ^1.9.0
   loggy: ^2.0.3
   meta: ^1.15.0
   dartx: ^1.2.0
   uuid: ^4.6.0
   tint: ^2.0.1
-  accessibility_tools: ^2.2.3
+  accessibility_tools: ^3.0.0
   neat_periodic_task: ^2.0.1
-  go_router: ^16.2.4
+  go_router: ^18.0.2
   flutter_animate: ^4.5.0
   flutter_svg: ^2.3.0
   gap: ^3.0.1
   sliver_tools: ^0.2.12
   font_awesome_flutter: ^11.0.0
-  upgrader: ^11.3.0
-  toastification: ^2.3.0
+  upgrader: ^13.7.0
+  toastification: ^3.2.0
   version: ^3.0.2
   qr_flutter: ^4.1.0
-  flutter_displaymode: ^0.6.0
+  flutter_displaymode: ^0.7.0
   dio_smart_retry: ^7.0.1
   dart_mappable: ^4.10.0
   fluentui_system_icons: ^1.1.229
@@ -63,19 +63,19 @@ dependencies:
   circle_flags:
     git: https://github.com/hiddify-com/flutter_circle_flags.git
   fixnum: ^1.1.0
-  protobuf: ^5.0.0
-  grpc: ^4.0.1
-  dynamic_color: ^1.7.0
-  flutter_typeahead: ^5.0.1
+  protobuf: ^6.1.0
+  grpc: ^5.1.0
+  dynamic_color: ^2.1.0
+  flutter_typeahead: ^6.0.0
   simple_icons: ^16.23.0
   basic_utils: ^5.8.2
   text_scroll: ^0.2.1
   flutter_markdown_plus: ^1.0.12
-  file_picker: ^8.1.7
+  file_picker: ^13.1.0
   installed_apps:
     git: https://github.com/VB10/installed_apps
   recase: ^4.1.0
-  app_links: ^6.4.0
+  app_links: ^7.2.1
   humanizer: ^3.0.1
 
 dev_dependencies:
