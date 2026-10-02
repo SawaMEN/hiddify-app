@@ -1,0 +1,5 @@
+# Temporary compatibility bridge for the legacy Riverpod 2 code generator on
+# Flutter 3.47 / Dart 3.13. Riverpod 2.6.x constrains analyzer to 7.x, whose
+# resolver crashes on newer Dart AST nodes (for example dot shorthands).
+dependency_overrides:
+  analyzer: 8.4.1
