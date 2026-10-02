@@ -85,7 +85,6 @@ dev_dependencies:
   freezed: ^4.0.2
   riverpod_generator: ^4.0.9
   drift_dev: ^2.35.1
-  slang_build_runner: ^4.19.0
   flutter_gen_runner: ^5.15.0
   dart_mappable_builder: ^4.10.0
   flag_builder:
