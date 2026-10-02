@@ -1,0 +1,5 @@
+# Keep the legacy Riverpod 2/build 2 code-generation stack on the newest
+# analyzer release that still preserves the analyzer 7 element model expected
+# by build_resolvers 2.4.x. This is intentionally <8.0.0.
+dependency_overrides:
+  analyzer: 7.7.1

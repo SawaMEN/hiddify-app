@@ -12,9 +12,6 @@ import com.hiddify.core.libbox.TunOptions
 import com.hiddify.hiddify.Settings
 import com.hiddify.hiddify.constant.PerAppProxyMode
 import com.hiddify.hiddify.ktx.toIpPrefix
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 
 class VPNService : VpnService(), PlatformInterfaceWrapper {
 
@@ -28,23 +25,17 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
         service.onStartCommand()
 
     override fun onBind(intent: Intent): IBinder {
-        val binder = super.onBind(intent)
-        if (binder != null) {
-            return binder
-        }
-        return service.onBind(intent)
+        return super.onBind(intent) ?: service.onBind(intent)
     }
 
     override fun onDestroy() {
         service.onDestroy()
+        super.onDestroy()
     }
 
     override fun onRevoke() {
-        runBlocking {
-            withContext(Dispatchers.Main) {
-                service.onRevoke()
-            }
-        }
+        service.onRevoke()
+        super.onRevoke()
     }
 
     override fun autoDetectInterfaceControl(fd: Int) {
@@ -54,39 +45,29 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
     var systemProxyAvailable = false
     var systemProxyEnabled = false
 
-    fun addIncludePackage(builder: Builder, packageName: String) {
+    private fun addIncludePackage(builder: Builder, packageName: String) {
         if (packageName == this.packageName) {
-            Log.d(TAG, "Cannot include myself: $packageName")
+            Log.d(TAG, "cannot include VPN app itself: $packageName")
             return
         }
+
         try {
-            Log.d(TAG, "Including $packageName")
             builder.addAllowedApplication(packageName)
-        } catch (_: NameNotFoundException) {
+        } catch (e: NameNotFoundException) {
+            Log.w(TAG, "cannot include missing package: $packageName", e)
         }
     }
 
-    fun addExcludePackage(builder: Builder, packageName: String) {
+    private fun addExcludePackage(builder: Builder, packageName: String) {
         try {
-            Log.d(TAG, "Excluding $packageName")
             builder.addDisallowedApplication(packageName)
-        } catch (_: NameNotFoundException) {
+        } catch (e: NameNotFoundException) {
+            Log.w(TAG, "cannot exclude missing package: $packageName", e)
         }
     }
 
     override fun openTun(options: TunOptions): Int {
-        var hasPermission = false
-        for (i in 0 until 20) {
-            if (prepare(this) != null) {
-                Log.w(TAG, "android: missing vpn permission")
-            } else {
-                hasPermission = true
-                break
-            }
-            Thread.sleep(50)
-        }
-
-        if (!hasPermission) {
+        if (prepare(this) != null) {
             error("android: missing vpn permission")
         }
 
@@ -111,10 +92,7 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
         }
 
         if (options.autoRoute) {
-            val dnsServers = options.dnsServerAddress
-            while (dnsServers.hasNext()) {
-                builder.addDnsServer(dnsServers.next())
-            }
+            builder.addDnsServer(options.dnsServerAddress.value)
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 val inet4RouteAddress = options.inet4RouteAddress
@@ -199,11 +177,16 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
         }
 
         val pfd = builder.establish()
-            ?: error("android: the application is not prepared or is revoked")
+            ?: error("android: the application is not prepared or VPN permission was revoked")
+
+        service.fileDescriptor?.let { oldPfd ->
+            if (oldPfd !== pfd) {
+                runCatching { oldPfd.close() }
+            }
+        }
         service.fileDescriptor = pfd
         return pfd.fd
     }
 
-    override fun sendNotification(notification: Notification) {
-    }
+    override fun sendNotification(notification: Notification) = Unit
 }

@@ -1,14 +1,10 @@
 package com.hiddify.hiddify
 
-import android.annotation.SuppressLint
-import android.content.Intent
 import android.Manifest
-import android.content.pm.PackageManager
+import android.content.Intent
 import android.net.VpnService
 import android.os.Build
-import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.lifecycleScope
@@ -24,15 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.LinkedList
 
-
 class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
-    companion object {
-        private const val TAG = "ANDROID/MyActivity"
-        lateinit var instance: MainActivity
-
-        const val VPN_PERMISSION_REQUEST_CODE = 1001
-        const val NOTIFICATION_PERMISSION_REQUEST_CODE = 1010
-    }
 
     private val connection = ServiceConnection(this, this)
 
@@ -43,22 +31,17 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        instance = this
         reconnect()
-        flutterEngine.plugins.add(MethodHandler(lifecycleScope))
+        flutterEngine.plugins.add(MethodHandler(lifecycleScope, this))
         flutterEngine.plugins.add(PlatformSettingsHandler())
-        flutterEngine.plugins.add(EventHandler())
-        flutterEngine.plugins.add(LogHandler())
-//        flutterEngine.plugins.add(GroupsChannel(lifecycleScope))
-//        flutterEngine.plugins.add(ActiveGroupsChannel(lifecycleScope))
-//        flutterEngine.plugins.add(StatsChannel(lifecycleScope))
+        flutterEngine.plugins.add(EventHandler(this))
+        flutterEngine.plugins.add(LogHandler(this))
     }
 
     fun reconnect() {
         connection.reconnect()
     }
 
-    @SuppressLint("NewApi")
     fun startService() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !ServiceNotification.checkPermission()) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -72,11 +55,10 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
             if (Settings.rebuildServiceMode()) {
                 connection.reconnect()
             }
-            if (Settings.serviceMode == ServiceMode.VPN) {
-                if (prepare()) {
-                    return@launch
-                }
+            if (Settings.serviceMode == ServiceMode.VPN && prepareVpn()) {
+                return@launch
             }
+
             val intent = Intent(Application.application, Settings.serviceClass())
             withContext(Dispatchers.Main) {
                 ContextCompat.startForegroundService(this@MainActivity, intent)
@@ -85,7 +67,7 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         }
     }
 
-    private suspend fun prepare() = withContext(Dispatchers.Main) {
+    private suspend fun prepareVpn() = withContext(Dispatchers.Main) {
         try {
             val intent = VpnService.prepare(this@MainActivity)
             if (intent != null) {
@@ -99,10 +81,9 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
             true
         }
     }
+
     private val notificationPermissionLauncher =
-        registerForActivityResult(
-            ActivityResultContracts.RequestPermission(),
-        ) { isGranted ->
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
             if (Settings.dynamicNotification && !isGranted) {
                 onServiceAlert(Alert.RequestNotificationPermission, null)
             } else {
@@ -111,9 +92,7 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         }
 
     private val prepareLauncher =
-        registerForActivityResult(
-            ActivityResultContracts.StartActivityForResult(),
-        ) { result ->
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             if (result.resultCode == RESULT_OK) {
                 startService0()
             } else {
@@ -129,46 +108,9 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         serviceAlerts.postValue(ServiceEvent(Status.Stopped, type, message))
     }
 
-
-
-
     override fun onDestroy() {
+        logCallback = null
         connection.disconnect()
         super.onDestroy()
-    }
-
-    @SuppressLint("NewApi")
-    private fun grantNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                NOTIFICATION_PERMISSION_REQUEST_CODE
-            )
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                startService()
-            } else onServiceAlert(Alert.RequestNotificationPermission, null)
-        }
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == VPN_PERMISSION_REQUEST_CODE) {
-            if (resultCode == RESULT_OK) startService()
-            else onServiceAlert(Alert.RequestVPNPermission, null)
-        } else if (requestCode == NOTIFICATION_PERMISSION_REQUEST_CODE) {
-            if (resultCode == RESULT_OK) startService()
-            else onServiceAlert(Alert.RequestNotificationPermission, null)
-        }
     }
 }
