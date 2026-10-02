@@ -32,6 +32,8 @@ jobs:
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2.23.0
+        env:
+          CHANNEL: stable
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
