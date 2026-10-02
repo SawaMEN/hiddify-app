@@ -18,7 +18,7 @@ env:
   CHANNEL: "${{ inputs.channel }}"
   FLUTTER_VERSION: '3.47.5'
   BUILD_TARGET: "${{ inputs.channel == 'prod' && 'lib/main_prod.dart' || 'lib/main.dart' }}"
-  APK_NAME: "Hiddify-Android-arm64-v8a.apk"
+  APK_NAME: "${{ inputs.channel == 'dev' && 'Hiddify-Android-arm64-v8a-dev.apk' || 'Hiddify-Android-arm64-v8a.apk' }}"
 
 jobs:
   build-android-arm64:
@@ -31,7 +31,9 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2.21.0
+        uses: subosito/flutter-action@v2.23.0
+        env:
+          CHANNEL: stable
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: stable
@@ -204,6 +206,12 @@ jobs:
           name: android-arm64-v8a
           path: ./out
 
+      - name: Move rolling dev tag to current commit
+        if: ${{ inputs.channel == 'dev' && inputs.tag-name == 'dev-latest' }}
+        run: |
+          git tag -f dev-latest "${GITHUB_SHA}"
+          git push --force origin refs/tags/dev-latest
+
       - name: Prepare release message
         run: |
           sed 's|RELEASE_TAG|${{ inputs.tag-name }}|g' ./.github/release_message.md > release.md
@@ -214,6 +222,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           prerelease: true
+          make_latest: false
+          name: ${{ inputs.channel == 'dev' && 'Hiddify Dev' || inputs.tag-name }}
           tag_name: ${{ inputs.tag-name }}
           body_path: ./release.md
           files: ./out/${{ env.APK_NAME }}

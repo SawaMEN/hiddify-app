@@ -20,12 +20,12 @@ get:
 	flutter pub get
 
 gen:
-	dart run build_runner build --delete-conflicting-outputs
+	dart run build_runner build
 
 translate:
 	dart run slang
 
-common-prepare: get gen translate
+common-prepare: get translate gen
 
 android-install-deps:
 	dart pub global activate fastforge

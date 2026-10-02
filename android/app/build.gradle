@@ -3,7 +3,7 @@ plugins {
     id "org.jetbrains.kotlin.android" 
     id "dev.flutter.flutter-gradle-plugin" 
     id "com.google.protobuf" version "0.10.0" 
-    id "com.squareup.wire" version "6.3.0"
+    id "com.squareup.wire" version "7.1.0"
 }
 
 wire {
@@ -132,14 +132,14 @@ flutter {
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
 
-    implementation 'com.google.code.gson:gson:2.11.0'
+    implementation 'com.google.code.gson:gson:2.14.0'
     implementation 'androidx.core:core-ktx:1.19.1'
     implementation 'androidx.appcompat:appcompat:1.8.0'
     implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.11.0'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0'
-    implementation("com.squareup.wire:wire-grpc-client:6.3.0")
+    implementation("com.squareup.wire:wire-grpc-client:7.1.0")
 
-    implementation 'io.grpc:grpc-okhttp:1.64.0'
-    implementation 'io.grpc:grpc-protobuf-lite:1.64.0'
-    implementation 'io.grpc:grpc-stub:1.64.0'
+    implementation 'io.grpc:grpc-okhttp:1.84.0'
+    implementation 'io.grpc:grpc-protobuf-lite:1.84.0'
+    implementation 'io.grpc:grpc-stub:1.84.0'
 }
