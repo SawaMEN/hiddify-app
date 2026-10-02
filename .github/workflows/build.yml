@@ -37,10 +37,31 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Configure Flutter Maven Central mirror
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          path = Path(os.environ["FLUTTER_ROOT"]) / "packages/flutter_tools/gradle/settings.gradle.kts"
+          text = path.read_text()
+          needle = """repositories {
+                  google()
+                  mavenCentral()
+              }"""
+          replacement = """repositories {
+                  maven { url = uri(\"https://maven-central.storage-download.googleapis.com/maven2/\") }
+                  google()
+                  mavenCentral()
+              }"""
+          if needle not in text:
+              raise SystemExit(f"Unexpected Flutter Gradle settings format: {path}")
+          path.write_text(text.replace(needle, replacement, 1))
+          PY
+
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL || true
-          rm -rf ~/.gradle/caches || true
           sudo apt-get clean
 
       - name: Setup Java
