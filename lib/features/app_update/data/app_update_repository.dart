@@ -32,7 +32,7 @@ class AppUpdateRepositoryImpl with ExceptionHandler, InfraLogger implements AppU
       final response = await httpClient.get<List>(Constants.githubReleasesApiUrl);
       if (response.statusCode != 200 || response.data == null) {
         loggy.warning("failed to fetch latest version info");
-        return left(const AppUpdateFailure.unexpected());
+        return left(const AppUpdateFailure());
       }
 
       final releases = response.data!.map((e) => GithubReleaseParser.parse(e as Map<String, dynamic>));
@@ -43,6 +43,6 @@ class AppUpdateRepositoryImpl with ExceptionHandler, InfraLogger implements AppU
         latest = releases.firstWhere((e) => e.preRelease == false);
       }
       return right(latest);
-    }, AppUpdateFailure.unexpected);
+    }, AppUpdateFailure.new);
   }
 }
