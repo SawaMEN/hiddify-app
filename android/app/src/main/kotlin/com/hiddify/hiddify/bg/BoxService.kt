@@ -148,7 +148,7 @@ class BoxService(
             }
 
             if (Settings.startCoreAfterStartingService) {
-                Mobile.start(selectedConfigPath, activeProfileName)
+                Mobile.start(selectedConfigPath, "")
             }
 
             status.postValue(Status.Started)
