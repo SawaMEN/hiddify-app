@@ -8,7 +8,7 @@
 // ignore_for_file: constant_identifier_names
 // ignore_for_file: curly_braces_in_flow_control_structures
 // ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: non_constant_identifier_names, prefer_relative_imports
 
 import 'dart:core' as $core;
 
@@ -21,21 +21,21 @@ export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 export 'common.pbenum.dart';
 
 class Empty extends $pb.GeneratedMessage {
-  factory Empty() => create();
+  factory Empty() => Empty._();
 
   Empty._();
 
   factory Empty.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      Empty()..mergeFromBuffer(data, registry);
   factory Empty.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      Empty()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'Empty',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcommon'),
-      createEmptyInstance: create)
+      createEmptyInstance: Empty.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -48,13 +48,14 @@ class Empty extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Empty() / Empty.new instead')
   static Empty create() => Empty._();
+  static $pb.GeneratedMessage $_createMessage() => Empty._();
   @$core.override
-  Empty createEmptyInstance() => create();
-  static $pb.PbList<Empty> createRepeated() => $pb.PbList<Empty>();
+  Empty createEmptyInstance() => Empty._();
   @$core.pragma('dart2js:noInline')
-  static Empty getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Empty>(create);
+  static Empty getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Empty>(Empty.$_createMessage);
   static Empty? _defaultInstance;
 }
 
@@ -63,7 +64,7 @@ class Response extends $pb.GeneratedMessage {
     ResponseCode? code,
     $core.String? message,
   }) {
-    final result = create();
+    final result = Response._();
     if (code != null) result.code = code;
     if (message != null) result.message = message;
     return result;
@@ -73,15 +74,15 @@ class Response extends $pb.GeneratedMessage {
 
   factory Response.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      Response()..mergeFromBuffer(data, registry);
   factory Response.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      Response()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'Response',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcommon'),
-      createEmptyInstance: create)
+      createEmptyInstance: Response.$_createMessage)
     ..aE<ResponseCode>(1, _omitFieldNames ? '' : 'code',
         enumValues: ResponseCode.values)
     ..aOS(2, _omitFieldNames ? '' : 'message')
@@ -97,13 +98,14 @@ class Response extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Response() / Response.new instead')
   static Response create() => Response._();
+  static $pb.GeneratedMessage $_createMessage() => Response._();
   @$core.override
-  Response createEmptyInstance() => create();
-  static $pb.PbList<Response> createRepeated() => $pb.PbList<Response>();
+  Response createEmptyInstance() => Response._();
   @$core.pragma('dart2js:noInline')
-  static Response getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Response>(create);
+  static Response getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Response>(Response.$_createMessage);
   static Response? _defaultInstance;
 
   @$pb.TagNumber(1)

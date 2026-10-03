@@ -9,7 +9,7 @@
 // ignore_for_file: curly_braces_in_flow_control_structures
 // ignore_for_file: deprecated_member_use_from_same_package
 // ignore_for_file: implementation_imports, library_prefixes
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: non_constant_identifier_names, prefer_relative_imports
 
 import 'dart:core' as $core;
 
@@ -69,6 +69,7 @@ export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 ///     Timestamp timestamp = Timestamp.newBuilder().setSeconds(millis / 1000)
 ///         .setNanos((int) ((millis % 1000) * 1000000)).build();
 ///
+///
 /// Example 5: Compute Timestamp from Java `Instant.now()`.
 ///
 ///     Instant now = Instant.now();
@@ -76,6 +77,7 @@ export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 ///     Timestamp timestamp =
 ///         Timestamp.newBuilder().setSeconds(now.getEpochSecond())
 ///             .setNanos(now.getNano()).build();
+///
 ///
 /// Example 6: Compute Timestamp from current time in Python.
 ///
@@ -106,14 +108,14 @@ export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 /// [`strftime`](https://docs.python.org/2/library/time.html#time.strftime) with
 /// the time format spec '%Y-%m-%dT%H:%M:%S.%fZ'. Likewise, in Java, one can use
 /// the Joda Time's [`ISODateTimeFormat.dateTime()`](
-/// http://joda-time.sourceforge.net/apidocs/org/joda/time/format/ISODateTimeFormat.html#dateTime()
+/// http://www.joda.org/joda-time/apidocs/org/joda/time/format/ISODateTimeFormat.html#dateTime%2D%2D
 /// ) to obtain a formatter capable of generating timestamps in this format.
 class Timestamp extends $pb.GeneratedMessage with $mixin.TimestampMixin {
   factory Timestamp({
     $fixnum.Int64? seconds,
     $core.int? nanos,
   }) {
-    final result = create();
+    final result = Timestamp._();
     if (seconds != null) result.seconds = seconds;
     if (nanos != null) result.nanos = nanos;
     return result;
@@ -123,16 +125,16 @@ class Timestamp extends $pb.GeneratedMessage with $mixin.TimestampMixin {
 
   factory Timestamp.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      Timestamp()..mergeFromBuffer(data, registry);
   factory Timestamp.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      Timestamp()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'Timestamp',
       package:
           const $pb.PackageName(_omitMessageNames ? '' : 'google.protobuf'),
-      createEmptyInstance: create,
+      createEmptyInstance: Timestamp.$_createMessage,
       wellKnownType: $mixin.WellKnownType.timestamp)
     ..aInt64(1, _omitFieldNames ? '' : 'seconds')
     ..aI(2, _omitFieldNames ? '' : 'nanos')
@@ -148,13 +150,14 @@ class Timestamp extends $pb.GeneratedMessage with $mixin.TimestampMixin {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Timestamp() / Timestamp.new instead')
   static Timestamp create() => Timestamp._();
+  static $pb.GeneratedMessage $_createMessage() => Timestamp._();
   @$core.override
-  Timestamp createEmptyInstance() => create();
-  static $pb.PbList<Timestamp> createRepeated() => $pb.PbList<Timestamp>();
+  Timestamp createEmptyInstance() => Timestamp._();
   @$core.pragma('dart2js:noInline')
-  static Timestamp getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Timestamp>(create);
+  static Timestamp getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Timestamp>(Timestamp.$_createMessage);
   static Timestamp? _defaultInstance;
 
   /// Represents seconds of UTC time since Unix epoch

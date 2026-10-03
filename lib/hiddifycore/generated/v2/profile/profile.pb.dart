@@ -8,7 +8,7 @@
 // ignore_for_file: constant_identifier_names
 // ignore_for_file: curly_braces_in_flow_control_structures
 // ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: non_constant_identifier_names, prefer_relative_imports
 
 import 'dart:core' as $core;
 
@@ -30,7 +30,7 @@ class ProfileEntity extends $pb.GeneratedMessage {
     SubscriptionInfo? subInfo,
     $0.HiddifyOptions? overrideHiddifyOptions,
   }) {
-    final result = create();
+    final result = ProfileEntity._();
     if (id != null) result.id = id;
     if (name != null) result.name = name;
     if (url != null) result.url = url;
@@ -46,25 +46,25 @@ class ProfileEntity extends $pb.GeneratedMessage {
 
   factory ProfileEntity.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ProfileEntity()..mergeFromBuffer(data, registry);
   factory ProfileEntity.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ProfileEntity()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ProfileEntity',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'profile'),
-      createEmptyInstance: create)
+      createEmptyInstance: ProfileEntity.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOS(3, _omitFieldNames ? '' : 'name')
     ..aOS(4, _omitFieldNames ? '' : 'url')
     ..aInt64(5, _omitFieldNames ? '' : 'lastUpdate')
     ..aOM<ProfileOptions>(6, _omitFieldNames ? '' : 'options',
-        subBuilder: ProfileOptions.create)
+        subBuilder: ProfileOptions.$_createMessage)
     ..aOM<SubscriptionInfo>(7, _omitFieldNames ? '' : 'subInfo',
-        subBuilder: SubscriptionInfo.create)
+        subBuilder: SubscriptionInfo.$_createMessage)
     ..aOM<$0.HiddifyOptions>(8, _omitFieldNames ? '' : 'overrideHiddifyOptions',
-        subBuilder: $0.HiddifyOptions.create)
+        subBuilder: $0.HiddifyOptions.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -78,14 +78,15 @@ class ProfileEntity extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ProfileEntity() / ProfileEntity.new instead')
   static ProfileEntity create() => ProfileEntity._();
+  static $pb.GeneratedMessage $_createMessage() => ProfileEntity._();
   @$core.override
-  ProfileEntity createEmptyInstance() => create();
-  static $pb.PbList<ProfileEntity> createRepeated() =>
-      $pb.PbList<ProfileEntity>();
+  ProfileEntity createEmptyInstance() => ProfileEntity._();
   @$core.pragma('dart2js:noInline')
-  static ProfileEntity getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ProfileEntity>(create);
+  static ProfileEntity getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ProfileEntity>(
+          ProfileEntity.$_createMessage);
   static ProfileEntity? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -164,7 +165,7 @@ class ProfileOptions extends $pb.GeneratedMessage {
   factory ProfileOptions({
     $fixnum.Int64? updateInterval,
   }) {
-    final result = create();
+    final result = ProfileOptions._();
     if (updateInterval != null) result.updateInterval = updateInterval;
     return result;
   }
@@ -173,15 +174,15 @@ class ProfileOptions extends $pb.GeneratedMessage {
 
   factory ProfileOptions.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ProfileOptions()..mergeFromBuffer(data, registry);
   factory ProfileOptions.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ProfileOptions()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ProfileOptions',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'profile'),
-      createEmptyInstance: create)
+      createEmptyInstance: ProfileOptions.$_createMessage)
     ..aInt64(1, _omitFieldNames ? '' : 'updateInterval')
     ..hasRequiredFields = false;
 
@@ -196,14 +197,15 @@ class ProfileOptions extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ProfileOptions() / ProfileOptions.new instead')
   static ProfileOptions create() => ProfileOptions._();
+  static $pb.GeneratedMessage $_createMessage() => ProfileOptions._();
   @$core.override
-  ProfileOptions createEmptyInstance() => create();
-  static $pb.PbList<ProfileOptions> createRepeated() =>
-      $pb.PbList<ProfileOptions>();
+  ProfileOptions createEmptyInstance() => ProfileOptions._();
   @$core.pragma('dart2js:noInline')
-  static ProfileOptions getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ProfileOptions>(create);
+  static ProfileOptions getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ProfileOptions>(
+          ProfileOptions.$_createMessage);
   static ProfileOptions? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -226,7 +228,7 @@ class SubscriptionInfo extends $pb.GeneratedMessage {
     $core.String? webPageUrl,
     $core.String? supportUrl,
   }) {
-    final result = create();
+    final result = SubscriptionInfo._();
     if (upload != null) result.upload = upload;
     if (download != null) result.download = download;
     if (total != null) result.total = total;
@@ -240,15 +242,15 @@ class SubscriptionInfo extends $pb.GeneratedMessage {
 
   factory SubscriptionInfo.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      SubscriptionInfo()..mergeFromBuffer(data, registry);
   factory SubscriptionInfo.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      SubscriptionInfo()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'SubscriptionInfo',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'profile'),
-      createEmptyInstance: create)
+      createEmptyInstance: SubscriptionInfo.$_createMessage)
     ..aInt64(1, _omitFieldNames ? '' : 'upload')
     ..aInt64(2, _omitFieldNames ? '' : 'download')
     ..aInt64(3, _omitFieldNames ? '' : 'total')
@@ -268,14 +270,15 @@ class SubscriptionInfo extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SubscriptionInfo() / SubscriptionInfo.new instead')
   static SubscriptionInfo create() => SubscriptionInfo._();
+  static $pb.GeneratedMessage $_createMessage() => SubscriptionInfo._();
   @$core.override
-  SubscriptionInfo createEmptyInstance() => create();
-  static $pb.PbList<SubscriptionInfo> createRepeated() =>
-      $pb.PbList<SubscriptionInfo>();
+  SubscriptionInfo createEmptyInstance() => SubscriptionInfo._();
   @$core.pragma('dart2js:noInline')
-  static SubscriptionInfo getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SubscriptionInfo>(create);
+  static SubscriptionInfo getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SubscriptionInfo>(
+          SubscriptionInfo.$_createMessage);
   static SubscriptionInfo? _defaultInstance;
 
   @$pb.TagNumber(1)

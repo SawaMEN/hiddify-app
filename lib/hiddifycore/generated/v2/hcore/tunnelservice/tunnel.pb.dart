@@ -8,7 +8,7 @@
 // ignore_for_file: constant_identifier_names
 // ignore_for_file: curly_braces_in_flow_control_structures
 // ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: non_constant_identifier_names, prefer_relative_imports
 
 import 'dart:core' as $core;
 
@@ -26,7 +26,7 @@ class TunnelStartRequest extends $pb.GeneratedMessage {
     $core.bool? endpointIndependentNat,
     $core.String? stack,
   }) {
-    final result = create();
+    final result = TunnelStartRequest._();
     if (ipv6 != null) result.ipv6 = ipv6;
     if (serverPort != null) result.serverPort = serverPort;
     if (serverUsername != null) result.serverUsername = serverUsername;
@@ -42,15 +42,15 @@ class TunnelStartRequest extends $pb.GeneratedMessage {
 
   factory TunnelStartRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      TunnelStartRequest()..mergeFromBuffer(data, registry);
   factory TunnelStartRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      TunnelStartRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'TunnelStartRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'tunnelservice'),
-      createEmptyInstance: create)
+      createEmptyInstance: TunnelStartRequest.$_createMessage)
     ..aOB(1, _omitFieldNames ? '' : 'ipv6')
     ..aI(2, _omitFieldNames ? '' : 'serverPort')
     ..aOS(3, _omitFieldNames ? '' : 'serverUsername')
@@ -71,14 +71,15 @@ class TunnelStartRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use TunnelStartRequest() / TunnelStartRequest.new instead')
   static TunnelStartRequest create() => TunnelStartRequest._();
+  static $pb.GeneratedMessage $_createMessage() => TunnelStartRequest._();
   @$core.override
-  TunnelStartRequest createEmptyInstance() => create();
-  static $pb.PbList<TunnelStartRequest> createRepeated() =>
-      $pb.PbList<TunnelStartRequest>();
+  TunnelStartRequest createEmptyInstance() => TunnelStartRequest._();
   @$core.pragma('dart2js:noInline')
   static TunnelStartRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<TunnelStartRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<TunnelStartRequest>(
+          TunnelStartRequest.$_createMessage);
   static TunnelStartRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -149,7 +150,7 @@ class TunnelResponse extends $pb.GeneratedMessage {
   factory TunnelResponse({
     $core.String? message,
   }) {
-    final result = create();
+    final result = TunnelResponse._();
     if (message != null) result.message = message;
     return result;
   }
@@ -158,15 +159,15 @@ class TunnelResponse extends $pb.GeneratedMessage {
 
   factory TunnelResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      TunnelResponse()..mergeFromBuffer(data, registry);
   factory TunnelResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      TunnelResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'TunnelResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'tunnelservice'),
-      createEmptyInstance: create)
+      createEmptyInstance: TunnelResponse.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'message')
     ..hasRequiredFields = false;
 
@@ -181,14 +182,15 @@ class TunnelResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use TunnelResponse() / TunnelResponse.new instead')
   static TunnelResponse create() => TunnelResponse._();
+  static $pb.GeneratedMessage $_createMessage() => TunnelResponse._();
   @$core.override
-  TunnelResponse createEmptyInstance() => create();
-  static $pb.PbList<TunnelResponse> createRepeated() =>
-      $pb.PbList<TunnelResponse>();
+  TunnelResponse createEmptyInstance() => TunnelResponse._();
   @$core.pragma('dart2js:noInline')
-  static TunnelResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<TunnelResponse>(create);
+  static TunnelResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<TunnelResponse>(
+          TunnelResponse.$_createMessage);
   static TunnelResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
