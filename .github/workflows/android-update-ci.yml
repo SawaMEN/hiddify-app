@@ -57,7 +57,10 @@ jobs:
 
       - name: Generate Dart sources
         timeout-minutes: 10
-        run: dart run build_runner build --build-filter='lib/**'
+        # FlutterGen 5.14+ materializes outputs from a post-process builder.
+        # A build filter can prevent assets.gen.dart/fonts.gen.dart from being
+        # emitted even though the main builders completed successfully.
+        run: dart run build_runner build
 
       - name: Analyze Dart
         timeout-minutes: 10
