@@ -45,18 +45,18 @@ jobs:
           import os
           from pathlib import Path
 
-          path = Path(os.environ["FLUTTER_ROOT"]) / "packages/flutter_tools/gradle/settings.gradle.kts"
+          path = Path(os.environ["FLUTTER_ROOT"]) / 'packages/flutter_tools/gradle/settings.gradle.kts'
           text = path.read_text()
-          needle = """repositories {
+          needle = '''repositories {
                   google()
                   mavenCentral()
-              }"""
+              }'''
           mirror = 'maven { url = uri("https://maven-central.storage-download.googleapis.com/maven2/") }'
-          replacement = f"""repositories {{
+          replacement = f'''repositories {{
                   {mirror}
                   google()
                   mavenCentral()
-              }}"""
+              }}'''
           if mirror in text:
               print(f"Flutter Maven Central mirror already configured: {path}")
           elif needle in text:
@@ -219,7 +219,7 @@ jobs:
           path: ./out
 
       - name: Delete current draft assets
-        uses: 8Mi-Tech/delete-release-assets-action@main
+        uses: 8Mi-Tech/delete-release-assets-action@71a740cf4364bc69448e0294b8abadffadfb3288
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag: draft
@@ -231,7 +231,7 @@ jobs:
           sed 's|RELEASE_TAG|draft|g' ./.github/release_message.md > release.md
 
       - name: Create or update draft release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -269,7 +269,7 @@ jobs:
           sed 's|RELEASE_TAG|${{ inputs.tag-name }}|g' ./.github/release_message.md > release.md
 
       - name: Upload release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
