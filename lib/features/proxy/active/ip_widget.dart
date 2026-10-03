@@ -11,11 +11,6 @@ import "package:simple_icons/simple_icons.dart";
 
 final _showIp = StateProvider.autoDispose((ref) {
   ref.disposeDelay(const Duration(seconds: 20));
-  ref.listenSelf((previous, next) {
-    if (previous == false && next == true) {
-      ref.read(hapticServiceProvider.notifier).mediumImpact();
-    }
-  });
   return false;
 });
 
@@ -39,6 +34,9 @@ class IPText extends HookConsumerWidget {
       label: t.pages.proxies.ipInfo.address,
       child: InkWell(
         onTap: () {
+          if (!isVisible) {
+            ref.read(hapticServiceProvider.notifier).mediumImpact();
+          }
           ref.read(_showIp.notifier).state = !isVisible;
         },
         onLongPress: onLongPress,
