@@ -19,8 +19,8 @@ const _popupMenuHeight = 30.0;
 const _popupMenuItemPadding = 20.0;
 const _textSpacer = SizedBox(width: 5);
 const _newKey = "new_key_added";
-const _downArrow = SizedBox(width: _expandIconWidth, child: Icon(FontAwesomeIcons.caretDown.data, size: 14));
-const _rightArrow = SizedBox(width: _expandIconWidth, child: Icon(FontAwesomeIcons.caretRight.data, size: 14));
+final _downArrow = SizedBox(width: _expandIconWidth, child: Icon(FontAwesomeIcons.caretDown.data, size: 14));
+final _rightArrow = SizedBox(width: _expandIconWidth, child: Icon(FontAwesomeIcons.caretRight.data, size: 14));
 const _newDataValue = {"string": "", "bool": false, "num": 0};
 bool _enableMoreOptions = true;
 bool _enableKeyEdit = true;
@@ -273,9 +273,7 @@ const Map<String, Map<String, Map<String, dynamic>>> exampleSchemaValues = {
         "permit_without_stream": false,
       },
     },
-    "quic": {
-      "transport": {"type": "quic"},
-    },
+    "quic": {"transport": {"type": "quic"}},
     "http": {
       "transport": {
         "type": "http",
@@ -287,12 +285,8 @@ const Map<String, Map<String, Map<String, dynamic>>> exampleSchemaValues = {
         "ping_timeout": "15s",
       },
     },
-    "httpupgrade": {
-      "transport": {"type": "httpupgrade", "host": "", "path": "", "headers": {}},
-    },
-    "xhttp": {
-      "transport": {"type": "xhttp", "host": "", "path": "", "headers": {}},
-    },
+    "httpupgrade": {"transport": {"type": "httpupgrade", "host": "", "path": "", "headers": {}}},
+    "xhttp": {"transport": {"type": "xhttp", "host": "", "path": "", "headers": {}}},
   },
 };
 
@@ -362,24 +356,7 @@ const Map<String, List<String>> possibleValues = {
   "config.endpoints.type": <String>["wireguard", "warp"],
 };
 
-/// Edit your JSON object with this Widget. Create, edit and format objects
-/// using this user friendly widget.
 class JsonEditor extends StatefulWidget {
-  /// JSON can be edited in two ways, Tree editor or text editor. You can disable
-  /// either of them.
-  ///
-  /// When UI editor is active, you can disable adding/deleting keys by using
-  /// [enableMoreOptions]. Editing keys and values can also be disabled by using
-  /// [enableKeyEdit] and [enableValueEdit].
-  ///
-  /// When text editor is active, it will simply ignore [enableMoreOptions],
-  /// [enableKeyEdit] and [enableValueEdit].
-  ///
-  /// [duration] is the debounce time for [onChanged] function. Defaults to
-  /// 500 milliseconds.
-  ///
-  /// [editors] is the supported list of editors. First element will be
-  /// used as default editor. Defaults to `[Editors.tree, Editors.text]`.
   const JsonEditor({
     super.key,
     required this.json,
@@ -397,74 +374,18 @@ class JsonEditor extends StatefulWidget {
     this.expandedObjects = const [],
   }) : assert(editors.length > 0, "editors list cannot be empty");
 
-  /// JSON string to be edited.
   final String json;
-
-  /// Callback function that will be called with the new [dynamic] data.
   final ValueChanged<dynamic> onChanged;
-
-  /// Debounce duration for [onChanged] function.
   final Duration duration;
-
-  /// Enables more options like adding or deleting data. Defaults to `true`.
   final bool enableMoreOptions;
-
-  /// Enables editing of keys. Defaults to `true`.
   final bool enableKeyEdit;
-
-  /// Enables editing of values. Defaults to `true`.
   final bool enableValueEdit;
-
-  /// Theme color for the editor. Changes the border color and header color.
   final Color? themeColor;
-
-  /// List of supported editors. First element will be used as default editor.
   final List<Editors> editors;
-
-  /// A list of Widgets to display in a row at the end of header.
   final List<Widget> actions;
-
-  /// Enables horizontal scroll for the tree view. Defaults to `false`.
   final bool enableHorizontalScroll;
-
-  /// Debounce duration for search function.
   final Duration searchDuration;
-
-  /// Hides the option of changing editor. Defaults to `false`.
   final bool hideEditorsMenuButton;
-
-  /// [expandedObjects] refers to the objects that will be expanded by
-  /// default. Index can be provided when the data is a List.
-  ///
-  /// Examples:
-  /// ```dart
-  /// data = {
-  ///   "hobbies": ["Reading books", "Playing Cricket"],
-  ///   "education": [
-  ///     {"name": "Bachelor of Engineering", "marks": 75},
-  ///     {"name": "Master of Engineering", "marks": 72},
-  ///   ],
-  /// }
-  /// ```
-  ///
-  /// For the given data
-  /// 1. To expand education pass => `["education"]`
-  /// 2. To expand hobbies and education pass => `["hobbies", "education"]`
-  /// 3. To expand the first element (index 0) of education list, this means
-  /// we need to expand education too. In this case you need not to pass
-  /// "education" separately. Just pass a list of all nested objects =>
-  /// `[["education", 0]]`
-  ///
-  /// ```dart
-  /// JsonEditor(
-  ///   expandedObjects: const [
-  ///     "hobbies",
-  ///     ["education", 0] // expands nested object in education
-  ///   ],
-  ///   onChanged: (_) {},
-  ///   json: jsonEncode(data),
-  /// )
-  /// ```
   final List expandedObjects;
 
   @override
@@ -508,26 +429,18 @@ class _JsonEditorState extends State<JsonEditor> {
 
   void callOnChanged() {
     if (_timer?.isActive ?? false) _timer?.cancel();
-
-    _timer = Timer(widget.duration, () {
-      widget.onChanged(jsonDecode(jsonEncode(_data)));
-    });
+    _timer = Timer(widget.duration, () => widget.onChanged(jsonDecode(jsonEncode(_data))));
   }
 
   void parseData(String value) {
     if (_timer?.isActive ?? false) _timer?.cancel();
-
     _timer = Timer(widget.duration, () {
       try {
         _data = jsonDecode(value);
         widget.onChanged(_data);
-        setState(() {
-          _onError = false;
-        });
+        setState(() => _onError = false);
       } catch (_) {
-        setState(() {
-          _onError = true;
-        });
+        setState(() => _onError = true);
       }
     });
   }
@@ -559,35 +472,26 @@ class _JsonEditorState extends State<JsonEditor> {
           _matchedKeys[keyName] = true;
           _matchedKeysLocation.add([...nestedParents, key]);
         }
-        if (data[key] is Map) {
-          findMatchingKeys(data[key], text, [...nestedParents, key]);
-        } else if (data[key] is List) {
+        if (data[key] is Map || data[key] is List) {
           findMatchingKeys(data[key], text, [...nestedParents, key]);
         }
       }
     } else if (data is List) {
       for (int i = 0; i < data.length; i++) {
         final item = data[i];
-        if (item is Map) {
-          findMatchingKeys(item, text, [...nestedParents, i]);
-        } else if (item is List) {
-          findMatchingKeys(item, text, [...nestedParents, i]);
-        }
+        if (item is Map || item is List) findMatchingKeys(item, text, [...nestedParents, i]);
       }
     }
   }
 
   void onSearch(String text) {
     if (_searchTimer?.isActive ?? false) _searchTimer?.cancel();
-
     _searchTimer = Timer(widget.searchDuration, () async {
       _matchedKeys.clear();
       _matchedKeysLocation.clear();
       _focusedKey = null;
       if (text.isEmpty) {
-        setState(() {
-          _results = null;
-        });
+        setState(() => _results = null);
       } else {
         _results = 0;
         findMatchingKeys(_data, text.toLowerCase(), ["config"]);
@@ -603,7 +507,6 @@ class _JsonEditorState extends State<JsonEditor> {
   int getOffset(List toFind) {
     int offset = 1;
     bool keyFound = false;
-
     void calculateOffset(data, List parents, List toFind) {
       if (keyFound) return;
       if (data is Map) {
@@ -615,10 +518,10 @@ class _JsonEditorState extends State<JsonEditor> {
             keyFound = true;
             return;
           }
-          if (entry.value is Map || entry.value is List) {
-            if (_expandedObjects[newList.toString()] == true && !keyFound) {
-              calculateOffset(entry.value, newList, toFind);
-            }
+          if ((entry.value is Map || entry.value is List) &&
+              _expandedObjects[newList.toString()] == true &&
+              !keyFound) {
+            calculateOffset(entry.value, newList, toFind);
           }
         }
       } else if (data is List) {
@@ -627,14 +530,11 @@ class _JsonEditorState extends State<JsonEditor> {
           offset++;
           if (data[i] is Map || data[i] is List) {
             final newList = [...parents, i];
-            if (_expandedObjects[newList.toString()] == true && !keyFound) {
-              calculateOffset(data[i], newList, toFind);
-            }
+            if (_expandedObjects[newList.toString()] == true && !keyFound) calculateOffset(data[i], newList, toFind);
           }
         }
       }
     }
-
     calculateOffset(_data, ["config"], toFind);
     return offset;
   }
@@ -655,17 +555,9 @@ class _JsonEditorState extends State<JsonEditor> {
   void onSearchAction(_SearchActions action) {
     if (_matchedKeys.isEmpty) return;
     if (action == _SearchActions.next) {
-      if (_focusedKey != null && _matchedKeysLocation.length - 1 > _focusedKey!) {
-        _focusedKey = _focusedKey! + 1;
-      } else {
-        _focusedKey = 0;
-      }
+      _focusedKey = _focusedKey != null && _matchedKeysLocation.length - 1 > _focusedKey! ? _focusedKey! + 1 : 0;
     } else {
-      if (_focusedKey != null && _focusedKey! > 0) {
-        _focusedKey = _focusedKey! - 1;
-      } else {
-        _focusedKey = _matchedKeysLocation.length - 1;
-      }
+      _focusedKey = _focusedKey != null && _focusedKey! > 0 ? _focusedKey! - 1 : _matchedKeysLocation.length - 1;
     }
     scrollTo(_focusedKey!);
   }
@@ -690,12 +582,9 @@ class _JsonEditorState extends State<JsonEditor> {
     }
   }
 
-  Widget wrapWithHorizontolScroll(Widget child) {
-    if (widget.enableHorizontalScroll) {
-      return SingleChildScrollView(scrollDirection: Axis.horizontal, child: child);
-    }
-    return child;
-  }
+  Widget wrapWithHorizontolScroll(Widget child) => widget.enableHorizontalScroll
+      ? SingleChildScrollView(scrollDirection: Axis.horizontal, child: child)
+      : child;
 
   @override
   void initState() {
@@ -718,9 +607,7 @@ class _JsonEditorState extends State<JsonEditor> {
     return Directionality(
       textDirection: TextDirection.ltr,
       child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border.all(width: _onError ? 2 : 1, color: _onError ? Colors.red : _themeColor),
-        ),
+        decoration: BoxDecoration(border: Border.all(width: _onError ? 2 : 1, color: _onError ? Colors.red : _themeColor)),
         child: SizedBox(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -741,78 +628,33 @@ class _JsonEditorState extends State<JsonEditor> {
                           tooltip: 'Change editor',
                           padding: EdgeInsets.zero,
                           onSelected: (value) {
-                            if (value == Editors.text) {
-                              _controller.text = _stringifyData(_data, 0, true);
-                            }
-                            setState(() {
-                              _editor = value;
-                            });
+                            if (value == Editors.text) _controller.text = _stringifyData(_data, 0, true);
+                            setState(() => _editor = value);
                           },
                           position: PopupMenuPosition.under,
                           enabled: widget.editors.length > 1,
                           constraints: const BoxConstraints(minWidth: 50, maxWidth: 150),
-                          itemBuilder: (context) {
-                            return <PopupMenuEntry<Editors>>[
-                              PopupMenuItem<Editors>(
-                                height: _popupMenuHeight,
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                enabled: widget.editors.contains(Editors.tree),
-                                value: Editors.tree,
-                                child: const Text("Tree"),
-                              ),
-                              PopupMenuItem<Editors>(
-                                height: _popupMenuHeight,
-                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                enabled: widget.editors.contains(Editors.text),
-                                value: Editors.text,
-                                child: const Text("Text"),
-                              ),
-                            ];
-                          },
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(_editor.name, style: _textStyle),
-                              const Icon(Icons.arrow_drop_down, size: 20),
-                            ],
-                          ),
+                          itemBuilder: (context) => <PopupMenuEntry<Editors>>[
+                            PopupMenuItem<Editors>(height: _popupMenuHeight, padding: const EdgeInsets.symmetric(horizontal: 12), enabled: widget.editors.contains(Editors.tree), value: Editors.tree, child: const Text("Tree")),
+                            PopupMenuItem<Editors>(height: _popupMenuHeight, padding: const EdgeInsets.symmetric(horizontal: 12), enabled: widget.editors.contains(Editors.text), value: Editors.text, child: const Text("Text")),
+                          ],
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [Text(_editor.name, style: _textStyle), const Icon(Icons.arrow_drop_down, size: 20)]),
                         ),
                       const Spacer(),
                       if (_editor == Editors.text) ...[
                         const SizedBox(width: 20),
-                        InkWell(
-                          onTap: () {
-                            _controller.text = _stringifyData(_data, 0, true);
-                          },
-                          child: const Tooltip(message: 'Format', child: Icon(Icons.format_align_left, size: 20)),
-                        ),
+                        InkWell(onTap: () => _controller.text = _stringifyData(_data, 0, true), child: const Tooltip(message: 'Format', child: Icon(Icons.format_align_left, size: 20))),
                       ] else ...[
                         const SizedBox(width: 20),
                         if (_results != null) ...[Text("$_results results"), const SizedBox(width: 5)],
                         _SearchField(onSearch, onSearchAction),
                         const SizedBox(width: 20),
-                        InkWell(
-                          onTap: () {
-                            _expandedObjects[["config"].toString()] = true;
-                            expandAllObjects(_data, ["config"]);
-                            setState(() {});
-                          },
-                          child: const Tooltip(message: 'Expand All', child: Icon(Icons.expand, size: 20)),
-                        ),
+                        InkWell(onTap: () { _expandedObjects[["config"].toString()] = true; expandAllObjects(_data, ["config"]); setState(() {}); }, child: const Tooltip(message: 'Expand All', child: Icon(Icons.expand, size: 20))),
                         const SizedBox(width: 20),
-                        InkWell(
-                          onTap: () {
-                            _expandedObjects.clear();
-                            setState(() {});
-                          },
-                          child: const Tooltip(message: 'Collapse All', child: Icon(Icons.compress, size: 20)),
-                        ),
+                        InkWell(onTap: () { _expandedObjects.clear(); setState(() {}); }, child: const Tooltip(message: 'Collapse All', child: Icon(Icons.compress, size: 20))),
                       ],
                       const SizedBox(width: 20),
-                      InkWell(
-                        onTap: copyData,
-                        child: const Tooltip(message: 'Copy', child: Icon(Icons.copy, size: 20)),
-                      ),
+                      InkWell(onTap: copyData, child: const Tooltip(message: 'Copy', child: Icon(Icons.copy, size: 20))),
                       if (widget.actions.isNotEmpty) const SizedBox(width: 20),
                       ...widget.actions,
                     ],
@@ -824,38 +666,11 @@ class _JsonEditorState extends State<JsonEditor> {
                   child: SingleChildScrollView(
                     controller: _scrollController,
                     physics: const ClampingScrollPhysics(),
-                    child: wrapWithHorizontolScroll(
-                      _Holder(
-                        key: UniqueKey(),
-                        data: _data,
-                        keyName: "config",
-                        paddingLeft: _space,
-                        onChanged: callOnChanged,
-                        parentObject: {"config": _data},
-                        setState: setState,
-                        matchedKeys: _matchedKeys,
-                        allParents: const ["config"],
-                        expandedObjects: _expandedObjects,
-                      ),
-                    ),
+                    child: wrapWithHorizontolScroll(_Holder(key: UniqueKey(), data: _data, keyName: "config", paddingLeft: _space, onChanged: callOnChanged, parentObject: {"config": _data}, setState: setState, matchedKeys: _matchedKeys, allParents: const ["config"], expandedObjects: _expandedObjects)),
                   ),
                 ),
               if (_editor == Editors.text)
-                Expanded(
-                  child: TextFormField(
-                    style: _textStyle,
-                    controller: _controller,
-                    onChanged: parseData,
-                    maxLines: null,
-                    minLines: null,
-                    expands: true,
-                    textAlignVertical: TextAlignVertical.top,
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.only(left: 5, top: 8, bottom: 8),
-                    ),
-                  ),
-                ),
+                Expanded(child: TextFormField(style: _textStyle, controller: _controller, onChanged: parseData, maxLines: null, minLines: null, expands: true, textAlignVertical: TextAlignVertical.top, decoration: const InputDecoration(border: InputBorder.none, contentPadding: EdgeInsets.only(left: 5, top: 8, bottom: 8)))),
             ],
           ),
         ),
@@ -865,19 +680,7 @@ class _JsonEditorState extends State<JsonEditor> {
 }
 
 class _Holder extends StatefulWidget {
-  const _Holder({
-    super.key,
-    this.keyName,
-    required this.data,
-    required this.paddingLeft,
-    required this.onChanged,
-    required this.parentObject,
-    required this.setState,
-    required this.matchedKeys,
-    required this.allParents,
-    required this.expandedObjects,
-  });
-
+  const _Holder({super.key, this.keyName, required this.data, required this.paddingLeft, required this.onChanged, required this.parentObject, required this.setState, required this.matchedKeys, required this.allParents, required this.expandedObjects});
   final dynamic keyName;
   final dynamic data;
   final double paddingLeft;
@@ -887,802 +690,135 @@ class _Holder extends StatefulWidget {
   final Map<String, bool> matchedKeys;
   final List allParents;
   final Map<String, bool> expandedObjects;
-  String getKeyPath() {
-    final basePath = allParents.whereType<String>().join('.');
-
-    // final typePath = (parentObject['type'] != null &&
-    //         parentObject['type'] != keyName)
-    //     ? '.${parentObject['type']}'
-    //     : '';
-
-    return '$basePath';
-  }
-
+  String getKeyPath() => allParents.whereType<String>().join('.');
   @override
   State<_Holder> createState() => _HolderState();
 }
 
 class _HolderState extends State<_Holder> {
   late bool isExpanded = widget.expandedObjects[widget.allParents.toString()] == true;
-
   void _toggleState() {
-    if (!isExpanded) {
-      widget.expandedObjects[widget.allParents.toString()] = true;
-    } else {
-      widget.expandedObjects.remove(widget.allParents.toString());
-    }
-    setState(() {
-      isExpanded = !isExpanded;
-    });
+    if (!isExpanded) widget.expandedObjects[widget.allParents.toString()] = true; else widget.expandedObjects.remove(widget.allParents.toString());
+    setState(() => isExpanded = !isExpanded);
   }
-
   void onSelected(_OptionItems selectedItem) {
     if (selectedItem == "delete") {
-      if (widget.parentObject is Map) {
-        widget.parentObject.remove(widget.keyName);
-      } else {
-        widget.parentObject.removeAt(widget.keyName);
-      }
-
+      if (widget.parentObject is Map) widget.parentObject.remove(widget.keyName); else widget.parentObject.removeAt(widget.keyName);
       widget.setState(() {});
     } else if (selectedItem == "map") {
-      if (widget.data is Map) {
-        widget.data[_newKey] = Map<String, dynamic>();
-      } else {
-        widget.data.add(Map<String, dynamic>());
-      }
-
-      setState(() {});
-      widget.onChanged();
+      if (widget.data is Map) widget.data[_newKey] = <String, dynamic>{}; else widget.data.add(<String, dynamic>{});
+      setState(() {}); widget.onChanged();
     } else if (exampleSchemaValues.containsKey(selectedItem.split("___")[0])) {
       final jsonItem = exampleSchemaValues[selectedItem.split("___")[0]]![selectedItem.split("___")[1]]!;
-      for (final key in jsonItem.keys) {
-        widget.data[key] = jsonDecode(jsonEncode(jsonItem[key]));
-      }
-
+      for (final key in jsonItem.keys) widget.data[key] = jsonDecode(jsonEncode(jsonItem[key]));
       setState(() {});
     } else if (protocolSchemaValues.containsKey(selectedItem)) {
-      final jsonItem = protocolSchemaValues[selectedItem]!;
-      widget.data.add(jsonDecode(jsonEncode(jsonItem)));
-      setState(() {});
+      widget.data.add(jsonDecode(jsonEncode(protocolSchemaValues[selectedItem]!))); setState(() {});
     } else if (selectedItem == "list") {
-      if (widget.data is Map) {
-        widget.data[_newKey] = [];
-      } else {
-        widget.data.add([]);
-      }
-
-      setState(() {});
+      if (widget.data is Map) widget.data[_newKey] = []; else widget.data.add([]); setState(() {});
     } else {
-      if (widget.data is Map) {
-        widget.data[_newKey] = _newDataValue[selectedItem];
-      } else {
-        widget.data.add(_newDataValue[selectedItem]);
-      }
-
-      setState(() {});
+      if (widget.data is Map) widget.data[_newKey] = _newDataValue[selectedItem]; else widget.data.add(_newDataValue[selectedItem]); setState(() {});
     }
-
     widget.onChanged();
   }
-
-  void onKeyChanged(Object key) {
-    final val = widget.parentObject.remove(widget.keyName);
-    widget.parentObject[key] = val;
-
-    widget.onChanged();
-    widget.setState(() {});
-  }
-
-  void onValueChanged(Object value) {
-    widget.parentObject[widget.keyName] = value;
-
-    widget.onChanged();
-  }
-
-  Widget wrapWithColoredBox(Widget child, String key) {
-    if (widget.matchedKeys[key] == true) {
-      return ColoredBox(color: Theme.of(context).colorScheme.secondaryContainer, child: child);
-    }
-    return child;
-  }
-
+  void onKeyChanged(Object key) { final val = widget.parentObject.remove(widget.keyName); widget.parentObject[key] = val; widget.onChanged(); widget.setState(() {}); }
+  void onValueChanged(Object value) { widget.parentObject[widget.keyName] = value; widget.onChanged(); }
+  Widget wrapWithColoredBox(Widget child, String key) => widget.matchedKeys[key] == true ? ColoredBox(color: Theme.of(context).colorScheme.secondaryContainer, child: child) : child;
   String getChildSummary(_Holder widget) {
-    final data = widget.data;
-
-    var res = "{";
+    final data = widget.data; var res = "{";
     if (data is Map<String, dynamic>) {
       if (widget.expandedObjects[widget.allParents.toString()] ?? false) return "";
-      final content = data as Map<String, dynamic>;
-      //res += "${data.length}";
-      if (content["type"] != null) {
-        res += "${content["type"]}";
-      }
-      if (content["tag"] != null) {
-        res += " [${content["tag"]}]";
-      } else {
-        final d = "$content";
-        res += " [${d.substring(0, min(20, d.length))}...]";
-      }
-    } else if (data is List) {
-      final content = data as List;
-      res += "${content.length}";
-    }
-    return res + "}";
+      final content = data;
+      if (content["type"] != null) res += "${content["type"]}";
+      if (content["tag"] != null) res += " [${content["tag"]}]"; else { final d = "$content"; res += " [${d.substring(0, min(20, d.length))}...]"; }
+    } else if (data is List) { res += "${data.length}"; }
+    return "$res}";
   }
-
   @override
   Widget build(BuildContext context) {
     if (widget.data is Map<String, dynamic>) {
-      final mapWidget = <Widget>[];
-      final widgetData = widget.data as Map<String, dynamic>;
-      final List<String> keys = widgetData.keys.toList();
-      for (var key in keys) {
-        mapWidget.add(
-          _Holder(
-            key: Key(key),
-            data: widget.data[key],
-            keyName: key,
-            onChanged: widget.onChanged,
-            parentObject: widget.data,
-            paddingLeft: widget.paddingLeft + _space,
-            setState: setState,
-            matchedKeys: widget.matchedKeys,
-            allParents: [...widget.allParents, key],
-            expandedObjects: widget.expandedObjects,
-          ),
-        );
-      }
-
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            height: _rowHeight,
-            child: Row(
-              children: [
-                const SizedBox(width: _expandIconWidth),
-                if (_enableMoreOptions) _Options<Map>(onSelected, widget.getKeyPath()),
-                SizedBox(width: widget.paddingLeft),
-                InkWell(
-                  hoverColor: Colors.transparent,
-                  splashColor: Colors.transparent,
-                  onTap: _toggleState,
-                  child: isExpanded ? _downArrow : _rightArrow,
-                ),
-                const SizedBox(width: _expandIconWidth),
-                if (_enableKeyEdit && widget.parentObject is! List) ...[
-                  _ReplaceTextWithField(
-                    key: Key(widget.keyName.toString()),
-                    initialValue: widget.keyName,
-                    isKey: true,
-                    onChanged: onKeyChanged,
-                    setState: setState,
-                    isHighlighted: widget.matchedKeys["${widget.keyName}"] == true,
-                  ),
-                  _textSpacer,
-                  Text(getChildSummary(widget), style: _textStyle),
-                ] else
-                  InkWell(
-                    hoverColor: Colors.transparent,
-                    splashColor: Colors.transparent,
-                    onTap: _toggleState,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        wrapWithColoredBox(Text("${widget.keyName}", style: _textStyle), "${widget.keyName}"),
-                        _textSpacer,
-                        Text(getChildSummary(widget), style: _textStyle),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (isExpanded)
-            Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: mapWidget),
-        ],
-      );
+      final mapWidget = <Widget>[]; final widgetData = widget.data as Map<String, dynamic>; final keys = widgetData.keys.toList();
+      for (final key in keys) mapWidget.add(_Holder(key: Key(key), data: widget.data[key], keyName: key, onChanged: widget.onChanged, parentObject: widget.data, paddingLeft: widget.paddingLeft + _space, setState: setState, matchedKeys: widget.matchedKeys, allParents: [...widget.allParents, key], expandedObjects: widget.expandedObjects));
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [SizedBox(height: _rowHeight, child: Row(children: [const SizedBox(width: _expandIconWidth), if (_enableMoreOptions) _Options<Map>(onSelected, widget.getKeyPath()), SizedBox(width: widget.paddingLeft), InkWell(hoverColor: Colors.transparent, splashColor: Colors.transparent, onTap: _toggleState, child: isExpanded ? _downArrow : _rightArrow), const SizedBox(width: _expandIconWidth), if (_enableKeyEdit && widget.parentObject is! List) ...[_ReplaceTextWithField(key: Key(widget.keyName.toString()), initialValue: widget.keyName, isKey: true, onChanged: onKeyChanged, setState: setState, isHighlighted: widget.matchedKeys["${widget.keyName}"] == true), _textSpacer, Text(getChildSummary(widget), style: _textStyle)] else InkWell(hoverColor: Colors.transparent, splashColor: Colors.transparent, onTap: _toggleState, child: Row(mainAxisSize: MainAxisSize.min, children: [wrapWithColoredBox(Text("${widget.keyName}", style: _textStyle), "${widget.keyName}"), _textSpacer, Text(getChildSummary(widget), style: _textStyle)]))])), if (isExpanded) Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: mapWidget)]);
     } else if (widget.data is List) {
-      final listWidget = <Widget>[];
-      final widgetData = widget.data as List;
-      for (int i = 0; i < widgetData.length; i++) {
-        listWidget.add(
-          _Holder(
-            key: Key("$i"),
-            keyName: i,
-            data: widgetData[i],
-            onChanged: widget.onChanged,
-            parentObject: widget.data,
-            paddingLeft: widget.paddingLeft + _space,
-            setState: setState,
-            matchedKeys: widget.matchedKeys,
-            allParents: [...widget.allParents, i],
-            expandedObjects: widget.expandedObjects,
-          ),
-        );
-      }
-
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            height: _rowHeight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(width: _expandIconWidth),
-                if (_enableMoreOptions) _Options<List>(onSelected, widget.getKeyPath()),
-                SizedBox(width: widget.paddingLeft),
-                InkWell(
-                  hoverColor: Colors.transparent,
-                  splashColor: Colors.transparent,
-                  onTap: _toggleState,
-                  child: isExpanded ? _downArrow : _rightArrow,
-                ),
-                const SizedBox(width: _expandIconWidth),
-                if (_enableKeyEdit && widget.parentObject is! List) ...[
-                  _ReplaceTextWithField(
-                    key: Key(widget.keyName.toString()),
-                    initialValue: widget.keyName,
-                    isKey: true,
-                    onChanged: onKeyChanged,
-                    setState: setState,
-                    isHighlighted: widget.matchedKeys["${widget.keyName}"] == true,
-                  ),
-                  _textSpacer,
-                  Text("[${widget.data.length}]", style: _textStyle),
-                ] else
-                  InkWell(
-                    hoverColor: Colors.transparent,
-                    splashColor: Colors.transparent,
-                    onTap: _toggleState,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        wrapWithColoredBox(Text("${widget.keyName}", style: _textStyle), "${widget.keyName}"),
-                        _textSpacer,
-                        Text("[${widget.data.length}]", style: _textStyle),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (isExpanded)
-            Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: listWidget),
-        ],
-      );
-    } else {
-      return SizedBox(
-        height: _rowHeight,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(width: _expandIconWidth),
-            if (_enableMoreOptions) _Options<String>(onSelected, widget.getKeyPath()),
-            SizedBox(width: widget.paddingLeft + (_expandIconWidth * 2)),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_enableKeyEdit) ...[
-                  _ReplaceTextWithField(
-                    key: Key(widget.keyName.toString()),
-                    initialValue: widget.keyName,
-                    isKey: true,
-                    onChanged: onKeyChanged,
-                    setState: setState,
-                    isHighlighted: widget.matchedKeys["${widget.keyName}"] == true,
-                  ),
-                  const Text(' :', style: _textStyle),
-                ] else
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      wrapWithColoredBox(Text("${widget.keyName}", style: _textStyle), "${widget.keyName}"),
-                      _textSpacer,
-                      const Text(" :", style: _textStyle),
-                    ],
-                  ),
-                _textSpacer,
-                if (_enableValueEdit) ...[
-                  _ReplaceTextWithField(
-                    key: UniqueKey(),
-                    initialValue: widget.data,
-                    keyPath: widget.getKeyPath(),
-                    onChanged: onValueChanged,
-                    setState: setState,
-                  ),
-                  _textSpacer,
-                ] else ...[
-                  Text(widget.data.toString(), style: _textStyle),
-                  _textSpacer,
-                ],
-              ],
-            ),
-          ],
-        ),
-      );
+      final listWidget = <Widget>[]; final widgetData = widget.data as List;
+      for (int i = 0; i < widgetData.length; i++) listWidget.add(_Holder(key: Key("$i"), keyName: i, data: widgetData[i], onChanged: widget.onChanged, parentObject: widget.data, paddingLeft: widget.paddingLeft + _space, setState: setState, matchedKeys: widget.matchedKeys, allParents: [...widget.allParents, i], expandedObjects: widget.expandedObjects));
+      return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [SizedBox(height: _rowHeight, child: Row(mainAxisSize: MainAxisSize.min, children: [const SizedBox(width: _expandIconWidth), if (_enableMoreOptions) _Options<List>(onSelected, widget.getKeyPath()), SizedBox(width: widget.paddingLeft), InkWell(hoverColor: Colors.transparent, splashColor: Colors.transparent, onTap: _toggleState, child: isExpanded ? _downArrow : _rightArrow), const SizedBox(width: _expandIconWidth), if (_enableKeyEdit && widget.parentObject is! List) ...[_ReplaceTextWithField(key: Key(widget.keyName.toString()), initialValue: widget.keyName, isKey: true, onChanged: onKeyChanged, setState: setState, isHighlighted: widget.matchedKeys["${widget.keyName}"] == true), _textSpacer, Text("[${widget.data.length}]", style: _textStyle)] else InkWell(hoverColor: Colors.transparent, splashColor: Colors.transparent, onTap: _toggleState, child: Row(mainAxisSize: MainAxisSize.min, children: [wrapWithColoredBox(Text("${widget.keyName}", style: _textStyle), "${widget.keyName}"), _textSpacer, Text("[${widget.data.length}]", style: _textStyle)]))])), if (isExpanded) Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: listWidget)]);
     }
+    return SizedBox(height: _rowHeight, child: Row(mainAxisSize: MainAxisSize.min, children: [const SizedBox(width: _expandIconWidth), if (_enableMoreOptions) _Options<String>(onSelected, widget.getKeyPath()), SizedBox(width: widget.paddingLeft + (_expandIconWidth * 2)), Row(mainAxisSize: MainAxisSize.min, children: [if (_enableKeyEdit) ...[_ReplaceTextWithField(key: Key(widget.keyName.toString()), initialValue: widget.keyName, isKey: true, onChanged: onKeyChanged, setState: setState, isHighlighted: widget.matchedKeys["${widget.keyName}"] == true), const Text(' :', style: _textStyle)] else Row(mainAxisSize: MainAxisSize.min, children: [wrapWithColoredBox(Text("${widget.keyName}", style: _textStyle), "${widget.keyName}"), _textSpacer, const Text(" :", style: _textStyle)]), _textSpacer, if (_enableValueEdit) ...[_ReplaceTextWithField(key: UniqueKey(), initialValue: widget.data, keyPath: widget.getKeyPath(), onChanged: onValueChanged, setState: setState), _textSpacer] else ...[Text(widget.data.toString(), style: _textStyle), _textSpacer]])]));
   }
 }
 
 class _ReplaceTextWithField extends StatefulWidget {
-  const _ReplaceTextWithField({
-    super.key,
-    required this.initialValue,
-    required this.onChanged,
-    required this.setState,
-    this.isKey = false,
-    this.isHighlighted = false,
-    this.keyPath = "",
-  });
-  final String keyPath;
-  final dynamic initialValue;
-  final bool isKey;
-  final ValueChanged<Object> onChanged;
-  final StateSetter setState;
-  final bool isHighlighted;
-
-  @override
-  State<_ReplaceTextWithField> createState() => _ReplaceTextWithFieldState();
+  const _ReplaceTextWithField({super.key, required this.initialValue, required this.onChanged, required this.setState, this.isKey = false, this.isHighlighted = false, this.keyPath = ""});
+  final String keyPath; final dynamic initialValue; final bool isKey; final ValueChanged<Object> onChanged; final StateSetter setState; final bool isHighlighted;
+  @override State<_ReplaceTextWithField> createState() => _ReplaceTextWithFieldState();
 }
 
 class _ReplaceTextWithFieldState extends State<_ReplaceTextWithField> {
-  late final _focusNode = FocusNode();
-  bool _isFocused = false;
-  bool _value = false;
-  String _text = "";
-  late final BoxConstraints _constraints;
-
-  void handleChange() {
-    if (!_focusNode.hasFocus) {
-      _text = _text.trim();
-      final val = num.tryParse(_text);
-      if (val == null) {
-        widget.onChanged(_text);
-      } else {
-        widget.onChanged(val);
-      }
-
-      setState(() {
-        _isFocused = false;
-      });
-    }
-  }
-
-  Widget wrapWithColoredBox(String keyName) {
-    if (widget.isHighlighted) {
-      return ColoredBox(
-        color: Theme.of(context).colorScheme.errorContainer,
-        child: Text(keyName, style: _textStyle),
-      );
-    }
-    return Text(keyName, style: _textStyle);
-  }
-
-  @override
-  void initState() {
-    super.initState();
-
-    if (widget.initialValue is bool) {
-      _value = widget.initialValue as bool;
-    } else {
-      if (widget.initialValue == _newKey) {
-        _text = "";
-        _isFocused = true;
-        _focusNode.requestFocus();
-      } else {
-        _text = widget.initialValue.toString();
-      }
-    }
-
-    if (widget.isKey) {
-      _constraints = const BoxConstraints(minWidth: 20, maxWidth: 100);
-    } else if (widget.initialValue is num) {
-      _constraints = const BoxConstraints(minWidth: 20, maxWidth: 80);
-    } else {
-      _constraints = const BoxConstraints(minWidth: 20, maxWidth: 400);
-    }
-
-    _focusNode.addListener(handleChange);
-  }
-
-  @override
-  void dispose() {
-    _focusNode.removeListener(handleChange);
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  late final _focusNode = FocusNode(); bool _isFocused = false; bool _value = false; String _text = ""; late final BoxConstraints _constraints;
+  void handleChange() { if (!_focusNode.hasFocus) { _text = _text.trim(); final val = num.tryParse(_text); widget.onChanged(val ?? _text); setState(() => _isFocused = false); } }
+  Widget wrapWithColoredBox(String keyName) => widget.isHighlighted ? ColoredBox(color: Theme.of(context).colorScheme.errorContainer, child: Text(keyName, style: _textStyle)) : Text(keyName, style: _textStyle);
+  @override void initState() { super.initState(); if (widget.initialValue is bool) { _value = widget.initialValue as bool; } else { if (widget.initialValue == _newKey) { _text = ""; _isFocused = true; _focusNode.requestFocus(); } else { _text = widget.initialValue.toString(); } } _constraints = widget.isKey ? const BoxConstraints(minWidth: 20, maxWidth: 100) : widget.initialValue is num ? const BoxConstraints(minWidth: 20, maxWidth: 80) : const BoxConstraints(minWidth: 20, maxWidth: 400); _focusNode.addListener(handleChange); }
+  @override void dispose() { _focusNode.removeListener(handleChange); _focusNode.dispose(); super.dispose(); }
+  @override Widget build(BuildContext context) {
     if (possibleValues.containsKey(widget.keyPath)) {
       final options = possibleValues[widget.keyPath]!;
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Transform.scale(
-            scale: 0.75,
-            child: DropdownButton<String>(
-              hint: Text('Select ${widget.keyPath.replaceAll("config.outbounds", "")}'),
-              value: _text,
-              icon: const Icon(Icons.arrow_downward),
-              iconSize: 24,
-              elevation: 16,
-              underline: Container(height: 2),
-              onChanged: (String? newValue) {
-                widget.onChanged(newValue!);
-                _text = newValue;
-                setState(() {
-                  _text = newValue;
-                });
-              },
-              items: options.map<DropdownMenuItem<String>>((String value) {
-                return DropdownMenuItem<String>(value: value, child: Text(value));
-              }).toList(),
-            ),
-          ),
-        ],
-      );
+      return Row(mainAxisSize: MainAxisSize.min, children: [Transform.scale(scale: 0.75, child: DropdownButton<String>(hint: Text('Select ${widget.keyPath.replaceAll("config.outbounds", "")}'), value: _text, icon: const Icon(Icons.arrow_downward), iconSize: 24, elevation: 16, underline: Container(height: 2), onChanged: (newValue) { widget.onChanged(newValue!); setState(() => _text = newValue); }, items: options.map((value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList()))]);
     } else if (widget.initialValue is bool) {
-      return Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Transform.scale(
-            scale: 0.75,
-            child: Checkbox(
-              visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
-              value: _value,
-              onChanged: (value) {
-                widget.onChanged(value!);
-                setState(() {
-                  _value = value;
-                });
-              },
-            ),
-          ),
-          Text(_value.toString(), style: _textStyle),
-        ],
-      );
+      return Row(mainAxisSize: MainAxisSize.min, children: [Transform.scale(scale: 0.75, child: Checkbox(visualDensity: const VisualDensity(horizontal: -4, vertical: -4), value: _value, onChanged: (value) { widget.onChanged(value!); setState(() => _value = value); })), Text(_value.toString(), style: _textStyle)]);
+    } else if (_isFocused) {
+      return TextFormField(initialValue: _text, focusNode: _focusNode, onChanged: (value) => _text = value, autocorrect: false, cursorWidth: 1, style: _textStyle, cursorHeight: 12, decoration: InputDecoration(constraints: _constraints, border: InputBorder.none, fillColor: Colors.transparent, filled: true, isDense: true, contentPadding: const EdgeInsets.all(3), focusedBorder: const OutlineInputBorder(borderRadius: BorderRadius.zero, borderSide: BorderSide(width: 0.3))));
     } else {
-      if (_isFocused) {
-        return TextFormField(
-          initialValue: _text,
-          focusNode: _focusNode,
-          onChanged: (value) => _text = value,
-          autocorrect: false,
-          cursorWidth: 1,
-          style: _textStyle,
-          cursorHeight: 12,
-          decoration: InputDecoration(
-            constraints: _constraints,
-            border: InputBorder.none,
-            fillColor: Colors.transparent,
-            filled: true,
-            isDense: true,
-            contentPadding: const EdgeInsets.all(3),
-            focusedBorder: const OutlineInputBorder(
-              borderRadius: BorderRadius.zero,
-              borderSide: BorderSide(width: 0.3),
-            ),
-          ),
-        );
-      } else {
-        return InkWell(
-          onTap: () {
-            setState(() {
-              _isFocused = true;
-            });
-            _focusNode.requestFocus();
-          },
-          mouseCursor: WidgetStateMouseCursor.textable,
-          child: widget.initialValue is String && _text.isEmpty
-              ? const SizedBox(width: 400, height: 18)
-              : wrapWithColoredBox(_text),
-        );
-      }
+      return InkWell(onTap: () { setState(() => _isFocused = true); _focusNode.requestFocus(); }, mouseCursor: WidgetStateMouseCursor.textable, child: widget.initialValue is String && _text.isEmpty ? const SizedBox(width: 400, height: 18) : wrapWithColoredBox(_text));
     }
   }
 }
 
 class _Options<T> extends StatelessWidget {
-  const _Options(this.onSelected, this.keyPath);
-  final String keyPath;
-  final void Function(_OptionItems) onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return PopupMenuButton<_OptionItems>(
-      tooltip: 'Add new object',
-      padding: EdgeInsets.zero,
-      onSelected: onSelected,
-      itemBuilder: (context) {
-        return <PopupMenuEntry<_OptionItems>>[
-          if (keyPath != "config" && T == Map)
-            const _PopupMenuWidget(
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(width: 5),
-                  Icon(Icons.add),
-                  SizedBox(width: 10),
-                  Text("Insert", style: TextStyle(fontSize: 14)),
-                ],
-              ),
-            ),
-          if (keyPath != "config" && T == List)
-            const _PopupMenuWidget(
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SizedBox(width: 5),
-                  Icon(Icons.add),
-                  SizedBox(width: 10),
-                  Text("Append", style: TextStyle(fontSize: 14)),
-                ],
-              ),
-            ),
-          if (keyPath != "config" && (T == Map || T == List)) ...[
-            if ((keyPath == "config.outbounds" || keyPath == "config.endpoints") && T == List) ...[
-              for (final String key in protocolSchemaValues.keys) ...{
-                PopupMenuItem<_OptionItems>(
-                  height: _popupMenuHeight,
-                  padding: const EdgeInsets.only(left: _popupMenuItemPadding),
-                  value: key,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.data_object),
-                      const SizedBox(width: 10),
-                      Text(key, style: const TextStyle(fontSize: 14)),
-                    ],
-                  ),
-                ),
-              },
-              const PopupMenuDivider(height: 1),
-            ],
-            if (T == Map) ...[
-              for (final String key in exampleSchemaValues.keys) ...{
-                if (keyPath == key)
-                  for (final String key2 in exampleSchemaValues[key]!.keys) ...{
-                    PopupMenuItem<_OptionItems>(
-                      height: _popupMenuHeight,
-                      padding: const EdgeInsets.only(left: _popupMenuItemPadding),
-                      value: key + "___" + key2,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.data_object),
-                          const SizedBox(width: 10),
-                          Text(key2, style: const TextStyle(fontSize: 14)),
-                        ],
-                      ),
-                    ),
-                  },
-                const PopupMenuDivider(height: 1),
-              },
-            ],
-            if (keyPath != "config" &&
-                !(T == List && (keyPath == "config.outbounds" || keyPath == "config.endpoints"))) ...[
-              const PopupMenuItem<_OptionItems>(
-                height: _popupMenuHeight,
-                padding: EdgeInsets.only(left: _popupMenuItemPadding),
-                value: "string",
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.abc),
-                    SizedBox(width: 10),
-                    Text("String", style: TextStyle(fontSize: 14)),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<_OptionItems>(
-                height: _popupMenuHeight,
-                padding: EdgeInsets.only(left: _popupMenuItemPadding),
-                value: "num",
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.onetwothree),
-                    SizedBox(width: 10),
-                    Text("Number", style: TextStyle(fontSize: 14)),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<_OptionItems>(
-                height: _popupMenuHeight,
-                padding: EdgeInsets.only(left: _popupMenuItemPadding),
-                value: "bool",
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.check_rounded),
-                    SizedBox(width: 10),
-                    Text("Boolean", style: TextStyle(fontSize: 14)),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<_OptionItems>(
-                height: _popupMenuHeight,
-                padding: EdgeInsets.only(left: _popupMenuItemPadding),
-                value: "map",
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.data_object),
-                    SizedBox(width: 10),
-                    Text("object", style: TextStyle(fontSize: 14)),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<_OptionItems>(
-                height: _popupMenuHeight,
-                padding: EdgeInsets.only(left: _popupMenuItemPadding),
-                value: "list",
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.data_array),
-                    SizedBox(width: 10),
-                    Text("List", style: TextStyle(fontSize: 14)),
-                  ],
-                ),
-              ),
-            ],
-          ],
+  const _Options(this.onSelected, this.keyPath); final String keyPath; final void Function(_OptionItems) onSelected;
+  @override Widget build(BuildContext context) => PopupMenuButton<_OptionItems>(tooltip: 'Add new object', padding: EdgeInsets.zero, onSelected: onSelected, itemBuilder: (context) => <PopupMenuEntry<_OptionItems>>[
+    if (keyPath != "config" && T == Map) const _PopupMenuWidget(Row(mainAxisSize: MainAxisSize.min, children: [SizedBox(width: 5), Icon(Icons.add), SizedBox(width: 10), Text("Insert", style: TextStyle(fontSize: 14))])),
+    if (keyPath != "config" && T == List) const _PopupMenuWidget(Row(mainAxisSize: MainAxisSize.min, children: [SizedBox(width: 5), Icon(Icons.add), SizedBox(width: 10), Text("Append", style: TextStyle(fontSize: 14))])),
+    if (keyPath != "config" && (T == Map || T == List)) ...[
+      if ((keyPath == "config.outbounds" || keyPath == "config.endpoints") && T == List) ...[
+        for (final key in protocolSchemaValues.keys) PopupMenuItem<_OptionItems>(height: _popupMenuHeight, padding: const EdgeInsets.only(left: _popupMenuItemPadding), value: key, child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.data_object), const SizedBox(width: 10), Text(key, style: const TextStyle(fontSize: 14))])),
+        const PopupMenuDivider(height: 1),
+      ],
+      if (T == Map) ...[
+        for (final key in exampleSchemaValues.keys) ...[
+          if (keyPath == key) for (final key2 in exampleSchemaValues[key]!.keys) PopupMenuItem<_OptionItems>(height: _popupMenuHeight, padding: const EdgeInsets.only(left: _popupMenuItemPadding), value: "${key}___$key2", child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.data_object), const SizedBox(width: 10), Text(key2, style: const TextStyle(fontSize: 14))])),
           const PopupMenuDivider(height: 1),
-          if (keyPath != "config" && !(T == List && (keyPath == "config.outbounds" || keyPath == "config.endpoints")))
-            const PopupMenuItem<_OptionItems>(
-              height: _popupMenuHeight,
-              padding: EdgeInsets.only(left: 5),
-              value: "delete",
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.delete),
-                  SizedBox(width: 10),
-                  Text("Delete", style: TextStyle(fontSize: 14)),
-                ],
-              ),
-            ),
-        ];
-      },
-      child: _options,
-    );
-  }
+        ],
+      ],
+      if (!(T == List && (keyPath == "config.outbounds" || keyPath == "config.endpoints"))) ...const [
+        PopupMenuItem<_OptionItems>(height: _popupMenuHeight, padding: EdgeInsets.only(left: _popupMenuItemPadding), value: "string", child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.abc), SizedBox(width: 10), Text("String", style: TextStyle(fontSize: 14))])),
+        PopupMenuItem<_OptionItems>(height: _popupMenuHeight, padding: EdgeInsets.only(left: _popupMenuItemPadding), value: "num", child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.onetwothree), SizedBox(width: 10), Text("Number", style: TextStyle(fontSize: 14))])),
+        PopupMenuItem<_OptionItems>(height: _popupMenuHeight, padding: EdgeInsets.only(left: _popupMenuItemPadding), value: "bool", child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.check_rounded), SizedBox(width: 10), Text("Boolean", style: TextStyle(fontSize: 14))])),
+        PopupMenuItem<_OptionItems>(height: _popupMenuHeight, padding: EdgeInsets.only(left: _popupMenuItemPadding), value: "map", child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.data_object), SizedBox(width: 10), Text("object", style: TextStyle(fontSize: 14))])),
+        PopupMenuItem<_OptionItems>(height: _popupMenuHeight, padding: EdgeInsets.only(left: _popupMenuItemPadding), value: "list", child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.data_array), SizedBox(width: 10), Text("List", style: TextStyle(fontSize: 14))])),
+      ],
+    ],
+    const PopupMenuDivider(height: 1),
+    if (keyPath != "config" && !(T == List && (keyPath == "config.outbounds" || keyPath == "config.endpoints"))) const PopupMenuItem<_OptionItems>(height: _popupMenuHeight, padding: EdgeInsets.only(left: 5), value: "delete", child: Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.delete), SizedBox(width: 10), Text("Delete", style: TextStyle(fontSize: 14))])),
+  ], child: _options);
 }
 
 class _PopupMenuWidget extends PopupMenuEntry<Never> {
-  const _PopupMenuWidget(this.child);
-
-  final Widget child;
-
-  @override
-  final double height = _popupMenuHeight;
-
-  @override
-  bool represents(_) => false;
-
-  @override
-  State<_PopupMenuWidget> createState() => _PopupMenuWidgetState();
+  const _PopupMenuWidget(this.child); final Widget child; @override final double height = _popupMenuHeight; @override bool represents(_) => false; @override State<_PopupMenuWidget> createState() => _PopupMenuWidgetState();
 }
-
-class _PopupMenuWidgetState extends State<_PopupMenuWidget> {
-  @override
-  Widget build(BuildContext context) {
-    return widget.child;
-  }
-}
+class _PopupMenuWidgetState extends State<_PopupMenuWidget> { @override Widget build(BuildContext context) => widget.child; }
 
 class _SearchField extends StatelessWidget {
-  final ValueChanged<String> onChanged;
-  final ValueChanged<_SearchActions> onAction;
-
-  const _SearchField(this.onChanged, this.onAction);
-
-  @override
-  Widget build(BuildContext context) {
-    return ColoredBox(
-      color: Theme.of(context).searchBarTheme.backgroundColor?.resolve({}) ?? Colors.black,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const SizedBox(width: 2),
-          const Icon(Icons.search, size: 20),
-          const SizedBox(width: 5),
-          TextField(
-            onChanged: onChanged,
-            autocorrect: false,
-            autofocus: true,
-            cursorWidth: 1,
-            // style: _textStyle,
-            cursorHeight: 12,
-            decoration: InputDecoration(
-              hintText: "Search",
-              hintStyle: Theme.of(context).textTheme.bodySmall,
-              constraints: const BoxConstraints(maxWidth: 100),
-              border: InputBorder.none,
-              // fillColor: Colors.transparent,
-              // filled: true,
-              isDense: true,
-              contentPadding: const EdgeInsets.all(3),
-              focusedBorder: InputBorder.none,
-              // hoverColor: Colors.transparent,
-            ),
-          ),
-          const SizedBox(width: 5),
-          InkWell(
-            onTap: () {
-              onAction(_SearchActions.next);
-            },
-            child: const Tooltip(message: 'Next', child: Icon(Icons.keyboard_arrow_down_rounded, size: 20)),
-          ),
-          const SizedBox(width: 2),
-          InkWell(
-            onTap: () {
-              onAction(_SearchActions.prev);
-            },
-            child: const Tooltip(message: 'Previous', child: Icon(Icons.keyboard_arrow_up_rounded, size: 20)),
-          ),
-          const SizedBox(width: 5),
-        ],
-      ),
-    );
-  }
+  final ValueChanged<String> onChanged; final ValueChanged<_SearchActions> onAction; const _SearchField(this.onChanged, this.onAction);
+  @override Widget build(BuildContext context) => ColoredBox(color: Theme.of(context).searchBarTheme.backgroundColor?.resolve({}) ?? Colors.black, child: Row(mainAxisSize: MainAxisSize.min, children: [const SizedBox(width: 2), const Icon(Icons.search, size: 20), const SizedBox(width: 5), TextField(onChanged: onChanged, autocorrect: false, autofocus: true, cursorWidth: 1, cursorHeight: 12, decoration: InputDecoration(hintText: "Search", hintStyle: Theme.of(context).textTheme.bodySmall, constraints: const BoxConstraints(maxWidth: 100), border: InputBorder.none, isDense: true, contentPadding: const EdgeInsets.all(3), focusedBorder: InputBorder.none)), const SizedBox(width: 5), InkWell(onTap: () => onAction(_SearchActions.next), child: const Tooltip(message: 'Next', child: Icon(Icons.keyboard_arrow_down_rounded, size: 20))), const SizedBox(width: 2), InkWell(onTap: () => onAction(_SearchActions.prev), child: const Tooltip(message: 'Previous', child: Icon(Icons.keyboard_arrow_up_rounded, size: 20))), const SizedBox(width: 5)]));
 }
 
-List<String> _getSpace(int count) {
-  if (count == 0) return ['', '  '];
-
-  String space = '';
-  for (int i = 0; i < count; i++) {
-    space += '  ';
-  }
-  return [space, '$space  '];
-}
-
+List<String> _getSpace(int count) { if (count == 0) return ['', '  ']; String space = ''; for (int i = 0; i < count; i++) space += '  '; return [space, '$space  ']; }
 String _stringifyData(data, int spacing, [bool isLast = false]) {
-  String str = '';
-  final spaceList = _getSpace(spacing);
-  final objectSpace = spaceList[0];
-  final dataSpace = spaceList[1];
-
-  if (data is Map) {
-    str += '$objectSpace{';
-    str += '\n';
-    final keys = data.keys.toList();
-    for (int i = 0; i < keys.length; i++) {
-      str += '$dataSpace"${keys[i]}": ${_stringifyData(data[keys[i]], spacing + 1, i == keys.length - 1)}';
-      str += '\n';
-    }
-    str += '$objectSpace}';
-    if (!isLast) str += ',';
-  } else if (data is List) {
-    str += '$objectSpace[';
-    str += '\n';
-    for (int i = 0; i < data.length; i++) {
-      final item = data[i];
-      if (item is Map || item is List) {
-        str += _stringifyData(item, spacing + 1, i == data.length - 1);
-      } else {
-        str += '$dataSpace${_stringifyData(item, spacing + 1, i == data.length - 1)}';
-      }
-      str += '\n';
-    }
-    str += '$objectSpace]';
-    if (!isLast) str += ',';
-  } else {
-    if (data is String) {
-      str = '"$data"';
-    } else {
-      str = '$data';
-    }
-    if (!isLast) str += ',';
-  }
-
+  String str = ''; final spaceList = _getSpace(spacing); final objectSpace = spaceList[0]; final dataSpace = spaceList[1];
+  if (data is Map) { str += '$objectSpace{\n'; final keys = data.keys.toList(); for (int i = 0; i < keys.length; i++) { str += '$dataSpace"${keys[i]}": ${_stringifyData(data[keys[i]], spacing + 1, i == keys.length - 1)}\n'; } str += '$objectSpace}'; if (!isLast) str += ','; }
+  else if (data is List) { str += '$objectSpace[\n'; for (int i = 0; i < data.length; i++) { final item = data[i]; str += (item is Map || item is List) ? _stringifyData(item, spacing + 1, i == data.length - 1) : '$dataSpace${_stringifyData(item, spacing + 1, i == data.length - 1)}'; str += '\n'; } str += '$objectSpace]'; if (!isLast) str += ','; }
+  else { str = data is String ? '"$data"' : '$data'; if (!isLast) str += ','; }
   return str;
 }
