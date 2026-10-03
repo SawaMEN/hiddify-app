@@ -3,7 +3,7 @@ name: Dependency Upgrade Once
 on:
   push:
     branches:
-      - update-all-2026-10-03
+      - update-toolchain-2026-10-03
 
 permissions:
   contents: write
@@ -29,10 +29,10 @@ jobs:
           distribution: zulu
           java-version: '17'
 
-      - name: Setup Flutter 3.47.2
+      - name: Setup Flutter 3.47.5
         uses: subosito/flutter-action@v2.23.0
         with:
-          flutter-version: '3.47.2'
+          flutter-version: '3.47.5'
           channel: stable
           cache: true
 
@@ -81,7 +81,7 @@ jobs:
       - name: Build Android ARM64 release APK
         env:
           SENTRY_DSN: ''
-        run: flutter build apk --release --target=lib/main.dart
+        run: flutter build apk --release --target=lib/main.dart --target-platform android-arm64
 
       - name: Commit compatible dependency updates
         shell: bash
@@ -94,4 +94,4 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add pubspec.lock
           git commit -m 'chore(deps): refresh compatible Flutter dependencies'
-          git push origin HEAD:update-all-2026-10-03
+          git push origin HEAD:update-toolchain-2026-10-03
