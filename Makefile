@@ -34,7 +34,12 @@ android-apk-install-deps: android-install-deps
 
 android-libs:
 	$(MKDIR) $(ANDROID_OUT)
-	curl -L $(CORE_URL)/$(CORE_NAME)-android.tar.gz | tar xz -C $(ANDROID_OUT)/
+	@set -eu; \
+	  archive=$$(mktemp); \
+	  trap 'rm -f "$$archive"' EXIT; \
+	  curl --fail --location --retry 3 --connect-timeout 30 \
+	    --output "$$archive" "$(CORE_URL)/$(CORE_NAME)-android.tar.gz"; \
+	  tar xzf "$$archive" -C $(ANDROID_OUT)/
 
 android-apk-libs: android-libs
 

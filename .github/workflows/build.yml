@@ -130,6 +130,9 @@ jobs:
       - name: Prepare Android
         run: make android-apk-prepare
 
+      - name: Check async runtime regressions
+        run: dart tool/check_async_runtime.dart
+
       - name: Analyze Dart errors
         id: analyze
         shell: bash

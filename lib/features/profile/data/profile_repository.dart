@@ -129,7 +129,7 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
         () async => await _profileDataSource.getByUrl(url).then((profEntry) => profEntry?.toEntity()),
         ProfileFailure.unexpected,
       ).flatMap(
-        (profEntity) => TaskEither(() async {
+        (profEntity) => TaskEither<ProfileFailure, Unit>(() async {
           // if profile is null, generate id
           final id = profEntity?.id ?? const Uuid().v4();
           final file = _profilePathResolver.file(id);
@@ -225,7 +225,7 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
         () async => await _profileDataSource.getById(profile.id).then((profEntry) => profEntry?.toEntity()),
         ProfileFailure.unexpected,
       ).flatMap(
-        (oProfile) => TaskEither(() async {
+        (oProfile) => TaskEither<ProfileFailure, Unit>(() async {
           if (oProfile == null || oProfile.runtimeType != profile.runtimeType) {
             return left(const ProfileFailure.notFound());
           }

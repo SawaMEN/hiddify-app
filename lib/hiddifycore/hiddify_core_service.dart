@@ -163,7 +163,7 @@ class HiddifyCoreService with InfraLogger {
   }
 
   TaskEither<ConnectionFailure, Unit> start(String path, String name, bool disableMemoryLimit) {
-    return TaskEither(() async {
+    return TaskEither<ConnectionFailure, Unit>(() async {
       statusController.add(currentState = const CoreStatus.starting());
       loggy.debug("starting");
       final background = await core.setupBackground(path, name);
