@@ -16,7 +16,7 @@ on:
 env:
   IS_GITHUB_ACTIONS: 1
   CHANNEL: "${{ inputs.channel }}"
-  FLUTTER_VERSION: '3.38.5'
+  FLUTTER_VERSION: '3.47.2'
   BUILD_TARGET: "${{ inputs.channel == 'prod' && 'lib/main_prod.dart' || 'lib/main.dart' }}"
   APK_NAME: "${{ inputs.channel == 'dev' && 'Hiddify-Android-arm64-v8a-dev.apk' || 'Hiddify-Android-arm64-v8a.apk' }}"
 
