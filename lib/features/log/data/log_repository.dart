@@ -49,12 +49,12 @@ class LogRepositoryImpl with ExceptionHandler, InfraLogger implements LogReposit
         .map((event) => event.map(LogParser.parseLogProto).toList())
         .handleExceptions((error, stackTrace) {
           loggy.warning("error watching logs", error, stackTrace);
-          return LogFailure.unexpected(error, stackTrace);
+          return LogFailure(error, stackTrace);
         });
   }
 
   @override
   TaskEither<LogFailure, Unit> clearLogs() {
-    return exceptionHandler(() => singbox.clearLogs().mapLeft(LogFailure.unexpected).run(), LogFailure.unexpected);
+    return exceptionHandler(() => singbox.clearLogs().mapLeft(LogFailure.new).run(), LogFailure.new);
   }
 }
