@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   migrate:
-    if: ${{ github.event.head_commit.message != 'fix(ui): migrate icon APIs' }}
+    if: "${{ github.event.head_commit.message != 'fix(ui): migrate icon APIs' }}"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
