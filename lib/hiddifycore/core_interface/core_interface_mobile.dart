@@ -12,12 +12,8 @@ import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore_service.pbgrpc.dart
 import 'package:hiddify/hiddifycore/generated/v2/hello/hello.pb.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hello/hello_service.pbgrpc.dart';
 import 'package:hiddify/singbox/model/core_status.dart';
-
 import 'package:hiddify/utils/utils.dart';
-import 'package:loggy/loggy.dart';
 import 'package:rxdart/rxdart.dart';
-
-final _logger = Loggy('FFIHiddifyCoreService');
 
 class CoreInterfaceMobile extends CoreInterface with InfraLogger {
   static const channelPrefix = "com.hiddify.app";

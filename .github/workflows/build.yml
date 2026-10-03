@@ -16,7 +16,7 @@ on:
 env:
   IS_GITHUB_ACTIONS: 1
   CHANNEL: "${{ inputs.channel }}"
-  FLUTTER_VERSION: '3.47.5'
+  FLUTTER_VERSION: '3.38.5'
   BUILD_TARGET: "${{ inputs.channel == 'prod' && 'lib/main_prod.dart' || 'lib/main.dart' }}"
   APK_NAME: "${{ inputs.channel == 'dev' && 'Hiddify-Android-arm64-v8a-dev.apk' || 'Hiddify-Android-arm64-v8a.apk' }}"
 
@@ -51,14 +51,18 @@ jobs:
                   google()
                   mavenCentral()
               }"""
-          replacement = """repositories {
-                  maven { url = uri(\"https://maven-central.storage-download.googleapis.com/maven2/\") }
+          mirror = 'maven { url = uri("https://maven-central.storage-download.googleapis.com/maven2/") }'
+          replacement = f"""repositories {{
+                  {mirror}
                   google()
                   mavenCentral()
-              }"""
-          if needle not in text:
+              }}"""
+          if mirror in text:
+              print(f"Flutter Maven Central mirror already configured: {path}")
+          elif needle in text:
+              path.write_text(text.replace(needle, replacement, 1))
+          else:
               raise SystemExit(f"Unexpected Flutter Gradle settings format: {path}")
-          path.write_text(text.replace(needle, replacement, 1))
           PY
 
       - name: Free disk space
@@ -100,7 +104,26 @@ jobs:
         run: make android-apk-prepare
 
       - name: Analyze Dart errors
-        run: flutter analyze --no-fatal-warnings --no-fatal-infos
+        id: analyze
+        shell: bash
+        run: |
+          set +e
+          flutter analyze --no-fatal-warnings --no-fatal-infos 2>&1 | tee analyze.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload Dart analyzer log
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: dart-analyze-log
+          path: analyze.log
+          retention-days: 1
+
+      - name: Fail on Dart analyzer errors
+        if: ${{ steps.analyze.outputs.status != '0' }}
+        run: exit "${{ steps.analyze.outputs.status }}"
 
       - name: Build Android ARM64 APK
         env:

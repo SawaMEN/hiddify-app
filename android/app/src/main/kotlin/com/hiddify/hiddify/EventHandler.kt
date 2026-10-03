@@ -38,12 +38,12 @@ class EventHandler(
         statusChannel?.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                 removeStatusObserver()
-                statusObserver = Observer { status ->
+                val observer = Observer<Status> { status ->
                     Log.d(TAG, "new status: $status")
-                    events?.success(mapOf("status" to status.name))
-                }.also { observer ->
-                    activity.serviceStatus.observeForever(observer)
+                    events?.success(mapOf<String, Any>("status" to status.name))
                 }
+                statusObserver = observer
+                activity.serviceStatus.observeForever(observer)
             }
 
             override fun onCancel(arguments: Any?) {
@@ -54,19 +54,17 @@ class EventHandler(
         alertsChannel?.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                 removeAlertsObserver()
-                alertsObserver = Observer { event ->
+                val observer = Observer<ServiceEvent?> { event ->
                     if (event == null) return@Observer
                     Log.d(TAG, "new alert: $event")
-                    events?.success(
-                        listOf(
-                            "status" to event.status.name,
-                            "alert" to event.alert?.name,
-                            "message" to event.message,
-                        ).mapNotNull { (key, value) -> value?.let { key to it } }.toMap(),
-                    )
-                }.also { observer ->
-                    activity.serviceAlerts.observeForever(observer)
+                    val payload = mutableMapOf<String, Any>()
+                    payload["status"] = event.status.name
+                    event.alert?.let { payload["alert"] = it.name }
+                    event.message?.let { payload["message"] = it }
+                    events?.success(payload)
                 }
+                alertsObserver = observer
+                activity.serviceAlerts.observeForever(observer)
             }
 
             override fun onCancel(arguments: Any?) {

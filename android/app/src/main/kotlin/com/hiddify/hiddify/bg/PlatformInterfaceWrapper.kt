@@ -7,6 +7,10 @@ import android.os.Process
 import android.system.OsConstants
 import android.util.Log
 import androidx.annotation.RequiresApi
+import com.hiddify.core.libbox.AutoRedirectHandler
+import com.hiddify.core.libbox.AutoRedirectSession
+import com.hiddify.core.libbox.BridgeOptions
+import com.hiddify.core.libbox.BridgeSession
 import com.hiddify.core.libbox.ConnectionOwner
 import com.hiddify.core.libbox.InterfaceUpdateListener
 import com.hiddify.core.libbox.Libbox
@@ -15,6 +19,9 @@ import com.hiddify.core.libbox.NeighborSubscription
 import com.hiddify.core.libbox.NeighborUpdateListener
 import com.hiddify.core.libbox.NetworkInterfaceIterator
 import com.hiddify.core.libbox.PlatformInterface
+import com.hiddify.core.libbox.PlatformUser
+import com.hiddify.core.libbox.ShellSession
+import com.hiddify.core.libbox.StringBox
 import com.hiddify.core.libbox.StringIterator
 import com.hiddify.core.libbox.TunOptions
 import com.hiddify.core.libbox.WIFIState
@@ -161,6 +168,47 @@ interface PlatformInterfaceWrapper : PlatformInterface {
     }
 
     override fun localDNSTransport(): LocalDNSTransport? = LocalResolver
+
+    override fun cancelNotification(identifier: String, typeID: Int) = Unit
+
+    override fun usePlatformShell(): Boolean = false
+
+    override fun checkPlatformShell() {
+        error("platform shell is not supported on Android")
+    }
+
+    override fun openShellSession(
+        user: PlatformUser,
+        command: String,
+        environ: StringIterator,
+        term: String,
+        rows: Int,
+        cols: Int,
+    ): ShellSession = error("platform shell is not supported on Android")
+
+    override fun lookupUser(username: String): PlatformUser =
+        error("platform users are not supported on Android")
+
+    override fun lookupSFTPServer(): StringBox =
+        error("platform SFTP server is not supported on Android")
+
+    override fun readSystemSSHHostKey(): StringBox =
+        error("system SSH host key is not supported on Android")
+
+    override fun tailscaleHostname(): String =
+        "${Build.MANUFACTURER} ${Build.MODEL}".trim()
+
+    override fun usePlatformBridge(): Boolean = false
+
+    override fun createBridge(options: BridgeOptions): BridgeSession =
+        error("platform bridge is not supported on Android")
+
+    override fun usePlatformAutoRedirect(): Boolean = false
+
+    override fun createAutoRedirect(
+        options: ByteArray,
+        handler: AutoRedirectHandler,
+    ): AutoRedirectSession = error("platform auto-redirect is not supported on Android")
 
     override fun startNeighborMonitor(listener: NeighborUpdateListener?) {
         neighborSubscription?.close()
