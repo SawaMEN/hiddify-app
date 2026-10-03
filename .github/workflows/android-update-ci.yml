@@ -51,6 +51,11 @@ jobs:
         timeout-minutes: 10
         run: flutter pub get
 
+      - name: Report outdated Dart dependencies
+        continue-on-error: true
+        timeout-minutes: 5
+        run: flutter pub outdated
+
       - name: Generate translations
         timeout-minutes: 5
         run: dart run slang
