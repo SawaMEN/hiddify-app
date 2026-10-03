@@ -49,7 +49,8 @@ class PerAppProxyPage extends HookConsumerWidget with PresLogger {
     final localizations = MaterialLocalizations.of(context);
 
     final mode = ref.watch(Preferences.perAppProxyMode).toAppProxy();
-    final selectedApps = ref.watch(PerAppProxyProvider(mode));
+    final provider = perAppProxyProvider(mode);
+    final selectedApps = ref.watch(provider);
 
     final hideSystemApps = useState(false);
     final isSearching = useState(false);
@@ -66,8 +67,9 @@ class PerAppProxyPage extends HookConsumerWidget with PresLogger {
         if (!(selectedApps.hasValue &&
             selectedApps is AsyncData &&
             asyncFilteredApps.hasData &&
-            asyncFilteredApps.connectionState == ConnectionState.done))
+            asyncFilteredApps.connectionState == ConnectionState.done)) {
           return const AsyncValue.loading();
+        }
         final appsList = asyncFilteredApps.requireData.toList();
         if (searchQuery.value.isBlank) {
           appsList.sort((a, b) {
@@ -92,11 +94,11 @@ class PerAppProxyPage extends HookConsumerWidget with PresLogger {
     );
 
     if (mode != null) {
-      ref.listen(PerAppProxyProvider(mode), (previous, next) {
+      ref.listen(provider, (previous, next) {
         if (previous != null) {
           if ((previous, next) case (AsyncData(value: final prevData), AsyncData(value: final nextData))) {
-            if (nextData.isNotEmpty) {
-              if ((nextData.length - prevData.length).abs() > 1) sortListener.value = !sortListener.value;
+            if (nextData.isNotEmpty && (nextData.length - prevData.length).abs() > 1) {
+              sortListener.value = !sortListener.value;
             }
           }
         }
@@ -167,7 +169,7 @@ class PerAppProxyPage extends HookConsumerWidget with PresLogger {
                                 message: t.dialogs.confirmation.perAppProxy.import.msg,
                               )
                               .then((shouldImport) async {
-                                if (shouldImport) await ref.read(PerAppProxyProvider(mode).notifier).importClipboard();
+                                if (shouldImport) await ref.read(provider.notifier).importClipboard();
                               }),
                         ),
                         MenuItemButton(
@@ -179,7 +181,7 @@ class PerAppProxyPage extends HookConsumerWidget with PresLogger {
                                 message: t.pages.settings.routing.generalOptions.perAppProxy.options.import.msg,
                               )
                               .then((shouldImport) async {
-                                if (shouldImport) await ref.read(PerAppProxyProvider(mode).notifier).importFile();
+                                if (shouldImport) await ref.read(provider.notifier).importFile();
                               }),
                         ),
                       ],
@@ -189,11 +191,11 @@ class PerAppProxyPage extends HookConsumerWidget with PresLogger {
                       menuChildren: <Widget>[
                         MenuItemButton(
                           child: Text(t.pages.settings.routing.generalOptions.perAppProxy.options.export.clipboard),
-                          onPressed: () async => await ref.read(PerAppProxyProvider(mode).notifier).exportClipboard(),
+                          onPressed: () async => await ref.read(provider.notifier).exportClipboard(),
                         ),
                         MenuItemButton(
                           child: Text(t.pages.settings.routing.generalOptions.perAppProxy.options.export.file),
-                          onPressed: () async => await ref.read(PerAppProxyProvider(mode).notifier).exportFile(),
+                          onPressed: () async => await ref.read(provider.notifier).exportFile(),
                         ),
                       ],
                       child: Text(t.common.export),
@@ -203,12 +205,12 @@ class PerAppProxyPage extends HookConsumerWidget with PresLogger {
                         child: Text(t.pages.settings.routing.generalOptions.perAppProxy.options.shareToAll),
                         onPressed: () async => await ref
                             .read(appProxyLoadingProvider.notifier)
-                            .doAsync(ref.read(PerAppProxyProvider(mode).notifier).shareOnGithub),
+                            .doAsync(ref.read(provider.notifier).shareOnGithub),
                       ),
                     const PopupMenuDivider(),
                     MenuItemButton(
                       child: Text(t.pages.settings.routing.generalOptions.perAppProxy.options.clearAllSelections),
-                      onPressed: () => ref.read(PerAppProxyProvider(mode).notifier).clearAll(),
+                      onPressed: () => ref.read(provider.notifier).clearAll(),
                     ),
                   ],
                   builder: (context, controller, child) => AnimatedSwitcher(
@@ -244,8 +246,9 @@ class PerAppProxyPage extends HookConsumerWidget with PresLogger {
                         tooltip: (mode?.toPerAppProxy() ?? PerAppProxyMode.off).present(t).message,
                         initialValue: mode?.toPerAppProxy() ?? PerAppProxyMode.off,
                         onSelected: (e) async {
-                          if (ref.read(Preferences.autoAppsSelectionRegion) != null)
-                            await ref.read(PerAppProxyProvider(mode).notifier).clearAutoSelected();
+                          if (ref.read(Preferences.autoAppsSelectionRegion) != null) {
+                            await ref.read(provider.notifier).clearAutoSelected();
+                          }
                           if (e == PerAppProxyMode.off && context.mounted) context.pop();
                           await ref.read(Preferences.perAppProxyMode.notifier).update(e);
                         },
@@ -322,11 +325,12 @@ class PerAppProxyPage extends HookConsumerWidget with PresLogger {
               subtitle: Text(
                 package.packageName,
                 style: Theme.of(context).textTheme.bodySmall,
-                maxLines: 1, overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               value: flag == null ? false : PkgFlag.checkboxValue(flag),
               tristate: true,
-              onChanged: (_) => ref.read(PerAppProxyProvider(mode).notifier).updatePkg(package.packageName),
+              onChanged: (_) => ref.read(provider.notifier).updatePkg(package.packageName),
               secondary: package.icon == null
                   ? null
                   : Image.memory(package.icon!, width: 48, height: 48, cacheWidth: 48, cacheHeight: 48),
