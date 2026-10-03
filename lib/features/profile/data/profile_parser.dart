@@ -237,7 +237,9 @@ class ProfileParser {
 
     // Start workers
     await Future.wait(List.generate(parallelism, (_) => worker()));
-    cancelToken.throwIfCancellationRequested();
+    if (cancelToken.isCancelled) {
+      throw const ProfileFailure.cancelByUser('HTTP request for getting profile content canceled by user.');
+    }
 
     if (results.any((e) => e != null)) {
       final newContent = results.join("\n");

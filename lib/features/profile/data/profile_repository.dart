@@ -137,11 +137,9 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
           try {
             if (profEntity != null && profEntity is RemoteProfileEntity) {
               // Update
-              if (userOverride != null) {
-                profEntity = profEntity.copyWith(userOverride: userOverride);
-              }
+              final remoteProfile = userOverride == null ? profEntity : profEntity.copyWith(userOverride: userOverride);
               return await _profileParser
-                  .updateRemote(rp: profEntity, tempFilePath: tempFile.path, cancelToken: cancelToken)
+                  .updateRemote(rp: remoteProfile, tempFilePath: tempFile.path, cancelToken: cancelToken)
                   .flatMap(
                     (profEntity) =>
                         validateConfig(
