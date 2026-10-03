@@ -9,7 +9,7 @@ sealed class SettingsFailure with _$SettingsFailure, Failure {
   const SettingsFailure._();
 
   @With<UnexpectedFailure>()
-  const factory SettingsFailure.unexpected([Object? error, StackTrace? stackTrace]) = SettingsUnexpectedFailure;
+  const factory SettingsFailure([Object? error, StackTrace? stackTrace]) = SettingsUnexpectedFailure;
 
   @override
   ({String type, String? message}) present(TranslationsEn t) {
