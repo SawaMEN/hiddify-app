@@ -23,18 +23,18 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Java 17
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: zulu
           java-version: '17'
 
-      - name: Setup Flutter 3.47.2
+      - name: Setup Flutter 3.47.5
         uses: subosito/flutter-action@v2.23.0
         with:
-          flutter-version: '3.47.2'
+          flutter-version: '3.47.5'
           channel: stable
           cache: true
 
@@ -50,6 +50,11 @@ jobs:
       - name: Resolve Dart dependencies
         timeout-minutes: 10
         run: flutter pub get
+
+      - name: Report outdated Dart dependencies
+        continue-on-error: true
+        timeout-minutes: 5
+        run: flutter pub outdated
 
       - name: Generate translations
         timeout-minutes: 5
@@ -70,7 +75,7 @@ jobs:
         timeout-minutes: 10
         run: make android-libs
 
-      - name: Build Android release APK
+      - name: Build Android ARM64 release APK
         env:
           SENTRY_DSN: ''
-        run: flutter build apk --release --target=lib/main.dart
+        run: flutter build apk --release --target=lib/main.dart --target-platform android-arm64

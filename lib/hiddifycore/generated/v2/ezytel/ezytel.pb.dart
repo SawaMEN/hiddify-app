@@ -8,7 +8,7 @@
 // ignore_for_file: constant_identifier_names
 // ignore_for_file: curly_braces_in_flow_control_structures
 // ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: non_constant_identifier_names, prefer_relative_imports
 
 import 'dart:core' as $core;
 
@@ -25,7 +25,7 @@ class ChannelInfoRequest extends $pb.GeneratedMessage {
     $fixnum.Int64? lastRead,
     $core.bool? disableInlineImages,
   }) {
-    final result = create();
+    final result = ChannelInfoRequest._();
     if (channelId != null) result.channelId = channelId;
     if (lastRead != null) result.lastRead = lastRead;
     if (disableInlineImages != null)
@@ -37,15 +37,15 @@ class ChannelInfoRequest extends $pb.GeneratedMessage {
 
   factory ChannelInfoRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ChannelInfoRequest()..mergeFromBuffer(data, registry);
   factory ChannelInfoRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ChannelInfoRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ChannelInfoRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'ezytel'),
-      createEmptyInstance: create)
+      createEmptyInstance: ChannelInfoRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'channelId')
     ..aInt64(2, _omitFieldNames ? '' : 'lastRead')
     ..aOB(3, _omitFieldNames ? '' : 'disableInlineImages')
@@ -62,14 +62,15 @@ class ChannelInfoRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ChannelInfoRequest() / ChannelInfoRequest.new instead')
   static ChannelInfoRequest create() => ChannelInfoRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ChannelInfoRequest._();
   @$core.override
-  ChannelInfoRequest createEmptyInstance() => create();
-  static $pb.PbList<ChannelInfoRequest> createRepeated() =>
-      $pb.PbList<ChannelInfoRequest>();
+  ChannelInfoRequest createEmptyInstance() => ChannelInfoRequest._();
   @$core.pragma('dart2js:noInline')
   static ChannelInfoRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ChannelInfoRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<ChannelInfoRequest>(
+          ChannelInfoRequest.$_createMessage);
   static ChannelInfoRequest? _defaultInstance;
 
   /// Channel id, e.g. "durov" — without "@" or "t.me/".
@@ -118,7 +119,7 @@ class ChannelInfo extends $pb.GeneratedMessage {
     $fixnum.Int64? lastPostId,
     $core.bool? ok,
   }) {
-    final result = create();
+    final result = ChannelInfo._();
     if (name != null) result.name = name;
     if (description != null) result.description = description;
     if (avatarPath != null) result.avatarPath = avatarPath;
@@ -134,15 +135,15 @@ class ChannelInfo extends $pb.GeneratedMessage {
 
   factory ChannelInfo.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ChannelInfo()..mergeFromBuffer(data, registry);
   factory ChannelInfo.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ChannelInfo()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ChannelInfo',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'ezytel'),
-      createEmptyInstance: create)
+      createEmptyInstance: ChannelInfo.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'name')
     ..aOS(2, _omitFieldNames ? '' : 'description')
     ..aOS(3, _omitFieldNames ? '' : 'avatarPath')
@@ -164,13 +165,15 @@ class ChannelInfo extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ChannelInfo() / ChannelInfo.new instead')
   static ChannelInfo create() => ChannelInfo._();
+  static $pb.GeneratedMessage $_createMessage() => ChannelInfo._();
   @$core.override
-  ChannelInfo createEmptyInstance() => create();
-  static $pb.PbList<ChannelInfo> createRepeated() => $pb.PbList<ChannelInfo>();
+  ChannelInfo createEmptyInstance() => ChannelInfo._();
   @$core.pragma('dart2js:noInline')
-  static ChannelInfo getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ChannelInfo>(create);
+  static ChannelInfo getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ChannelInfo>(
+          ChannelInfo.$_createMessage);
   static ChannelInfo? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -264,7 +267,7 @@ class ChannelMessagesRequest extends $pb.GeneratedMessage {
     $fixnum.Int64? before,
     $core.bool? disableInlineImages,
   }) {
-    final result = create();
+    final result = ChannelMessagesRequest._();
     if (channelId != null) result.channelId = channelId;
     if (before != null) result.before = before;
     if (disableInlineImages != null)
@@ -276,15 +279,15 @@ class ChannelMessagesRequest extends $pb.GeneratedMessage {
 
   factory ChannelMessagesRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ChannelMessagesRequest()..mergeFromBuffer(data, registry);
   factory ChannelMessagesRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ChannelMessagesRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ChannelMessagesRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'ezytel'),
-      createEmptyInstance: create)
+      createEmptyInstance: ChannelMessagesRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'channelId')
     ..aInt64(2, _omitFieldNames ? '' : 'before')
     ..aOB(3, _omitFieldNames ? '' : 'disableInlineImages')
@@ -302,14 +305,16 @@ class ChannelMessagesRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ChannelMessagesRequest() / ChannelMessagesRequest.new instead')
   static ChannelMessagesRequest create() => ChannelMessagesRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ChannelMessagesRequest._();
   @$core.override
-  ChannelMessagesRequest createEmptyInstance() => create();
-  static $pb.PbList<ChannelMessagesRequest> createRepeated() =>
-      $pb.PbList<ChannelMessagesRequest>();
+  ChannelMessagesRequest createEmptyInstance() => ChannelMessagesRequest._();
   @$core.pragma('dart2js:noInline')
   static ChannelMessagesRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ChannelMessagesRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<ChannelMessagesRequest>(
+          ChannelMessagesRequest.$_createMessage);
   static ChannelMessagesRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -353,7 +358,7 @@ class ChannelMessagesResponse extends $pb.GeneratedMessage {
     $core.String? channelAvatar,
     $fixnum.Int64? lastPostId,
   }) {
-    final result = create();
+    final result = ChannelMessagesResponse._();
     if (html != null) result.html = html;
     if (channelAvatar != null) result.channelAvatar = channelAvatar;
     if (lastPostId != null) result.lastPostId = lastPostId;
@@ -364,15 +369,15 @@ class ChannelMessagesResponse extends $pb.GeneratedMessage {
 
   factory ChannelMessagesResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ChannelMessagesResponse()..mergeFromBuffer(data, registry);
   factory ChannelMessagesResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ChannelMessagesResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ChannelMessagesResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'ezytel'),
-      createEmptyInstance: create)
+      createEmptyInstance: ChannelMessagesResponse.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'html')
     ..aOS(2, _omitFieldNames ? '' : 'channelAvatar')
     ..aInt64(3, _omitFieldNames ? '' : 'lastPostId')
@@ -390,14 +395,16 @@ class ChannelMessagesResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ChannelMessagesResponse() / ChannelMessagesResponse.new instead')
   static ChannelMessagesResponse create() => ChannelMessagesResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ChannelMessagesResponse._();
   @$core.override
-  ChannelMessagesResponse createEmptyInstance() => create();
-  static $pb.PbList<ChannelMessagesResponse> createRepeated() =>
-      $pb.PbList<ChannelMessagesResponse>();
+  ChannelMessagesResponse createEmptyInstance() => ChannelMessagesResponse._();
   @$core.pragma('dart2js:noInline')
   static ChannelMessagesResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ChannelMessagesResponse>(create);
+      $pb.GeneratedMessage.$_defaultFor<ChannelMessagesResponse>(
+          ChannelMessagesResponse.$_createMessage);
   static ChannelMessagesResponse? _defaultInstance;
 
   /// Pre-rendered HTML fragment ready to be injected into .main_block.
@@ -444,7 +451,7 @@ class ProxyImageRequest extends $pb.GeneratedMessage {
   factory ProxyImageRequest({
     $core.String? hexUrl,
   }) {
-    final result = create();
+    final result = ProxyImageRequest._();
     if (hexUrl != null) result.hexUrl = hexUrl;
     return result;
   }
@@ -453,15 +460,15 @@ class ProxyImageRequest extends $pb.GeneratedMessage {
 
   factory ProxyImageRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ProxyImageRequest()..mergeFromBuffer(data, registry);
   factory ProxyImageRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ProxyImageRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ProxyImageRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'ezytel'),
-      createEmptyInstance: create)
+      createEmptyInstance: ProxyImageRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'hexUrl')
     ..hasRequiredFields = false;
 
@@ -476,14 +483,15 @@ class ProxyImageRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ProxyImageRequest() / ProxyImageRequest.new instead')
   static ProxyImageRequest create() => ProxyImageRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ProxyImageRequest._();
   @$core.override
-  ProxyImageRequest createEmptyInstance() => create();
-  static $pb.PbList<ProxyImageRequest> createRepeated() =>
-      $pb.PbList<ProxyImageRequest>();
+  ProxyImageRequest createEmptyInstance() => ProxyImageRequest._();
   @$core.pragma('dart2js:noInline')
-  static ProxyImageRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ProxyImageRequest>(create);
+  static ProxyImageRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ProxyImageRequest>(
+          ProxyImageRequest.$_createMessage);
   static ProxyImageRequest? _defaultInstance;
 
   /// Hex-encoded source URL without the "https://" prefix, exactly as the
@@ -504,7 +512,7 @@ class ProxyImageResponse extends $pb.GeneratedMessage {
     $core.String? contentType,
     $core.String? cacheName,
   }) {
-    final result = create();
+    final result = ProxyImageResponse._();
     if (data != null) result.data = data;
     if (contentType != null) result.contentType = contentType;
     if (cacheName != null) result.cacheName = cacheName;
@@ -515,15 +523,15 @@ class ProxyImageResponse extends $pb.GeneratedMessage {
 
   factory ProxyImageResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ProxyImageResponse()..mergeFromBuffer(data, registry);
   factory ProxyImageResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ProxyImageResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ProxyImageResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'ezytel'),
-      createEmptyInstance: create)
+      createEmptyInstance: ProxyImageResponse.$_createMessage)
     ..a<$core.List<$core.int>>(
         1, _omitFieldNames ? '' : 'data', $pb.PbFieldType.OY)
     ..aOS(2, _omitFieldNames ? '' : 'contentType')
@@ -541,14 +549,15 @@ class ProxyImageResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ProxyImageResponse() / ProxyImageResponse.new instead')
   static ProxyImageResponse create() => ProxyImageResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ProxyImageResponse._();
   @$core.override
-  ProxyImageResponse createEmptyInstance() => create();
-  static $pb.PbList<ProxyImageResponse> createRepeated() =>
-      $pb.PbList<ProxyImageResponse>();
+  ProxyImageResponse createEmptyInstance() => ProxyImageResponse._();
   @$core.pragma('dart2js:noInline')
   static ProxyImageResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ProxyImageResponse>(create);
+      $pb.GeneratedMessage.$_defaultFor<ProxyImageResponse>(
+          ProxyImageResponse.$_createMessage);
   static ProxyImageResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -587,7 +596,7 @@ class ParseChannelsRequest extends $pb.GeneratedMessage {
   factory ParseChannelsRequest({
     $core.String? raw,
   }) {
-    final result = create();
+    final result = ParseChannelsRequest._();
     if (raw != null) result.raw = raw;
     return result;
   }
@@ -596,15 +605,15 @@ class ParseChannelsRequest extends $pb.GeneratedMessage {
 
   factory ParseChannelsRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ParseChannelsRequest()..mergeFromBuffer(data, registry);
   factory ParseChannelsRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ParseChannelsRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ParseChannelsRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'ezytel'),
-      createEmptyInstance: create)
+      createEmptyInstance: ParseChannelsRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'raw')
     ..hasRequiredFields = false;
 
@@ -619,14 +628,16 @@ class ParseChannelsRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ParseChannelsRequest() / ParseChannelsRequest.new instead')
   static ParseChannelsRequest create() => ParseChannelsRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ParseChannelsRequest._();
   @$core.override
-  ParseChannelsRequest createEmptyInstance() => create();
-  static $pb.PbList<ParseChannelsRequest> createRepeated() =>
-      $pb.PbList<ParseChannelsRequest>();
+  ParseChannelsRequest createEmptyInstance() => ParseChannelsRequest._();
   @$core.pragma('dart2js:noInline')
   static ParseChannelsRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ParseChannelsRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<ParseChannelsRequest>(
+          ParseChannelsRequest.$_createMessage);
   static ParseChannelsRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -643,7 +654,7 @@ class ParseChannelsResponse extends $pb.GeneratedMessage {
   factory ParseChannelsResponse({
     $core.Iterable<$core.String>? channelIds,
   }) {
-    final result = create();
+    final result = ParseChannelsResponse._();
     if (channelIds != null) result.channelIds.addAll(channelIds);
     return result;
   }
@@ -652,15 +663,15 @@ class ParseChannelsResponse extends $pb.GeneratedMessage {
 
   factory ParseChannelsResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ParseChannelsResponse()..mergeFromBuffer(data, registry);
   factory ParseChannelsResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ParseChannelsResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ParseChannelsResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'ezytel'),
-      createEmptyInstance: create)
+      createEmptyInstance: ParseChannelsResponse.$_createMessage)
     ..pPS(1, _omitFieldNames ? '' : 'channelIds')
     ..hasRequiredFields = false;
 
@@ -676,14 +687,16 @@ class ParseChannelsResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ParseChannelsResponse() / ParseChannelsResponse.new instead')
   static ParseChannelsResponse create() => ParseChannelsResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ParseChannelsResponse._();
   @$core.override
-  ParseChannelsResponse createEmptyInstance() => create();
-  static $pb.PbList<ParseChannelsResponse> createRepeated() =>
-      $pb.PbList<ParseChannelsResponse>();
+  ParseChannelsResponse createEmptyInstance() => ParseChannelsResponse._();
   @$core.pragma('dart2js:noInline')
   static ParseChannelsResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ParseChannelsResponse>(create);
+      $pb.GeneratedMessage.$_defaultFor<ParseChannelsResponse>(
+          ParseChannelsResponse.$_createMessage);
   static ParseChannelsResponse? _defaultInstance;
 
   @$pb.TagNumber(1)

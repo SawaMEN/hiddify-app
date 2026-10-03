@@ -35,7 +35,7 @@ class InAppNotificationController with AppLogger {
         showProgressBar: false,
         dragToClose: true,
         closeOnClick: true,
-        closeButtonShowType: CloseButtonShowType.onHover,
+        closeButton: const ToastCloseButton(showType: CloseButtonShowType.onHover),
       );
     } catch (e, stackTrace) {
       loggy.warning("failed to show notification, overlay may not be ready", e, stackTrace);

@@ -8,7 +8,7 @@
 // ignore_for_file: constant_identifier_names
 // ignore_for_file: curly_braces_in_flow_control_structures
 // ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: non_constant_identifier_names, prefer_relative_imports
 
 import 'dart:core' as $core;
 
@@ -27,7 +27,7 @@ class ExtensionActionResult extends $pb.GeneratedMessage {
     $0.ResponseCode? code,
     $core.String? message,
   }) {
-    final result = create();
+    final result = ExtensionActionResult._();
     if (extensionId != null) result.extensionId = extensionId;
     if (code != null) result.code = code;
     if (message != null) result.message = message;
@@ -38,15 +38,15 @@ class ExtensionActionResult extends $pb.GeneratedMessage {
 
   factory ExtensionActionResult.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ExtensionActionResult()..mergeFromBuffer(data, registry);
   factory ExtensionActionResult.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ExtensionActionResult()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ExtensionActionResult',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'extension'),
-      createEmptyInstance: create)
+      createEmptyInstance: ExtensionActionResult.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'extensionId')
     ..aE<$0.ResponseCode>(2, _omitFieldNames ? '' : 'code',
         enumValues: $0.ResponseCode.values)
@@ -65,14 +65,16 @@ class ExtensionActionResult extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ExtensionActionResult() / ExtensionActionResult.new instead')
   static ExtensionActionResult create() => ExtensionActionResult._();
+  static $pb.GeneratedMessage $_createMessage() => ExtensionActionResult._();
   @$core.override
-  ExtensionActionResult createEmptyInstance() => create();
-  static $pb.PbList<ExtensionActionResult> createRepeated() =>
-      $pb.PbList<ExtensionActionResult>();
+  ExtensionActionResult createEmptyInstance() => ExtensionActionResult._();
   @$core.pragma('dart2js:noInline')
   static ExtensionActionResult getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ExtensionActionResult>(create);
+      $pb.GeneratedMessage.$_defaultFor<ExtensionActionResult>(
+          ExtensionActionResult.$_createMessage);
   static ExtensionActionResult? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -107,7 +109,7 @@ class ExtensionList extends $pb.GeneratedMessage {
   factory ExtensionList({
     $core.Iterable<ExtensionMsg>? extensions,
   }) {
-    final result = create();
+    final result = ExtensionList._();
     if (extensions != null) result.extensions.addAll(extensions);
     return result;
   }
@@ -116,17 +118,17 @@ class ExtensionList extends $pb.GeneratedMessage {
 
   factory ExtensionList.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ExtensionList()..mergeFromBuffer(data, registry);
   factory ExtensionList.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ExtensionList()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ExtensionList',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'extension'),
-      createEmptyInstance: create)
+      createEmptyInstance: ExtensionList.$_createMessage)
     ..pPM<ExtensionMsg>(1, _omitFieldNames ? '' : 'extensions',
-        subBuilder: ExtensionMsg.create)
+        subBuilder: ExtensionMsg.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -140,14 +142,15 @@ class ExtensionList extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ExtensionList() / ExtensionList.new instead')
   static ExtensionList create() => ExtensionList._();
+  static $pb.GeneratedMessage $_createMessage() => ExtensionList._();
   @$core.override
-  ExtensionList createEmptyInstance() => create();
-  static $pb.PbList<ExtensionList> createRepeated() =>
-      $pb.PbList<ExtensionList>();
+  ExtensionList createEmptyInstance() => ExtensionList._();
   @$core.pragma('dart2js:noInline')
-  static ExtensionList getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ExtensionList>(create);
+  static ExtensionList getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ExtensionList>(
+          ExtensionList.$_createMessage);
   static ExtensionList? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -159,7 +162,7 @@ class EditExtensionRequest extends $pb.GeneratedMessage {
     $core.String? extensionId,
     $core.bool? enable,
   }) {
-    final result = create();
+    final result = EditExtensionRequest._();
     if (extensionId != null) result.extensionId = extensionId;
     if (enable != null) result.enable = enable;
     return result;
@@ -169,15 +172,15 @@ class EditExtensionRequest extends $pb.GeneratedMessage {
 
   factory EditExtensionRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      EditExtensionRequest()..mergeFromBuffer(data, registry);
   factory EditExtensionRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      EditExtensionRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'EditExtensionRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'extension'),
-      createEmptyInstance: create)
+      createEmptyInstance: EditExtensionRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'extensionId')
     ..aOB(2, _omitFieldNames ? '' : 'enable')
     ..hasRequiredFields = false;
@@ -193,14 +196,16 @@ class EditExtensionRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use EditExtensionRequest() / EditExtensionRequest.new instead')
   static EditExtensionRequest create() => EditExtensionRequest._();
+  static $pb.GeneratedMessage $_createMessage() => EditExtensionRequest._();
   @$core.override
-  EditExtensionRequest createEmptyInstance() => create();
-  static $pb.PbList<EditExtensionRequest> createRepeated() =>
-      $pb.PbList<EditExtensionRequest>();
+  EditExtensionRequest createEmptyInstance() => EditExtensionRequest._();
   @$core.pragma('dart2js:noInline')
   static EditExtensionRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<EditExtensionRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<EditExtensionRequest>(
+          EditExtensionRequest.$_createMessage);
   static EditExtensionRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -229,7 +234,7 @@ class ExtensionMsg extends $pb.GeneratedMessage {
     $core.String? description,
     $core.bool? enable,
   }) {
-    final result = create();
+    final result = ExtensionMsg._();
     if (id != null) result.id = id;
     if (title != null) result.title = title;
     if (description != null) result.description = description;
@@ -241,15 +246,15 @@ class ExtensionMsg extends $pb.GeneratedMessage {
 
   factory ExtensionMsg.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ExtensionMsg()..mergeFromBuffer(data, registry);
   factory ExtensionMsg.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ExtensionMsg()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ExtensionMsg',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'extension'),
-      createEmptyInstance: create)
+      createEmptyInstance: ExtensionMsg.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'id')
     ..aOS(2, _omitFieldNames ? '' : 'title')
     ..aOS(3, _omitFieldNames ? '' : 'description')
@@ -267,14 +272,15 @@ class ExtensionMsg extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ExtensionMsg() / ExtensionMsg.new instead')
   static ExtensionMsg create() => ExtensionMsg._();
+  static $pb.GeneratedMessage $_createMessage() => ExtensionMsg._();
   @$core.override
-  ExtensionMsg createEmptyInstance() => create();
-  static $pb.PbList<ExtensionMsg> createRepeated() =>
-      $pb.PbList<ExtensionMsg>();
+  ExtensionMsg createEmptyInstance() => ExtensionMsg._();
   @$core.pragma('dart2js:noInline')
-  static ExtensionMsg getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ExtensionMsg>(create);
+  static ExtensionMsg getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ExtensionMsg>(
+          ExtensionMsg.$_createMessage);
   static ExtensionMsg? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -319,7 +325,7 @@ class ExtensionRequest extends $pb.GeneratedMessage {
     $core.String? extensionId,
     $core.Iterable<$core.MapEntry<$core.String, $core.String>>? data,
   }) {
-    final result = create();
+    final result = ExtensionRequest._();
     if (extensionId != null) result.extensionId = extensionId;
     if (data != null) result.data.addEntries(data);
     return result;
@@ -329,15 +335,15 @@ class ExtensionRequest extends $pb.GeneratedMessage {
 
   factory ExtensionRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ExtensionRequest()..mergeFromBuffer(data, registry);
   factory ExtensionRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ExtensionRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ExtensionRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'extension'),
-      createEmptyInstance: create)
+      createEmptyInstance: ExtensionRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'extensionId')
     ..m<$core.String, $core.String>(2, _omitFieldNames ? '' : 'data',
         entryClassName: 'ExtensionRequest.DataEntry',
@@ -357,14 +363,15 @@ class ExtensionRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ExtensionRequest() / ExtensionRequest.new instead')
   static ExtensionRequest create() => ExtensionRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ExtensionRequest._();
   @$core.override
-  ExtensionRequest createEmptyInstance() => create();
-  static $pb.PbList<ExtensionRequest> createRepeated() =>
-      $pb.PbList<ExtensionRequest>();
+  ExtensionRequest createEmptyInstance() => ExtensionRequest._();
   @$core.pragma('dart2js:noInline')
-  static ExtensionRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ExtensionRequest>(create);
+  static ExtensionRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ExtensionRequest>(
+          ExtensionRequest.$_createMessage);
   static ExtensionRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -386,7 +393,7 @@ class SendExtensionDataRequest extends $pb.GeneratedMessage {
     $core.String? button,
     $core.Iterable<$core.MapEntry<$core.String, $core.String>>? data,
   }) {
-    final result = create();
+    final result = SendExtensionDataRequest._();
     if (extensionId != null) result.extensionId = extensionId;
     if (button != null) result.button = button;
     if (data != null) result.data.addEntries(data);
@@ -397,15 +404,15 @@ class SendExtensionDataRequest extends $pb.GeneratedMessage {
 
   factory SendExtensionDataRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      SendExtensionDataRequest()..mergeFromBuffer(data, registry);
   factory SendExtensionDataRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      SendExtensionDataRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'SendExtensionDataRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'extension'),
-      createEmptyInstance: create)
+      createEmptyInstance: SendExtensionDataRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'extensionId')
     ..aOS(2, _omitFieldNames ? '' : 'button')
     ..m<$core.String, $core.String>(3, _omitFieldNames ? '' : 'data',
@@ -427,14 +434,17 @@ class SendExtensionDataRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SendExtensionDataRequest() / SendExtensionDataRequest.new instead')
   static SendExtensionDataRequest create() => SendExtensionDataRequest._();
+  static $pb.GeneratedMessage $_createMessage() => SendExtensionDataRequest._();
   @$core.override
-  SendExtensionDataRequest createEmptyInstance() => create();
-  static $pb.PbList<SendExtensionDataRequest> createRepeated() =>
-      $pb.PbList<SendExtensionDataRequest>();
+  SendExtensionDataRequest createEmptyInstance() =>
+      SendExtensionDataRequest._();
   @$core.pragma('dart2js:noInline')
   static SendExtensionDataRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SendExtensionDataRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<SendExtensionDataRequest>(
+          SendExtensionDataRequest.$_createMessage);
   static SendExtensionDataRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -465,7 +475,7 @@ class ExtensionResponse extends $pb.GeneratedMessage {
     $core.String? extensionId,
     $core.String? jsonUi,
   }) {
-    final result = create();
+    final result = ExtensionResponse._();
     if (type != null) result.type = type;
     if (extensionId != null) result.extensionId = extensionId;
     if (jsonUi != null) result.jsonUi = jsonUi;
@@ -476,15 +486,15 @@ class ExtensionResponse extends $pb.GeneratedMessage {
 
   factory ExtensionResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ExtensionResponse()..mergeFromBuffer(data, registry);
   factory ExtensionResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ExtensionResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ExtensionResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'extension'),
-      createEmptyInstance: create)
+      createEmptyInstance: ExtensionResponse.$_createMessage)
     ..aE<ExtensionResponseType>(1, _omitFieldNames ? '' : 'type',
         enumValues: ExtensionResponseType.values)
     ..aOS(2, _omitFieldNames ? '' : 'extensionId')
@@ -502,14 +512,15 @@ class ExtensionResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ExtensionResponse() / ExtensionResponse.new instead')
   static ExtensionResponse create() => ExtensionResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ExtensionResponse._();
   @$core.override
-  ExtensionResponse createEmptyInstance() => create();
-  static $pb.PbList<ExtensionResponse> createRepeated() =>
-      $pb.PbList<ExtensionResponse>();
+  ExtensionResponse createEmptyInstance() => ExtensionResponse._();
   @$core.pragma('dart2js:noInline')
-  static ExtensionResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ExtensionResponse>(create);
+  static ExtensionResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ExtensionResponse>(
+          ExtensionResponse.$_createMessage);
   static ExtensionResponse? _defaultInstance;
 
   @$pb.TagNumber(1)

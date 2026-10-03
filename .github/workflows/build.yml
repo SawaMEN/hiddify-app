@@ -28,7 +28,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2.23.0
@@ -45,18 +45,18 @@ jobs:
           import os
           from pathlib import Path
 
-          path = Path(os.environ["FLUTTER_ROOT"]) / "packages/flutter_tools/gradle/settings.gradle.kts"
+          path = Path(os.environ["FLUTTER_ROOT"]) / 'packages/flutter_tools/gradle/settings.gradle.kts'
           text = path.read_text()
-          needle = """repositories {
+          needle = '''repositories {
                   google()
                   mavenCentral()
-              }"""
+              }'''
           mirror = 'maven { url = uri("https://maven-central.storage-download.googleapis.com/maven2/") }'
-          replacement = f"""repositories {{
+          replacement = f'''repositories {{
                   {mirror}
                   google()
                   mavenCentral()
-              }}"""
+              }}'''
           if mirror in text:
               print(f"Flutter Maven Central mirror already configured: {path}")
           elif needle in text:
@@ -71,13 +71,13 @@ jobs:
           sudo apt-get clean
 
       - name: Setup Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: zulu
           java-version: 17
 
       - name: Cache Gradle
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.gradle/caches
@@ -87,9 +87,7 @@ jobs:
             gradle-${{ runner.os }}-
 
       - name: Install build dependencies
-        run: |
-          make android-apk-install-deps
-          echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+        run: make android-apk-install-deps
 
       - name: Setup Android signing
         if: ${{ inputs.upload-artifact }}
@@ -144,7 +142,7 @@ jobs:
 
       - name: Upload Dart analyzer log
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: dart-analyze-log
           path: analyze.log
@@ -158,13 +156,11 @@ jobs:
         env:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         run: |
-          fastforge package \
-            --platform android \
-            --targets apk \
-            --skip-clean \
-            --build-target="${BUILD_TARGET}" \
-            --build-target-platform=android-arm64 \
-            --build-dart-define=sentry_dsn="${SENTRY_DSN}"
+          flutter build apk \
+            --release \
+            --target="${BUILD_TARGET}" \
+            --target-platform android-arm64 \
+            --dart-define=sentry_dsn="${SENTRY_DSN}"
 
       - name: Collect and verify ARM64 APK
         run: |
@@ -193,7 +189,7 @@ jobs:
 
       - name: Upload artifact
         if: ${{ inputs.upload-artifact }}
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: android-arm64-v8a
           path: ./out/${{ env.APK_NAME }}
@@ -208,18 +204,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Download ARM64 artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: android-arm64-v8a
           path: ./out
 
       - name: Delete current draft assets
-        uses: 8Mi-Tech/delete-release-assets-action@main
+        uses: 8Mi-Tech/delete-release-assets-action@71a740cf4364bc69448e0294b8abadffadfb3288
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag: draft
@@ -231,7 +227,7 @@ jobs:
           sed 's|RELEASE_TAG|draft|g' ./.github/release_message.md > release.md
 
       - name: Create or update draft release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -250,10 +246,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Download ARM64 artifact
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: android-arm64-v8a
           path: ./out
@@ -269,7 +265,7 @@ jobs:
           sed 's|RELEASE_TAG|${{ inputs.tag-name }}|g' ./.github/release_message.md > release.md
 
       - name: Upload release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

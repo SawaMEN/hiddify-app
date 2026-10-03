@@ -3,7 +3,7 @@ plugins {
     id "org.jetbrains.kotlin.android" 
     id "dev.flutter.flutter-gradle-plugin" 
     id "com.google.protobuf" version "0.10.0" 
-    id "com.squareup.wire" version "5.3.1"
+    id "com.squareup.wire" version "7.1.0"
 }
 
 wire {
@@ -53,8 +53,8 @@ def flutterVersionName = localProperties.getProperty('flutter.versionName') ?: '
 android {
     namespace 'com.hiddify.hiddify'
     testNamespace "test.com.hiddify.hiddify"
-    compileSdkVersion 36
-    ndkVersion "28.2.13676358"
+    compileSdkVersion 37
+    ndkVersion "30.0.16248370"
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -134,11 +134,11 @@ dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
 
     implementation 'com.google.code.gson:gson:2.14.0'
-    implementation 'androidx.core:core-ktx:1.17.0'
+    implementation 'androidx.core:core-ktx:1.19.1'
     implementation 'androidx.appcompat:appcompat:1.8.0'
     implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.11.0'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0'
-    implementation("com.squareup.wire:wire-grpc-client:5.3.1")
+    implementation("com.squareup.wire:wire-grpc-client:7.1.0")
 
     implementation 'io.grpc:grpc-okhttp:1.84.0'
     implementation 'io.grpc:grpc-protobuf-lite:1.84.0'

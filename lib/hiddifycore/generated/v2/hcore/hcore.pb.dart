@@ -8,14 +8,15 @@
 // ignore_for_file: constant_identifier_names
 // ignore_for_file: curly_braces_in_flow_control_structures
 // ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: non_constant_identifier_names, prefer_relative_imports
 
 import 'dart:core' as $core;
 
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
+import 'package:protobuf/well_known_types/google/protobuf/timestamp.pb.dart'
+    as $0;
 
-import '../../google/protobuf/timestamp.pb.dart' as $0;
 import '../hcommon/common.pbenum.dart' as $1;
 import 'hcore.pbenum.dart';
 
@@ -29,7 +30,7 @@ class CoreInfoResponse extends $pb.GeneratedMessage {
     MessageType? messageType,
     $core.String? message,
   }) {
-    final result = create();
+    final result = CoreInfoResponse._();
     if (coreState != null) result.coreState = coreState;
     if (messageType != null) result.messageType = messageType;
     if (message != null) result.message = message;
@@ -40,15 +41,15 @@ class CoreInfoResponse extends $pb.GeneratedMessage {
 
   factory CoreInfoResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      CoreInfoResponse()..mergeFromBuffer(data, registry);
   factory CoreInfoResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      CoreInfoResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'CoreInfoResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: CoreInfoResponse.$_createMessage)
     ..aE<CoreStates>(1, _omitFieldNames ? '' : 'coreState',
         enumValues: CoreStates.values)
     ..aE<MessageType>(2, _omitFieldNames ? '' : 'messageType',
@@ -67,14 +68,15 @@ class CoreInfoResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use CoreInfoResponse() / CoreInfoResponse.new instead')
   static CoreInfoResponse create() => CoreInfoResponse._();
+  static $pb.GeneratedMessage $_createMessage() => CoreInfoResponse._();
   @$core.override
-  CoreInfoResponse createEmptyInstance() => create();
-  static $pb.PbList<CoreInfoResponse> createRepeated() =>
-      $pb.PbList<CoreInfoResponse>();
+  CoreInfoResponse createEmptyInstance() => CoreInfoResponse._();
   @$core.pragma('dart2js:noInline')
-  static CoreInfoResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<CoreInfoResponse>(create);
+  static CoreInfoResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CoreInfoResponse>(
+          CoreInfoResponse.$_createMessage);
   static CoreInfoResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -115,7 +117,7 @@ class StartRequest extends $pb.GeneratedMessage {
     $core.bool? enableRawConfig,
     $core.String? configName,
   }) {
-    final result = create();
+    final result = StartRequest._();
     if (configPath != null) result.configPath = configPath;
     if (configContent != null) result.configContent = configContent;
     if (disableMemoryLimit != null)
@@ -132,15 +134,15 @@ class StartRequest extends $pb.GeneratedMessage {
 
   factory StartRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      StartRequest()..mergeFromBuffer(data, registry);
   factory StartRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      StartRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'StartRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: StartRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'configPath')
     ..aOS(2, _omitFieldNames ? '' : 'configContent')
     ..aOB(3, _omitFieldNames ? '' : 'disableMemoryLimit')
@@ -161,14 +163,15 @@ class StartRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use StartRequest() / StartRequest.new instead')
   static StartRequest create() => StartRequest._();
+  static $pb.GeneratedMessage $_createMessage() => StartRequest._();
   @$core.override
-  StartRequest createEmptyInstance() => create();
-  static $pb.PbList<StartRequest> createRepeated() =>
-      $pb.PbList<StartRequest>();
+  StartRequest createEmptyInstance() => StartRequest._();
   @$core.pragma('dart2js:noInline')
-  static StartRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<StartRequest>(create);
+  static StartRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<StartRequest>(
+          StartRequest.$_createMessage);
   static StartRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -239,7 +242,7 @@ class CloseRequest extends $pb.GeneratedMessage {
   factory CloseRequest({
     SetupMode? mode,
   }) {
-    final result = create();
+    final result = CloseRequest._();
     if (mode != null) result.mode = mode;
     return result;
   }
@@ -248,15 +251,15 @@ class CloseRequest extends $pb.GeneratedMessage {
 
   factory CloseRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      CloseRequest()..mergeFromBuffer(data, registry);
   factory CloseRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      CloseRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'CloseRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: CloseRequest.$_createMessage)
     ..aE<SetupMode>(1, _omitFieldNames ? '' : 'mode',
         enumValues: SetupMode.values)
     ..hasRequiredFields = false;
@@ -272,14 +275,15 @@ class CloseRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use CloseRequest() / CloseRequest.new instead')
   static CloseRequest create() => CloseRequest._();
+  static $pb.GeneratedMessage $_createMessage() => CloseRequest._();
   @$core.override
-  CloseRequest createEmptyInstance() => create();
-  static $pb.PbList<CloseRequest> createRepeated() =>
-      $pb.PbList<CloseRequest>();
+  CloseRequest createEmptyInstance() => CloseRequest._();
   @$core.pragma('dart2js:noInline')
-  static CloseRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<CloseRequest>(create);
+  static CloseRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<CloseRequest>(
+          CloseRequest.$_createMessage);
   static CloseRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -305,7 +309,7 @@ class SetupRequest extends $pb.GeneratedMessage {
     SetupMode? mode,
     $core.bool? fixAndroidStack,
   }) {
-    final result = create();
+    final result = SetupRequest._();
     if (basePath != null) result.basePath = basePath;
     if (workingDir != null) result.workingDir = workingDir;
     if (tempDir != null) result.tempDir = tempDir;
@@ -322,15 +326,15 @@ class SetupRequest extends $pb.GeneratedMessage {
 
   factory SetupRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      SetupRequest()..mergeFromBuffer(data, registry);
   factory SetupRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      SetupRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'SetupRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: SetupRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'basePath')
     ..aOS(2, _omitFieldNames ? '' : 'workingDir')
     ..aOS(3, _omitFieldNames ? '' : 'tempDir')
@@ -354,14 +358,15 @@ class SetupRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SetupRequest() / SetupRequest.new instead')
   static SetupRequest create() => SetupRequest._();
+  static $pb.GeneratedMessage $_createMessage() => SetupRequest._();
   @$core.override
-  SetupRequest createEmptyInstance() => create();
-  static $pb.PbList<SetupRequest> createRepeated() =>
-      $pb.PbList<SetupRequest>();
+  SetupRequest createEmptyInstance() => SetupRequest._();
   @$core.pragma('dart2js:noInline')
-  static SetupRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SetupRequest>(create);
+  static SetupRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SetupRequest>(
+          SetupRequest.$_createMessage);
   static SetupRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -460,7 +465,7 @@ class SystemInfo extends $pb.GeneratedMessage {
     $core.String? currentOutbound,
     $core.String? currentProfile,
   }) {
-    final result = create();
+    final result = SystemInfo._();
     if (memory != null) result.memory = memory;
     if (goroutines != null) result.goroutines = goroutines;
     if (connectionsIn != null) result.connectionsIn = connectionsIn;
@@ -479,15 +484,15 @@ class SystemInfo extends $pb.GeneratedMessage {
 
   factory SystemInfo.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      SystemInfo()..mergeFromBuffer(data, registry);
   factory SystemInfo.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      SystemInfo()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'SystemInfo',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: SystemInfo.$_createMessage)
     ..aInt64(1, _omitFieldNames ? '' : 'memory')
     ..aI(2, _omitFieldNames ? '' : 'goroutines')
     ..aI(3, _omitFieldNames ? '' : 'connectionsIn')
@@ -511,13 +516,14 @@ class SystemInfo extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SystemInfo() / SystemInfo.new instead')
   static SystemInfo create() => SystemInfo._();
+  static $pb.GeneratedMessage $_createMessage() => SystemInfo._();
   @$core.override
-  SystemInfo createEmptyInstance() => create();
-  static $pb.PbList<SystemInfo> createRepeated() => $pb.PbList<SystemInfo>();
+  SystemInfo createEmptyInstance() => SystemInfo._();
   @$core.pragma('dart2js:noInline')
   static SystemInfo getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SystemInfo>(create);
+      $pb.GeneratedMessage.$_defaultFor<SystemInfo>(SystemInfo.$_createMessage);
   static SystemInfo? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -640,7 +646,7 @@ class OutboundInfo extends $pb.GeneratedMessage {
     $fixnum.Int64? download,
     $core.String? detour,
   }) {
-    final result = create();
+    final result = OutboundInfo._();
     if (tag != null) result.tag = tag;
     if (type != null) result.type = type;
     if (urlTestTime != null) result.urlTestTime = urlTestTime;
@@ -666,21 +672,22 @@ class OutboundInfo extends $pb.GeneratedMessage {
 
   factory OutboundInfo.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      OutboundInfo()..mergeFromBuffer(data, registry);
   factory OutboundInfo.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      OutboundInfo()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'OutboundInfo',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: OutboundInfo.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'tag')
     ..aOS(2, _omitFieldNames ? '' : 'type')
     ..aOM<$0.Timestamp>(3, _omitFieldNames ? '' : 'urlTestTime',
-        subBuilder: $0.Timestamp.create)
+        subBuilder: $0.Timestamp.$_createMessage)
     ..aI(4, _omitFieldNames ? '' : 'urlTestDelay')
-    ..aOM<IpInfo>(5, _omitFieldNames ? '' : 'ipinfo', subBuilder: IpInfo.create)
+    ..aOM<IpInfo>(5, _omitFieldNames ? '' : 'ipinfo',
+        subBuilder: IpInfo.$_createMessage)
     ..aOB(6, _omitFieldNames ? '' : 'isSelected')
     ..aOB(7, _omitFieldNames ? '' : 'isGroup')
     ..aOB(8, _omitFieldNames ? '' : 'isSecure')
@@ -706,14 +713,15 @@ class OutboundInfo extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use OutboundInfo() / OutboundInfo.new instead')
   static OutboundInfo create() => OutboundInfo._();
+  static $pb.GeneratedMessage $_createMessage() => OutboundInfo._();
   @$core.override
-  OutboundInfo createEmptyInstance() => create();
-  static $pb.PbList<OutboundInfo> createRepeated() =>
-      $pb.PbList<OutboundInfo>();
+  OutboundInfo createEmptyInstance() => OutboundInfo._();
   @$core.pragma('dart2js:noInline')
-  static OutboundInfo getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<OutboundInfo>(create);
+  static OutboundInfo getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<OutboundInfo>(
+          OutboundInfo.$_createMessage);
   static OutboundInfo? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -886,7 +894,7 @@ class IpInfo extends $pb.GeneratedMessage {
     $core.double? longitude,
     $core.String? postalCode,
   }) {
-    final result = create();
+    final result = IpInfo._();
     if (ip != null) result.ip = ip;
     if (countryCode != null) result.countryCode = countryCode;
     if (region != null) result.region = region;
@@ -903,15 +911,15 @@ class IpInfo extends $pb.GeneratedMessage {
 
   factory IpInfo.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      IpInfo()..mergeFromBuffer(data, registry);
   factory IpInfo.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      IpInfo()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'IpInfo',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: IpInfo.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'ip')
     ..aOS(2, _omitFieldNames ? '' : 'country_code')
     ..aOS(3, _omitFieldNames ? '' : 'region')
@@ -933,13 +941,14 @@ class IpInfo extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use IpInfo() / IpInfo.new instead')
   static IpInfo create() => IpInfo._();
+  static $pb.GeneratedMessage $_createMessage() => IpInfo._();
   @$core.override
-  IpInfo createEmptyInstance() => create();
-  static $pb.PbList<IpInfo> createRepeated() => $pb.PbList<IpInfo>();
+  IpInfo createEmptyInstance() => IpInfo._();
   @$core.pragma('dart2js:noInline')
-  static IpInfo getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<IpInfo>(create);
+  static IpInfo getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<IpInfo>(IpInfo.$_createMessage);
   static IpInfo? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1033,7 +1042,7 @@ class OutboundGroup extends $pb.GeneratedMessage {
     $core.bool? isExpand,
     $core.Iterable<OutboundInfo>? items,
   }) {
-    final result = create();
+    final result = OutboundGroup._();
     if (tag != null) result.tag = tag;
     if (type != null) result.type = type;
     if (selected != null) result.selected = selected;
@@ -1047,22 +1056,22 @@ class OutboundGroup extends $pb.GeneratedMessage {
 
   factory OutboundGroup.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      OutboundGroup()..mergeFromBuffer(data, registry);
   factory OutboundGroup.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      OutboundGroup()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'OutboundGroup',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: OutboundGroup.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'tag')
     ..aOS(2, _omitFieldNames ? '' : 'type')
     ..aOS(3, _omitFieldNames ? '' : 'selected')
     ..aOB(4, _omitFieldNames ? '' : 'selectable')
     ..aOB(5, _omitFieldNames ? '' : 'IsExpand', protoName: 'Is_expand')
     ..pPM<OutboundInfo>(6, _omitFieldNames ? '' : 'items',
-        subBuilder: OutboundInfo.create)
+        subBuilder: OutboundInfo.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1076,14 +1085,15 @@ class OutboundGroup extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use OutboundGroup() / OutboundGroup.new instead')
   static OutboundGroup create() => OutboundGroup._();
+  static $pb.GeneratedMessage $_createMessage() => OutboundGroup._();
   @$core.override
-  OutboundGroup createEmptyInstance() => create();
-  static $pb.PbList<OutboundGroup> createRepeated() =>
-      $pb.PbList<OutboundGroup>();
+  OutboundGroup createEmptyInstance() => OutboundGroup._();
   @$core.pragma('dart2js:noInline')
-  static OutboundGroup getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<OutboundGroup>(create);
+  static OutboundGroup getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<OutboundGroup>(
+          OutboundGroup.$_createMessage);
   static OutboundGroup? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1139,7 +1149,7 @@ class OutboundGroupList extends $pb.GeneratedMessage {
   factory OutboundGroupList({
     $core.Iterable<OutboundGroup>? items,
   }) {
-    final result = create();
+    final result = OutboundGroupList._();
     if (items != null) result.items.addAll(items);
     return result;
   }
@@ -1148,17 +1158,17 @@ class OutboundGroupList extends $pb.GeneratedMessage {
 
   factory OutboundGroupList.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      OutboundGroupList()..mergeFromBuffer(data, registry);
   factory OutboundGroupList.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      OutboundGroupList()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'OutboundGroupList',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: OutboundGroupList.$_createMessage)
     ..pPM<OutboundGroup>(1, _omitFieldNames ? '' : 'items',
-        subBuilder: OutboundGroup.create)
+        subBuilder: OutboundGroup.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1172,14 +1182,15 @@ class OutboundGroupList extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use OutboundGroupList() / OutboundGroupList.new instead')
   static OutboundGroupList create() => OutboundGroupList._();
+  static $pb.GeneratedMessage $_createMessage() => OutboundGroupList._();
   @$core.override
-  OutboundGroupList createEmptyInstance() => create();
-  static $pb.PbList<OutboundGroupList> createRepeated() =>
-      $pb.PbList<OutboundGroupList>();
+  OutboundGroupList createEmptyInstance() => OutboundGroupList._();
   @$core.pragma('dart2js:noInline')
-  static OutboundGroupList getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<OutboundGroupList>(create);
+  static OutboundGroupList getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<OutboundGroupList>(
+          OutboundGroupList.$_createMessage);
   static OutboundGroupList? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1191,7 +1202,7 @@ class WarpAccount extends $pb.GeneratedMessage {
     $core.String? accountId,
     $core.String? accessToken,
   }) {
-    final result = create();
+    final result = WarpAccount._();
     if (accountId != null) result.accountId = accountId;
     if (accessToken != null) result.accessToken = accessToken;
     return result;
@@ -1201,15 +1212,15 @@ class WarpAccount extends $pb.GeneratedMessage {
 
   factory WarpAccount.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      WarpAccount()..mergeFromBuffer(data, registry);
   factory WarpAccount.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      WarpAccount()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'WarpAccount',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: WarpAccount.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'accountId')
     ..aOS(2, _omitFieldNames ? '' : 'accessToken')
     ..hasRequiredFields = false;
@@ -1225,13 +1236,15 @@ class WarpAccount extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use WarpAccount() / WarpAccount.new instead')
   static WarpAccount create() => WarpAccount._();
+  static $pb.GeneratedMessage $_createMessage() => WarpAccount._();
   @$core.override
-  WarpAccount createEmptyInstance() => create();
-  static $pb.PbList<WarpAccount> createRepeated() => $pb.PbList<WarpAccount>();
+  WarpAccount createEmptyInstance() => WarpAccount._();
   @$core.pragma('dart2js:noInline')
-  static WarpAccount getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WarpAccount>(create);
+  static WarpAccount getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<WarpAccount>(
+          WarpAccount.$_createMessage);
   static WarpAccount? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1261,7 +1274,7 @@ class WarpWireguardConfig extends $pb.GeneratedMessage {
     $core.String? peerPublicKey,
     $core.String? clientId,
   }) {
-    final result = create();
+    final result = WarpWireguardConfig._();
     if (privateKey != null) result.privateKey = privateKey;
     if (localAddressIpv4 != null) result.localAddressIpv4 = localAddressIpv4;
     if (localAddressIpv6 != null) result.localAddressIpv6 = localAddressIpv6;
@@ -1274,15 +1287,15 @@ class WarpWireguardConfig extends $pb.GeneratedMessage {
 
   factory WarpWireguardConfig.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      WarpWireguardConfig()..mergeFromBuffer(data, registry);
   factory WarpWireguardConfig.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      WarpWireguardConfig()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'WarpWireguardConfig',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: WarpWireguardConfig.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'private-key', protoName: 'private_key')
     ..aOS(2, _omitFieldNames ? '' : 'local-address-ipv4',
         protoName: 'local_address_ipv4')
@@ -1304,14 +1317,16 @@ class WarpWireguardConfig extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use WarpWireguardConfig() / WarpWireguardConfig.new instead')
   static WarpWireguardConfig create() => WarpWireguardConfig._();
+  static $pb.GeneratedMessage $_createMessage() => WarpWireguardConfig._();
   @$core.override
-  WarpWireguardConfig createEmptyInstance() => create();
-  static $pb.PbList<WarpWireguardConfig> createRepeated() =>
-      $pb.PbList<WarpWireguardConfig>();
+  WarpWireguardConfig createEmptyInstance() => WarpWireguardConfig._();
   @$core.pragma('dart2js:noInline')
   static WarpWireguardConfig getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WarpWireguardConfig>(create);
+      $pb.GeneratedMessage.$_defaultFor<WarpWireguardConfig>(
+          WarpWireguardConfig.$_createMessage);
   static WarpWireguardConfig? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1366,7 +1381,7 @@ class WarpGenerationResponse extends $pb.GeneratedMessage {
     $core.String? log,
     WarpWireguardConfig? config,
   }) {
-    final result = create();
+    final result = WarpGenerationResponse._();
     if (account != null) result.account = account;
     if (log != null) result.log = log;
     if (config != null) result.config = config;
@@ -1377,20 +1392,20 @@ class WarpGenerationResponse extends $pb.GeneratedMessage {
 
   factory WarpGenerationResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      WarpGenerationResponse()..mergeFromBuffer(data, registry);
   factory WarpGenerationResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      WarpGenerationResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'WarpGenerationResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: WarpGenerationResponse.$_createMessage)
     ..aOM<WarpAccount>(1, _omitFieldNames ? '' : 'account',
-        subBuilder: WarpAccount.create)
+        subBuilder: WarpAccount.$_createMessage)
     ..aOS(2, _omitFieldNames ? '' : 'log')
     ..aOM<WarpWireguardConfig>(3, _omitFieldNames ? '' : 'config',
-        subBuilder: WarpWireguardConfig.create)
+        subBuilder: WarpWireguardConfig.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -1405,14 +1420,16 @@ class WarpGenerationResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use WarpGenerationResponse() / WarpGenerationResponse.new instead')
   static WarpGenerationResponse create() => WarpGenerationResponse._();
+  static $pb.GeneratedMessage $_createMessage() => WarpGenerationResponse._();
   @$core.override
-  WarpGenerationResponse createEmptyInstance() => create();
-  static $pb.PbList<WarpGenerationResponse> createRepeated() =>
-      $pb.PbList<WarpGenerationResponse>();
+  WarpGenerationResponse createEmptyInstance() => WarpGenerationResponse._();
   @$core.pragma('dart2js:noInline')
   static WarpGenerationResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<WarpGenerationResponse>(create);
+      $pb.GeneratedMessage.$_defaultFor<WarpGenerationResponse>(
+          WarpGenerationResponse.$_createMessage);
   static WarpGenerationResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1452,7 +1469,7 @@ class SystemProxyStatus extends $pb.GeneratedMessage {
     $core.bool? available,
     $core.bool? enabled,
   }) {
-    final result = create();
+    final result = SystemProxyStatus._();
     if (available != null) result.available = available;
     if (enabled != null) result.enabled = enabled;
     return result;
@@ -1462,15 +1479,15 @@ class SystemProxyStatus extends $pb.GeneratedMessage {
 
   factory SystemProxyStatus.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      SystemProxyStatus()..mergeFromBuffer(data, registry);
   factory SystemProxyStatus.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      SystemProxyStatus()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'SystemProxyStatus',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: SystemProxyStatus.$_createMessage)
     ..aOB(1, _omitFieldNames ? '' : 'available')
     ..aOB(2, _omitFieldNames ? '' : 'enabled')
     ..hasRequiredFields = false;
@@ -1486,14 +1503,15 @@ class SystemProxyStatus extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use SystemProxyStatus() / SystemProxyStatus.new instead')
   static SystemProxyStatus create() => SystemProxyStatus._();
+  static $pb.GeneratedMessage $_createMessage() => SystemProxyStatus._();
   @$core.override
-  SystemProxyStatus createEmptyInstance() => create();
-  static $pb.PbList<SystemProxyStatus> createRepeated() =>
-      $pb.PbList<SystemProxyStatus>();
+  SystemProxyStatus createEmptyInstance() => SystemProxyStatus._();
   @$core.pragma('dart2js:noInline')
-  static SystemProxyStatus getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SystemProxyStatus>(create);
+  static SystemProxyStatus getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<SystemProxyStatus>(
+          SystemProxyStatus.$_createMessage);
   static SystemProxyStatus? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1522,7 +1540,7 @@ class ParseRequest extends $pb.GeneratedMessage {
     $core.String? tempPath,
     $core.bool? debug,
   }) {
-    final result = create();
+    final result = ParseRequest._();
     if (content != null) result.content = content;
     if (configPath != null) result.configPath = configPath;
     if (tempPath != null) result.tempPath = tempPath;
@@ -1534,15 +1552,15 @@ class ParseRequest extends $pb.GeneratedMessage {
 
   factory ParseRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ParseRequest()..mergeFromBuffer(data, registry);
   factory ParseRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ParseRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ParseRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: ParseRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'content')
     ..aOS(2, _omitFieldNames ? '' : 'configPath')
     ..aOS(3, _omitFieldNames ? '' : 'tempPath')
@@ -1560,14 +1578,15 @@ class ParseRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ParseRequest() / ParseRequest.new instead')
   static ParseRequest create() => ParseRequest._();
+  static $pb.GeneratedMessage $_createMessage() => ParseRequest._();
   @$core.override
-  ParseRequest createEmptyInstance() => create();
-  static $pb.PbList<ParseRequest> createRepeated() =>
-      $pb.PbList<ParseRequest>();
+  ParseRequest createEmptyInstance() => ParseRequest._();
   @$core.pragma('dart2js:noInline')
-  static ParseRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ParseRequest>(create);
+  static ParseRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ParseRequest>(
+          ParseRequest.$_createMessage);
   static ParseRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1613,7 +1632,7 @@ class ParseResponse extends $pb.GeneratedMessage {
     $core.String? content,
     $core.String? message,
   }) {
-    final result = create();
+    final result = ParseResponse._();
     if (responseCode != null) result.responseCode = responseCode;
     if (content != null) result.content = content;
     if (message != null) result.message = message;
@@ -1624,15 +1643,15 @@ class ParseResponse extends $pb.GeneratedMessage {
 
   factory ParseResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ParseResponse()..mergeFromBuffer(data, registry);
   factory ParseResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ParseResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ParseResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: ParseResponse.$_createMessage)
     ..aE<$1.ResponseCode>(1, _omitFieldNames ? '' : 'responseCode',
         enumValues: $1.ResponseCode.values)
     ..aOS(2, _omitFieldNames ? '' : 'content')
@@ -1650,14 +1669,15 @@ class ParseResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use ParseResponse() / ParseResponse.new instead')
   static ParseResponse create() => ParseResponse._();
+  static $pb.GeneratedMessage $_createMessage() => ParseResponse._();
   @$core.override
-  ParseResponse createEmptyInstance() => create();
-  static $pb.PbList<ParseResponse> createRepeated() =>
-      $pb.PbList<ParseResponse>();
+  ParseResponse createEmptyInstance() => ParseResponse._();
   @$core.pragma('dart2js:noInline')
-  static ParseResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ParseResponse>(create);
+  static ParseResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<ParseResponse>(
+          ParseResponse.$_createMessage);
   static ParseResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1692,7 +1712,7 @@ class ChangeHiddifySettingsRequest extends $pb.GeneratedMessage {
   factory ChangeHiddifySettingsRequest({
     $core.String? hiddifySettingsJson,
   }) {
-    final result = create();
+    final result = ChangeHiddifySettingsRequest._();
     if (hiddifySettingsJson != null)
       result.hiddifySettingsJson = hiddifySettingsJson;
     return result;
@@ -1702,15 +1722,15 @@ class ChangeHiddifySettingsRequest extends $pb.GeneratedMessage {
 
   factory ChangeHiddifySettingsRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      ChangeHiddifySettingsRequest()..mergeFromBuffer(data, registry);
   factory ChangeHiddifySettingsRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      ChangeHiddifySettingsRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'ChangeHiddifySettingsRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: ChangeHiddifySettingsRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'hiddifySettingsJson')
     ..hasRequiredFields = false;
 
@@ -1727,15 +1747,19 @@ class ChangeHiddifySettingsRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use ChangeHiddifySettingsRequest() / ChangeHiddifySettingsRequest.new instead')
   static ChangeHiddifySettingsRequest create() =>
       ChangeHiddifySettingsRequest._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      ChangeHiddifySettingsRequest._();
   @$core.override
-  ChangeHiddifySettingsRequest createEmptyInstance() => create();
-  static $pb.PbList<ChangeHiddifySettingsRequest> createRepeated() =>
-      $pb.PbList<ChangeHiddifySettingsRequest>();
+  ChangeHiddifySettingsRequest createEmptyInstance() =>
+      ChangeHiddifySettingsRequest._();
   @$core.pragma('dart2js:noInline')
   static ChangeHiddifySettingsRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<ChangeHiddifySettingsRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<ChangeHiddifySettingsRequest>(
+          ChangeHiddifySettingsRequest.$_createMessage);
   static ChangeHiddifySettingsRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1754,7 +1778,7 @@ class GenerateConfigRequest extends $pb.GeneratedMessage {
     $core.String? tempPath,
     $core.bool? debug,
   }) {
-    final result = create();
+    final result = GenerateConfigRequest._();
     if (path != null) result.path = path;
     if (tempPath != null) result.tempPath = tempPath;
     if (debug != null) result.debug = debug;
@@ -1765,15 +1789,15 @@ class GenerateConfigRequest extends $pb.GeneratedMessage {
 
   factory GenerateConfigRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      GenerateConfigRequest()..mergeFromBuffer(data, registry);
   factory GenerateConfigRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      GenerateConfigRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'GenerateConfigRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: GenerateConfigRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'path')
     ..aOS(2, _omitFieldNames ? '' : 'tempPath')
     ..aOB(3, _omitFieldNames ? '' : 'debug')
@@ -1791,14 +1815,16 @@ class GenerateConfigRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use GenerateConfigRequest() / GenerateConfigRequest.new instead')
   static GenerateConfigRequest create() => GenerateConfigRequest._();
+  static $pb.GeneratedMessage $_createMessage() => GenerateConfigRequest._();
   @$core.override
-  GenerateConfigRequest createEmptyInstance() => create();
-  static $pb.PbList<GenerateConfigRequest> createRepeated() =>
-      $pb.PbList<GenerateConfigRequest>();
+  GenerateConfigRequest createEmptyInstance() => GenerateConfigRequest._();
   @$core.pragma('dart2js:noInline')
   static GenerateConfigRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<GenerateConfigRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<GenerateConfigRequest>(
+          GenerateConfigRequest.$_createMessage);
   static GenerateConfigRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1833,7 +1859,7 @@ class GenerateConfigResponse extends $pb.GeneratedMessage {
   factory GenerateConfigResponse({
     $core.String? configContent,
   }) {
-    final result = create();
+    final result = GenerateConfigResponse._();
     if (configContent != null) result.configContent = configContent;
     return result;
   }
@@ -1842,15 +1868,15 @@ class GenerateConfigResponse extends $pb.GeneratedMessage {
 
   factory GenerateConfigResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      GenerateConfigResponse()..mergeFromBuffer(data, registry);
   factory GenerateConfigResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      GenerateConfigResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'GenerateConfigResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: GenerateConfigResponse.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'configContent')
     ..hasRequiredFields = false;
 
@@ -1866,14 +1892,16 @@ class GenerateConfigResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use GenerateConfigResponse() / GenerateConfigResponse.new instead')
   static GenerateConfigResponse create() => GenerateConfigResponse._();
+  static $pb.GeneratedMessage $_createMessage() => GenerateConfigResponse._();
   @$core.override
-  GenerateConfigResponse createEmptyInstance() => create();
-  static $pb.PbList<GenerateConfigResponse> createRepeated() =>
-      $pb.PbList<GenerateConfigResponse>();
+  GenerateConfigResponse createEmptyInstance() => GenerateConfigResponse._();
   @$core.pragma('dart2js:noInline')
   static GenerateConfigResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<GenerateConfigResponse>(create);
+      $pb.GeneratedMessage.$_defaultFor<GenerateConfigResponse>(
+          GenerateConfigResponse.$_createMessage);
   static GenerateConfigResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1891,7 +1919,7 @@ class SelectOutboundRequest extends $pb.GeneratedMessage {
     $core.String? groupTag,
     $core.String? outboundTag,
   }) {
-    final result = create();
+    final result = SelectOutboundRequest._();
     if (groupTag != null) result.groupTag = groupTag;
     if (outboundTag != null) result.outboundTag = outboundTag;
     return result;
@@ -1901,15 +1929,15 @@ class SelectOutboundRequest extends $pb.GeneratedMessage {
 
   factory SelectOutboundRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      SelectOutboundRequest()..mergeFromBuffer(data, registry);
   factory SelectOutboundRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      SelectOutboundRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'SelectOutboundRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: SelectOutboundRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'groupTag')
     ..aOS(2, _omitFieldNames ? '' : 'outboundTag')
     ..hasRequiredFields = false;
@@ -1926,14 +1954,16 @@ class SelectOutboundRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SelectOutboundRequest() / SelectOutboundRequest.new instead')
   static SelectOutboundRequest create() => SelectOutboundRequest._();
+  static $pb.GeneratedMessage $_createMessage() => SelectOutboundRequest._();
   @$core.override
-  SelectOutboundRequest createEmptyInstance() => create();
-  static $pb.PbList<SelectOutboundRequest> createRepeated() =>
-      $pb.PbList<SelectOutboundRequest>();
+  SelectOutboundRequest createEmptyInstance() => SelectOutboundRequest._();
   @$core.pragma('dart2js:noInline')
   static SelectOutboundRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SelectOutboundRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<SelectOutboundRequest>(
+          SelectOutboundRequest.$_createMessage);
   static SelectOutboundRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -1959,7 +1989,7 @@ class UrlTestRequest extends $pb.GeneratedMessage {
   factory UrlTestRequest({
     $core.String? tag,
   }) {
-    final result = create();
+    final result = UrlTestRequest._();
     if (tag != null) result.tag = tag;
     return result;
   }
@@ -1968,15 +1998,15 @@ class UrlTestRequest extends $pb.GeneratedMessage {
 
   factory UrlTestRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      UrlTestRequest()..mergeFromBuffer(data, registry);
   factory UrlTestRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      UrlTestRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'UrlTestRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: UrlTestRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'tag')
     ..hasRequiredFields = false;
 
@@ -1991,14 +2021,15 @@ class UrlTestRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use UrlTestRequest() / UrlTestRequest.new instead')
   static UrlTestRequest create() => UrlTestRequest._();
+  static $pb.GeneratedMessage $_createMessage() => UrlTestRequest._();
   @$core.override
-  UrlTestRequest createEmptyInstance() => create();
-  static $pb.PbList<UrlTestRequest> createRepeated() =>
-      $pb.PbList<UrlTestRequest>();
+  UrlTestRequest createEmptyInstance() => UrlTestRequest._();
   @$core.pragma('dart2js:noInline')
-  static UrlTestRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<UrlTestRequest>(create);
+  static UrlTestRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<UrlTestRequest>(
+          UrlTestRequest.$_createMessage);
   static UrlTestRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2017,7 +2048,7 @@ class GenerateWarpConfigRequest extends $pb.GeneratedMessage {
     $core.String? accountId,
     $core.String? accessToken,
   }) {
-    final result = create();
+    final result = GenerateWarpConfigRequest._();
     if (licenseKey != null) result.licenseKey = licenseKey;
     if (accountId != null) result.accountId = accountId;
     if (accessToken != null) result.accessToken = accessToken;
@@ -2028,15 +2059,15 @@ class GenerateWarpConfigRequest extends $pb.GeneratedMessage {
 
   factory GenerateWarpConfigRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      GenerateWarpConfigRequest()..mergeFromBuffer(data, registry);
   factory GenerateWarpConfigRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      GenerateWarpConfigRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'GenerateWarpConfigRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: GenerateWarpConfigRequest.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'licenseKey')
     ..aOS(2, _omitFieldNames ? '' : 'accountId')
     ..aOS(3, _omitFieldNames ? '' : 'accessToken')
@@ -2054,14 +2085,18 @@ class GenerateWarpConfigRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use GenerateWarpConfigRequest() / GenerateWarpConfigRequest.new instead')
   static GenerateWarpConfigRequest create() => GenerateWarpConfigRequest._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      GenerateWarpConfigRequest._();
   @$core.override
-  GenerateWarpConfigRequest createEmptyInstance() => create();
-  static $pb.PbList<GenerateWarpConfigRequest> createRepeated() =>
-      $pb.PbList<GenerateWarpConfigRequest>();
+  GenerateWarpConfigRequest createEmptyInstance() =>
+      GenerateWarpConfigRequest._();
   @$core.pragma('dart2js:noInline')
   static GenerateWarpConfigRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<GenerateWarpConfigRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<GenerateWarpConfigRequest>(
+          GenerateWarpConfigRequest.$_createMessage);
   static GenerateWarpConfigRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2096,7 +2131,7 @@ class SetSystemProxyEnabledRequest extends $pb.GeneratedMessage {
   factory SetSystemProxyEnabledRequest({
     $core.bool? isEnabled,
   }) {
-    final result = create();
+    final result = SetSystemProxyEnabledRequest._();
     if (isEnabled != null) result.isEnabled = isEnabled;
     return result;
   }
@@ -2105,15 +2140,15 @@ class SetSystemProxyEnabledRequest extends $pb.GeneratedMessage {
 
   factory SetSystemProxyEnabledRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      SetSystemProxyEnabledRequest()..mergeFromBuffer(data, registry);
   factory SetSystemProxyEnabledRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      SetSystemProxyEnabledRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'SetSystemProxyEnabledRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: SetSystemProxyEnabledRequest.$_createMessage)
     ..aOB(1, _omitFieldNames ? '' : 'isEnabled')
     ..hasRequiredFields = false;
 
@@ -2130,15 +2165,19 @@ class SetSystemProxyEnabledRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use SetSystemProxyEnabledRequest() / SetSystemProxyEnabledRequest.new instead')
   static SetSystemProxyEnabledRequest create() =>
       SetSystemProxyEnabledRequest._();
+  static $pb.GeneratedMessage $_createMessage() =>
+      SetSystemProxyEnabledRequest._();
   @$core.override
-  SetSystemProxyEnabledRequest createEmptyInstance() => create();
-  static $pb.PbList<SetSystemProxyEnabledRequest> createRepeated() =>
-      $pb.PbList<SetSystemProxyEnabledRequest>();
+  SetSystemProxyEnabledRequest createEmptyInstance() =>
+      SetSystemProxyEnabledRequest._();
   @$core.pragma('dart2js:noInline')
   static SetSystemProxyEnabledRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<SetSystemProxyEnabledRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<SetSystemProxyEnabledRequest>(
+          SetSystemProxyEnabledRequest.$_createMessage);
   static SetSystemProxyEnabledRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2158,7 +2197,7 @@ class LogMessage extends $pb.GeneratedMessage {
     $core.String? message,
     $0.Timestamp? time,
   }) {
-    final result = create();
+    final result = LogMessage._();
     if (level != null) result.level = level;
     if (type != null) result.type = type;
     if (message != null) result.message = message;
@@ -2170,21 +2209,21 @@ class LogMessage extends $pb.GeneratedMessage {
 
   factory LogMessage.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      LogMessage()..mergeFromBuffer(data, registry);
   factory LogMessage.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      LogMessage()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'LogMessage',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: LogMessage.$_createMessage)
     ..aE<LogLevel>(1, _omitFieldNames ? '' : 'level',
         enumValues: LogLevel.values)
     ..aE<LogType>(2, _omitFieldNames ? '' : 'type', enumValues: LogType.values)
     ..aOS(3, _omitFieldNames ? '' : 'message')
     ..aOM<$0.Timestamp>(4, _omitFieldNames ? '' : 'time',
-        subBuilder: $0.Timestamp.create)
+        subBuilder: $0.Timestamp.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2197,13 +2236,14 @@ class LogMessage extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use LogMessage() / LogMessage.new instead')
   static LogMessage create() => LogMessage._();
+  static $pb.GeneratedMessage $_createMessage() => LogMessage._();
   @$core.override
-  LogMessage createEmptyInstance() => create();
-  static $pb.PbList<LogMessage> createRepeated() => $pb.PbList<LogMessage>();
+  LogMessage createEmptyInstance() => LogMessage._();
   @$core.pragma('dart2js:noInline')
   static LogMessage getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<LogMessage>(create);
+      $pb.GeneratedMessage.$_defaultFor<LogMessage>(LogMessage.$_createMessage);
   static LogMessage? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2249,7 +2289,7 @@ class LogRequest extends $pb.GeneratedMessage {
   factory LogRequest({
     LogLevel? level,
   }) {
-    final result = create();
+    final result = LogRequest._();
     if (level != null) result.level = level;
     return result;
   }
@@ -2258,15 +2298,15 @@ class LogRequest extends $pb.GeneratedMessage {
 
   factory LogRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      LogRequest()..mergeFromBuffer(data, registry);
   factory LogRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      LogRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'LogRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: LogRequest.$_createMessage)
     ..aE<LogLevel>(1, _omitFieldNames ? '' : 'level',
         enumValues: LogLevel.values)
     ..hasRequiredFields = false;
@@ -2281,13 +2321,14 @@ class LogRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use LogRequest() / LogRequest.new instead')
   static LogRequest create() => LogRequest._();
+  static $pb.GeneratedMessage $_createMessage() => LogRequest._();
   @$core.override
-  LogRequest createEmptyInstance() => create();
-  static $pb.PbList<LogRequest> createRepeated() => $pb.PbList<LogRequest>();
+  LogRequest createEmptyInstance() => LogRequest._();
   @$core.pragma('dart2js:noInline')
   static LogRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<LogRequest>(create);
+      $pb.GeneratedMessage.$_defaultFor<LogRequest>(LogRequest.$_createMessage);
   static LogRequest? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -2301,21 +2342,21 @@ class LogRequest extends $pb.GeneratedMessage {
 }
 
 class StopRequest extends $pb.GeneratedMessage {
-  factory StopRequest() => create();
+  factory StopRequest() => StopRequest._();
 
   StopRequest._();
 
   factory StopRequest.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      StopRequest()..mergeFromBuffer(data, registry);
   factory StopRequest.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      StopRequest()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'StopRequest',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: StopRequest.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2329,13 +2370,15 @@ class StopRequest extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use StopRequest() / StopRequest.new instead')
   static StopRequest create() => StopRequest._();
+  static $pb.GeneratedMessage $_createMessage() => StopRequest._();
   @$core.override
-  StopRequest createEmptyInstance() => create();
-  static $pb.PbList<StopRequest> createRepeated() => $pb.PbList<StopRequest>();
+  StopRequest createEmptyInstance() => StopRequest._();
   @$core.pragma('dart2js:noInline')
-  static StopRequest getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<StopRequest>(create);
+  static StopRequest getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<StopRequest>(
+          StopRequest.$_createMessage);
   static StopRequest? _defaultInstance;
 }
 
@@ -2343,7 +2386,7 @@ class LANIPResponse extends $pb.GeneratedMessage {
   factory LANIPResponse({
     $core.String? ip,
   }) {
-    final result = create();
+    final result = LANIPResponse._();
     if (ip != null) result.ip = ip;
     return result;
   }
@@ -2352,15 +2395,15 @@ class LANIPResponse extends $pb.GeneratedMessage {
 
   factory LANIPResponse.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      LANIPResponse()..mergeFromBuffer(data, registry);
   factory LANIPResponse.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      LANIPResponse()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'LANIPResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
-      createEmptyInstance: create)
+      createEmptyInstance: LANIPResponse.$_createMessage)
     ..aOS(1, _omitFieldNames ? '' : 'ip')
     ..hasRequiredFields = false;
 
@@ -2375,14 +2418,15 @@ class LANIPResponse extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use LANIPResponse() / LANIPResponse.new instead')
   static LANIPResponse create() => LANIPResponse._();
+  static $pb.GeneratedMessage $_createMessage() => LANIPResponse._();
   @$core.override
-  LANIPResponse createEmptyInstance() => create();
-  static $pb.PbList<LANIPResponse> createRepeated() =>
-      $pb.PbList<LANIPResponse>();
+  LANIPResponse createEmptyInstance() => LANIPResponse._();
   @$core.pragma('dart2js:noInline')
-  static LANIPResponse getDefault() => _defaultInstance ??=
-      $pb.GeneratedMessage.$_defaultFor<LANIPResponse>(create);
+  static LANIPResponse getDefault() =>
+      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<LANIPResponse>(
+          LANIPResponse.$_createMessage);
   static LANIPResponse? _defaultInstance;
 
   @$pb.TagNumber(1)

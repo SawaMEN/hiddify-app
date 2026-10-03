@@ -8,7 +8,7 @@
 // ignore_for_file: constant_identifier_names
 // ignore_for_file: curly_braces_in_flow_control_structures
 // ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: non_constant_identifier_names, prefer_relative_imports
 
 import 'dart:core' as $core;
 
@@ -24,7 +24,7 @@ class RouteRule extends $pb.GeneratedMessage {
   factory RouteRule({
     $core.Iterable<Rule>? rules,
   }) {
-    final result = create();
+    final result = RouteRule._();
     if (rules != null) result.rules.addAll(rules);
     return result;
   }
@@ -33,16 +33,17 @@ class RouteRule extends $pb.GeneratedMessage {
 
   factory RouteRule.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      RouteRule()..mergeFromBuffer(data, registry);
   factory RouteRule.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      RouteRule()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'RouteRule',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'config'),
-      createEmptyInstance: create)
-    ..pPM<Rule>(1, _omitFieldNames ? '' : 'rules', subBuilder: Rule.create)
+      createEmptyInstance: RouteRule.$_createMessage)
+    ..pPM<Rule>(1, _omitFieldNames ? '' : 'rules',
+        subBuilder: Rule.$_createMessage)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -55,13 +56,14 @@ class RouteRule extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use RouteRule() / RouteRule.new instead')
   static RouteRule create() => RouteRule._();
+  static $pb.GeneratedMessage $_createMessage() => RouteRule._();
   @$core.override
-  RouteRule createEmptyInstance() => create();
-  static $pb.PbList<RouteRule> createRepeated() => $pb.PbList<RouteRule>();
+  RouteRule createEmptyInstance() => RouteRule._();
   @$core.pragma('dart2js:noInline')
-  static RouteRule getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<RouteRule>(create);
+  static RouteRule getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<RouteRule>(RouteRule.$_createMessage);
   static RouteRule? _defaultInstance;
 
   @$pb.TagNumber(1)
@@ -89,7 +91,7 @@ class Rule extends $pb.GeneratedMessage {
     $core.Iterable<$core.String>? domainKeywords,
     $core.Iterable<$core.String>? domainRegexes,
   }) {
-    final result = create();
+    final result = Rule._();
     if (listOrder != null) result.listOrder = listOrder;
     if (enabled != null) result.enabled = enabled;
     if (name != null) result.name = name;
@@ -116,15 +118,15 @@ class Rule extends $pb.GeneratedMessage {
 
   factory Rule.fromBuffer($core.List<$core.int> data,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromBuffer(data, registry);
+      Rule()..mergeFromBuffer(data, registry);
   factory Rule.fromJson($core.String json,
           [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
-      create()..mergeFromJson(json, registry);
+      Rule()..mergeFromJson(json, registry);
 
   static final $pb.BuilderInfo _i = $pb.BuilderInfo(
       _omitMessageNames ? '' : 'Rule',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'config'),
-      createEmptyInstance: create)
+      createEmptyInstance: Rule.$_createMessage)
     ..aI(1, _omitFieldNames ? '' : 'list_order', fieldType: $pb.PbFieldType.OU3)
     ..aOB(2, _omitFieldNames ? '' : 'enabled')
     ..aOS(3, _omitFieldNames ? '' : 'name')
@@ -166,13 +168,14 @@ class Rule extends $pb.GeneratedMessage {
   $pb.BuilderInfo get info_ => _i;
 
   @$core.pragma('dart2js:noInline')
+  @$core.Deprecated('Use Rule() / Rule.new instead')
   static Rule create() => Rule._();
+  static $pb.GeneratedMessage $_createMessage() => Rule._();
   @$core.override
-  Rule createEmptyInstance() => create();
-  static $pb.PbList<Rule> createRepeated() => $pb.PbList<Rule>();
+  Rule createEmptyInstance() => Rule._();
   @$core.pragma('dart2js:noInline')
-  static Rule getDefault() =>
-      _defaultInstance ??= $pb.GeneratedMessage.$_defaultFor<Rule>(create);
+  static Rule getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<Rule>(Rule.$_createMessage);
   static Rule? _defaultInstance;
 
   @$pb.TagNumber(1)
