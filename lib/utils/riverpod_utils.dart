@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+export 'package:hooks_riverpod/legacy.dart' show StateProvider;
+
 extension RefLifeCycle on Ref {
   void disposeDelay(Duration duration) {
     final link = keepAlive();
