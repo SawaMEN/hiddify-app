@@ -49,6 +49,8 @@ class AddProfileNotifier extends _$AddProfileNotifier with AppLogger {
                 .read(dialogNotifierProvider.notifier)
                 .showCustomAlertFromErr(t.presentError(error, action: t.pages.profiles.msg.add.failure));
           }
+        case _:
+          break;
       }
     });
     ref.onDispose(() {
@@ -129,6 +131,8 @@ class UpdateProfileNotifier extends _$UpdateProfileNotifier with AppLogger {
           ref
               .read(dialogNotifierProvider.notifier)
               .showCustomAlertFromErr(t.presentError(error, action: t.pages.profiles.msg.update.failure));
+        case _:
+          break;
       }
     });
     return const AsyncData(null);
