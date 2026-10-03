@@ -24,9 +24,9 @@ class ConnectionButton extends HookConsumerWidget {
     final t = ref.watch(translationsProvider).requireValue;
     final connectionStatus = ref.watch(connectionNotifierProvider);
     final activeProxy = ref.watch(activeProxyNotifierProvider);
-    final delay = activeProxy.valueOrNull?.urlTestDelay ?? 0;
+    final delay = activeProxy.value?.urlTestDelay ?? 0;
 
-    final requiresReconnect = ref.watch(configOptionNotifierProvider).valueOrNull;
+    final requiresReconnect = ref.watch(configOptionNotifierProvider).value;
     final today = DateTime.now();
     // final animationController = useAnimationController(
     //   duration: const Duration(seconds: 1),
@@ -119,7 +119,7 @@ class ConnectionButton extends HookConsumerWidget {
           return await ref.read(connectionNotifierProvider.notifier).reconnect(activeProfile);
         },
         AsyncData(value: Disconnected()) || AsyncError() => () async {
-          if (ref.read(activeProfileProvider).valueOrNull == null) {
+          if (ref.read(activeProfileProvider).value == null) {
             await ref.read(dialogNotifierProvider.notifier).showNoActiveProfile();
             ref.read(bottomSheetsNotifierProvider.notifier).showAddProfile();
           }
