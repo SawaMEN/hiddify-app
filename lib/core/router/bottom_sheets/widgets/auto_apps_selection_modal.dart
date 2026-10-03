@@ -28,6 +28,7 @@ class AutoAppsSelectionModal extends HookConsumerWidget {
     final loading = ref.watch(appProxyLoadingProvider);
     final isAutoEnabled = ref.watch(Preferences.autoAppsSelectionRegion) != null;
     final updateInterval = ref.watch(Preferences.autoAppsSelectionUpdateInterval);
+    final perAppProxy = perAppProxyProvider(mode);
     final sliderFocusNode = useFocusNode(
       onKeyEvent: (node, event) {
         if (KeyboardConst.verticalArrows.contains(event.logicalKey) && event is KeyDownEvent) {
@@ -46,7 +47,7 @@ class AutoAppsSelectionModal extends HookConsumerWidget {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           await ref
               .read(appProxyLoadingProvider.notifier)
-              .doAsync(ref.read(PerAppProxyProvider(mode).notifier).applyAutoSelection);
+              .doAsync(ref.read(perAppProxy.notifier).applyAutoSelection);
         });
       }
       return null;
@@ -69,9 +70,9 @@ class AutoAppsSelectionModal extends HookConsumerWidget {
                         onChanged: (value) async {
                           final notifier = ref.read(appProxyLoadingProvider.notifier);
                           if (value) {
-                            await notifier.doAsync(ref.read(PerAppProxyProvider(mode).notifier).applyAutoSelection);
+                            await notifier.doAsync(ref.read(perAppProxy.notifier).applyAutoSelection);
                           } else {
-                            await notifier.doAsync(ref.read(PerAppProxyProvider(mode).notifier).clearAutoSelected);
+                            await notifier.doAsync(ref.read(perAppProxy.notifier).clearAutoSelected);
                             if (context.mounted) context.pop();
                           }
                         },
@@ -129,7 +130,7 @@ class AutoAppsSelectionModal extends HookConsumerWidget {
                                       : () async {
                                           await ref
                                               .read(appProxyLoadingProvider.notifier)
-                                              .doAsync(ref.read(PerAppProxyProvider(mode).notifier).applyAutoSelection);
+                                              .doAsync(ref.read(perAppProxy.notifier).applyAutoSelection);
                                         },
                                   child: Text(t.pages.settings.routing.generalOptions.perAppProxy.autoSelection.performNow),
                                 ),
@@ -141,9 +142,7 @@ class AutoAppsSelectionModal extends HookConsumerWidget {
                                     : () async {
                                         await ref
                                             .read(appProxyLoadingProvider.notifier)
-                                            .doAsync(
-                                              ref.read(PerAppProxyProvider(mode).notifier).revertForceDeselection,
-                                            );
+                                            .doAsync(ref.read(perAppProxy.notifier).revertForceDeselection);
                                       },
                                 child: Text(t.pages.settings.routing.generalOptions.perAppProxy.autoSelection.resetToDefault),
                               ),
