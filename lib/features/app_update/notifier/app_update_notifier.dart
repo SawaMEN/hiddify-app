@@ -75,7 +75,7 @@ class AppUpdateNotifier extends _$AppUpdateNotifier with AppLogger {
               return state = const AppUpdateState.notAvailable();
             } catch (error, stackTrace) {
               loggy.warning("error parsing versions", error, stackTrace);
-              return state = AppUpdateState.error(AppUpdateFailure.unexpected(error, stackTrace));
+              return state = AppUpdateState.error(AppUpdateFailure(error, stackTrace));
             }
           },
         )
