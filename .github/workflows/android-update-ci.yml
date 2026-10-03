@@ -51,6 +51,13 @@ jobs:
         timeout-minutes: 10
         run: flutter pub get
 
+      - name: Upload resolved lockfile
+        uses: actions/upload-artifact@v7
+        with:
+          name: resolved-pubspec-lock
+          path: pubspec.lock
+          retention-days: 1
+
       - name: Report outdated Dart dependencies
         continue-on-error: true
         timeout-minutes: 5
