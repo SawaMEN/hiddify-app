@@ -201,7 +201,7 @@ class RoutingOptionsPage extends HookConsumerWidget {
                               region: val.name,
                             ),
                           );
-                      await ref.read(PerAppProxyProvider(mode).notifier).clearAutoSelected();
+                      await ref.read(perAppProxyProvider(mode).notifier).clearAutoSelected();
                     }
                   },
                 ),
