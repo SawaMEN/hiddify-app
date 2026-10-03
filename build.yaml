@@ -1,6 +1,12 @@
 targets:
   $default:
     builders:
+      riverpod_generator:
+        options:
+          # Riverpod 3+ strips a trailing `Notifier` by default. Keep the
+          # existing generated provider names to avoid an application-wide
+          # API rename during the dependency upgrade.
+          provider_name_strip_pattern: "^$"
       json_serializable:
         options:
           explicit_to_json: true
