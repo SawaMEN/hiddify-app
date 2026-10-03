@@ -9,7 +9,7 @@ sealed class LogFailure with _$LogFailure, Failure {
   const LogFailure._();
 
   @With<UnexpectedFailure>()
-  const factory LogFailure.unexpected([Object? error, StackTrace? stackTrace]) = LogUnexpectedFailure;
+  const factory LogFailure([Object? error, StackTrace? stackTrace]) = LogUnexpectedFailure;
 
   @override
   ({String type, String? message}) present(TranslationsEn t) {
