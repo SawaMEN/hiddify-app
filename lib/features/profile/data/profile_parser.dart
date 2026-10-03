@@ -5,6 +5,7 @@ import 'package:dartx/dartx.dart';
 import 'package:dio/dio.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:hiddify/core/db/db.dart';
+import 'package:hiddify/core/utils/subscription_user_info.dart';
 import 'package:hiddify/core/http_client/dio_http_client.dart';
 import 'package:hiddify/features/profile/data/profile_data_mapper.dart';
 import 'package:hiddify/features/profile/model/profile_entity.dart';
@@ -203,7 +204,7 @@ class ProfileParser {
         final currentIndex = index++;
         if (currentIndex >= lines.length) return;
 
-        final line = lines[currentIndex];
+        final line = lines[currentIndex].trim();
 
         // Non-URL
         if (!line.startsWith('http://') && !line.startsWith('https://')) {
@@ -211,30 +212,32 @@ class ProfileParser {
           continue;
         }
 
+        final tempFile = File('$tempFilePath.$currentIndex');
         try {
-          final tmpPath = '$tempFilePath.$currentIndex';
-
           await httpClient.download(
             line,
-            tmpPath,
+            tempFile.path,
             cancelToken: cancelToken,
             userAgent: ref.read(ConfigOptions.useXrayCoreWhenPossible)
                 ? httpClient.userAgent.replaceAll('HiddifyNext', 'HiddifyNextX')
                 : null,
           );
 
-          results[currentIndex] = (await File(tmpPath).readAsString()).trim();
+          results[currentIndex] = (await tempFile.readAsString()).trim();
         } catch (err) {
           if (err is DioException && CancelToken.isCancel(err)) {
             return;
           }
-          results[currentIndex] = '';
+          rethrow;
+        } finally {
+          if (await tempFile.exists()) await tempFile.delete();
         }
       }
     }
 
     // Start workers
     await Future.wait(List.generate(parallelism, (_) => worker()));
+    cancelToken.throwIfCancellationRequested();
 
     if (results.any((e) => e != null)) {
       final newContent = results.join("\n");
@@ -287,11 +290,12 @@ class ProfileParser {
   }
 
   static SubscriptionInfo? _parseSubscriptionInfo(String subInfoStr) {
-    final values = subInfoStr.split(';');
-    final map = {for (final v in values) v.split('=').first.trim(): num.tryParse(v.split('=').second.trim())?.toInt()};
-    if (map case {"upload": final upload?, "download": final download?, "total": final total, "expire": var expire}) {
+    final map = parseSubscriptionUserInfo(subInfoStr);
+    if (map case {"upload": final upload?, "download": final download?}) {
+      final total = map['total'];
+      var expire = map['expire'];
       final total1 = (total == null || total == 0) ? infiniteTrafficThreshold + 1 : total;
-      expire = (expire == null || expire == 0) ? infiniteTimeThreshold : expire;
+      expire = (expire == null || expire == 0 || expire > 8_640_000_000_000) ? infiniteTimeThreshold : expire;
       return SubscriptionInfo(
         upload: upload,
         download: download,

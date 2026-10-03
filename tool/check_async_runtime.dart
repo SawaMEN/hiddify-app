@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../lib/core/utils/laststeam.dart';
 import '../lib/core/utils/single_call.dart';
+import '../lib/core/utils/subscription_user_info.dart';
 
 void check(bool condition, String message) {
   if (!condition) throw StateError(message);
@@ -18,6 +19,13 @@ Future<void> expectError<T extends Object>(Future<Object?> future) async {
 }
 
 Future<void> main() async {
+  final metadata = parseSubscriptionUserInfo(
+    'upload=12;download=34; total=0; expire=999; ; broken; total=invalid; download=-1; unknown=10',
+  );
+  check(metadata['upload'] == 12 && metadata['download'] == 34, 'Valid traffic metadata must survive malformed fields');
+  check(metadata['total'] == 0 && metadata['expire'] == 999, 'Unlimited traffic and expiry must be preserved');
+  check(!metadata.containsKey('unknown'), 'Unknown fields must be ignored');
+  check(parseSubscriptionUserInfo('upload=;download=abc;expire=-5').isEmpty, 'Invalid metadata must not crash imports');
   final events = StreamController<int>(sync: true);
   final stream = LastStream(events.stream);
   final first = stream.get();
