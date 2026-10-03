@@ -93,12 +93,41 @@ jobs:
 
       - name: Setup Android signing
         if: ${{ inputs.upload-artifact }}
+        env:
+          ANDROID_SIGNING_KEY: ${{ secrets.ANDROID_SIGNING_KEY }}
+          ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+          ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
         run: |
-          echo "${{ secrets.ANDROID_SIGNING_KEY }}" | base64 --decode > android/key.jks
-          echo "storeFile=$(pwd)/android/key.jks" > android/key.properties
-          echo "storePassword=${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}" >> android/key.properties
-          echo "keyPassword=${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}" >> android/key.properties
+          set -euo pipefail
+
+          rm -f android/key.jks android/key.properties
+
+          if [ -z "${ANDROID_SIGNING_KEY:-}" ] || \
+             [ -z "${ANDROID_SIGNING_STORE_PASSWORD:-}" ] || \
+             [ -z "${ANDROID_SIGNING_KEY_PASSWORD:-}" ] || \
+             [ -z "${ANDROID_SIGNING_KEY_ALIAS:-}" ]; then
+            echo "::warning::Android signing secrets are incomplete; using the debug signing config for this CI build."
+            exit 0
+          fi
+
+          printf '%s' "$ANDROID_SIGNING_KEY" | base64 --decode > android/key.jks
+          if [ ! -s android/key.jks ]; then
+            echo "::error::Decoded Android signing keystore is empty."
+            exit 1
+          fi
+
+          cat > android/key.properties <<EOF
+          storeFile=$(pwd)/android/key.jks
+          storePassword=${ANDROID_SIGNING_STORE_PASSWORD}
+          keyPassword=${ANDROID_SIGNING_KEY_PASSWORD}
+          keyAlias=${ANDROID_SIGNING_KEY_ALIAS}
+          EOF
+
+          keytool -list \
+            -keystore android/key.jks \
+            -storepass "$ANDROID_SIGNING_STORE_PASSWORD" \
+            -alias "$ANDROID_SIGNING_KEY_ALIAS" >/dev/null
 
       - name: Prepare Android
         run: make android-apk-prepare
