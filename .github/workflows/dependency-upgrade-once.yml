@@ -3,7 +3,7 @@ name: Dependency Upgrade Once
 on:
   push:
     branches:
-      - update-deps-2026-10-03
+      - update-file-picker-2026-10-03
 
 permissions:
   contents: write
@@ -93,5 +93,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add pubspec.lock
-          git commit -m 'chore(deps): refresh lockfile for stable major updates'
-          git push origin HEAD:update-deps-2026-10-03
+          git commit -m 'chore(deps): refresh lockfile for file_picker 13'
+          git push origin HEAD:update-file-picker-2026-10-03
