@@ -23,11 +23,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Checkout Hiddify Core 4.1.0 proto sources
+      # Keep protobuf regeneration independent from a Core API/schema migration.
+      # This is the exact Hiddify Core commit currently pinned by this app's submodule
+      # and contains the GetLANIP RPC used by the Flutter sources.
+      - name: Checkout current Hiddify Core proto schema
         uses: actions/checkout@v7
         with:
           repository: hiddify/hiddify-core
-          ref: v4.1.0
+          ref: db74dfc257d5becb4b4e9dbc7257a3dcdde20692
           path: hiddify-core
 
       - name: Setup Java 17
