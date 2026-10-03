@@ -30,26 +30,29 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
   bool _isBgClientAvailable = false;
   bool _debug = false;
 
-  late LastStream<CoreStatus> _status;
+  LastStream<CoreStatus>? _status;
+  ClientChannel? _fgChannel;
+  ClientChannel? _bgChannel;
   @override
   Future<String> setup(Directories directories, bool debug, int mode) async {
     final channelOption = [1, 2].contains(mode)
         ? MTLSChannelCredentials(serverPublicKey: serverPublicKey, clientKey: cert)
         : const ChannelCredentials.insecure();
     _debug = debug;
-    final helloClient = HelloClient(
-      ClientChannel(
-        '127.0.0.1',
-        port: portFront,
-        options: ChannelOptions(credentials: channelOption),
-      ),
+    final helloChannel = ClientChannel(
+      '127.0.0.1',
+      port: portFront,
+      options: ChannelOptions(credentials: channelOption),
     );
+    final helloClient = HelloClient(helloChannel);
+    final helloOptions = CallOptions(timeout: const Duration(seconds: 3));
     final status = statusChannel.receiveBroadcastStream().map(CoreStatus.fromEvent);
     final alerts = alertsChannel.receiveBroadcastStream().map(CoreStatus.fromEvent);
 
-    _status = LastStream(ValueConnectableStream(Rx.merge([status, alerts])).autoConnect());
+    await _status?.close();
+    _status = LastStream(Rx.merge([status, alerts]));
     try {
-      await helloClient.sayHello(HelloRequest(name: "test"));
+      await helloClient.sayHello(HelloRequest(name: "test"), options: helloOptions);
       loggy.info("core is already started!");
     } catch (e) {
       //core is not started yet
@@ -62,37 +65,26 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
         "mode": mode,
         "debug": debug,
       });
-      final res = await helloClient.sayHello(HelloRequest(name: "test"));
+      final res = await helloClient.sayHello(HelloRequest(name: "test"), options: helloOptions);
       loggy.info(res.toString());
+    } finally {
+      await helloChannel.shutdown();
     }
 
-    // serverPublicKey = await methodChannel.invokeMethod<Uint8List>("get_grpc_server_public_key") ?? Uint8List.fromList([]);
-    // await methodChannel.invokeMethod(
-    //   "add_grpc_client_public_key",
-    //   {
-    //     "clientPublicKey": ascii.encode(CryptoUtils.encodeEcPublicKeyToPem(cert.publicKey as ECPublicKey)),
-    //   },
-    // );
-    // serverPublicKey = X509Utils.x509CertificateFromPem(String.fromCharCodes(serverPublicKey));
-    // var chanelOption = ChannelOptions(
-    //   credentials: MTLSChannelCredentials(serverPublicKey: serverPublicKey, clientPrivateKey: cert.privateKey as ECPrivateKey),
-    // );
-    fgClient = CoreClient(
-      ClientChannel(
-        '127.0.0.1',
-        port: portFront,
-        options: ChannelOptions(credentials: channelOption),
-      ),
+    await _fgChannel?.shutdown();
+    await _bgChannel?.shutdown();
+    _fgChannel = ClientChannel(
+      '127.0.0.1',
+      port: portFront,
+      options: ChannelOptions(credentials: channelOption),
     );
-
-    bgClient = CoreClient(
-      ClientChannel(
-        '127.0.0.1',
-        port: portBack,
-        options: ChannelOptions(credentials: channelOption),
-      ),
+    _bgChannel = ClientChannel(
+      '127.0.0.1',
+      port: portBack,
+      options: ChannelOptions(credentials: channelOption),
     );
-    // await start("/sdcard/Android/data/app.hiddify.com/files/configs/cdc633e9-8cfc-4a67-948d-009f779a5c91.json", "hiddify");
+    fgClient = CoreClient(_fgChannel!);
+    bgClient = CoreClient(_bgChannel!);
     return "";
   }
 
@@ -100,7 +92,11 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
   Future<CoreStatus> setupBackground(String path, String name) async {
     // if (!await waitUntilPort(portBack, false, stop)) return const CoreStatus.stopped(alert: CoreAlert.createService);
     if (!await stop()) return const CoreStatus.stopped(alert: CoreAlert.createService);
-    _status.clean();
+    final status = _status;
+    if (status == null) {
+      return const CoreStatus.stopped(alert: CoreAlert.createService, message: "core is not initialized");
+    }
+    status.clean();
     await methodChannel.invokeMethod("start", {
       "path": path,
       "name": name,
@@ -109,15 +105,15 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
       "debug": _debug,
     });
 
-    _isBgClientAvailable = true;
     loggy.info("Waiting for starting core");
+    waitingForService:
     for (var i = 0; i < 20; i++) {
       try {
-        final res = await _status.get(timeout: const Duration(seconds: 1));
+        final res = await status.get(timeout: const Duration(seconds: 1));
 
         switch (res) {
           case CoreStarted():
-            break;
+            break waitingForService;
           case CoreStopped():
             if (res.alert != null) {
               return res;
@@ -127,7 +123,7 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
           // return res;
           case CoreStarting():
         }
-        await Future.delayed(const Duration(milliseconds: 200));
+        status.clean();
       } on TimeoutException {
         // just retry
       }
@@ -138,11 +134,13 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
       await stopMethodChannel();
       return const CoreStatus.stopped(alert: CoreAlert.startService, message: "starting background core...");
     }
+    _isBgClientAvailable = true;
     return const CoreStarted();
   }
 
   @override
   Future<bool> stop() async {
+    _isBgClientAvailable = false;
     await stopMethodChannel();
     if (!await waitUntilPort(portBack, false, null, maxTry: 10)) {
       return false;

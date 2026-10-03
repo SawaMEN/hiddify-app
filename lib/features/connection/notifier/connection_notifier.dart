@@ -125,14 +125,9 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   final _singleStart = SingleCall();
 
   Future<void> _connect() async {
-    _singleStart.run(
-      () async {
-        await _connectThrottled();
-      },
-      onIgnored: () {
-        loggy.debug("connect called while another connect/disconnect is still running, ignoring");
-      },
-    );
+    await _singleStart.run<void>(() async {
+      await _connectThrottled();
+    }, onIgnored: null);
   }
 
   Future<void> _connectThrottled() async {

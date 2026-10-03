@@ -120,8 +120,6 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
       loggy.info(appLifecycleState);
       if (appLifecycleState == AppLifecycleState.paused) {
         onPause(ref);
-      } else if (appLifecycleState == AppLifecycleState.inactive) {
-        onInactive(ref);
       } else if (appLifecycleState == AppLifecycleState.resumed) {
         onResume(ref);
       }
