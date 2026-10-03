@@ -1,12 +1,13 @@
 import 'package:hiddify/core/preferences/preferences_provider.dart';
 import 'package:hiddify/gen/translations.g.dart';
 import 'package:hiddify/utils/custom_loggers.dart';
-import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-part 'locale_preferences.g.dart';
+final localePreferencesProvider = NotifierProvider<LocalePreferences, AppLocale>(
+  LocalePreferences.new,
+);
 
-@Riverpod(keepAlive: true)
-class LocalePreferences extends _$LocalePreferences with AppLogger {
+class LocalePreferences extends Notifier<AppLocale> with AppLogger {
   @override
   AppLocale build() {
     final persisted = ref.watch(sharedPreferencesProvider).requireValue.getString("locale");
