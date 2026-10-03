@@ -9,7 +9,7 @@ sealed class StatsFailure with _$StatsFailure, Failure {
   const StatsFailure._();
 
   @With<UnexpectedFailure>()
-  const factory StatsFailure.unexpected([Object? error, StackTrace? stackTrace]) = StatsUnexpectedFailure;
+  const factory StatsFailure([Object? error, StackTrace? stackTrace]) = StatsUnexpectedFailure;
 
   @override
   ({String type, String? message}) present(TranslationsEn t) {
