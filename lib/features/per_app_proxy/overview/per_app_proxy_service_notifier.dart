@@ -45,7 +45,7 @@ class PerAppProxyService extends _$PerAppProxyService {
     final days = ref.read(Preferences.autoAppsSelectionUpdateInterval).round();
     final interval = Duration(days: days);
     if (mode != null && (lastUpdate == null || DateTime.now().difference(lastUpdate) > interval)) {
-      final rs = await ref.read(PerAppProxyProvider(mode).notifier).applyAutoSelection();
+      final rs = await ref.read(perAppProxyProvider(mode).notifier).applyAutoSelection();
       if (rs) {
         final t = ref.read(translationsProvider).requireValue;
         ref
