@@ -148,7 +148,7 @@ class BoxService(
             }
 
             if (Settings.startCoreAfterStartingService) {
-                Mobile.start("", "")
+                Mobile.start(selectedConfigPath, activeProfileName)
             }
 
             status.postValue(Status.Started)
@@ -284,6 +284,7 @@ class BoxService(
         runCatching { fileDescriptor?.close() }
             .onFailure { Log.w(TAG, "failed to close TUN on destroy", it) }
         fileDescriptor = null
+        notification.destroy()
         binder.close()
         serviceScope.cancel()
     }
