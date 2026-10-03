@@ -79,6 +79,8 @@ dependencies:
   humanizer: ^3.0.1
 
 dev_dependencies:
+  flag_builder:
+    path: tool/flag_builder_compat
   lint: ^2.14.0
   build_runner: ^2.16.1
   json_serializable: ^6.14.1
