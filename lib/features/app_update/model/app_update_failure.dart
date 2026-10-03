@@ -9,7 +9,7 @@ sealed class AppUpdateFailure with _$AppUpdateFailure, Failure {
   const AppUpdateFailure._();
 
   @With<UnexpectedFailure>()
-  const factory AppUpdateFailure.unexpected([Object? error, StackTrace? stackTrace]) = AppUpdateUnexpectedFailure;
+  const factory AppUpdateFailure([Object? error, StackTrace? stackTrace]) = AppUpdateUnexpectedFailure;
 
   @override
   ({String type, String? message}) present(TranslationsEn t) {
