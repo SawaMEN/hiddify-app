@@ -9,6 +9,15 @@ allprojects {
 rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
+
+    // flutter_displaymode 0.7.0 still declares compileSdk 33 internally,
+    // while its AndroidX dependencies require API 34+. Keep the workaround
+    // scoped to this plugin until the package updates its Android config.
+    if (project.name == 'flutter_displaymode') {
+        project.plugins.withId('com.android.library') {
+            project.android.compileSdk = 36
+        }
+    }
 }
 subprojects {
     project.evaluationDependsOn(':app')

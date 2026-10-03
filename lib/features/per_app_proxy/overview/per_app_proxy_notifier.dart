@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:dartx/dartx_io.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:hiddify/core/localization/translations.dart';
@@ -112,9 +111,8 @@ class PerAppProxy extends _$PerAppProxy with AppLogger {
   Future<bool> importFile() async {
     final t = ref.read(translationsProvider).requireValue;
     try {
-      final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['json']);
-      final file = File(result!.files.single.path!);
-      if (!await file.exists()) throw Exception('File does not exist: path = ${file.path}');
+      final file = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ['json']);
+      if (file == null) return false;
       final bytes = await file.readAsBytes();
       await _importJson(jsonDecode(utf8.decode(bytes)).toString());
       ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.import.success);
@@ -149,20 +147,14 @@ class PerAppProxy extends _$PerAppProxy with AppLogger {
     final t = ref.watch(translationsProvider).requireValue;
     try {
       final json = await _exportJson();
-      final bytes = utf8.encode(jsonEncode(json));
-      final outputFile = await FilePicker.platform.saveFile(
+      final bytes = Uint8List.fromList(utf8.encode(jsonEncode(json)));
+      final outputFile = await FilePicker.saveFile(
         fileName: 'per-app proxy.json',
         type: FileType.custom,
         allowedExtensions: ['json'],
         bytes: bytes,
       );
       if (outputFile == null) return false;
-      if (PlatformUtils.isDesktop) {
-        final file = File(outputFile);
-        if (file.extension != '.json') return false;
-        if (!await file.exists()) await file.parent.create(recursive: true);
-        await file.writeAsBytes(bytes);
-      }
       ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.export.file.success);
       return true;
     } catch (e, st) {

@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -42,13 +41,11 @@ class FixBtns extends ConsumerWidget {
           title: t.common.file,
           icon: Icons.insert_drive_file,
           onTap: () async {
-            final result = await FilePicker.platform.pickFiles(
+            final file = await FilePicker.pickFile(
               type: FileType.custom,
               allowedExtensions: ['txt', 'json'],
             );
-            if (result == null) return;
-            final file = File(result.files.single.path!);
-            if (!await file.exists()) return;
+            if (file == null) return;
             final bytes = await file.readAsBytes();
             final content = utf8.decode(bytes);
             ref.read(addProfileNotifierProvider.notifier).addClipboard(content);

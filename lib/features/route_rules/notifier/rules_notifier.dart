@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:dartx/dartx_io.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:hiddify/core/directories/directories_provider.dart';
@@ -69,7 +69,6 @@ class RulesNotifier extends _$RulesNotifier with AppLogger {
     await _updateFile();
   }
 
-  //export Clipboard
   Future<bool> exportJsonToClipboard() async {
     final t = ref.read(translationsProvider).requireValue;
     try {
@@ -90,7 +89,6 @@ class RulesNotifier extends _$RulesNotifier with AppLogger {
     }
   }
 
-  //import clipboard
   Future<bool> importRulesFromClipboard() async {
     final t = ref.read(translationsProvider).requireValue;
     try {
@@ -106,7 +104,6 @@ class RulesNotifier extends _$RulesNotifier with AppLogger {
     }
   }
 
-  //import deep link
   Future<bool> importRulesFromDeepLink(String encodedBase64) async {
     final t = ref.read(translationsProvider).requireValue;
     try {
@@ -127,7 +124,6 @@ class RulesNotifier extends _$RulesNotifier with AppLogger {
     }
   }
 
-  //import
   Future<bool> importRules(String encodedBase64) async {
     final t = ref.read(translationsProvider).requireValue;
     final base64Content = base64.decode(encodedBase64);
@@ -138,24 +134,17 @@ class RulesNotifier extends _$RulesNotifier with AppLogger {
     return true;
   }
 
-  //export JSON
   Future<bool> saveRulesAsJsonFile() async {
     final t = ref.read(translationsProvider).requireValue;
     try {
-      final bytes = utf8.encode(RouteRule(rules: state).writeToJson());
-      final outputFile = await FilePicker.platform.saveFile(
+      final bytes = Uint8List.fromList(utf8.encode(RouteRule(rules: state).writeToJson()));
+      final outputFile = await FilePicker.saveFile(
         fileName: 'route_rules.json',
         type: FileType.custom,
         allowedExtensions: ['json'],
         bytes: bytes,
       );
       if (outputFile == null) return false;
-      if (PlatformUtils.isDesktop) {
-        final file = File(outputFile);
-        if (file.extension != '.json') return false;
-        if (!await file.exists()) await file.parent.create(recursive: true);
-        await file.writeAsBytes(bytes);
-      }
       ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.export.file.success);
       return true;
     } catch (e, st) {
@@ -165,15 +154,12 @@ class RulesNotifier extends _$RulesNotifier with AppLogger {
     }
   }
 
-  //import JSON
   Future<bool> importRulesFromJsonFile() async {
     final t = ref.read(translationsProvider).requireValue;
     try {
-      final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['json']);
-      if (result == null) return false;
-      final file = File(result.files.single.path!);
-      if (!await file.exists()) return false;
-      final bytes = await file.readAsBytes();
+      final selectedFile = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ['json']);
+      if (selectedFile == null) return false;
+      final bytes = await selectedFile.readAsBytes();
       final routeRules = RouteRule.fromJson(utf8.decode(bytes));
       state = routeRules.rules;
       await _updateFile();

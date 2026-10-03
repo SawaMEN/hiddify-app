@@ -1,7 +1,6 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:dartx/dartx_io.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:hiddify/core/localization/translations.dart';
@@ -11,7 +10,6 @@ import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/utils/custom_loggers.dart';
-import 'package:hiddify/utils/platform_utils.dart';
 import 'package:json_path/json_path.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -92,20 +90,14 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
     try {
       final json = await _exportJson(excludePrivate);
       if (json == null) return false;
-      final bytes = utf8.encode(json);
-      final outputFile = await FilePicker.platform.saveFile(
+      final bytes = Uint8List.fromList(utf8.encode(json));
+      final outputFile = await FilePicker.saveFile(
         fileName: 'options.json',
         type: FileType.custom,
         allowedExtensions: ['json'],
         bytes: bytes,
       );
       if (outputFile == null) return false;
-      if (PlatformUtils.isDesktop) {
-        final file = File(outputFile);
-        if (file.extension != '.json') return false;
-        if (!await file.exists()) await file.parent.create(recursive: true);
-        await file.writeAsBytes(bytes);
-      }
       ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.export.file.success);
       return true;
     } catch (e, st) {
@@ -149,10 +141,8 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
   Future<bool> importFromJsonFile() async {
     final t = ref.read(translationsProvider).requireValue;
     try {
-      final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['json']);
-      if (result == null) return false;
-      final file = File(result.files.single.path!);
-      if (!await file.exists()) return false;
+      final file = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ['json']);
+      if (file == null) return false;
       final bytes = await file.readAsBytes();
       await _importJson(utf8.decode(bytes));
       ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.import.success);
