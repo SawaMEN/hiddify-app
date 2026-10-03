@@ -3,7 +3,7 @@ name: Dependency Upgrade Once
 on:
   push:
     branches:
-      - update-toolchain-2026-10-03
+      - update-deps-2026-10-03
 
 permissions:
   contents: write
@@ -63,7 +63,7 @@ jobs:
       - name: Install build dependencies
         run: make android-apk-install-deps
 
-      - name: Upgrade compatible Dart dependencies
+      - name: Upgrade dependency lockfile
         run: flutter pub upgrade
 
       - name: Generate translations
@@ -83,15 +83,15 @@ jobs:
           SENTRY_DSN: ''
         run: flutter build apk --release --target=lib/main.dart --target-platform android-arm64
 
-      - name: Commit compatible dependency updates
+      - name: Commit dependency lockfile
         shell: bash
         run: |
           if git diff --quiet -- pubspec.lock; then
-            echo 'No compatible dependency updates'
+            echo 'No lockfile changes'
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add pubspec.lock
-          git commit -m 'chore(deps): refresh compatible Flutter dependencies'
-          git push origin HEAD:update-toolchain-2026-10-03
+          git commit -m 'chore(deps): refresh lockfile for stable major updates'
+          git push origin HEAD:update-deps-2026-10-03
