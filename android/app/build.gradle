@@ -24,7 +24,7 @@ def localProperties = new Properties()
 def localPropertiesFile = rootProject.file('local.properties')
 if (localPropertiesFile.exists()) {
     localPropertiesFile.withReader('UTF-8') { reader ->
-        localProperties.load(reader)
+        localProperties.load(it) }
     }
 }
 
@@ -53,7 +53,7 @@ def flutterVersionName = localProperties.getProperty('flutter.versionName') ?: '
 android {
     namespace 'com.hiddify.hiddify'
     testNamespace "test.com.hiddify.hiddify"
-    compileSdkVersion 36
+    compileSdkVersion 37
     ndkVersion "28.2.13676358"
 
     compileOptions {
