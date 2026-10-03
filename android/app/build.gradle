@@ -3,7 +3,7 @@ plugins {
     id "org.jetbrains.kotlin.android" 
     id "dev.flutter.flutter-gradle-plugin" 
     id "com.google.protobuf" version "0.10.0" 
-    id "com.squareup.wire" version "5.3.3"
+    id "com.squareup.wire" version "7.1.0"
 }
 
 wire {
@@ -138,7 +138,7 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.8.0'
     implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.11.0'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0'
-    implementation("com.squareup.wire:wire-grpc-client:5.3.3")
+    implementation("com.squareup.wire:wire-grpc-client:7.1.0")
 
     implementation 'io.grpc:grpc-okhttp:1.84.0'
     implementation 'io.grpc:grpc-protobuf-lite:1.84.0'
