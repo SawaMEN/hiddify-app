@@ -87,9 +87,7 @@ jobs:
             gradle-${{ runner.os }}-
 
       - name: Install build dependencies
-        run: |
-          make android-apk-install-deps
-          echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+        run: make android-apk-install-deps
 
       - name: Setup Android signing
         if: ${{ inputs.upload-artifact }}
@@ -158,13 +156,11 @@ jobs:
         env:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         run: |
-          fastforge package \
-            --platform android \
-            --targets apk \
-            --skip-clean \
-            --build-target="${BUILD_TARGET}" \
-            --build-target-platform=android-arm64 \
-            --build-dart-define=sentry_dsn="${SENTRY_DSN}"
+          flutter build apk \
+            --release \
+            --target="${BUILD_TARGET}" \
+            --target-platform android-arm64 \
+            --dart-define=sentry_dsn="${SENTRY_DSN}"
 
       - name: Collect and verify ARM64 APK
         run: |
