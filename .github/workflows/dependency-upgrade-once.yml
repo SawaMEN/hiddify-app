@@ -1,15 +1,15 @@
-name: Dependency Upgrade Once
+name: Staged Dependency Refresh
 
 on:
   push:
     branches:
-      - update-file-picker-2026-10-03
+      - update-all-2026-10-04
 
 permissions:
   contents: write
 
 concurrency:
-  group: dependency-upgrade-once-${{ github.ref }}
+  group: dependency-refresh-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -63,7 +63,11 @@ jobs:
       - name: Install build dependencies
         run: make android-apk-install-deps
 
-      - name: Upgrade dependency lockfile
+      - name: Report outdated Dart dependencies
+        continue-on-error: true
+        run: flutter pub outdated
+
+      - name: Upgrade compatible Dart dependencies
         run: flutter pub upgrade
 
       - name: Generate translations
@@ -83,15 +87,15 @@ jobs:
           SENTRY_DSN: ''
         run: flutter build apk --release --target=lib/main.dart --target-platform android-arm64
 
-      - name: Commit dependency lockfile
+      - name: Commit compatible dependency updates
         shell: bash
         run: |
           if git diff --quiet -- pubspec.lock; then
-            echo 'No lockfile changes'
+            echo 'No compatible dependency updates'
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add pubspec.lock
-          git commit -m 'chore(deps): refresh lockfile for file_picker 13'
-          git push origin HEAD:update-file-picker-2026-10-03
+          git commit -m 'chore(deps): refresh compatible dependency lockfile'
+          git push origin HEAD:update-all-2026-10-04
