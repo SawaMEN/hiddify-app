@@ -16,10 +16,10 @@ class ActiveProxyFooter extends ConsumerWidget with InfraLogger {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final connectionState = ref.watch(
-      connectionNotifierProvider.select((value) => value.valueOrNull ?? const Disconnected()),
+      connectionNotifierProvider.select((value) => value.value ?? const Disconnected()),
     );
 
-    final activeProxy = ref.watch(activeProxyNotifierProvider.select((value) => value.valueOrNull));
+    final activeProxy = ref.watch(activeProxyNotifierProvider.select((value) => value.value));
     final t = ref.watch(translationsProvider).requireValue;
 
     // Early return if required data is not available
