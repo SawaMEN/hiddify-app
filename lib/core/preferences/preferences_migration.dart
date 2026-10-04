@@ -9,11 +9,12 @@ class PreferencesMigration with InfraLogger {
   static const versionKey = "preferences_version";
 
   Future<void> migrate() async {
-    final currentVersion = sharedPreferences.getInt(versionKey) ?? 0;
+    final storedVersion = sharedPreferences.get(versionKey);
+    final currentVersion = storedVersion is int && storedVersion >= 0 ? storedVersion : 0;
 
     final migrationSteps = [PreferencesVersion1Migration(sharedPreferences)];
 
-    if (currentVersion == migrationSteps.length) {
+    if (currentVersion >= migrationSteps.length) {
       loggy.debug("already using the latest version (v$currentVersion)");
       return;
     }
@@ -43,7 +44,7 @@ class PreferencesVersion1Migration extends PreferencesMigrationStep with InfraLo
 
   @override
   Future<void> migrate() async {
-    if (sharedPreferences.getString("service-mode") case final String serviceMode) {
+    if (sharedPreferences.get("service-mode") case final String serviceMode) {
       final newMode = switch (serviceMode) {
         "proxy" || "system-proxy" || "vpn" => serviceMode,
         "systemProxy" => "system-proxy",
@@ -54,12 +55,12 @@ class PreferencesVersion1Migration extends PreferencesMigrationStep with InfraLo
       await sharedPreferences.setString("service-mode", newMode);
     }
 
-    if (sharedPreferences.getString("ipv6-mode") case final String ipv6Mode) {
+    if (sharedPreferences.get("ipv6-mode") case final String ipv6Mode) {
       loggy.debug("changing ipv6-mode from [$ipv6Mode] to [${_ipv6Mapper(ipv6Mode)}]");
       await sharedPreferences.setString("ipv6-mode", _ipv6Mapper(ipv6Mode));
     }
 
-    if (sharedPreferences.getString("remote-domain-dns-strategy") case final String remoteDomainStrategy) {
+    if (sharedPreferences.get("remote-domain-dns-strategy") case final String remoteDomainStrategy) {
       loggy.debug(
         "changing [remote-domain-dns-strategy] = [$remoteDomainStrategy] to [remote-dns-domain-strategy] = [${_domainStrategyMapper(remoteDomainStrategy)}]",
       );
@@ -67,7 +68,7 @@ class PreferencesVersion1Migration extends PreferencesMigrationStep with InfraLo
       await sharedPreferences.setString("remote-dns-domain-strategy", _domainStrategyMapper(remoteDomainStrategy));
     }
 
-    if (sharedPreferences.getString("direct-domain-dns-strategy") case final String directDomainStrategy) {
+    if (sharedPreferences.get("direct-domain-dns-strategy") case final String directDomainStrategy) {
       loggy.debug(
         "changing [direct-domain-dns-strategy] = [$directDomainStrategy] to [direct-dns-domain-strategy] = [${_domainStrategyMapper(directDomainStrategy)}]",
       );
@@ -75,7 +76,7 @@ class PreferencesVersion1Migration extends PreferencesMigrationStep with InfraLo
       await sharedPreferences.setString("direct-dns-domain-strategy", _domainStrategyMapper(directDomainStrategy));
     }
 
-    if (sharedPreferences.getInt("localDns-port") case final int directPort) {
+    if (sharedPreferences.get("localDns-port") case final int directPort) {
       loggy.debug("changing [localDns-port] to [direct-port]");
       await sharedPreferences.remove("localDns-port");
       await sharedPreferences.setInt("direct-port", directPort);
@@ -89,7 +90,7 @@ class PreferencesVersion1Migration extends PreferencesMigrationStep with InfraLo
   }
 
   String _ipv6Mapper(String persisted) => switch (persisted) {
-    "ipv4_only" || "prefer_ipv4" || "prefer_ipv4" || "ipv6_only" => persisted,
+    "ipv4_only" || "prefer_ipv4" || "prefer_ipv6" || "ipv6_only" => persisted,
     "disable" => "ipv4_only",
     "enable" => "prefer_ipv4",
     "prefer" => "prefer_ipv6",
@@ -98,7 +99,7 @@ class PreferencesVersion1Migration extends PreferencesMigrationStep with InfraLo
   };
 
   String _domainStrategyMapper(String persisted) => switch (persisted) {
-    "ipv4_only" || "prefer_ipv4" || "prefer_ipv4" || "ipv6_only" => persisted,
+    "ipv4_only" || "prefer_ipv4" || "prefer_ipv6" || "ipv6_only" => persisted,
     "auto" => "",
     "preferIpv6" => "prefer_ipv6",
     "preferIpv4" => "prefer_ipv4",
