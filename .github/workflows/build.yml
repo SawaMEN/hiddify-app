@@ -191,12 +191,12 @@ jobs:
           ls -lh out/
 
       - name: Upload artifact
-        if: ${{ inputs.upload-artifact }}
+        if: ${{ inputs.upload-artifact || github.event_name == 'pull_request' }}
         uses: actions/upload-artifact@v7
         with:
           name: android-arm64-v8a
           path: ./out/${{ env.APK_NAME }}
-          retention-days: 1
+          retention-days: 7
 
   update-draft:
     if: ${{ inputs.upload-artifact && inputs.tag-name == 'draft' }}
