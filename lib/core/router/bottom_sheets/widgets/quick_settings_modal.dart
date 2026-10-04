@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/features/chain/overview/chain_quick_settings.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';

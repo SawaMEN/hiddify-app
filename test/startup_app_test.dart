@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hiddify/features/app/widget/startup_app.dart';
 import 'package:hiddify/features/profile/model/profile_entity.dart';

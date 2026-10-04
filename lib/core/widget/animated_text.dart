@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hiddify/core/model/constants.dart';
 
 class AnimatedText extends Text {

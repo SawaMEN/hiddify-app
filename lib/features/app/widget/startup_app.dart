@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Render startup and failures before plugin and storage initialization finishes.
 class StartupApp extends StatelessWidget {

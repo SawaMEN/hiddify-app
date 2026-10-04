@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class ConnectionButtonTheme extends ThemeExtension<ConnectionButtonTheme> {
   const ConnectionButtonTheme({this.idleColor, this.connectedColor});

@@ -22,7 +22,7 @@ on:
 env:
   IS_GITHUB_ACTIONS: 1
   CHANNEL: "${{ inputs.channel }}"
-  FLUTTER_VERSION: '3.47.5'
+  FLUTTER_VERSION: '3.47.6'
   BUILD_TARGET: "${{ inputs.channel == 'prod' && 'lib/main_prod.dart' || 'lib/main.dart' }}"
   APK_NAME: "${{ inputs.channel == 'dev' && 'Hiddify-Android-arm64-v8a-dev.apk' || 'Hiddify-Android-arm64-v8a.apk' }}"
 
@@ -34,7 +34,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2.23.0
@@ -46,7 +46,7 @@ jobs:
           cache: true
 
       - name: Cache generated Dart state
-        uses: actions/cache@v6
+        uses: actions/cache@v6.1.0
         with:
           path: |
             .dart_tool/build
@@ -75,7 +75,7 @@ jobs:
 
       - name: Upload Dart analyzer log
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: dart-analyze-log
           path: analyze.log
@@ -92,7 +92,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2.23.0
@@ -104,7 +104,7 @@ jobs:
           cache: true
 
       - name: Cache generated Dart state
-        uses: actions/cache@v6
+        uses: actions/cache@v6.1.0
         with:
           path: |
             .dart_tool/build
@@ -128,7 +128,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
+        with:
+          submodules: recursive
+
+      - name: Setup Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: hiddify-core/go.mod
+          cache-dependency-path: |
+            hiddify-core/go.sum
+            hiddify-core/hiddify-sing-box/go.sum
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2.23.0
@@ -166,16 +176,16 @@ jobs:
           PY
 
       - name: Setup Java
-        uses: actions/setup-java@v6
+        uses: actions/setup-java@v6.0.1
         with:
           distribution: zulu
           java-version: 17
 
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6.4.0
 
       - name: Cache generated Dart state
-        uses: actions/cache@v6
+        uses: actions/cache@v6.1.0
         with:
           path: |
             .dart_tool/build
@@ -224,32 +234,19 @@ jobs:
             -storepass "$ANDROID_SIGNING_STORE_PASSWORD" \
             -alias "$ANDROID_SIGNING_KEY_ALIAS" >/dev/null
 
-      - name: Prepare Android and toolchain in parallel
+      - name: Install Android native toolchain
         shell: bash
         run: |
           set -euo pipefail
-
           SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           if [ ! -x "$SDKMANAGER" ]; then
             SDKMANAGER="$(command -v sdkmanager)"
           fi
+          "$SDKMANAGER" "ndk;30.0.16248370" "platforms;android-24" "platforms;android-37.0" "build-tools;37.0.0"
+          echo "ANDROID_NDK_HOME=${ANDROID_HOME}/ndk/30.0.16248370" >> "$GITHUB_ENV"
 
-          "$SDKMANAGER" "ndk;30.0.16248370" "cmake;3.22.1" > /tmp/android-sdk-install.log 2>&1 &
-          sdk_pid=$!
-
-          prepare_status=0
-          make android-apk-prepare || prepare_status=$?
-
-          sdk_status=0
-          wait "$sdk_pid" || sdk_status=$?
-
-          if [ "$sdk_status" -ne 0 ]; then
-            cat /tmp/android-sdk-install.log
-            exit "$sdk_status"
-          fi
-          if [ "$prepare_status" -ne 0 ]; then
-            exit "$prepare_status"
-          fi
+      - name: Generate app sources and build the pinned core
+        run: make android-apk-prepare
 
       - name: Build Android ARM64 APK
         env:
@@ -288,10 +285,18 @@ jobs:
 
       - name: Upload artifact
         if: ${{ inputs.upload-artifact || github.event_name == 'pull_request' }}
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: android-arm64-v8a
           path: ./out/${{ env.APK_NAME }}
+          retention-days: 7
+
+      - name: Upload core provenance
+        if: ${{ inputs.upload-artifact || github.event_name == 'pull_request' }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: android-core-provenance
+          path: android/app/libs/hiddify-core.provenance.json
           retention-days: 7
 
   update-draft:
@@ -314,12 +319,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       - name: Download ARM64 artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: android-arm64-v8a
           path: ./out
@@ -337,7 +342,7 @@ jobs:
           sed 's|RELEASE_TAG|draft|g' ./.github/release_message.md > release.md
 
       - name: Create or update draft release
-        uses: softprops/action-gh-release@v3.0.2
+        uses: softprops/action-gh-release@v3.0.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -367,10 +372,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7.0.1
 
       - name: Download ARM64 artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v8.0.1
         with:
           name: android-arm64-v8a
           path: ./out
@@ -386,7 +391,7 @@ jobs:
           sed 's|RELEASE_TAG|${{ inputs.tag-name }}|g' ./.github/release_message.md > release.md
 
       - name: Upload release
-        uses: softprops/action-gh-release@v3.0.2
+        uses: softprops/action-gh-release@v3.0.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
