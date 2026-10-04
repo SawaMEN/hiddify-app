@@ -67,20 +67,28 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         deferred.await()
     }
 
-    fun cancelPendingStart(message: String? = null) {
+    /**
+     * Invalidates the current permission/start request. Returns true when startForegroundService
+     * had already been issued, so the caller must also account for a service that is about to
+     * transition from Stopped to Starting.
+     */
+    fun cancelPendingStart(message: String? = null): Boolean {
         val hadPending = pendingStart != null
-        cancelPendingStartInternal()
+        val wasIssued = cancelPendingStartInternal()
         if (hadPending && message != null) {
             onServiceAlert(Alert.StartService, message)
         }
+        return wasIssued
     }
 
-    private fun cancelPendingStartInternal() {
+    private fun cancelPendingStartInternal(): Boolean {
+        val wasIssued = serviceStartIssued
         startGeneration++
         pendingStartGeneration = startGeneration
         serviceStartIssued = false
         pendingStart?.complete(false)
         pendingStart = null
+        return wasIssued
     }
 
     private fun isCurrentStart(generation: Long): Boolean =
