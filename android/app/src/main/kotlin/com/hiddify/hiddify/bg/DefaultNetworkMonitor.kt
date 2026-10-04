@@ -9,6 +9,7 @@ import java.net.NetworkInterface
 object DefaultNetworkMonitor {
 
     var defaultNetwork: Network? = null
+    private val listenerLock = Any()
     private var listener: InterfaceUpdateListener? = null
 
     suspend fun start() {
@@ -24,9 +25,12 @@ object DefaultNetworkMonitor {
     }
 
     suspend fun stop() {
-        // The listener belongs to the current gomobile core instance. Clear it before
-        // unregistering network callbacks so a reconnect can never call a stale Go ref.
-        listener = null
+        // A gomobile listener is valid only while its owning core is alive. Do not merely
+        // clear the field: synchronize with an already-running callback so stop() cannot
+        // return while that callback is still invoking the old Go reference.
+        synchronized(listenerLock) {
+            listener = null
+        }
         DefaultNetworkListener.stop(this)
         defaultNetwork = null
     }
@@ -39,15 +43,16 @@ object DefaultNetworkMonitor {
         return DefaultNetworkListener.get()
     }
 
-    fun setListener(listener: InterfaceUpdateListener?) {
-        this.listener = listener
+    fun setListener(newListener: InterfaceUpdateListener?) {
+        synchronized(listenerLock) {
+            listener = newListener
+        }
         checkDefaultInterfaceUpdate(defaultNetwork)
     }
 
     private fun checkDefaultInterfaceUpdate(newNetwork: Network?) {
-        val listener = listener ?: return
         if (newNetwork == null) {
-            listener.updateDefaultInterface("", -1, false, false)
+            notifyListener("", -1)
             return
         }
 
@@ -62,10 +67,16 @@ object DefaultNetworkMonitor {
             }
 
             if (interfaceIndex >= 0) {
-                listener.updateDefaultInterface(interfaceName, interfaceIndex, false, false)
+                notifyListener(interfaceName, interfaceIndex)
                 return
             }
             Thread.sleep(100)
+        }
+    }
+
+    private fun notifyListener(interfaceName: String, interfaceIndex: Int) {
+        synchronized(listenerLock) {
+            listener?.updateDefaultInterface(interfaceName, interfaceIndex, false, false)
         }
     }
 }
