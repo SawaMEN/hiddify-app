@@ -8,13 +8,12 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import com.hiddify.core.libbox.ExchangeContext
 import com.hiddify.core.libbox.LocalDNSTransport
-import com.hiddify.hiddify.ktx.tryResume
-import com.hiddify.hiddify.ktx.tryResumeWithException
 import java.net.InetAddress
 import java.net.UnknownHostException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.runBlocking
+import kotlin.coroutines.Continuation
 import kotlin.coroutines.suspendCoroutine
 
 object LocalResolver : LocalDNSTransport {
@@ -24,12 +23,30 @@ object LocalResolver : LocalDNSTransport {
 
     override fun raw(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 
+    private fun Continuation<Unit>.resumeSuccessSafely() {
+        runCatching { resumeWith(Result.success(Unit)) }
+            .onFailure { error ->
+                if (error !is IllegalStateException) {
+                    Log.w(TAG, "failed to resume DNS continuation", error)
+                }
+            }
+    }
+
+    private fun Continuation<Unit>.resumeFailureSafely(error: Throwable) {
+        runCatching { resumeWith(Result.failure(error)) }
+            .onFailure { resumeError ->
+                if (resumeError !is IllegalStateException) {
+                    Log.w(TAG, "failed to resume DNS continuation with error", resumeError)
+                }
+            }
+    }
+
     @RequiresApi(Build.VERSION_CODES.Q)
     override fun exchange(ctx: ExchangeContext, message: ByteArray) {
         try {
             runBlocking {
                 val defaultNetwork = DefaultNetworkMonitor.require()
-                suspendCoroutine { continuation ->
+                suspendCoroutine<Unit> { continuation ->
                     val signal = CancellationSignal()
                     runCatching { ctx.onCancel(signal::cancel) }
                     val callback = object : DnsResolver.Callback<ByteArray> {
@@ -37,7 +54,7 @@ object LocalResolver : LocalDNSTransport {
                             runCatching {
                                 if (rcode == 0) ctx.rawSuccess(answer) else ctx.errorCode(rcode)
                             }.onFailure { Log.w(TAG, "failed to return raw DNS answer to core", it) }
-                            continuation.tryResume(Unit)
+                            continuation.resumeSuccessSafely()
                         }
 
                         override fun onError(error: DnsResolver.DnsException) {
@@ -45,9 +62,9 @@ object LocalResolver : LocalDNSTransport {
                                 is ErrnoException -> {
                                     runCatching { ctx.errnoCode(cause.errno) }
                                         .onFailure { Log.w(TAG, "failed to return DNS errno to core", it) }
-                                    continuation.tryResume(Unit)
+                                    continuation.resumeSuccessSafely()
                                 }
-                                else -> continuation.tryResumeWithException(error)
+                                else -> continuation.resumeFailureSafely(error)
                             }
                         }
                     }
@@ -62,7 +79,7 @@ object LocalResolver : LocalDNSTransport {
                         )
                     } catch (e: Exception) {
                         signal.cancel()
-                        continuation.tryResumeWithException(e)
+                        continuation.resumeFailureSafely(e)
                     }
                 }
             }
@@ -104,7 +121,7 @@ object LocalResolver : LocalDNSTransport {
         network: String,
         domain: String,
     ) {
-        suspendCoroutine { continuation ->
+        suspendCoroutine<Unit> { continuation ->
             val signal = CancellationSignal()
             runCatching { ctx.onCancel(signal::cancel) }
             val callback = object : DnsResolver.Callback<Collection<InetAddress>> {
@@ -116,7 +133,7 @@ object LocalResolver : LocalDNSTransport {
                             ctx.errorCode(rcode)
                         }
                     }.onFailure { Log.w(TAG, "failed to return DNS answer to core", it) }
-                    continuation.tryResume(Unit)
+                    continuation.resumeSuccessSafely()
                 }
 
                 override fun onError(error: DnsResolver.DnsException) {
@@ -124,9 +141,9 @@ object LocalResolver : LocalDNSTransport {
                         is ErrnoException -> {
                             runCatching { ctx.errnoCode(cause.errno) }
                                 .onFailure { Log.w(TAG, "failed to return DNS errno to core", it) }
-                            continuation.tryResume(Unit)
+                            continuation.resumeSuccessSafely()
                         }
-                        else -> continuation.tryResumeWithException(error)
+                        else -> continuation.resumeFailureSafely(error)
                     }
                 }
             }
@@ -159,7 +176,7 @@ object LocalResolver : LocalDNSTransport {
                 }
             } catch (e: Exception) {
                 signal.cancel()
-                continuation.tryResumeWithException(e)
+                continuation.resumeFailureSafely(e)
             }
         }
     }
