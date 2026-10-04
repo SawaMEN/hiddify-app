@@ -4,51 +4,57 @@ import 'package:hiddify/utils/validators.dart';
 
 typedef ProfileLink = ({String url, String name});
 
-// TODO: test and improve
 abstract class LinkParser {
   static String generateSubShareLink(String url, [String? name]) {
-    final uri = Uri.tryParse(url);
+    final uri = Uri.tryParse(url.trim());
     if (uri == null) return '';
-    final modifiedUri = Uri(
-      scheme: uri.scheme,
-      host: uri.host,
-      path: uri.path,
-      query: uri.query,
-      fragment: name ?? uri.fragment,
-    );
-    // return 'hiddify://import/$modifiedUri';
-    return '$modifiedUri';
+
+    // Uri.replace preserves authority details such as non-standard ports,
+    // credentials and IPv6 formatting while only changing the profile name.
+    return uri.replace(fragment: name ?? uri.fragment).toString();
   }
 
-  // protocols schemas
-  static const protocols = ['hiddify', 'v2ray', 'v2rayn', 'v2rayng', 'clash', 'clashmeta', 'sing-box'];
+  // Deep-link wrappers accepted by Hiddify for subscription imports.
+  static const Set<String> protocols = {
+    'hiddify',
+    'v2ray',
+    'v2rayn',
+    'v2rayng',
+    'clash',
+    'clashmeta',
+    'sing-box',
+  };
 
   static ProfileLink? parse(String link) {
-    return simple(link) ?? deep(link);
+    final normalized = link.trim();
+    if (normalized.isEmpty) return null;
+    return simple(normalized) ?? deep(normalized);
   }
 
   static ProfileLink? simple(String link) {
-    if (!isUrl(link)) return null;
-    final uri = Uri.parse(link.trim());
+    final normalized = link.trim();
+    if (!isUrl(normalized)) return null;
+    final uri = Uri.parse(normalized);
     return (url: uri.toString(), name: uri.queryParameters['name'] ?? '');
   }
 
   static ProfileLink? deep(String link) {
     final uri = Uri.tryParse(link.trim());
     if (uri == null || !uri.hasScheme || !uri.hasAuthority) return null;
+
+    final scheme = uri.scheme.toLowerCase();
+    if (!protocols.contains(scheme)) return null;
+
     final queryParams = uri.queryParameters;
-    switch (uri.scheme) {
-      case 'hiddify':
-        if (queryParams.containsKey('url')) {
-          return (url: queryParams['url']!, name: queryParams['name'] ?? '');
-        } else {
-          return (url: uri.path.substring(1) + (uri.hasQuery ? "?${uri.query}" : ""), name: uri.fragment);
-        }
-      case 'v2ray' || 'v2rayn' || 'v2rayng' || 'clash' || 'clashmeta' || 'sing-box':
-        return queryParams.containsKey('url') ? (url: queryParams['url']!, name: queryParams['name'] ?? '') : null;
-      default:
-        return null;
+    if (scheme == 'hiddify') {
+      if (queryParams.containsKey('url')) {
+        return (url: queryParams['url']!, name: queryParams['name'] ?? '');
+      }
+      if (uri.path.length <= 1) return null;
+      return (url: uri.path.substring(1) + (uri.hasQuery ? '?${uri.query}' : ''), name: uri.fragment);
     }
+
+    return queryParams.containsKey('url') ? (url: queryParams['url']!, name: queryParams['name'] ?? '') : null;
   }
 }
 
