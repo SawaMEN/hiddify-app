@@ -29,7 +29,7 @@ class PerAppProxy extends _$PerAppProxy with AppLogger {
   @override
   Stream<Map<String, int>> build(AppProxyMode? mode) {
     _mode = mode;
-    if (_mode == null) return Stream.value({});
+    if (mode == null) return Stream.value({});
     final dataSource = ref.watch(appProxyDataSourceProvider);
     final appsInfo = InstalledApps.getInstalledApps(false);
     return Stream.fromFuture(appsInfo).asyncExpand((appsInfo) {

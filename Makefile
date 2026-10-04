@@ -40,7 +40,7 @@ android-libs:
 	  curl --fail --location --retry 3 --connect-timeout 30 \
 	    --output "$$archive" "$(CORE_URL)/$(CORE_NAME)-android.tar.gz"; \
 	  printf '%s  %s\n' "$(core.android.sha256)" "$$archive" | sha256sum --check --status; \
-	  tar --no-same-owner xzf "$$archive" -C $(ANDROID_OUT)/
+	  tar --no-same-owner -xzf "$$archive" -C $(ANDROID_OUT)/
 
 android-apk-libs: android-libs
 

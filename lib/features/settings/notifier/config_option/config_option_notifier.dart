@@ -23,34 +23,47 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
     ref.onDispose(() => _updateTimer?.cancel());
     ref.listen(ConfigOptions.singboxConfigOptions, (previous, next) {
       if (previous == null || next == previous) return;
-      _updateTimer?.cancel();
-      _updateTimer = Timer(const Duration(milliseconds: 300), () {
-        unawaited(
-          _applyOptions().catchError((Object error, StackTrace stackTrace) {
-            loggy.warning('Unable to apply changed options', error, stackTrace);
-          }),
-        );
-      });
+      _desiredRevision++;
+      _scheduleUpdate();
+    });
+    ref.listen(serviceRunningProvider, (_, running) {
+      if (running && _desiredRevision > _appliedRevision) _scheduleUpdate();
     });
     return false;
   }
 
   Timer? _updateTimer;
+  int _desiredRevision = 0;
+  int _appliedRevision = 0;
+  Future<void> _updates = Future<void>.value();
+
+  void _scheduleUpdate() {
+    _updateTimer?.cancel();
+    _updateTimer = Timer(const Duration(milliseconds: 300), () {
+      _updates = _updates.then((_) => _applyOptions()).catchError((Object error, StackTrace stackTrace) {
+        loggy.warning('Unable to apply changed options', error, stackTrace);
+      });
+    });
+  }
 
   Future<void> _applyOptions() async {
-    if (!ref.mounted || !ref.read(serviceRunningProvider)) return;
+    if (!ref.mounted || !ref.read(serviceRunningProvider) || _desiredRevision <= _appliedRevision) return;
+    final revision = _desiredRevision;
     final repository = ref.read(connectionRepositoryProvider);
     final options = ref.read(ConfigOptions.singboxConfigOptions);
     final snapshot = repository.configOptionsSnapshot;
-    if (snapshot == options) return;
     final activeProfile = await ref.read(activeProfileProvider.future);
     if (!ref.mounted) return;
     final notifier = ref.read(connectionNotifierProvider.notifier);
+    // Mark this attempt before restarting; the running-status listener must not
+    // schedule it again merely because profile overrides differ from global options.
+    _appliedRevision = revision;
     if (snapshot?.enableTun != options.enableTun) {
       await notifier.reconnectService(activeProfile);
     } else {
       await notifier.reconnect(activeProfile);
     }
+    if (ref.mounted && _desiredRevision > revision) _scheduleUpdate();
   }
 
   Future<String?> _exportJson(bool excludePrivate) async {

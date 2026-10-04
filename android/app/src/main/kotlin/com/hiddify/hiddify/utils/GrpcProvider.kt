@@ -48,10 +48,18 @@ object GrpcClientProvider {
         .writeTimeout(10, TimeUnit.SECONDS)
         .build()
 
-    val grpcClient: GrpcClient = GrpcClient.Builder()
-        .client(okHttpClient)
-        .baseUrl("http://127.0.0.1:${Settings.grpcServiceModePort}")
-        .build()
+    private var cachedPort = -1
+    private var cachedClient: GrpcClient? = null
+    val grpcClient: GrpcClient
+        @Synchronized get() {
+            val port = Settings.grpcServiceModePort
+            if (cachedClient == null || cachedPort != port) {
+                cachedClient = GrpcClient.Builder().client(okHttpClient)
+                    .baseUrl("http://127.0.0.1:$port").build()
+                cachedPort = port
+            }
+            return cachedClient!!
+        }
 
 
     private fun socketFactoryAndTrustManager(): Pair<SSLSocketFactory, X509TrustManager> {
