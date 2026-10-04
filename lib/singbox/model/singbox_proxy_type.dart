@@ -25,6 +25,7 @@ enum ProxyType {
   vless("VLESS"),
   tuic("TUIC"),
   hysteria2("Hysteria2"),
+  mieru("Mieru"),
   openconnect("OpenConnect"),
   openvpnClient("OpenVPN Client", "openvpn-client"),
   openvpnServer("OpenVPN Server", "openvpn-server"),
