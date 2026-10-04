@@ -40,14 +40,25 @@ class HiddifyCoreService with InfraLogger {
   List<OutboundGroup> latest = [];
   List<LogMessage> logBuffer = [];
 
+  static final Object _lifecycleZoneKey = Object();
   Future<void> _lifecycleTail = Future<void>.value();
   Future<Either<String, Unit>>? _setupPending;
 
   Future<T> _enqueueLifecycle<T>(Future<T> Function() operation) {
-    final next = _lifecycleTail.then((_) => operation());
+    // Higher-level operations (connect, profile validation) can hold the same queue while
+    // invoking individual core methods. A Zone marker makes the queue safely reentrant and
+    // avoids self-deadlocks from nested setup/changeOptions/start calls.
+    if (identical(Zone.current[_lifecycleZoneKey], this)) {
+      return operation();
+    }
+    final next = _lifecycleTail.then(
+      (_) => runZoned(operation, zoneValues: {_lifecycleZoneKey: this}),
+    );
     _lifecycleTail = next.then<void>((_) {}, onError: (Object error, StackTrace stackTrace) {});
     return next;
   }
+
+  Future<T> runExclusive<T>(Future<T> Function() operation) => _enqueueLifecycle(operation);
 
   TaskEither<L, R> _serialized<L, R>(Future<Either<L, R>> Function() operation) =>
       TaskEither(() => _enqueueLifecycle(operation));
@@ -68,7 +79,7 @@ class HiddifyCoreService with InfraLogger {
   }
 
   TaskEither<String, Unit> validateConfigByPath(String path, String tempPath, bool debug) {
-    return TaskEither(() async {
+    return _serialized(() async {
       Future<Either<String, Unit>> parse() async {
         try {
           final response = await core.fgClient.parse(
@@ -86,7 +97,9 @@ class HiddifyCoreService with InfraLogger {
       final first = await parse();
       if (first.isRight()) return first;
 
-      final setupResult = await setup().run();
+      // We already own the lifecycle queue here, so call the internal setup implementation
+      // directly instead of enqueueing another operation.
+      final setupResult = await _setupInternal();
       final setupError = setupResult.match<String?>((error) => error, (_) => null);
       if (setupError != null) return left(setupError);
       return parse();
@@ -94,16 +107,18 @@ class HiddifyCoreService with InfraLogger {
   }
 
   TaskEither<String, String> generateFullConfigByPath(String path) {
-    return TaskEither.tryCatch(
-      () async {
+    return _serialized(() async {
+      try {
         final response = await core.fgClient.parse(ParseRequest(configPath: path, debug: false));
         if (response.responseCode != ResponseCode.OK) {
-          throw StateError('${response.responseCode} ${response.message}');
+          return left('${response.responseCode} ${response.message}');
         }
-        return response.content;
-      },
-      (error, _) => error.toString(),
-    );
+        return right(response.content);
+      } catch (e, stackTrace) {
+        loggy.error('failed to generate full config', e, stackTrace);
+        return left(e.toString());
+      }
+    });
   }
 
   TaskEither<String, Unit> setup() => TaskEither(() async {
@@ -228,21 +243,23 @@ class HiddifyCoreService with InfraLogger {
       loggy.debug('stopping');
       statusController.add(currentState = const CoreStatus.stopping());
 
+      String? backgroundStopWarning;
       try {
         final res = await core.bgClient.stop(Empty());
         if (res.messageType != MessageType.EMPTY && res.messageType != MessageType.ALREADY_STOPPED) {
-          loggy.warning('background stop returned ${res.messageType}: ${res.message}');
+          backgroundStopWarning = '${res.messageType} ${res.message}';
+          loggy.warning('background stop returned $backgroundStopWarning');
         }
       } on GrpcError catch (e) {
         final ignorable = e.code == StatusCode.unavailable ||
             (e.code == StatusCode.unknown && (e.message?.contains('HTTP/2') ?? false));
         if (!ignorable) {
-          loggy.error('failed to stop background core: $e');
-          return left(e.message ?? 'failed to stop core: $e');
+          backgroundStopWarning = e.message ?? 'failed to stop core: $e';
+          loggy.warning('background stop RPC failed, forcing native shutdown: $e');
         }
       } catch (e, stackTrace) {
-        loggy.error('failed to request core stop', e, stackTrace);
-        return left(e.toString());
+        backgroundStopWarning = e.toString();
+        loggy.warning('background stop request failed, forcing native shutdown', e, stackTrace);
       }
 
       try {
@@ -257,6 +274,9 @@ class HiddifyCoreService with InfraLogger {
 
       await stopListenSingle('bg');
       statusController.add(currentState = const CoreStatus.stopped());
+      if (backgroundStopWarning != null) {
+        loggy.warning('native shutdown succeeded after background stop warning: $backgroundStopWarning');
+      }
       return right(unit);
     });
   }
@@ -367,9 +387,9 @@ class HiddifyCoreService with InfraLogger {
   }
 
   TaskEither<String, Unit> clearLogs() {
-    return TaskEither.of(unit).map((_) {
+    return TaskEither(() async {
       logBuffer.clear();
-      return unit;
+      return right(unit);
     });
   }
 
