@@ -41,6 +41,8 @@ void main() {
     final preferences = await SharedPreferences.getInstance();
     await PreferencesMigration(sharedPreferences: preferences).migrate();
     expect(preferences.getString('saved-value'), 'keep');
+    expect(preferences.containsKey('service-mode'), isFalse);
+    expect(preferences.containsKey('ipv6-mode'), isFalse);
     expect(preferences.getInt(PreferencesMigration.versionKey), 1);
   });
 }

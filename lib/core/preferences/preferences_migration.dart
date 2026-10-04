@@ -44,6 +44,12 @@ class PreferencesVersion1Migration extends PreferencesMigrationStep with InfraLo
 
   @override
   Future<void> migrate() async {
+    // Remove only invalid legacy values so typed preference readers can use
+    // their defaults. Keeping them would defer the same type error to App.
+    for (final key in ['service-mode', 'ipv6-mode', 'remote-domain-dns-strategy', 'direct-domain-dns-strategy']) {
+      final value = sharedPreferences.get(key);
+      if (value != null && value is! String) await sharedPreferences.remove(key);
+    }
     if (sharedPreferences.get("service-mode") case final String serviceMode) {
       final newMode = switch (serviceMode) {
         "proxy" || "system-proxy" || "vpn" => serviceMode,
