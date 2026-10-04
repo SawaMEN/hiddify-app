@@ -68,7 +68,8 @@ class ProfileParser {
     required UserOverride? userOverride,
   }) {
     return TaskEither.tryCatch(() async {
-          await expandRemoteLinesInParallel(
+          if (!_ref.mounted) throw const ProfileFailure.cancelByUser('Profile parser disposed');
+    await expandRemoteLinesInParallel(
             tempFilePath: tempFilePath,
             httpClient: _httpClient,
             cancelToken: CancelToken(),
@@ -172,6 +173,7 @@ class ProfileParser {
           }
           throw err;
         });
+    if (!_ref.mounted) throw const ProfileFailure.cancelByUser('Profile parser disposed');
     await expandRemoteLinesInParallel(
       tempFilePath: tempFilePath,
       httpClient: _httpClient,
@@ -191,6 +193,8 @@ class ProfileParser {
     required Ref ref,
     int parallelism = 4,
   }) async {
+    final userAgent = ref.read(ConfigOptions.useXrayCoreWhenPossible)
+        ? httpClient.userAgent.replaceAll('HiddifyNext', 'HiddifyNextX') : null;
     final content = await File(tempFilePath).readAsString();
     final lines = content.split('\n');
 
@@ -219,9 +223,7 @@ class ProfileParser {
             line,
             tempFile.path,
             cancelToken: cancelToken,
-            userAgent: ref.read(ConfigOptions.useXrayCoreWhenPossible)
-                ? httpClient.userAgent.replaceAll('HiddifyNext', 'HiddifyNextX')
-                : null,
+            userAgent: userAgent,
           );
 
           results[currentIndex] = (await tempFile.readAsString()).trim();

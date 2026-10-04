@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -19,30 +20,51 @@ part 'config_option_notifier.g.dart';
 class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
   @override
   Future<bool> build() async {
-    final serviceRunning = ref.watch(serviceRunningProvider);
-    final serviceSingboxOptions = ref.read(connectionRepositoryProvider).configOptionsSnapshot;
-
-    ref.listen(ConfigOptions.singboxConfigOptions, (previous, next) async {
-      if (!serviceRunning || previous == null) return;
-      if (next != previous && next != serviceSingboxOptions) {
-        if (_lastUpdate == null || DateTime.now().difference(_lastUpdate!) > const Duration(milliseconds: 100)) {
-          _lastUpdate = DateTime.now();
-          if (serviceSingboxOptions?.enableTun != next.enableTun) {
-            loggy.debug("tun option changed, reconnecting");
-            await ref.read(connectionNotifierProvider.notifier).toggleConnection();
-            await ref.read(connectionNotifierProvider.notifier).toggleConnection();
-          } else {
-            final activeProfile = await ref.read(activeProfileProvider.future);
-            return await ref.read(connectionNotifierProvider.notifier).reconnect(activeProfile);
-          }
-          state = const AsyncData(false);
-        }
-      }
-    }, fireImmediately: true);
+    ref.onDispose(() => _updateTimer?.cancel());
+    ref.listen(ConfigOptions.singboxConfigOptions, (previous, next) {
+      if (previous == null || next == previous) return;
+      _desiredRevision++;
+      _scheduleUpdate();
+    });
+    ref.listen(serviceRunningProvider, (_, running) {
+      if (running && _desiredRevision > _appliedRevision) _scheduleUpdate();
+    });
     return false;
   }
 
-  DateTime? _lastUpdate;
+  Timer? _updateTimer;
+  int _desiredRevision = 0;
+  int _appliedRevision = 0;
+  Future<void> _updates = Future<void>.value();
+
+  void _scheduleUpdate() {
+    _updateTimer?.cancel();
+    _updateTimer = Timer(const Duration(milliseconds: 300), () {
+      _updates = _updates.then((_) => _applyOptions()).catchError((Object error, StackTrace stackTrace) {
+        loggy.warning('Unable to apply changed options', error, stackTrace);
+      });
+    });
+  }
+
+  Future<void> _applyOptions() async {
+    if (!ref.mounted || !ref.read(serviceRunningProvider) || _desiredRevision <= _appliedRevision) return;
+    final revision = _desiredRevision;
+    final repository = ref.read(connectionRepositoryProvider);
+    final options = ref.read(ConfigOptions.singboxConfigOptions);
+    final snapshot = repository.configOptionsSnapshot;
+    final activeProfile = await ref.read(activeProfileProvider.future);
+    if (!ref.mounted || !ref.read(serviceRunningProvider)) return;
+    final notifier = ref.read(connectionNotifierProvider.notifier);
+    // Mark this attempt before restarting; the running-status listener must not
+    // schedule it again merely because profile overrides differ from global options.
+    _appliedRevision = revision;
+    if (snapshot?.enableTun != options.enableTun) {
+      await notifier.reconnectService(activeProfile);
+    } else {
+      await notifier.reconnect(activeProfile);
+    }
+    if (ref.mounted && _desiredRevision > revision) _scheduleUpdate();
+  }
 
   Future<String?> _exportJson(bool excludePrivate) async {
     try {

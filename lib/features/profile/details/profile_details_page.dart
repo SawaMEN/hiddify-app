@@ -38,6 +38,20 @@ class ProfileDetailsPage extends HookConsumerWidget with PresLogger {
     final t = ref.watch(translationsProvider).requireValue;
     final formKey = useMemoized(() => GlobalKey<FormState>());
     final provider = profileDetailsNotifierProvider(id);
+    final editorValid = useState(true);
+    final sliderFocusNode = useFocusNode(
+      onKeyEvent: (node, event) {
+        if (KeyboardConst.verticalArrows.contains(event.logicalKey) && event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+            node.previousFocus();
+          } else {
+            node.nextFocus();
+          }
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+    );
 
     return ref
         .watch(provider)
@@ -45,35 +59,17 @@ class ProfileDetailsPage extends HookConsumerWidget with PresLogger {
           data: (data) {
             final isLoading = data.loadingState is AsyncLoading;
             final userOverride = data.profile.userOverride ?? const UserOverride();
-            final sliderFocusNode = useFocusNode(
-              onKeyEvent: (node, event) {
-                if (KeyboardConst.verticalArrows.contains(event.logicalKey) && event is KeyDownEvent) {
-                  if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                    node.previousFocus();
-                  } else {
-                    node.nextFocus();
-                  }
-                  return KeyEventResult.handled;
-                }
-                return KeyEventResult.ignored;
-              },
-            );
             return Scaffold(
               appBar: AppBar(
                 title: Text(t.pages.profileDetails.title),
                 actions: [
                   TextButton.icon(
-                    onPressed: isLoading || !data.isDetailsChanged
+                    onPressed: isLoading || !data.isDetailsChanged || !editorValid.value
                         ? null
                         : () async {
-                            if (formKey.currentState!.validate()) {
-                              await ref.read(provider.notifier).save().then((success) {
-                                ref
-                                    .read(inAppNotificationControllerProvider)
-                                    .showSuccessToast(t.pages.profiles.msg.save.success);
-                                if (success && context.mounted) context.pop();
-                              });
-                            }
+                            if (formKey.currentState?.validate() != true) return;
+                            final success = await ref.read(provider.notifier).save();
+                            if (success && context.mounted) context.pop();
                           },
                     icon: const Icon(Icons.check),
                     label: Text(t.common.save),
@@ -94,9 +90,8 @@ class ProfileDetailsPage extends HookConsumerWidget with PresLogger {
                             initialValue: userOverride.name ?? data.profile.name,
                             validator: (value) =>
                                 (value?.isEmpty ?? true) ? t.pages.profileDetails.form.emptyName : null,
-                            onChanged: (value) => ref
-                                .read(provider.notifier)
-                                .setUserOverride(userOverride.copyWith(name: value)),
+                            onChanged: (value) =>
+                                ref.read(provider.notifier).setUserOverride(userOverride.copyWith(name: value)),
                             label: t.common.name,
                             hint: t.pages.profileDetails.form.nameHint,
                           ),
@@ -251,6 +246,7 @@ class ProfileDetailsPage extends HookConsumerWidget with PresLogger {
                     height: MediaQuery.of(context).size.height * 0.7,
                     child: isJson(data.configContent)
                         ? JsonEditor(
+                            onValidationChanged: (valid) => editorValid.value = valid,
                             expandedObjects: const ["outbounds", "endpoints"],
                             onChanged: (value) {
                               if (value == null) return;
@@ -265,6 +261,7 @@ class ProfileDetailsPage extends HookConsumerWidget with PresLogger {
                             json: data.configContent,
                           )
                         : TextFormField(
+                            initialValue: data.configContent,
                             onChanged: (value) {
                               ref.read(provider.notifier).setContent(value);
                             },

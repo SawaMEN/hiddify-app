@@ -5,6 +5,10 @@ import android.content.Intent
 import android.content.pm.ShortcutManager
 import android.os.Build
 import android.os.Bundle
+import android.net.VpnService
+import android.util.Log
+import com.hiddify.hiddify.bg.ServiceNotification
+import com.hiddify.hiddify.constant.ServiceMode
 import androidx.core.content.getSystemService
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
@@ -53,7 +57,18 @@ class ShortcutActivity : Activity(), ServiceConnection.Callback {
     override fun onServiceStatusChanged(status: Status) {
         when (status) {
             Status.Started -> BoxService.stop()
-            Status.Stopped -> BoxService.start()
+            Status.Stopped -> {
+                try {
+                    if (Settings.activeConfigPath.isBlank() ||
+                        (Settings.serviceMode == ServiceMode.VPN && VpnService.prepare(this) != null) ||
+                        (Settings.dynamicNotification && !ServiceNotification.checkPermission())) {
+                        startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    } else {
+                        Settings.startCoreAfterStartingService = true
+                        BoxService.start()
+                    }
+                } catch (e: Exception) { Log.e("ShortcutActivity", "shortcut startup failed", e) }
+            }
             else -> {}
         }
         finish()

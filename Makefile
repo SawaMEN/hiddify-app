@@ -2,14 +2,11 @@ include dependencies.properties
 
 MKDIR := mkdir -p
 ANDROID_OUT=android/app/libs
-CORE_NAME=hiddify-lib
 
 ifeq ($(CHANNEL),prod)
-	CORE_URL=https://github.com/hiddify/hiddify-core/releases/download/v$(core.version)
-	TARGET=lib/main_prod.dart
+TARGET=lib/main_prod.dart
 else
-	CORE_URL=https://github.com/hiddify/hiddify-core/releases/download/draft
-	TARGET=lib/main.dart
+TARGET=lib/main.dart
 endif
 
 .PHONY: get gen translate common-prepare android-prepare android-apk-prepare \
@@ -38,8 +35,10 @@ android-libs:
 	  archive=$$(mktemp); \
 	  trap 'rm -f "$$archive"' EXIT; \
 	  curl --fail --location --retry 3 --connect-timeout 30 \
-	    --output "$$archive" "$(CORE_URL)/$(CORE_NAME)-android.tar.gz"; \
-	  tar xzf "$$archive" -C $(ANDROID_OUT)/
+	    --header 'Accept: application/octet-stream' \
+	    --output "$$archive" "https://api.github.com/repos/hiddify/hiddify-core/releases/assets/$(core.android.asset_id)"; \
+	  printf '%s  %s\n' "$(core.android.sha256)" "$$archive" | sha256sum --check --status; \
+	  tar --no-same-owner -xzf "$$archive" -C $(ANDROID_OUT)/
 
 android-apk-libs: android-libs
 

@@ -52,6 +52,7 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
     companion object {
         private const val notificationId = 1
         private const val notificationChannel = "service"
+        private var foregroundOwner: ServiceNotification? = null
         var coreClient: CoreClient?=null
         val flags =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
@@ -69,6 +70,8 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
 //
 //    private val commandClient =
 //            CommandClient(GlobalScope, CommandClient.ConnectionType.Status, this)
+    @Volatile private var closed = false
+    private var pollingGeneration = 0L
     private var receiverRegistered = false
 
 
@@ -108,6 +111,8 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
     }
 
     fun show(profileName: String, @StringRes contentTextId: Int) {
+        closed = false
+        foregroundOwner = this
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Application.notification.createNotificationChannel(
                 NotificationChannel(
@@ -128,7 +133,7 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
 //            commandClient.connect()
             startListenSystemInfo()
             withContext(Dispatchers.Main) {
-                registerReceiver()
+                if (!closed) registerReceiver()
             }
         }
     }
@@ -171,8 +176,11 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
     }
 
     fun close() {
+        closed = true
         stopListenSystemInfo()
-        ServiceCompat.stopForeground(service, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        val ownsNotification = foregroundOwner === this
+        ServiceCompat.stopForeground(service, if (ownsNotification) ServiceCompat.STOP_FOREGROUND_REMOVE else ServiceCompat.STOP_FOREGROUND_DETACH)
+        if (ownsNotification) foregroundOwner = null
         if (receiverRegistered) {
             runCatching { service.unregisterReceiver(this) }
                 .onFailure { Log.w("notification", "receiver was already unregistered", it) }
@@ -185,7 +193,9 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
     fun startListenSystemInfo() {
         // Cancel any previous stream if still running
         Log.d("notification","startListenSystemInfo")
+        if (closed) return
         streamingJob?.cancel()
+        val generation = ++pollingGeneration
 
         streamingJob = streamingCoroutineScope.launch(Dispatchers.IO) {
             Log.d("notification", "startListenSystemInfo-launch")
@@ -198,7 +208,9 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
                 while (isActive) {
                     delay(1_000) // ✅ coroutine-friendly
                     val current = coreClient.GetSystemInfo().execute(Empty())
-                    updateStatus(previous,current)
+                    withContext(Dispatchers.Main) {
+                        if (!closed && generation == pollingGeneration) updateStatus(previous, current)
+                    }
                     previous = current
                 }
             } catch (e: CancellationException) {
@@ -212,6 +224,7 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
         }
     }
     fun stopListenSystemInfo() {
+        pollingGeneration++
         streamingJob?.cancel()
         streamingJob = null
     }

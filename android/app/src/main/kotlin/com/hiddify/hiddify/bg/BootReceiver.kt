@@ -43,6 +43,8 @@ class BootReceiver : BroadcastReceiver() {
                 Settings.startCoreAfterStartingService = true
                 runCatching { BoxService.start() }
                     .onFailure { Log.e(TAG, "failed to restart service after boot/package update", it) }
+            } catch (e: Exception) {
+                Log.e(TAG, "automatic service startup failed", e)
             } finally {
                 pendingResult.finish()
             }

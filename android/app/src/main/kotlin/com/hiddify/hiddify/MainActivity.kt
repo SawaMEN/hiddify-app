@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Intent
 import android.net.VpnService
 import android.os.Build
+import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.MutableLiveData
@@ -16,6 +17,7 @@ import com.hiddify.hiddify.constant.Status
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import java.util.LinkedList
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -34,6 +36,8 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
     private var pendingStartGeneration = 0L
     private var pendingStart: CompletableDeferred<Boolean>? = null
     private var serviceStartIssued = false
+    private var notificationRequestGeneration: Long? = null
+    private var vpnRequestGeneration: Long? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -63,8 +67,16 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         pendingStart = deferred
         serviceStartIssued = false
 
-        beginStart(generation)
-        deferred.await()
+        try {
+            beginStart(generation)
+            deferred.await()
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            notificationRequestGeneration = null
+            failPendingStart(generation)
+            onServiceAlert(Alert.StartService, e.message)
+            false
+        }
     }
 
     /**
@@ -97,6 +109,12 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
     private fun beginStart(generation: Long) {
         if (!isCurrentStart(generation)) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !ServiceNotification.checkPermission()) {
+            if (notificationRequestGeneration != null) {
+                failPendingStart(generation)
+                onServiceAlert(Alert.RequestNotificationPermission, "previous permission request is still open")
+                return
+            }
+            notificationRequestGeneration = generation
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             return
         }
@@ -105,6 +123,7 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
 
     private fun continueStart(generation: Long) {
         lifecycleScope.launch {
+            try {
             if (!isCurrentStart(generation)) return@launch
 
             val serviceModeChanged = withContext(Dispatchers.IO) { Settings.rebuildServiceMode() }
@@ -122,12 +141,26 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
                     return@launch
                 }
                 if (permissionIntent != null) {
+                    if (vpnRequestGeneration != null) {
+                        failPendingStart(generation)
+                        onServiceAlert(Alert.RequestVPNPermission, "previous permission request is still open")
+                        return@launch
+                    }
+                    vpnRequestGeneration = generation
                     prepareLauncher.launch(permissionIntent)
                     return@launch
                 }
             }
 
             issueServiceStart(generation)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("MainActivity", "permission/start request failed", e)
+                if (vpnRequestGeneration == generation) vpnRequestGeneration = null
+                failPendingStart(generation)
+                onServiceAlert(Alert.StartService, e.message)
+            }
         }
     }
 
@@ -160,7 +193,8 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-            val generation = pendingStartGeneration
+            val generation = notificationRequestGeneration ?: return@registerForActivityResult
+            notificationRequestGeneration = null
             if (!isCurrentStart(generation)) return@registerForActivityResult
             if (Settings.dynamicNotification && !isGranted) {
                 failPendingStart(generation)
@@ -172,7 +206,8 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
 
     private val prepareLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-            val generation = pendingStartGeneration
+            val generation = vpnRequestGeneration ?: return@registerForActivityResult
+            vpnRequestGeneration = null
             if (!isCurrentStart(generation)) return@registerForActivityResult
             if (result.resultCode == RESULT_OK) {
                 issueServiceStart(generation)

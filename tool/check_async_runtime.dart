@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import '../lib/core/utils/keyed_operations.dart';
+import '../lib/core/utils/throttler.dart';
 import '../lib/core/utils/laststeam.dart';
 import '../lib/core/utils/single_call.dart';
 import '../lib/core/utils/subscription_user_info.dart';
@@ -95,5 +97,30 @@ Future<void> main() async {
   check(await running == 7, 'Caller must await the complete start operation');
   await expectError<StateError>(single.run<int>(() async => throw StateError('start failed'), onIgnored: -1));
   check(await single.run(() async => 9, onIgnored: -1) == 9, 'A failed start must release the guard');
+  final operations = KeyedOperations();
+  final writeGate = Completer<void>();
+  final order = <int>[];
+  final firstWrite = operations.run('profile', () async { order.add(1); await writeGate.future; order.add(2); });
+  final secondWrite = operations.run('profile', () async { order.add(3); });
+  await operations.run('other-profile', () async { order.add(4); });
+  check(order.join(',') == '1,4', 'Same profile must serialize, unrelated profiles must not block');
+  writeGate.complete();
+  await Future.wait([firstWrite, secondWrite]);
+  check(order.join(',') == '1,4,2,3', 'Queued write must wait for prior commit');
+  await expectError<StateError>(operations.run('profile', () async => throw StateError('write failed')));
+  check(await operations.run('profile', () async => 5) == 5, 'Failed write must release its queue');
+
+  final throttler = Throttler(Duration.zero);
+  final testGate = Completer<void>();
+  var complete = false;
+  final pendingTest = throttler(() async { await testGate.future; complete = true; });
+  await throttler(() async { throw StateError('duplicate must be suppressed'); });
+  check(!complete, 'Async throttler must not report early completion');
+  testGate.complete();
+  await pendingTest;
+  check(complete, 'Caller must await URL test completion');
+  await expectError<StateError>(throttler(() async => throw StateError('URL test failed')));
+  await throttler(() { complete = false; });
+  check(!complete, 'A failed URL test must release the guard');
   print('Async runtime regression checks passed.');
 }

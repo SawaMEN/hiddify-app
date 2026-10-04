@@ -14,115 +14,115 @@ part 'logs_overview_notifier.g.dart';
 
 @riverpod
 class LogsOverviewNotifier extends _$LogsOverviewNotifier with AppLogger {
-  @override
-  LogsOverviewState build() {
-    ref.disposeDelay(const Duration(seconds: 20));
-    state = const LogsOverviewState();
-    ref.onDispose(() {
-      loggy.debug("disposing");
-      _listener?.cancel();
-      _listener = null;
-    });
-    ref.onCancel(() {
-      if (_listener?.isPaused != true) {
-        loggy.debug("pausing");
-        _listener?.pause();
-      }
-    });
-    ref.onResume(() {
-      if (!state.paused && (_listener?.isPaused ?? false)) {
-        loggy.debug("resuming");
-        _listener?.resume();
-      }
-    });
-
-    _addListeners();
-    return const LogsOverviewState();
-  }
-
   StreamSubscription? _listener;
-
-  Future<void> _addListeners() async {
-    loggy.debug("adding listeners");
-    ref.watch(coreRestartSignalProvider);
-    await _listener?.cancel();
-    _listener = ref
-        .read(logRepositoryProvider)
-        .requireValue
-        .watchLogs()
-        .throttle((_) => Stream.value(_listener?.isPaused ?? false), leading: false, trailing: true)
-        .throttleTime(const Duration(milliseconds: 250), leading: false, trailing: true)
-        .asyncMap((event) async {
-          await event.fold(
-            (f) {
-              _logs = [];
-              state = state.copyWith(logs: AsyncError(f, StackTrace.current));
-            },
-            (a) async {
-              _logs = a.reversed;
-              state = state.copyWith(logs: AsyncData(await _computeLogs()));
-            },
-          );
-        })
-        .listen((event) {});
-  }
-
+  int _generation = 0;
+  bool _visible = true;
   Iterable<LogEntity> _logs = [];
   final _debouncer = CallbackDebouncer(const Duration(milliseconds: 200));
   LogLevel? _levelFilter;
-  String _filter = "";
+  String _filter = '';
 
-  Future<List<LogEntity>> _computeLogs() async {
-    if (_levelFilter == null && _filter.isEmpty) return _logs.toList();
-    return _logs.where((e) {
-      return (_filter.isEmpty || e.message.contains(_filter)) &&
-          (_levelFilter == null || e.level == null || e.level!.index >= _levelFilter!.index);
-    }).toList();
+  @override
+  LogsOverviewState build() {
+    ref.disposeDelay(const Duration(seconds: 20));
+    ref.watch(coreRestartSignalProvider);
+    ref.watch(logRepositoryProvider);
+    final generation = ++_generation;
+    _visible = true;
+    _detach();
+    ref.onDispose(() {
+      if (generation != _generation) return;
+      _generation++;
+      _detach();
+      _debouncer.dispose();
+    });
+    ref.onCancel(() {
+      _visible = false;
+      _detach();
+    });
+    ref.onResume(() {
+      _visible = true;
+      if (!state.paused) _attach();
+    });
+    _attach();
+    return const LogsOverviewState();
   }
 
+  void _detach() {
+    final old = _listener;
+    _listener = null;
+    if (old != null)
+      unawaited(
+        old.cancel().catchError((Object e, StackTrace st) {
+          loggy.warning('Unable to cancel log subscription', e, st);
+        }),
+      );
+  }
+
+  void _attach() {
+    if (_listener != null || !_visible || !ref.mounted) return;
+    final repository = ref.read(logRepositoryProvider).asData?.value;
+    if (repository == null) return;
+    final generation = _generation;
+    _listener = repository
+        .watchLogs()
+        .throttleTime(const Duration(milliseconds: 250), leading: false, trailing: true)
+        .listen(
+          (event) {
+            if (!ref.mounted || generation != _generation || !_visible || state.paused) return;
+            event.fold((error) => state = state.copyWith(logs: AsyncError(error, StackTrace.current)), (logs) {
+              _logs = logs.reversed;
+              state = state.copyWith(logs: AsyncData(_computeLogs()));
+            });
+          },
+          onError: (Object e, StackTrace st) {
+            if (ref.mounted && generation == _generation) state = state.copyWith(logs: AsyncError(e, st));
+          },
+        );
+  }
+
+  List<LogEntity> _computeLogs() => _logs
+      .where(
+        (e) =>
+            (_filter.isEmpty || e.message.contains(_filter)) &&
+            (_levelFilter == null || e.level == null || e.level!.index >= _levelFilter!.index),
+      )
+      .toList();
+
   void pause() {
-    loggy.debug("pausing");
-    _listener?.pause();
+    // Broadcast pause buffers every snapshot. Cancel instead and replay the latest on resume.
+    _detach();
     state = state.copyWith(paused: true);
   }
 
   void resume() {
-    loggy.debug("resuming");
-    _listener?.resume();
     state = state.copyWith(paused: false);
+    _attach();
   }
 
   Future<void> clear() async {
-    loggy.debug("clearing");
-    await ref
-        .read(logRepositoryProvider)
-        .requireValue
-        .clearLogs()
-        .match(
-          (l) {
-            loggy.warning("error clearing logs", l);
-          },
-          (_) {
-            _logs = [];
-            state = state.copyWith(logs: const AsyncData([]));
-          },
-        )
-        .run();
+    final repository = ref.read(logRepositoryProvider).requireValue;
+    final generation = _generation;
+    final result = await repository.clearLogs().run();
+    if (!ref.mounted || generation != _generation) return;
+    result.match((e) => loggy.warning('Unable to clear logs', e), (_) {
+      _logs = [];
+      state = state.copyWith(logs: const AsyncData([]));
+    });
   }
 
   void filterMessage(String? filter) {
     _filter = filter ?? '';
-    _debouncer(() async {
-      if (state.logs case AsyncData()) {
-        state = state.copyWith(filter: _filter, logs: AsyncData(await _computeLogs()));
+    final generation = _generation;
+    _debouncer(() {
+      if (ref.mounted && generation == _generation) {
+        state = state.copyWith(filter: _filter, logs: AsyncData(_computeLogs()));
       }
     });
   }
 
   Future<void> filterLevel(LogLevel? level) async {
     _levelFilter = level;
-    if (state.logs case AsyncData()) {
-      state = state.copyWith(levelFilter: _levelFilter, logs: AsyncData(await _computeLogs()));
-    }
+    state = state.copyWith(levelFilter: level, logs: AsyncData(_computeLogs()));
   }
 }

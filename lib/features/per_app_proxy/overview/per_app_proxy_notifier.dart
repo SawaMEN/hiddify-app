@@ -24,18 +24,17 @@ part 'per_app_proxy_notifier.g.dart';
 
 @riverpod
 class PerAppProxy extends _$PerAppProxy with AppLogger {
-  late final AppProxyMode? _mode;
+  AppProxyMode? _mode;
 
   @override
   Stream<Map<String, int>> build(AppProxyMode? mode) {
     _mode = mode;
-    if (_mode == null) return Stream.value({});
+    if (mode == null) return Stream.value({});
+    final dataSource = ref.watch(appProxyDataSourceProvider);
     final appsInfo = InstalledApps.getInstalledApps(false);
     return Stream.fromFuture(appsInfo).asyncExpand((appsInfo) {
       final phonePkgs = appsInfo.map((e) => e.packageName).toSet();
-      return ref.watch(appProxyDataSourceProvider).watchFilterForDisplay(phonePkgs: phonePkgs, mode: _mode).map((
-        entryList,
-      ) {
+      return dataSource.watchFilterForDisplay(phonePkgs: phonePkgs, mode: mode).map((entryList) {
         return {for (final entry in entryList) entry.pkgName: entry.flags};
       });
     });
@@ -48,14 +47,20 @@ class PerAppProxy extends _$PerAppProxy with AppLogger {
 
   Future<bool> applyAutoSelection() async {
     loggy.info('Performming auto selection');
-    final t = ref.watch(translationsProvider).requireValue;
-    final region = ref.watch(ConfigOptions.region);
-    final rs = await ref.watch(autoSelectionRepoProvider).getByAppProxyMode(mode: _mode);
+    final t = ref.read(translationsProvider).requireValue;
+    final region = ref.read(ConfigOptions.region);
+    final mode = _mode;
+    if (mode == null) return false;
+    final ds = ref.read(appProxyDataSourceProvider);
+    final rs = await ref.read(autoSelectionRepoProvider).getByAppProxyMode(mode: mode);
+    if (!ref.mounted) return false;
     switch (rs.$2) {
       case AutoSelectionResult.success:
         final autoList = rs.$1!;
-        await ref.read(appProxyDataSourceProvider).applyAutoSelection(autoList: autoList, mode: _mode!);
+        await ds.applyAutoSelection(autoList: autoList, mode: mode);
+        if (!ref.mounted) return false;
         await ref.read(Preferences.autoAppsSelectionRegion.notifier).update(region);
+        if (!ref.mounted) return false;
         await ref.read(Preferences.autoAppsSelectionLastUpdate.notifier).update(DateTime.now());
         return true;
       case AutoSelectionResult.failure:
@@ -68,7 +73,7 @@ class PerAppProxy extends _$PerAppProxy with AppLogger {
             .read(inAppNotificationControllerProvider)
             .showInfoToast(
               t.pages.settings.routing.generalOptions.perAppProxy.autoSelection.toast.regionNotFound(
-                region: ref.watch(ConfigOptions.region).name,
+                region: ref.read(ConfigOptions.region).name,
               ),
               duration: const Duration(seconds: 5),
             );
@@ -84,25 +89,31 @@ class PerAppProxy extends _$PerAppProxy with AppLogger {
   Future<void> clearAutoSelected() async {
     loggy.info('Clearing auto selected');
     await ref.read(appProxyDataSourceProvider).clearAutoSelected(mode: _mode!);
-    await ref.watch(Preferences.autoAppsSelectionRegion.notifier).update(null);
+    if (!ref.mounted) return;
+    await ref.read(Preferences.autoAppsSelectionRegion.notifier).update(null);
+    if (!ref.mounted) return;
     await ref.read(Preferences.autoAppsSelectionLastUpdate.notifier).update(null);
   }
 
   Future<void> clearAll() async {
     loggy.info('Clearing all items');
     await ref.read(appProxyDataSourceProvider).clearAll(mode: _mode!);
-    await ref.watch(Preferences.autoAppsSelectionRegion.notifier).update(null);
+    if (!ref.mounted) return;
+    await ref.read(Preferences.autoAppsSelectionRegion.notifier).update(null);
   }
 
   Future<bool> importClipboard() async {
     final t = ref.read(translationsProvider).requireValue;
     try {
       final input = await Clipboard.getData(Clipboard.kTextPlain).then((value) => value?.text);
-      await _importJson(input!);
+      if (input == null || !ref.mounted) return false;
+      await _importJson(input);
+      if (!ref.mounted) return false;
       ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.import.success);
       return true;
     } catch (e, st) {
       loggy.warning("error importing from clipboard", e, st);
+      if (!ref.mounted) return false;
       ref.read(inAppNotificationControllerProvider).showErrorToast(t.common.msg.import.failure);
       return false;
     }
@@ -114,40 +125,46 @@ class PerAppProxy extends _$PerAppProxy with AppLogger {
       final file = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ['json']);
       if (file == null) return false;
       final bytes = await file.readAsBytes();
-      await _importJson(jsonDecode(utf8.decode(bytes)).toString());
+      if (!ref.mounted) return false;
+      await _importJson(utf8.decode(bytes));
+      if (!ref.mounted) return false;
       ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.import.success);
       return true;
     } catch (e, st) {
       loggy.warning("error importing config options from json file", e, st);
+      if (!ref.mounted) return false;
       ref.read(inAppNotificationControllerProvider).showErrorToast(t.common.msg.import.failure);
       return false;
     }
   }
 
   Future<bool> exportClipboard() async {
-    final t = ref.watch(translationsProvider).requireValue;
+    final t = ref.read(translationsProvider).requireValue;
     try {
       final json = await _exportJson();
       await Clipboard.setData(ClipboardData(text: json));
+      if (!ref.mounted) return false;
       ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.export.clipboard.success);
       return true;
     } on PlatformException {
+      if (!ref.mounted) return false;
       ref
           .read(inAppNotificationControllerProvider)
           .showInfoToast(t.common.msg.export.clipboard.contentTooLarge, duration: const Duration(seconds: 5));
       return false;
     } catch (e, st) {
       loggy.warning("error exporting to clipboard", e, st);
+      if (!ref.mounted) return false;
       ref.read(inAppNotificationControllerProvider).showErrorToast(t.common.msg.export.clipboard.failure);
       return false;
     }
   }
 
   Future<bool> exportFile() async {
-    final t = ref.watch(translationsProvider).requireValue;
+    final t = ref.read(translationsProvider).requireValue;
     try {
       final json = await _exportJson();
-      final bytes = Uint8List.fromList(utf8.encode(jsonEncode(json)));
+      final bytes = Uint8List.fromList(utf8.encode(json));
       final outputFile = await FilePicker.saveFile(
         fileName: 'per-app proxy.json',
         type: FileType.custom,
@@ -155,30 +172,34 @@ class PerAppProxy extends _$PerAppProxy with AppLogger {
         bytes: bytes,
       );
       if (outputFile == null) return false;
+      if (!ref.mounted) return false;
       ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.export.file.success);
       return true;
     } catch (e, st) {
       loggy.warning("error exporting config options to json file", e, st);
+      if (!ref.mounted) return false;
       ref.read(inAppNotificationControllerProvider).showErrorToast(t.common.msg.export.file.failure);
       return false;
     }
   }
 
   Future<bool> shareOnGithub() async {
-    final t = ref.watch(translationsProvider).requireValue;
-    final region = ref.watch(ConfigOptions.region);
-    final mode = ref.watch(Preferences.perAppProxyMode).toAppProxy()!;
+    final t = ref.read(translationsProvider).requireValue;
+    final region = ref.read(ConfigOptions.region);
+    final mode = ref.read(Preferences.perAppProxyMode).toAppProxy()!;
     assert(region != Region.other);
     final rs = await ref.read(autoSelectionRepoProvider).getByAppProxyMode(mode: mode, region: region);
-    if (rs.$2 != AutoSelectionResult.success) return false;
+    if (!ref.mounted || rs.$2 != AutoSelectionResult.success) return false;
     final autoList = rs.$1!;
     final userSelected =
         (await ref.read(appProxyDataSourceProvider).getPkgsByFlag(mode: mode, flag: PkgFlag.userSelection))
           ..removeWhere((pkg) => autoList.contains(pkg));
+    if (!ref.mounted) return false;
     final forceDeselected =
         (await ref.read(appProxyDataSourceProvider).getPkgsByFlag(mode: mode, flag: PkgFlag.forceDeselection))
           ..removeWhere((pkg) => !autoList.contains(pkg));
 
+    if (!ref.mounted) return false;
     if (userSelected.isNotEmpty || forceDeselected.isNotEmpty) {
       final agree = await ref
           .read(dialogNotifierProvider.notifier)
@@ -187,11 +208,10 @@ class PerAppProxy extends _$PerAppProxy with AppLogger {
             message: t.dialogs.confirmation.perAppProxy.shareOnGithub.msg,
             positiveBtnTxt: t.common.kContinue,
           );
-      if (agree != true) return false;
+      if (!ref.mounted || agree != true) return false;
       final title = '${region.name} | ${mode.present(t).title}';
-      var body = const JsonEncoder.withIndent(
-        '  ',
-      ).convert({'addedPkgs': userSelected.toList(), 'removedPkgs': forceDeselected.toList()});
+      var body = const JsonEncoder.withIndent('  ')
+          .convert({'addedPkgs': userSelected.toList(), 'removedPkgs': forceDeselected.toList()});
       body = '```\n$body\n```';
       UriUtils.tryLaunch(Uri.parse('https://github.com/hiddify/Android-GFW-Apps/issues/new?title=$title&body=$body'));
       return true;
@@ -207,7 +227,7 @@ class PerAppProxy extends _$PerAppProxy with AppLogger {
   }
 
   Future<void> _importJson(String input) async {
-    final backup = PerAppProxyBackup.fromJson((jsonDecode(input) as Map).cast());
+    final backup = PerAppProxyBackup.fromBackupText(input);
     await ref.read(appProxyDataSourceProvider).importPkgs(backup: backup);
   }
 
@@ -223,6 +243,6 @@ class PerAppProxy extends _$PerAppProxy with AppLogger {
         deselected: await ds.getPkgsByFlag(mode: AppProxyMode.exclude, flag: PkgFlag.forceDeselection),
       ),
     );
-    return const JsonEncoder.withIndent('  ').convert(backup.toJson());
+    return backup.toBackupText();
   }
 }

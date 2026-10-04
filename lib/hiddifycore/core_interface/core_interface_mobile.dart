@@ -99,13 +99,16 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
       return const CoreStatus.stopped(alert: CoreAlert.createService, message: "core is not initialized");
     }
     status.clean();
-    await methodChannel.invokeMethod("start", {
-      "path": path,
-      "name": name,
-      "grpcPort": portBack,
-      "startBg": true,
-      "debug": _debug,
-    });
+    final started = await methodChannel
+        .invokeMethod<bool>("start", {
+          "path": path,
+          "name": name,
+          "grpcPort": portBack,
+          "startBg": true,
+          "debug": _debug,
+        })
+        .timeout(const Duration(seconds: 35));
+    if (started != true) return const CoreStatus.stopped(alert: CoreAlert.startService);
 
     loggy.info("Waiting for starting core");
     waitingForService:
@@ -153,12 +156,22 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
   }
 
   Future stopMethodChannel() async {
-    await methodChannel.invokeMethod("stop");
+    await methodChannel.invokeMethod("stop").timeout(const Duration(seconds: 25));
   }
 
   @override
   Future<bool> isBgClientAvailable() async {
     return _isBgClientAvailable;
+  }
+
+  @override
+  Future<void> dispose() async {
+    await _status?.close();
+    _status = null;
+    await _fgChannel?.shutdown();
+    await _bgChannel?.shutdown();
+    _fgChannel = null;
+    _bgChannel = null;
   }
 
   @override

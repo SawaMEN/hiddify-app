@@ -50,6 +50,7 @@ class IpInfoNotifier extends _$IpInfoNotifier with AppLogger {
       throw const UnknownIp();
     }).run();
 
+    if (!ref.mounted) return info;
     timer = Timer(const Duration(seconds: 10), () {
       loggy.debug("entering idle mode");
       _idle = true;
@@ -67,6 +68,7 @@ class IpInfoNotifier extends _$IpInfoNotifier with AppLogger {
     loggy.debug("refreshing");
     state = const AsyncLoading();
     await ref.read(hapticServiceProvider.notifier).lightImpact();
+    if (!ref.mounted) return;
     _forceCheck = true;
     ref.invalidateSelf();
   }
@@ -84,7 +86,7 @@ class ActiveProxyNotifier extends _$ActiveProxyNotifier with AppLogger {
     return _proxyRepo
         .watchActiveProxies()
         .map((event) => event.getOrElse((l) => List<OutboundGroup>.empty()))
-        .map((event) => event.firstOrNull?.items.first ?? OutboundInfo());
+        .map((event) => event.firstOrNull?.items.firstOrNull ?? OutboundInfo());
   }
 
   ProxyRepository get _proxyRepo => ref.read(proxyRepositoryProvider);
@@ -93,9 +95,10 @@ class ActiveProxyNotifier extends _$ActiveProxyNotifier with AppLogger {
 
   Future<void> urlTest(String? groupTag_) async {
     final groupTag = groupTag_ ?? "";
-    _urlTestThrottler(() async {
+    await _urlTestThrottler(() async {
       if (state case AsyncData()) {
         await ref.read(hapticServiceProvider.notifier).lightImpact();
+        if (!ref.mounted) return;
         await ref.read(proxyRepositoryProvider).urlTest(groupTag).getOrElse((err) {
           loggy.warning("error testing group", err);
           throw err;

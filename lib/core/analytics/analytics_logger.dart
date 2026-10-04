@@ -11,7 +11,7 @@ class SentryLoggyIntegration extends LoggyPrinter implements Integration<SentryO
   final LogLevel _minBreadcrumbLevel;
   final LogLevel _minEventLevel;
 
-  late Hub _hub;
+  Hub? _hub;
 
   @override
   void call(Hub hub, SentryOptions options) {
@@ -20,7 +20,9 @@ class SentryLoggyIntegration extends LoggyPrinter implements Integration<SentryO
   }
 
   @override
-  Future<void> close() async {}
+  Future<void> close() async {
+    _hub = null;
+  }
 
   bool _shouldLog(LogLevel logLevel, LogLevel minLevel) {
     if (logLevel == LogLevel.off) {
@@ -31,10 +33,11 @@ class SentryLoggyIntegration extends LoggyPrinter implements Integration<SentryO
 
   @override
   Future<void> onLog(LogRecord record) async {
-    if (!canLogEvent(record.error)) return;
+    final hub = _hub;
+    if (hub == null || !canLogEvent(record.error)) return;
 
     if (_shouldLog(record.level, _minEventLevel)) {
-      await _hub.captureEvent(
+      await hub.captureEvent(
         record.toEvent(),
         stackTrace: record.stackTrace,
         hint: Hint.withMap({TypeCheckHint.record: record}),
@@ -42,7 +45,7 @@ class SentryLoggyIntegration extends LoggyPrinter implements Integration<SentryO
     }
 
     if (_shouldLog(record.level, _minBreadcrumbLevel)) {
-      await _hub.addBreadcrumb(record.toBreadcrumb(), hint: Hint.withMap({TypeCheckHint.record: record}));
+      await hub.addBreadcrumb(record.toBreadcrumb(), hint: Hint.withMap({TypeCheckHint.record: record}));
     }
   }
 }

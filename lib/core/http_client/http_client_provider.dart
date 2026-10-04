@@ -15,6 +15,7 @@ DioHttpClient httpClient(Ref ref) {
     debug: kDebugMode,
   );
 
+  ref.onDispose(client.dispose);
   ref.listen(ConfigOptions.mixedPort, (_, next) => client.setProxyPort(next), fireImmediately: true);
   return client;
 }

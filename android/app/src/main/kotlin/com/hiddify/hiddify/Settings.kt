@@ -157,7 +157,7 @@ object Settings {
         }
 
     var grpcServiceModePort: Int
-        get() = getInt(SettingsKey.GRPC_PORT, 17078)
+        get() = getInt(SettingsKey.GRPC_PORT, 17079).takeIf { it in 1..65535 && it != 17078 } ?: 17079
         set(value) = preferences.edit().putInt(SettingsKey.GRPC_PORT, value).apply()
 
     var startCoreAfterStartingService: Boolean

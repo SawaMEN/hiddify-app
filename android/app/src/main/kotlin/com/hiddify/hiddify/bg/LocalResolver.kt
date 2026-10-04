@@ -1,6 +1,7 @@
 package com.hiddify.hiddify.bg
 
 import android.net.DnsResolver
+import android.net.Network
 import android.os.Build
 import android.os.CancellationSignal
 import android.system.ErrnoException
@@ -10,174 +11,138 @@ import com.hiddify.core.libbox.ExchangeContext
 import com.hiddify.core.libbox.LocalDNSTransport
 import java.net.InetAddress
 import java.net.UnknownHostException
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.runBlocking
-import kotlin.coroutines.Continuation
-import kotlin.coroutines.suspendCoroutine
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeout
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 object LocalResolver : LocalDNSTransport {
     private const val TAG = "LocalResolver"
-    private const val RCODE_SERVFAIL = 2
-    private const val RCODE_NXDOMAIN = 3
+    private const val SERVFAIL = 2
+    private const val NXDOMAIN = 3
+    private const val TIMEOUT_MS = 15_000L
 
     override fun raw(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
 
-    private fun Continuation<Unit>.resumeSuccessSafely() {
-        runCatching { resumeWith(Result.success(Unit)) }
-            .onFailure { error ->
-                if (error !is IllegalStateException) {
-                    Log.w(TAG, "failed to resume DNS continuation", error)
-                }
-            }
-    }
-
-    private fun Continuation<Unit>.resumeFailureSafely(error: Throwable) {
-        runCatching { resumeWith(Result.failure(error)) }
-            .onFailure { resumeError ->
-                if (resumeError !is IllegalStateException) {
-                    Log.w(TAG, "failed to resume DNS continuation with error", resumeError)
-                }
-            }
-    }
-
-    @RequiresApi(Build.VERSION_CODES.Q)
-    override fun exchange(ctx: ExchangeContext, message: ByteArray) {
+    // Cancellation must release both the network wait and the DNS continuation.
+    // Android does not invoke a DNS result callback for a cancelled query.
+    private fun resolve(ctx: ExchangeContext, operation: suspend () -> (() -> Unit)) {
+        val job = Job()
+        val cancelled = AtomicBoolean(false)
         try {
-            runBlocking {
-                val defaultNetwork = DefaultNetworkMonitor.require()
-                suspendCoroutine<Unit> { continuation ->
-                    val signal = CancellationSignal()
-                    runCatching { ctx.onCancel(signal::cancel) }
-                    val callback = object : DnsResolver.Callback<ByteArray> {
-                        override fun onAnswer(answer: ByteArray, rcode: Int) {
-                            runCatching {
-                                if (rcode == 0) ctx.rawSuccess(answer) else ctx.errorCode(rcode)
-                            }.onFailure { Log.w(TAG, "failed to return raw DNS answer to core", it) }
-                            continuation.resumeSuccessSafely()
-                        }
-
-                        override fun onError(error: DnsResolver.DnsException) {
-                            when (val cause = error.cause) {
-                                is ErrnoException -> {
-                                    runCatching { ctx.errnoCode(cause.errno) }
-                                        .onFailure { Log.w(TAG, "failed to return DNS errno to core", it) }
-                                    continuation.resumeSuccessSafely()
-                                }
-                                else -> continuation.resumeFailureSafely(error)
-                            }
-                        }
-                    }
-                    try {
-                        DnsResolver.getInstance().rawQuery(
-                            defaultNetwork,
-                            message,
-                            DnsResolver.FLAG_NO_RETRY,
-                            Dispatchers.IO.asExecutor(),
-                            signal,
-                            callback,
-                        )
-                    } catch (e: Exception) {
-                        signal.cancel()
-                        continuation.resumeFailureSafely(e)
-                    }
-                }
+            ctx.onCancel {
+                cancelled.set(true)
+                job.cancel()
             }
+            val deliver = runBlocking(job) { withTimeout(TIMEOUT_MS) { operation() } }
+            if (!cancelled.get()) deliver()
+        } catch (_: TimeoutCancellationException) {
+            if (!cancelled.get()) runCatching { ctx.errorCode(SERVFAIL) }
+        } catch (_: CancellationException) {
+            // The core no longer owns this request. Never send a second answer.
+        } catch (_: UnknownHostException) {
+            if (!cancelled.get()) runCatching { ctx.errorCode(NXDOMAIN) }
         } catch (e: Exception) {
-            Log.w(TAG, "raw DNS exchange failed", e)
-            runCatching { ctx.errorCode(RCODE_SERVFAIL) }
-                .onFailure { Log.w(TAG, "failed to return DNS failure to core", it) }
-        }
-    }
-
-    override fun lookup(ctx: ExchangeContext, network: String, domain: String) {
-        try {
-            runBlocking {
-                val defaultNetwork = DefaultNetworkMonitor.require()
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    lookupModern(ctx, defaultNetwork, network, domain)
-                } else {
-                    val answer = try {
-                        defaultNetwork.getAllByName(domain)
-                    } catch (_: UnknownHostException) {
-                        runCatching { ctx.errorCode(RCODE_NXDOMAIN) }
-                        return@runBlocking
-                    }
-                    runCatching { ctx.success(answer.mapNotNull { it.hostAddress }.joinToString("\n")) }
-                        .onFailure { Log.w(TAG, "failed to return DNS lookup result to core", it) }
-                }
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "DNS lookup failed for $domain", e)
-            runCatching { ctx.errorCode(RCODE_SERVFAIL) }
-                .onFailure { Log.w(TAG, "failed to return DNS failure to core", it) }
+            Log.w(TAG, "DNS request failed", e)
+            if (!cancelled.get()) runCatching { ctx.errorCode(SERVFAIL) }
+        } finally {
+            job.cancel()
         }
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
-    private suspend fun lookupModern(
-        ctx: ExchangeContext,
-        defaultNetwork: android.net.Network,
-        network: String,
-        domain: String,
-    ) {
-        suspendCoroutine<Unit> { continuation ->
+    private suspend fun <T : Any> query(start: (CancellationSignal, DnsResolver.Callback<T>) -> Unit): Pair<T, Int> =
+        suspendCancellableCoroutine { continuation ->
             val signal = CancellationSignal()
-            runCatching { ctx.onCancel(signal::cancel) }
-            val callback = object : DnsResolver.Callback<Collection<InetAddress>> {
-                override fun onAnswer(answer: Collection<InetAddress>, rcode: Int) {
-                    runCatching {
-                        if (rcode == 0) {
-                            ctx.success(answer.mapNotNull { it.hostAddress }.joinToString("\n"))
-                        } else {
-                            ctx.errorCode(rcode)
-                        }
-                    }.onFailure { Log.w(TAG, "failed to return DNS answer to core", it) }
-                    continuation.resumeSuccessSafely()
+            val finished = AtomicBoolean(false)
+            continuation.invokeOnCancellation {
+                finished.set(true)
+                signal.cancel()
+            }
+            val callback = object : DnsResolver.Callback<T> {
+                override fun onAnswer(answer: T, rcode: Int) {
+                    if (finished.compareAndSet(false, true)) continuation.resume(answer to rcode)
                 }
-
                 override fun onError(error: DnsResolver.DnsException) {
-                    when (val cause = error.cause) {
-                        is ErrnoException -> {
-                            runCatching { ctx.errnoCode(cause.errno) }
-                                .onFailure { Log.w(TAG, "failed to return DNS errno to core", it) }
-                            continuation.resumeSuccessSafely()
-                        }
-                        else -> continuation.resumeFailureSafely(error)
-                    }
+                    if (finished.compareAndSet(false, true)) continuation.resumeWithException(error)
                 }
             }
-
             try {
-                val type = when {
-                    network.endsWith("4") -> DnsResolver.TYPE_A
-                    network.endsWith("6") -> DnsResolver.TYPE_AAAA
-                    else -> null
-                }
-                if (type != null) {
-                    DnsResolver.getInstance().query(
-                        defaultNetwork,
-                        domain,
-                        type,
-                        DnsResolver.FLAG_NO_RETRY,
-                        Dispatchers.IO.asExecutor(),
-                        signal,
-                        callback,
-                    )
-                } else {
-                    DnsResolver.getInstance().query(
-                        defaultNetwork,
-                        domain,
-                        DnsResolver.FLAG_NO_RETRY,
-                        Dispatchers.IO.asExecutor(),
-                        signal,
-                        callback,
-                    )
-                }
+                if (continuation.isActive) start(signal, callback)
             } catch (e: Exception) {
                 signal.cancel()
-                continuation.resumeFailureSafely(e)
+                if (finished.compareAndSet(false, true)) continuation.resumeWithException(e)
             }
+        }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    override fun exchange(ctx: ExchangeContext, message: ByteArray) = resolve(ctx) {
+        val network = DefaultNetworkMonitor.require()
+        try {
+            val (answer, rcode) = query<ByteArray> { signal, callback ->
+                DnsResolver.getInstance().rawQuery(
+                    network, message, DnsResolver.FLAG_NO_RETRY,
+                    Dispatchers.IO.asExecutor(), signal, callback,
+                )
+            }
+            ({ if (rcode == 0) ctx.rawSuccess(answer) else ctx.errorCode(rcode) })
+        } catch (e: DnsResolver.DnsException) {
+            val cause = e.cause
+            if (cause is ErrnoException) ({ ctx.errnoCode(cause.errno) }) else throw e
+        }
+    }
+
+    override fun lookup(ctx: ExchangeContext, network: String, domain: String) = resolve(ctx) {
+        val defaultNetwork = DefaultNetworkMonitor.require()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            lookupModern(ctx, defaultNetwork, network, domain)
+        } else {
+            // Do not keep the gomobile caller waiting for an uncancellable legacy resolver.
+            val answer = suspendCancellableCoroutine<List<InetAddress>> { continuation ->
+                Dispatchers.IO.asExecutor().execute {
+                    try {
+                        continuation.resume(defaultNetwork.getAllByName(domain).toList())
+                    } catch (e: Exception) {
+                        continuation.resumeWithException(e)
+                    }
+                }
+            }
+            ({ ctx.success(answer.mapNotNull { it.hostAddress }.joinToString("\n")) })
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private suspend fun lookupModern(ctx: ExchangeContext, network: Network, family: String, domain: String): () -> Unit {
+        return try {
+            val (answer, rcode) = query<Collection<InetAddress>> { signal, callback ->
+                val type = when {
+                    family.endsWith("4") -> DnsResolver.TYPE_A
+                    family.endsWith("6") -> DnsResolver.TYPE_AAAA
+                    else -> null
+                }
+                if (type == null) {
+                    DnsResolver.getInstance().query(
+                        network, domain, DnsResolver.FLAG_NO_RETRY,
+                        Dispatchers.IO.asExecutor(), signal, callback,
+                    )
+                } else {
+                    DnsResolver.getInstance().query(
+                        network, domain, type, DnsResolver.FLAG_NO_RETRY,
+                        Dispatchers.IO.asExecutor(), signal, callback,
+                    )
+                }
+            }
+            ({ if (rcode == 0) ctx.success(answer.mapNotNull { it.hostAddress }.joinToString("\n")) else ctx.errorCode(rcode) })
+        } catch (e: DnsResolver.DnsException) {
+            val cause = e.cause
+            if (cause is ErrnoException) ({ ctx.errnoCode(cause.errno) }) else throw e
         }
     }
 }

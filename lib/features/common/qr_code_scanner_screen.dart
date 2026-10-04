@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -399,12 +400,13 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 //   }
 // }
 
-class QrCodeScannerDialog extends ConsumerWidget {
+class QrCodeScannerDialog extends HookConsumerWidget {
   const QrCodeScannerDialog({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.read(translationsProvider).requireValue;
+    final accepted = useRef(false);
     return Scaffold(
       body: SafeArea(
         child: Stack(
@@ -422,8 +424,11 @@ class QrCodeScannerDialog extends ConsumerWidget {
               ),
               errorBuilder: (context, error) => Center(child: Text(t.common.msg.permission.denied)),
               onDetect: (barcodes) {
-                final rawData = barcodes.barcodes.first.rawValue;
-                if (rawData != null) context.pop(rawData);
+                if (accepted.value || !context.mounted) return;
+                final rawData = barcodes.barcodes.firstOrNull?.rawValue;
+                if (rawData == null || rawData.isEmpty) return;
+                accepted.value = true;
+                context.pop(rawData);
                 // loggy.debug('captured raw: [$rawData]');
                 // if (rawData != null) {
                 //   context.pop(rawData);
@@ -446,7 +451,11 @@ class QrCodeScannerDialog extends ConsumerWidget {
                 ),
                 margin: const EdgeInsets.all(8),
                 child: IconButton(
-                  onPressed: () => context.pop(),
+                  onPressed: () {
+                    if (accepted.value || !context.mounted) return;
+                    accepted.value = true;
+                    context.pop();
+                  },
                   icon: Icon(Icons.close, color: Theme.of(context).colorScheme.onPrimaryContainer),
                   splashRadius: 24,
                 ),

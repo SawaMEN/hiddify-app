@@ -43,6 +43,8 @@ class CoreInterface {
     return true;
   }
 
+  Future<void> dispose() async {}
+
   bool isInitialized() {
     try {
       bgClient; // touch it
