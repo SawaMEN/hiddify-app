@@ -51,8 +51,9 @@ android-libs:
 	    fi; \
 	    sleep 1; \
 	  done; \
+	  go_bin="$$(go env GOPATH)/bin"; \
 	  echo "Building hiddify-core from $$(git -C $(CORE_DIR) rev-parse --short HEAD) with NDK $(ANDROID_NDK_VERSION)..."; \
-	  GOTOOLCHAIN=auto ANDROID_NDK_HOME="$$ndk" $(MAKE) -C $(CORE_DIR) android; \
+	  PATH="$$go_bin:$$PATH" GOTOOLCHAIN=auto ANDROID_NDK_HOME="$$ndk" $(MAKE) -C $(CORE_DIR) android; \
 	  test -s $(CORE_DIR)/bin/hiddify-core.aar; \
 	  cp $(CORE_DIR)/bin/hiddify-core.aar $(ANDROID_OUT)/hiddify-core.aar; \
 	  ls -lh $(ANDROID_OUT)/hiddify-core.aar
