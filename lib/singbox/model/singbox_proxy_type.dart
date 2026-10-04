@@ -29,6 +29,7 @@ enum ProxyType {
   openvpnClient("OpenVPN Client", "openvpn-client"),
   openvpnServer("OpenVPN Server", "openvpn-server"),
   tailscale("Tailscale"),
+  tailcat("Tailcat"),
   cloudflared("Cloudflared"),
   masque("MASQUE"),
   masqueClient("MASQUE Client", "masque-client"),
