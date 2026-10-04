@@ -15,8 +15,10 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 class MethodHandler(
     private val scope: CoroutineScope,
@@ -28,6 +30,7 @@ class MethodHandler(
     companion object {
         const val TAG = "A/MethodHandler"
         const val channelName = "com.hiddify.app/method"
+        private const val STOP_TIMEOUT_MS = 15_000L
 
         enum class Trigger(val method: String) {
             Setup("setup"),
@@ -118,11 +121,28 @@ class MethodHandler(
                 dispatcher = Dispatchers.Main.immediate,
                 errorCode = "android_stop_failed",
             ) {
-                val started = mainActivity.serviceStatus.value == Status.Started
-                if (!started) {
-                    Log.w(TAG, "service is not running")
+                val currentStatus = mainActivity.serviceStatus.value ?: Status.Stopped
+                if (currentStatus == Status.Stopped) {
+                    Log.d(TAG, "service is already stopped")
+                    return@launchResult true
                 }
+
                 BoxService.stop()
+
+                // BoxService.stop() only sends a broadcast. The actual Mobile.close(4L)
+                // happens asynchronously in BoxService. Do not report success to Dart until
+                // the native core has fully closed, otherwise the next connect can race
+                // Mobile.setup() against the previous Mobile.close().
+                val stopped = withTimeoutOrNull(STOP_TIMEOUT_MS) {
+                    while (mainActivity.serviceStatus.value != Status.Stopped) {
+                        delay(50L)
+                    }
+                    true
+                } ?: false
+
+                if (!stopped) {
+                    throw IllegalStateException("timed out waiting for Android service to stop")
+                }
                 true
             }
 
