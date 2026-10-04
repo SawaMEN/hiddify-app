@@ -3,7 +3,6 @@ import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:hiddify/core/db/db.dart';
-
 import 'package:hiddify/core/utils/exception_handler.dart';
 import 'package:hiddify/features/profile/data/profile_data_mapper.dart';
 import 'package:hiddify/features/profile/data/profile_data_source.dart';
@@ -63,7 +62,6 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
           await _profilePathResolver.directory.create(recursive: true);
         }
       }
-
       return right(unit);
     }, ProfileUnexpectedFailure.new);
   }
@@ -99,7 +97,7 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
       error,
       stackTrace,
     ) {
-      loggy.error("error watching active profile", error, stackTrace);
+      loggy.error('error watching active profile', error, stackTrace);
       return ProfileUnexpectedFailure(error, stackTrace);
     });
   }
@@ -130,13 +128,11 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
         ProfileFailure.unexpected,
       ).flatMap(
         (profEntity) => TaskEither<ProfileFailure, Unit>(() async {
-          // if profile is null, generate id
           final id = profEntity?.id ?? const Uuid().v4();
           final file = _profilePathResolver.file(id);
           final tempFile = _profilePathResolver.tempFile(id);
           try {
             if (profEntity != null && profEntity is RemoteProfileEntity) {
-              // Update
               final remoteProfile = userOverride == null ? profEntity : profEntity.copyWith(userOverride: userOverride);
               return await _profileParser
                   .updateRemote(rp: remoteProfile, tempFilePath: tempFile.path, cancelToken: cancelToken)
@@ -156,7 +152,6 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
                   )
                   .run();
             } else {
-              // Add
               return await _profileParser
                   .addRemote(
                     id: id,
@@ -211,7 +206,7 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
                       }, ProfileFailure.unexpected),
                     ),
               );
-          return (await task.run()).getOrElse((l) => throw l);
+          return (await task.run()).getOrElse((failure) => throw failure);
         } finally {
           if (await tempFile.exists()) await tempFile.delete();
         }
@@ -266,17 +261,23 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
       );
 
   @override
-  TaskEither<ProfileFailure, Unit> validateConfig(String path, String tempPath, String? profileOverride, bool debug) =>
-      TaskEither.fromEither(_configOptionRepo.fullOptionsOverrided(profileOverride))
-          .mapLeft((configOptionFailure) => ProfileFailure.invalidConfig(null, configOptionFailure))
-          .flatMap(
-            (overridedOptions) => _singbox
-                .changeOptions(overridedOptions)
-                .mapLeft(ProfileFailure.invalidConfig)
-                .flatMap(
-                  (_) => _singbox.validateConfigByPath(path, tempPath, debug).mapLeft(ProfileFailure.invalidConfig),
-                ),
-          );
+  TaskEither<ProfileFailure, Unit> validateConfig(String path, String tempPath, String? profileOverride, bool debug) {
+    return TaskEither(
+      () => _singbox.runExclusive(
+        () => TaskEither.fromEither(_configOptionRepo.fullOptionsOverrided(profileOverride))
+            .mapLeft((configOptionFailure) => ProfileFailure.invalidConfig(null, configOptionFailure))
+            .flatMap(
+              (overridedOptions) => _singbox
+                  .changeOptions(overridedOptions)
+                  .mapLeft(ProfileFailure.invalidConfig)
+                  .flatMap(
+                    (_) => _singbox.validateConfigByPath(path, tempPath, debug).mapLeft(ProfileFailure.invalidConfig),
+                  ),
+            )
+            .run(),
+      ),
+    );
+  }
 
   @override
   TaskEither<ProfileFailure, String> generateConfig(String id) => TaskEither.fromEither(
