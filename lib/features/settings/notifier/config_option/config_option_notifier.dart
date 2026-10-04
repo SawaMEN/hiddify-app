@@ -53,7 +53,7 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
     final options = ref.read(ConfigOptions.singboxConfigOptions);
     final snapshot = repository.configOptionsSnapshot;
     final activeProfile = await ref.read(activeProfileProvider.future);
-    if (!ref.mounted) return;
+    if (!ref.mounted || !ref.read(serviceRunningProvider)) return;
     final notifier = ref.read(connectionNotifierProvider.notifier);
     // Mark this attempt before restarting; the running-status listener must not
     // schedule it again merely because profile overrides differ from global options.

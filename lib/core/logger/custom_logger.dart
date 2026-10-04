@@ -60,6 +60,7 @@ class FileLogPrinter extends LoggyPrinter {
 
   static const maxBytes = 2 * 1024 * 1024;
   int _bytes = 0;
+  int _pendingWrites = 0;
   bool _closed = false;
   IOSink? _sink;
   Future<void> _writes = Future<void>.value();
@@ -75,12 +76,17 @@ class FileLogPrinter extends LoggyPrinter {
 
   @override
   void onLog(LogRecord record) {
-    if (_closed || record.level.priority < minLevel.priority) return;
-    final text =
+    if (_closed || _pendingWrites >= 100 || record.level.priority < minLevel.priority) return;
+    final message =
         '${record.time.toIso8601String()} - $record\n'
         '${record.error == null ? '' : '${record.error}\n'}'
         '${record.stackTrace == null ? '' : '${record.stackTrace}\n'}';
+    final encoded = utf8.encode(message);
+    final text = encoded.length > 65536
+        ? '${utf8.decode(encoded.sublist(0, 65536), allowMalformed: true)}\n[log record truncated]\n'
+        : message;
     final bytes = utf8.encode(text).length;
+    _pendingWrites++;
     _writes = _writes
         .then((_) async {
           if (_closed) return;
@@ -94,9 +100,13 @@ class FileLogPrinter extends LoggyPrinter {
           }
           _sink?.write(text);
           _bytes += bytes;
+          await _sink?.flush();
         })
         .catchError((Object error, StackTrace stack) {
           _closed = true;
+        })
+        .whenComplete(() {
+          _pendingWrites--;
         });
   }
 

@@ -2,12 +2,11 @@ include dependencies.properties
 
 MKDIR := mkdir -p
 ANDROID_OUT=android/app/libs
-CORE_NAME=hiddify-lib
 
 ifeq ($(CHANNEL),prod)
-		TARGET=lib/main_prod.dart
+TARGET=lib/main_prod.dart
 else
-		TARGET=lib/main.dart
+TARGET=lib/main.dart
 endif
 
 .PHONY: get gen translate common-prepare android-prepare android-apk-prepare \
