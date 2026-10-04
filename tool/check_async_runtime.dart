@@ -20,6 +20,13 @@ Future<void> expectError<T extends Object>(Future<Object?> future) async {
 }
 
 Future<void> main() async {
+  for (final value in [null, 'null', '[]', '"text"', '{broken']) {
+    check(decodeOptionalJsonObject(value) == null, 'Invalid optional JSON must not break startup: $value');
+  }
+  check(
+    decodeOptionalJsonObject('{"profile-title":"test"}')?['profile-title'] == 'test',
+    'Valid stored headers must survive',
+  );
   check(parseProfileTitle('base64:%%%') == null, 'Malformed title must allow fallback naming');
   check(parseProfileTitle('base64:/w==') == null, 'Invalid UTF-8 title must allow fallback naming');
   check(parseProfileTitle('base64:SGVsbG8') == 'Hello', 'Unpadded base64 title must decode');

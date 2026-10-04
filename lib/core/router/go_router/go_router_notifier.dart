@@ -11,19 +11,29 @@ final rootNavKey = GlobalKey<NavigatorState>(debugLabel: 'rootNav');
 
 @Riverpod(keepAlive: true)
 class GoRouterNotifer extends _$GoRouterNotifer {
-  static final rConfig = ValueNotifier<RoutingConfig>(loadingConfig);
   @override
   GoRouter build() {
+    final rConfig = ValueNotifier<RoutingConfig>(ref.read(routingConfigNotifierProvider));
     ref.listen(routingConfigNotifierProvider, (_, next) => rConfig.value = next);
-    return GoRouter.routingConfig(
+    final refreshListenable = RefreshListenable(ref);
+    final router = GoRouter.routingConfig(
       initialLocation: '/home',
       navigatorKey: rootNavKey,
       routingConfig: rConfig,
-      refreshListenable: RefreshListenable(ref),
+      refreshListenable: refreshListenable,
       errorBuilder: (context, state) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => context.goNamed('home'));
-        return const Material();
+        return Scaffold(
+          body: Center(
+            child: TextButton(onPressed: () => context.go('/home'), child: const Text('Return to home')),
+          ),
+        );
       },
     );
+    ref.onDispose(() {
+      router.dispose();
+      refreshListenable.dispose();
+      rConfig.dispose();
+    });
+    return router;
   }
 }

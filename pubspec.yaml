@@ -79,6 +79,8 @@ dependencies:
   humanizer: ^3.0.1
 
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
   flag_builder:
     path: tool/flag_builder_compat
   lint: ^2.14.0

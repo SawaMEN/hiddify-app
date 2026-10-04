@@ -1,5 +1,15 @@
 import 'dart:convert';
 
+Map<String, dynamic>? decodeOptionalJsonObject(String? value) {
+  if (value == null) return null;
+  try {
+    final decoded = jsonDecode(value);
+    return decoded is Map<String, dynamic> ? decoded : null;
+  } on FormatException {
+    return null;
+  }
+}
+
 /// Optional subscription metadata must not invalidate usable proxy content.
 String? parseProfileTitle(String value) {
   var title = value.trim();
