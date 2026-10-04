@@ -27,15 +27,9 @@ class LogRepositoryImpl with ExceptionHandler, InfraLogger implements LogReposit
         if (!await logPathResolver.directory.exists()) {
           await logPathResolver.directory.create(recursive: true);
         }
-        if (await logPathResolver.coreFile().exists()) {
-          await logPathResolver.coreFile().writeAsString("");
-        } else {
-          await logPathResolver.coreFile().create(recursive: true);
-        }
-        if (await logPathResolver.appFile().exists()) {
-          await logPathResolver.appFile().writeAsString("");
-        } else {
-          await logPathResolver.appFile().create(recursive: true);
+        // Existing diagnostics must survive a process restart.
+        for (final file in [logPathResolver.coreFile(), logPathResolver.appFile()]) {
+          if (!await file.exists()) await file.create(recursive: true);
         }
       }
       return right(unit);

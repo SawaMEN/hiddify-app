@@ -30,7 +30,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -43,6 +42,8 @@ class BoxService(
     companion object {
         private const val TAG = "A/BoxService"
 
+        private val lifecycleMutex = Mutex()
+        private var coreOwner: BoxService? = null
         private var initializeOnce = false
         private lateinit var workingDir: File
 
@@ -63,9 +64,17 @@ class BoxService(
             Log.d(TAG, "working dir: ${Settings.workingDir}")
             Log.d(TAG, "temp dir: ${Settings.tempDir}")
 
+            for (path in listOf(Settings.baseDir, Settings.workingDir, Settings.tempDir)) {
+                val directory = File(path)
+                check((directory.isDirectory || directory.mkdirs()) && directory.canWrite()) { "unwritable core directory: $path" }
+            }
             Libbox.redirectStderr(File(Settings.workingDir, "stderr.log").path)
             initializeOnce = true
         }
+
+        suspend fun <T> withNativeLifecycle(action: suspend () -> T): T = lifecycleMutex.withLock { action() }
+
+        fun currentPlatformInterface(): PlatformInterface? = coreOwner?.platformInterface
 
         fun start() {
             val intent = Intent(Application.application, Settings.serviceClass())
@@ -82,7 +91,7 @@ class BoxService(
     var fileDescriptor: ParcelFileDescriptor? = null
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    private val lifecycleMutex = Mutex()
+    @Volatile private var destroyed = false
     private val status = MutableLiveData(Status.Stopped)
     private val binder = ServiceBinder(status)
     private val notification = ServiceNotification(status, service)
@@ -104,12 +113,15 @@ class BoxService(
     private var activeProfileName = ""
 
     private suspend fun startService() {
-        var coreSetupSucceeded = false
         try {
+            if (destroyed) return
+            coreOwner?.takeIf { it !== this }?.releaseNative("replacement")
+            initialize()
             status.postValue(Status.Starting)
             Log.d(TAG, "starting service")
 
             withContext(Dispatchers.Main) {
+                if (destroyed) return@withContext
                 notification.show(activeProfileName, R.string.status_starting)
             }
 
@@ -122,10 +134,12 @@ class BoxService(
             activeProfileName = Settings.activeProfileName
 
             withContext(Dispatchers.Main) {
+                if (destroyed) return@withContext
                 notification.show(activeProfileName, R.string.status_starting)
                 binder.broadcast { it.onServiceResetLogs(listOf()) }
             }
 
+            coreOwner = this
             DefaultNetworkMonitor.start()
             Libbox.setMemoryLimit(!Settings.disableMemoryLimit)
 
@@ -143,13 +157,10 @@ class BoxService(
                     },
                     platformInterface,
                 )
-                coreSetupSucceeded = true
+                if (destroyed) return
             } catch (e: Exception) {
                 // setup() can fail after allocating native state. Always make a best-effort close
                 // before tearing down Android network callbacks so a later setup starts cleanly.
-                DefaultNetworkMonitor.detachCoreListener()
-                runCatching { Mobile.close(4L) }
-                    .onFailure { Log.e(TAG, "failed to close partially initialized core", it) }
                 stopAndAlert(Alert.CreateService, e.message)
                 return
             }
@@ -158,46 +169,50 @@ class BoxService(
                 Mobile.start(selectedConfigPath, "")
             }
 
+            if (destroyed) return
             status.postValue(Status.Started)
             withContext(Dispatchers.Main) {
+                if (destroyed) return@withContext
                 notification.show(activeProfileName, R.string.status_started)
             }
             notification.start()
         } catch (e: Exception) {
-            if (coreSetupSucceeded) {
-                DefaultNetworkMonitor.detachCoreListener()
-                runCatching { Mobile.close(4L) }
-                    .onFailure { Log.e(TAG, "failed to close core after start error", it) }
-            }
             stopAndAlert(Alert.StartService, e.message)
         }
     }
 
     fun serviceReload() {
-        runBlocking {
-            serviceReload0()
+        serviceScope.launch {
+            try { serviceReload0() } catch (e: Exception) {
+                Log.e(TAG, "reload failed", e)
+                lifecycleMutex.withLock { stopAndAlert(Alert.StartService, e.message) }
+            }
         }
     }
 
     suspend fun serviceReload0() {
         lifecycleMutex.withLock {
+            if (destroyed || coreOwner !== this) return
             status.postValue(Status.Starting)
             withContext(Dispatchers.Main) {
+                if (destroyed) return@withContext
                 notification.show(activeProfileName, R.string.status_starting)
             }
 
-            closeTun("reload")
             DefaultNetworkMonitor.detachCoreListener()
             val closeError = runCatching { Mobile.close(4L) }.exceptionOrNull()
             if (closeError != null) {
                 Log.e(TAG, "failed to close mobile core for reload", closeError)
                 status.postValue(Status.Started)
                 withContext(Dispatchers.Main) {
-                    notification.show(activeProfileName, R.string.status_started)
+                    if (destroyed) return@withContext
+                notification.show(activeProfileName, R.string.status_started)
                     binder.broadcast { it.onServiceAlert(Alert.StartService.ordinal, closeError.message) }
                 }
                 return
             }
+            closeTun("reload")
+            coreOwner = null
             runCatching { DefaultNetworkMonitor.stop() }
                 .onFailure { Log.w(TAG, "failed to stop network monitor for reload", it) }
             startService()
@@ -214,6 +229,7 @@ class BoxService(
     }
 
     fun setSystemProxyEnabled(isEnabled: Boolean) {
+        Settings.systemProxyEnabled = isEnabled
         serviceReload()
     }
 
@@ -226,14 +242,18 @@ class BoxService(
     }
 
     private fun stopService() {
-        if (status.value == Status.Stopped || status.value == Status.Stopping) return
+        if (destroyed || status.value == Status.Stopped || status.value == Status.Stopping) return
 
         status.value = Status.Stopping
         serviceScope.launch {
             lifecycleMutex.withLock {
-                closeTun("stop")
+                if (destroyed) return@withLock
 
                 // Keep Android network discovery alive until gomobile has actually stopped using it.
+                if (coreOwner !== this) {
+                    withContext(Dispatchers.Main) { status.value = Status.Stopped; service.stopSelf() }
+                    return@withLock
+                }
                 DefaultNetworkMonitor.detachCoreListener()
                 val closeError = runCatching { Mobile.close(4L) }.exceptionOrNull()
                 if (closeError != null) {
@@ -241,12 +261,15 @@ class BoxService(
                     withContext(Dispatchers.Main) {
                         // Allow a subsequent stop request to retry instead of reporting a false Stopped state.
                         status.value = Status.Started
-                        notification.show(activeProfileName, R.string.status_started)
+                        if (destroyed) return@withContext
+                notification.show(activeProfileName, R.string.status_started)
                         binder.broadcast { it.onServiceAlert(Alert.StartService.ordinal, closeError.message) }
                     }
                     return@withLock
                 }
 
+                closeTun("stop")
+                coreOwner = null
                 runCatching { DefaultNetworkMonitor.stop() }
                     .onFailure { Log.w(TAG, "failed to stop network monitor", it) }
                 Settings.startedByUser = false
@@ -262,11 +285,10 @@ class BoxService(
     }
 
     private suspend fun stopAndAlert(type: Alert, message: String? = null) {
+        if (destroyed) return
         Settings.startedByUser = false
+        releaseNative("service error")
         closeTun("service error")
-        DefaultNetworkMonitor.detachCoreListener()
-        runCatching { DefaultNetworkMonitor.stop() }
-            .onFailure { Log.w(TAG, "failed to stop network monitor after service error", it) }
 
         withContext(Dispatchers.Main) {
             unregisterReceiver()
@@ -285,43 +307,77 @@ class BoxService(
 
     @Suppress("SameReturnValue")
     internal fun onStartCommand(): Int {
-        if (status.value != Status.Stopped) return Service.START_NOT_STICKY
+        if (destroyed || status.value != Status.Stopped) return Service.START_NOT_STICKY
         status.value = Status.Starting
-
-        if (!receiverRegistered) {
-            ContextCompat.registerReceiver(
-                service,
-                receiver,
-                IntentFilter().apply {
-                    addAction(Action.SERVICE_CLOSE)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED)
-                    }
-                },
-                ContextCompat.RECEIVER_NOT_EXPORTED,
-            )
-            receiverRegistered = true
+        try {
+            // Android's foreground deadline starts before IO/setup, not after it.
+            notification.show(Settings.activeProfileName, R.string.status_starting)
+            if (!receiverRegistered) {
+                ContextCompat.registerReceiver(
+                    service, receiver,
+                    IntentFilter().apply {
+                        addAction(Action.SERVICE_CLOSE)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED)
+                    },
+                    ContextCompat.RECEIVER_NOT_EXPORTED,
+                )
+                receiverRegistered = true
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "foreground registration failed", e)
+            status.value = Status.Stopped
+            unregisterReceiver()
+            notification.close()
+            service.stopSelf()
+            return Service.START_NOT_STICKY
         }
-
         serviceScope.launch {
             lifecycleMutex.withLock {
-                Settings.startedByUser = true
-                initialize()
-                startService()
+                if (destroyed) return@withLock
+                try {
+                    Settings.startedByUser = true
+                    startService()
+                } catch (e: Exception) {
+                    Log.e(TAG, "service initialization failed", e)
+                    stopAndAlert(Alert.CreateService, e.message)
+                }
             }
         }
         return Service.START_NOT_STICKY
     }
 
+    // All owners share the mutex. An old onDestroy must never close a new owner's core.
+    private suspend fun releaseNative(reason: String) {
+        if (coreOwner !== this) return
+        DefaultNetworkMonitor.detachCoreListener()
+        Mobile.close(4L) // retain ownership and abort replacement if native close throws
+        closeTun(reason)
+        runCatching { DefaultNetworkMonitor.stop() }.onFailure { Log.w(TAG, "network cleanup failed", it) }
+        coreOwner = null
+    }
+
     fun onBind(intent: Intent): IBinder = binder
 
     fun onDestroy() {
+        if (destroyed) return
+        destroyed = true
         unregisterReceiver()
-        closeTun("destroy")
-        DefaultNetworkMonitor.detachCoreListener()
         notification.destroy()
         binder.close()
-        serviceScope.cancel()
+        // Never block Android main, and do not cancel a blocking setup before its cleanup
+        // has acquired the lifecycle lock and released native state.
+        serviceScope.launch {
+            try {
+                lifecycleMutex.withLock {
+                    releaseNative("destroy")
+                    closeTun("destroy")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "destroy cleanup failed", e)
+            } finally {
+                serviceScope.cancel()
+            }
+        }
     }
 
     fun onRevoke() {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:accessibility_tools/accessibility_tools.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/foundation.dart';
@@ -39,16 +41,25 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
     // Permission activities can pause Flutter while the service is starting.
     if (connection is Connecting || connection is Disconnecting) return;
     _coreNeedsResume = true;
-    ref.read(hiddifyCoreServiceProvider).closeFront();
+    unawaited(
+      ref.read(hiddifyCoreServiceProvider).closeFront().catchError((Object error, StackTrace stackTrace) {
+        loggy.warning("Unable to suspend core listeners", error, stackTrace);
+      }),
+    );
   }
 
   void onResume(WidgetRef ref) {
     if (_coreNeedsResume) {
       _coreNeedsResume = false;
-      ref.read(hiddifyCoreServiceProvider).init();
+      unawaited(
+        ref.read(hiddifyCoreServiceProvider).init().catchError((Object error, StackTrace stackTrace) {
+          loggy.warning("Unable to restore core listeners", error, stackTrace);
+        }),
+      );
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!ref.context.mounted) return;
       if (isOnPauseCalled) ref.invalidate(perAppProxyServiceProvider);
       isOnPauseCalled = false;
     });
@@ -69,6 +80,7 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
 
     useEffect(() {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
         ref.read(activeBreakpointNotifierProvider.notifier).update(activeBreakpoint);
       });
       return null;

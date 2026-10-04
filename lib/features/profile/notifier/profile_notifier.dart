@@ -65,7 +65,7 @@ class AddProfileNotifier extends _$AddProfileNotifier with AppLogger {
   Future<void> addClipboard(String rawInput) async {
     if (state.isLoading) return;
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
+    final result = await AsyncValue.guard(() async {
       // final activeProfile = await ref.read(activeProfileProvider.future);
       // final markAsActive = activeProfile == null || ref.read(Preferences.markNewProfileActive);
       final TaskEither<ProfileFailure, Unit> task;
@@ -93,13 +93,18 @@ class AddProfileNotifier extends _$AddProfileNotifier with AppLogger {
           )
           .run();
     });
+    if (ref.mounted) state = result;
   }
 
   Future<void> addManual({required String url, required UserOverride userOverride}) async {
     if (state.isLoading) return;
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      final task = _profilesRepo.upsertRemote(url, userOverride: userOverride);
+    final result = await AsyncValue.guard(() async {
+      final task = _profilesRepo.upsertRemote(
+        url,
+        userOverride: userOverride,
+        cancelToken: _cancelToken = CancelToken(),
+      );
       return await task
           .match(
             (err) {
@@ -113,6 +118,7 @@ class AddProfileNotifier extends _$AddProfileNotifier with AppLogger {
           )
           .run();
     });
+    if (ref.mounted) state = result;
   }
 }
 
@@ -143,9 +149,11 @@ class UpdateProfileNotifier extends _$UpdateProfileNotifier with AppLogger {
   Future<void> updateProfile(RemoteProfileEntity profile) async {
     if (state.isLoading) return;
     state = const AsyncLoading();
+    final repository = _profilesRepo;
     await ref.read(hapticServiceProvider.notifier).lightImpact();
-    state = await AsyncValue.guard(() async {
-      return await _profilesRepo
+    if (!ref.mounted) return;
+    final result = await AsyncValue.guard(() async {
+      return await repository
           .upsertRemote(profile.url)
           .match(
             (err) {
@@ -154,9 +162,10 @@ class UpdateProfileNotifier extends _$UpdateProfileNotifier with AppLogger {
             },
             (_) async {
               loggy.info('successfully updated profile');
+              if (!ref.mounted) return unit;
 
               await ref.read(activeProfileProvider.future).then((active) async {
-                if (active != null && active.id == profile.id) {
+                if (ref.mounted && active != null && active.id == profile.id) {
                   await ref.read(connectionNotifierProvider.notifier).reconnect(profile);
                 }
               });
@@ -165,6 +174,7 @@ class UpdateProfileNotifier extends _$UpdateProfileNotifier with AppLogger {
           )
           .run();
     });
+    if (ref.mounted) state = result;
   }
 }
 
@@ -207,6 +217,7 @@ class FreeProfilesNotifier extends _$FreeProfilesNotifier {
 @riverpod
 Future<List<FreeProfile>> freeProfilesFilteredByRegion(Ref ref) async {
   final freeProfiles = await ref.watch(freeProfilesNotifierProvider.future);
+  if (!ref.mounted) return [];
   final region = ref.watch(ConfigOptions.region);
   return freeProfiles.where((e) => e.region.contains(region.name) || e.region.isEmpty).toList();
 }

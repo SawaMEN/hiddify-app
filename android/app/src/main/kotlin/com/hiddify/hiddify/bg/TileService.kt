@@ -1,9 +1,11 @@
 package com.hiddify.hiddify.bg
 
+import android.app.PendingIntent
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
 import android.net.VpnService
+import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
@@ -75,8 +77,19 @@ class TileService : TileService(), ServiceConnection.Callback {
         val intent = Intent(this, MainActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
-        @Suppress("DEPRECATION")
-        startActivityAndCollapse(intent)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startActivityAndCollapse(
+                PendingIntent.getActivity(
+                    this,
+                    0,
+                    intent,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                ),
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            startActivityAndCollapse(intent)
+        }
     }
 
     override fun onClick() {

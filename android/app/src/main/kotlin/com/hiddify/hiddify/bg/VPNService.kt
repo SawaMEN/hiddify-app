@@ -43,18 +43,20 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
     var systemProxyAvailable = false
     var systemProxyEnabled = false
 
-    private fun addIncludePackage(builder: Builder, packageName: String) {
+    private fun addIncludePackage(builder: Builder, packageName: String): Boolean {
         if (packageName.isBlank() || packageName == this.packageName) {
             if (packageName == this.packageName) Log.d(TAG, "cannot include VPN app itself: $packageName")
-            return
+            return false
         }
         try {
             builder.addAllowedApplication(packageName)
+            return true
         } catch (e: NameNotFoundException) {
             Log.w(TAG, "cannot include missing package: $packageName", e)
         } catch (e: RuntimeException) {
             Log.w(TAG, "cannot include package: $packageName", e)
         }
+        return false
     }
 
     private fun addExcludePackage(builder: Builder, packageName: String) {
@@ -161,7 +163,13 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
             if (Settings.perAppProxyEnabled) {
                 val appList = Settings.perAppProxyList
                 if (Settings.perAppProxyMode == PerAppProxyMode.INCLUDE) {
-                    appList.forEach { addIncludePackage(builder, it) }
+                    val effectiveApps = appList.filter { pkg ->
+                        pkg.isNotBlank() && pkg != packageName && runCatching {
+                            packageManager.getApplicationInfo(pkg, 0)
+                        }.isSuccess
+                    }
+                    check(effectiveApps.isNotEmpty()) { "include routing has no installed applications" }
+                    check(effectiveApps.count { addIncludePackage(builder, it) } > 0) { "no applications could be included" }
                 } else {
                     appList.forEach { addExcludePackage(builder, it) }
                     addExcludePackage(builder, packageName)
@@ -169,9 +177,11 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
             } else {
                 val includePackage = options.includePackage
                 if (includePackage.hasNext()) {
+                    var included = 0
                     while (includePackage.hasNext()) {
-                        addIncludePackage(builder, includePackage.next())
+                        if (addIncludePackage(builder, includePackage.next())) included++
                     }
+                    check(included > 0) { "no applications could be included" }
                 } else {
                     val excludePackage = options.excludePackage
                     while (excludePackage.hasNext()) {

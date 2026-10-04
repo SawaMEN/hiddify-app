@@ -36,8 +36,9 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
         if (next case AsyncData(value: final Connected _)) {
           await ref.read(hapticServiceProvider.notifier).heavyImpact();
 
+          if (!ref.mounted) return;
           if (Platform.isAndroid && !ref.read(Preferences.storeReviewedByUser)) {
-            if (await InAppReview.instance.isAvailable()) {
+            if (await InAppReview.instance.isAvailable() && ref.mounted) {
               InAppReview.instance.requestReview();
               ref.read(Preferences.storeReviewedByUser.notifier).update(true);
             }
@@ -57,7 +58,9 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
 
     yield* _connectionRepo.watchConnectionStatus().doOnData((event) {
       if (event case Disconnected(connectionFailure: final _?) when PlatformUtils.isDesktop) {
-        Future.microtask(() => ref.read(Preferences.startedByUser.notifier).update(false));
+        Future.microtask(() {
+          if (ref.mounted) ref.read(Preferences.startedByUser.notifier).update(false);
+        });
       }
       loggy.info("connection status: ${event.format()}");
     });
@@ -109,6 +112,19 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     }
   }
 
+  // Recreate the Android service explicitly when switching VPN/proxy mode.
+  // Toggling twice depends on status stream timing and can leave it disconnected.
+  Future<void> reconnectService(ProfileEntity? profile) async {
+    if (profile == null) return _disconnect();
+    final repository = _connectionRepo;
+    final disableMemoryLimit = ref.read(Preferences.disableMemoryLimit);
+    final result = await _serializeCoreOperation(() async {
+      final stopped = await repository.disconnect().run();
+      return stopped.match((error) async => stopped, (_) => repository.connect(profile, disableMemoryLimit).run());
+    });
+    await result.match<Future<void>>((error) => _handleFailure(error, resetStartedByUser: true), (_) async {});
+  }
+
   Future<void> abortConnection() async {
     if (state case AsyncData(:final value)) {
       switch (value) {
@@ -137,6 +153,7 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
 
   Future<void> _connectThrottled() async {
     final activeProfile = await ref.read(activeProfileProvider.future);
+    if (!ref.mounted) return;
     if (activeProfile == null) {
       loggy.info("no active profile, not connecting");
       await ref.read(Preferences.startedByUser.notifier).update(false);

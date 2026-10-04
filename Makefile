@@ -8,7 +8,7 @@ ifeq ($(CHANNEL),prod)
 	CORE_URL=https://github.com/hiddify/hiddify-core/releases/download/v$(core.version)
 	TARGET=lib/main_prod.dart
 else
-	CORE_URL=https://github.com/hiddify/hiddify-core/releases/download/draft
+	CORE_URL=https://github.com/hiddify/hiddify-core/releases/download/v$(core.version)
 	TARGET=lib/main.dart
 endif
 
@@ -39,7 +39,8 @@ android-libs:
 	  trap 'rm -f "$$archive"' EXIT; \
 	  curl --fail --location --retry 3 --connect-timeout 30 \
 	    --output "$$archive" "$(CORE_URL)/$(CORE_NAME)-android.tar.gz"; \
-	  tar xzf "$$archive" -C $(ANDROID_OUT)/
+	  printf '%s  %s\n' "$(core.android.sha256)" "$$archive" | sha256sum --check --status; \
+	  tar --no-same-owner xzf "$$archive" -C $(ANDROID_OUT)/
 
 android-apk-libs: android-libs
 

@@ -85,6 +85,7 @@ class MethodHandler(
                 val grpcPort = args["grpcPort"] as Int
 
                 Log.d(TAG, "debug mode: ${Settings.debugMode}")
+                BoxService.withNativeLifecycle {
                 Mobile.setup(
                     SetupOptions().also {
                         it.basePath = Settings.baseDir
@@ -96,8 +97,9 @@ class MethodHandler(
                         it.secret = ""
                         it.debug = Settings.debugMode
                     },
-                    null,
+                    BoxService.currentPlatformInterface(),
                 )
+                }
                 Libbox.redirectStderr(File(Settings.workingDir, "stderr2.log").path)
                 ""
             }
@@ -118,7 +120,13 @@ class MethodHandler(
                     mainActivity.startService()
                 }
                 if (started == null) {
-                    mainActivity.cancelPendingStart("timed out waiting for Android permission/service startup")
+                    val issued = mainActivity.cancelPendingStart("timed out waiting for Android permission/service startup")
+                    if (issued) {
+                        withTimeoutOrNull(START_ISSUE_SETTLE_MS) {
+                            while (mainActivity.serviceStatus.value == Status.Stopped) delay(25L)
+                        }
+                        BoxService.stop()
+                    }
                     false
                 } else {
                     started

@@ -94,9 +94,8 @@ class ProfileDetailsPage extends HookConsumerWidget with PresLogger {
                             initialValue: userOverride.name ?? data.profile.name,
                             validator: (value) =>
                                 (value?.isEmpty ?? true) ? t.pages.profileDetails.form.emptyName : null,
-                            onChanged: (value) => ref
-                                .read(provider.notifier)
-                                .setUserOverride(userOverride.copyWith(name: value)),
+                            onChanged: (value) =>
+                                ref.read(provider.notifier).setUserOverride(userOverride.copyWith(name: value)),
                             label: t.common.name,
                             hint: t.pages.profileDetails.form.nameHint,
                           ),
@@ -265,6 +264,7 @@ class ProfileDetailsPage extends HookConsumerWidget with PresLogger {
                             json: data.configContent,
                           )
                         : TextFormField(
+                            initialValue: data.configContent,
                             onChanged: (value) {
                               ref.read(provider.notifier).setContent(value);
                             },

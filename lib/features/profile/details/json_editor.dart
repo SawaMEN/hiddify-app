@@ -487,6 +487,7 @@ class _JsonEditorState extends State<JsonEditor> {
   void onSearch(String text) {
     if (_searchTimer?.isActive ?? false) _searchTimer?.cancel();
     _searchTimer = Timer(widget.searchDuration, () async {
+      if (!mounted) return;
       _matchedKeys.clear();
       _matchedKeysLocation.clear();
       _focusedKey = null;
@@ -544,6 +545,7 @@ class _JsonEditorState extends State<JsonEditor> {
     final needsRebuilding = updateParentObjects([..._matchedKeysLocation[index]]..removeLast());
     if (needsRebuilding) setState(() {});
     Future.delayed(const Duration(milliseconds: 150), () {
+      if (!mounted || !_scrollController.hasClients) return;
       _scrollController.animateTo(
         (getOffset(toFind) * _rowHeight) - 90,
         duration: const Duration(milliseconds: 200),
@@ -598,7 +600,9 @@ class _JsonEditorState extends State<JsonEditor> {
   @override
   void dispose() {
     _timer?.cancel();
+    _searchTimer?.cancel();
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 

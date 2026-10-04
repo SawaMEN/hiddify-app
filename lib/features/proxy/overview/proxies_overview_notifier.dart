@@ -1,3 +1,5 @@
+import 'package:protobuf/protobuf.dart';
+
 import 'dart:async';
 
 import 'package:dartx/dartx.dart';
@@ -114,7 +116,7 @@ class ProxiesOverviewNotifier extends _$ProxiesOverviewNotifier with AppLogger {
 
   //           final ai = a.urlTestDelay;
   //           final bi = b.urlTestDelay;
-  //           if (ai == 0 && bi == 0) return -1;
+  //           if (ai == 0 && bi == 0) return a.tag.compareTo(b.tag);
   //           if (ai == 0 && bi > 0) return 1;
   //           if (ai > 0 && bi == 0) return -1;
   //           return ai.compareTo(bi);
@@ -138,6 +140,7 @@ class ProxiesOverviewNotifier extends _$ProxiesOverviewNotifier with AppLogger {
 
   Future<OutboundGroup?> _sortOutbounds(OutboundGroup? proxies, ProxiesSort sortBy) async {
     if (proxies == null) return null;
+    proxies = proxies.deepCopy();
 
     final sortedItems = switch (sortBy) {
       ProxiesSort.name => proxies.items.sortedWith((a, b) {
@@ -151,7 +154,7 @@ class ProxiesOverviewNotifier extends _$ProxiesOverviewNotifier with AppLogger {
 
         final ai = a.urlTestDelay;
         final bi = b.urlTestDelay;
-        if (ai == 0 && bi == 0) return -1;
+        if (ai == 0 && bi == 0) return a.tag.compareTo(b.tag);
         if (ai == 0 && bi > 0) return 1;
         if (ai > 0 && bi == 0) return -1;
         return ai.compareTo(bi);
@@ -203,12 +206,17 @@ class ProxiesOverviewNotifier extends _$ProxiesOverviewNotifier with AppLogger {
   Future<void> changeProxy(String groupTag, String outboundTag) async {
     loggy.debug("changing proxy, group: [$groupTag] - outbound: [$outboundTag]");
     if (!state.hasValue) return;
-    final outbounds = state.value!;
+    final outbounds = state.value?.deepCopy();
+    if (outbounds == null) return;
     await ref.read(hapticServiceProvider.notifier).lightImpact();
     await ref.read(proxyRepositoryProvider).selectProxy(groupTag, outboundTag).getOrElse((err) {
       loggy.warning("error selecting outbound", err);
       throw err;
     }).run();
+    if (!ref.mounted) return;
+    for (final item in outbounds.items) {
+      item.isSelected = item.tag == outboundTag;
+    }
     final newselected = outbounds.items.where((e) => e.tag == outboundTag).firstOrNull;
     if (newselected != null) {
       newselected.isSelected = true;

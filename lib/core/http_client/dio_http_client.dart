@@ -51,6 +51,12 @@ class DioHttpClient with InfraLogger {
     }
   }
 
+  void dispose() {
+    for (final client in _dio.values) {
+      client.close(force: true);
+    }
+  }
+
   int port = 0;
 
   String userAgent;

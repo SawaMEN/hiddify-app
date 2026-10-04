@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -19,30 +20,38 @@ part 'config_option_notifier.g.dart';
 class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
   @override
   Future<bool> build() async {
-    final serviceRunning = ref.watch(serviceRunningProvider);
-    final serviceSingboxOptions = ref.read(connectionRepositoryProvider).configOptionsSnapshot;
-
-    ref.listen(ConfigOptions.singboxConfigOptions, (previous, next) async {
-      if (!serviceRunning || previous == null) return;
-      if (next != previous && next != serviceSingboxOptions) {
-        if (_lastUpdate == null || DateTime.now().difference(_lastUpdate!) > const Duration(milliseconds: 100)) {
-          _lastUpdate = DateTime.now();
-          if (serviceSingboxOptions?.enableTun != next.enableTun) {
-            loggy.debug("tun option changed, reconnecting");
-            await ref.read(connectionNotifierProvider.notifier).toggleConnection();
-            await ref.read(connectionNotifierProvider.notifier).toggleConnection();
-          } else {
-            final activeProfile = await ref.read(activeProfileProvider.future);
-            return await ref.read(connectionNotifierProvider.notifier).reconnect(activeProfile);
-          }
-          state = const AsyncData(false);
-        }
-      }
-    }, fireImmediately: true);
+    ref.onDispose(() => _updateTimer?.cancel());
+    ref.listen(ConfigOptions.singboxConfigOptions, (previous, next) {
+      if (previous == null || next == previous) return;
+      _updateTimer?.cancel();
+      _updateTimer = Timer(const Duration(milliseconds: 300), () {
+        unawaited(
+          _applyOptions().catchError((Object error, StackTrace stackTrace) {
+            loggy.warning('Unable to apply changed options', error, stackTrace);
+          }),
+        );
+      });
+    });
     return false;
   }
 
-  DateTime? _lastUpdate;
+  Timer? _updateTimer;
+
+  Future<void> _applyOptions() async {
+    if (!ref.mounted || !ref.read(serviceRunningProvider)) return;
+    final repository = ref.read(connectionRepositoryProvider);
+    final options = ref.read(ConfigOptions.singboxConfigOptions);
+    final snapshot = repository.configOptionsSnapshot;
+    if (snapshot == options) return;
+    final activeProfile = await ref.read(activeProfileProvider.future);
+    if (!ref.mounted) return;
+    final notifier = ref.read(connectionNotifierProvider.notifier);
+    if (snapshot?.enableTun != options.enableTun) {
+      await notifier.reconnectService(activeProfile);
+    } else {
+      await notifier.reconnect(activeProfile);
+    }
+  }
 
   Future<String?> _exportJson(bool excludePrivate) async {
     try {

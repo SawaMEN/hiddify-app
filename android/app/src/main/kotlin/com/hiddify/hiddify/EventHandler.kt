@@ -56,6 +56,8 @@ class EventHandler(
                 removeAlertsObserver()
                 val observer = Observer<ServiceEvent?> { event ->
                     if (event == null) return@Observer
+                    // Consume once; LiveData must not replay an old failure on resume.
+                    activity.serviceAlerts.value = null
                     Log.d(TAG, "new alert: $event")
                     val payload = mutableMapOf<String, Any>()
                     payload["status"] = event.status.name

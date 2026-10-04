@@ -35,7 +35,14 @@ class HiddifyCoreService with InfraLogger {
   CoreStatus currentState = const CoreStatus.stopped();
   final statusController = BehaviorSubject<CoreStatus>();
   final logController = BehaviorSubject<List<LogMessage>>();
+  // Unary deadlines must not be applied to long-lived event streams.
+  final CallOptions unaryOptions = CallOptions(timeout: const Duration(seconds: 15));
+  final CallOptions parseOptions = CallOptions(timeout: const Duration(seconds: 45));
   final CallOptions? grpcOptions = null;
+  bool _disposed = false;
+  Future<void> _subscriptionTail = Future<void>.value();
+  final Map<String, Object> _subscriptionTokens = {};
+  final Map<String, Timer> _reconnectTimers = {};
   final Map<String, StreamSubscription?> subscriptions = {};
   List<OutboundGroup> latest = [];
   List<LogMessage> logBuffer = [];
@@ -48,12 +55,14 @@ class HiddifyCoreService with InfraLogger {
     // Higher-level operations (connect, profile validation) can hold the same queue while
     // invoking individual core methods. A Zone marker makes the queue safely reentrant and
     // avoids self-deadlocks from nested setup/changeOptions/start calls.
+    if (_disposed) return Future.error(StateError("core service disposed"));
     if (identical(Zone.current[_lifecycleZoneKey], this)) {
       return operation();
     }
-    final next = _lifecycleTail.then(
-      (_) => runZoned(operation, zoneValues: {_lifecycleZoneKey: this}),
-    );
+    final next = _lifecycleTail.then((_) {
+      if (_disposed) throw StateError("core service disposed");
+      return runZoned(operation, zoneValues: {_lifecycleZoneKey: this});
+    });
     _lifecycleTail = next.then<void>((_) {}, onError: (Object error, StackTrace stackTrace) {});
     return next;
   }
@@ -68,12 +77,12 @@ class HiddifyCoreService with InfraLogger {
         .mapLeft((e) {
           loggy.error(e);
           if (PlatformUtils.isIOS) return;
-          statusController.add(const CoreStatus.stopped());
-          ref.read(inAppNotificationControllerProvider).showErrorToast(e);
+          _publishStatus(const CoreStatus.stopped());
+          if (ref.mounted) ref.read(inAppNotificationControllerProvider).showErrorToast(e);
         })
         .map((_) {
           loggy.info('Hiddify-core setup done');
-          ref.read(coreRestartSignalProvider.notifier).restart();
+          if (ref.mounted) ref.read(coreRestartSignalProvider.notifier).restart();
         })
         .run();
   }
@@ -84,6 +93,7 @@ class HiddifyCoreService with InfraLogger {
         try {
           final response = await core.fgClient.parse(
             ParseRequest(tempPath: tempPath, configPath: path, debug: debug),
+            options: parseOptions,
           );
           if (response.responseCode != ResponseCode.OK) {
             return left('${response.responseCode} ${response.message}');
@@ -109,7 +119,7 @@ class HiddifyCoreService with InfraLogger {
   TaskEither<String, String> generateFullConfigByPath(String path) {
     return _serialized(() async {
       try {
-        final response = await core.fgClient.parse(ParseRequest(configPath: path, debug: false));
+        final response = await core.fgClient.parse(ParseRequest(tempPath: path, debug: false), options: parseOptions);
         if (response.responseCode != ResponseCode.OK) {
           return left('${response.responseCode} ${response.message}');
         }
@@ -147,7 +157,7 @@ class HiddifyCoreService with InfraLogger {
       if (!core.isSingleChannel()) {
         await startListeningLogs('bg', core.bgClient);
       }
-      statusController.add(currentState);
+      _publishStatus(currentState);
       await startListeningStatus('bg', core.bgClient);
       return right(unit);
     } catch (e, stackTrace) {
@@ -160,14 +170,14 @@ class HiddifyCoreService with InfraLogger {
     return _serialized(() async {
       try {
         final request = ChangeHiddifySettingsRequest(hiddifySettingsJson: jsonEncode(options.toJson()));
-        final foreground = await core.fgClient.changeHiddifySettings(request);
+        final foreground = await core.fgClient.changeHiddifySettings(request, options: unaryOptions);
         if (foreground.messageType != MessageType.EMPTY) {
           return left('${foreground.messageType} ${foreground.message}');
         }
 
         if (!core.isSingleChannel() && await core.isBgClientAvailable()) {
           try {
-            final background = await core.bgClient.changeHiddifySettings(request);
+            final background = await core.bgClient.changeHiddifySettings(request, options: unaryOptions);
             if (background.messageType != MessageType.EMPTY) {
               return left('${background.messageType} ${background.message}');
             }
@@ -186,13 +196,13 @@ class HiddifyCoreService with InfraLogger {
 
   TaskEither<ConnectionFailure, Unit> start(String path, String name, bool disableMemoryLimit) {
     return _serialized(() async {
-      statusController.add(currentState = const CoreStatus.starting());
+      _publishStatus(currentState = const CoreStatus.starting());
       loggy.debug('starting');
       try {
         final background = await core.setupBackground(path, name);
         if (background != const CoreStatus.started()) {
           currentState = background;
-          statusController.add(currentState);
+          _publishStatus(currentState);
           return left(background.getCoreAlert() ?? const ConnectionFailure.unexpected('failed to start core'));
         }
 
@@ -202,20 +212,17 @@ class HiddifyCoreService with InfraLogger {
         }
 
         final res = await core.bgClient.start(
-          StartRequest(
-            configPath: path,
-            configName: name,
-            disableMemoryLimit: disableMemoryLimit,
-          ),
+          StartRequest(configPath: path, configName: name, disableMemoryLimit: disableMemoryLimit),
+          options: parseOptions,
         );
-        ref.read(coreRestartSignalProvider.notifier).restart();
+        if (ref.mounted) ref.read(coreRestartSignalProvider.notifier).restart();
         if (res.messageType != MessageType.ALREADY_STARTED && res.messageType != MessageType.EMPTY) {
           final alert = res.message.contains('denied') ? CoreAlert.requestVPNPermission : CoreAlert.startFailed;
           currentState = CoreStatus.stopped(
             alert: alert,
             message: 'failed to start core ${res.messageType} ${res.message}',
           );
-          statusController.add(currentState);
+          _publishStatus(currentState);
           return left(
             currentState.getCoreAlert() ??
                 ConnectionFailure.unexpected('failed to start core ${res.messageType} ${res.message}'),
@@ -223,15 +230,15 @@ class HiddifyCoreService with InfraLogger {
         }
         return right(unit);
       } on GrpcError catch (e, stackTrace) {
-        statusController.add(currentState = const CoreStatus.stopped());
+        _publishStatus(currentState = const CoreStatus.stopped());
         loggy.error('failed to start background core', e, stackTrace);
-        ref.read(coreRestartSignalProvider.notifier).restart();
+        if (ref.mounted) ref.read(coreRestartSignalProvider.notifier).restart();
         if (e.code == StatusCode.unavailable) {
           return left(const ConnectionFailure.unexpected('background core is not started yet!'));
         }
         return left(ConnectionFailure.unexpected(e, stackTrace));
       } catch (e, stackTrace) {
-        statusController.add(currentState = const CoreStatus.stopped());
+        _publishStatus(currentState = const CoreStatus.stopped());
         loggy.error('failed to start core', e, stackTrace);
         return left(ConnectionFailure.unexpected(e, stackTrace));
       }
@@ -241,17 +248,18 @@ class HiddifyCoreService with InfraLogger {
   TaskEither<String, Unit> stop() {
     return _serialized(() async {
       loggy.debug('stopping');
-      statusController.add(currentState = const CoreStatus.stopping());
+      _publishStatus(currentState = const CoreStatus.stopping());
 
       String? backgroundStopWarning;
       try {
-        final res = await core.bgClient.stop(Empty());
+        final res = await core.bgClient.stop(Empty(), options: unaryOptions);
         if (res.messageType != MessageType.EMPTY && res.messageType != MessageType.ALREADY_STOPPED) {
           backgroundStopWarning = '${res.messageType} ${res.message}';
           loggy.warning('background stop returned $backgroundStopWarning');
         }
       } on GrpcError catch (e) {
-        final ignorable = e.code == StatusCode.unavailable ||
+        final ignorable =
+            e.code == StatusCode.unavailable ||
             (e.code == StatusCode.unknown && (e.message?.contains('HTTP/2') ?? false));
         if (!ignorable) {
           backgroundStopWarning = e.message ?? 'failed to stop core: $e';
@@ -273,7 +281,7 @@ class HiddifyCoreService with InfraLogger {
       }
 
       await stopListenSingle('bg');
-      statusController.add(currentState = const CoreStatus.stopped());
+      _publishStatus(currentState = const CoreStatus.stopped());
       if (backgroundStopWarning != null) {
         loggy.warning('native shutdown succeeded after background stop warning: $backgroundStopWarning');
       }
@@ -286,17 +294,13 @@ class HiddifyCoreService with InfraLogger {
       loggy.debug('restarting');
       try {
         final res = await core.bgClient.restart(
-          StartRequest(
-            configPath: path,
-            configName: name,
-            disableMemoryLimit: disableMemoryLimit,
-            delayStart: true,
-          ),
+          StartRequest(configPath: path, configName: name, disableMemoryLimit: disableMemoryLimit, delayStart: true),
+          options: parseOptions,
         );
         if (res.messageType != MessageType.EMPTY && res.messageType != MessageType.ALREADY_STARTED) {
           return left('${res.messageType} ${res.message}');
         }
-        ref.read(coreRestartSignalProvider.notifier).restart();
+        if (ref.mounted) ref.read(coreRestartSignalProvider.notifier).restart();
         return right(unit);
       } on GrpcError catch (e, stackTrace) {
         loggy.error('failed to restart background core', e, stackTrace);
@@ -309,16 +313,13 @@ class HiddifyCoreService with InfraLogger {
   }
 
   TaskEither<String, Unit> resetTunnel() {
-    return TaskEither.tryCatch(
-      () async {
-        if (!PlatformUtils.isIOS) {
-          throw UnsupportedError('reset tunnel function unavailable on platform');
-        }
-        if (!await core.resetTunnel()) throw StateError('failed to reset tunnel');
-        return unit;
-      },
-      (error, _) => error.toString(),
-    );
+    return TaskEither.tryCatch(() async {
+      if (!PlatformUtils.isIOS) {
+        throw UnsupportedError('reset tunnel function unavailable on platform');
+      }
+      if (!await core.resetTunnel()) throw StateError('failed to reset tunnel');
+      return unit;
+    }, (error, _) => error.toString());
   }
 
   Stream<OutboundGroup?> watchGroup() async* {
@@ -368,7 +369,7 @@ class HiddifyCoreService with InfraLogger {
   TaskEither<String, Unit> urlTest(String tag) {
     return TaskEither.tryCatch(
       () async {
-        final res = await core.bgClient.urlTest(UrlTestRequest(tag: tag));
+        final res = await core.bgClient.urlTest(UrlTestRequest(tag: tag), options: parseOptions);
         if (res.code != ResponseCode.OK) throw StateError('${res.code} ${res.message}');
         return unit;
       },
@@ -389,6 +390,7 @@ class HiddifyCoreService with InfraLogger {
   TaskEither<String, Unit> clearLogs() {
     return TaskEither(() async {
       logBuffer.clear();
+      if (!logController.isClosed) logController.add(const []);
       return right(unit);
     });
   }
@@ -398,76 +400,131 @@ class HiddifyCoreService with InfraLogger {
     yield* statusController.stream;
   }
 
+  void _publishStatus(CoreStatus status) {
+    if (!_disposed && !statusController.isClosed) statusController.add(status);
+  }
+
   Future<void> startListeningStatus(String key, CoreClient cc) async {
     await listenSingle<CoreStatus>(
       '${key}StatusListener',
-      () => cc
-          .coreInfoListener(Empty(), options: grpcOptions)
-          .doOnCancel(() {
-            loggy.error('status', 'cancelled');
-            if (currentState == const CoreStatus.started()) currentState = const CoreStatus.stopped();
-          })
-          .doOnDone(() {
-            loggy.error('status', 'done');
-            if (currentState == const CoreStatus.started()) currentState = const CoreStatus.stopped();
-          })
-          .endWith(CoreInfoResponse(coreState: CoreStates.STOPPED))
-          .map((event) {
-            currentState = CoreStatus.fromCoreInfo(event);
-            statusController.add(currentState);
-            return currentState;
-          }),
-      onError: (error) => loggy.error('Stream error in ${key}StatusListener: $error'),
+      () => cc.coreInfoListener(Empty()).map(CoreStatus.fromCoreInfo),
+      onData: (event) {
+        currentState = event;
+        _publishStatus(event);
+      },
+      onError: (error) {
+        currentState = const CoreStatus.stopped();
+        _publishStatus(currentState);
+        loggy.warning('Status connection lost: $error');
+      },
+      reconnect: true,
     );
   }
 
   Future<void> startListeningLogs(String key, CoreClient cc) async {
-    final logLevel = ref.read(ConfigOptions.logLevel);
-    final coreLogLevel = getCoreLogLevel(logLevel);
-    final listenKey = '${key}LogListener';
-    await listenSingle<LogMessage>(listenKey, () {
-      return cc.logListener(LogRequest(level: coreLogLevel), options: grpcOptions).map((event) {
+    if (_disposed || !ref.mounted) return;
+    final coreLogLevel = getCoreLogLevel(ref.read(ConfigOptions.logLevel));
+    await listenSingle<LogMessage>(
+      '${key}LogListener',
+      () => cc.logListener(LogRequest(level: coreLogLevel)),
+      onData: (event) {
         logBuffer.add(event);
         if (logBuffer.length > 300) logBuffer.removeAt(0);
-        logController.add(List<LogMessage>.unmodifiable(logBuffer));
+        if (!logController.isClosed) logController.add(List<LogMessage>.unmodifiable(logBuffer));
         for (final line in event.message.split('\n')) {
           loggy.log(getLogLevel(event.level), line);
         }
-        return event;
-      });
-    });
+      },
+      reconnect: true,
+    );
   }
 
-  Future<void> stopListenSingle(String key) async {
-    final keysToRemove = subscriptions.entries
-        .where((entry) => entry.key.startsWith(key))
-        .map((entry) => entry.key)
-        .toList();
-    for (final subscriptionKey in keysToRemove) {
-      final sub = subscriptions.remove(subscriptionKey);
-      await sub?.cancel();
-    }
+  Future<T> _withSubscriptionLock<T>(Future<T> Function() operation) {
+    final next = _subscriptionTail.then((_) => operation());
+    _subscriptionTail = next.then<void>((_) {}, onError: (Object e, StackTrace st) {});
+    return next;
   }
+
+  Future<void> stopListenSingle(String prefix) => _withSubscriptionLock(() async {
+    final keys = {
+      ...subscriptions.keys,
+      ..._subscriptionTokens.keys,
+      ..._reconnectTimers.keys,
+    }.where((key) => key.startsWith(prefix)).toList();
+    for (final key in keys) {
+      _subscriptionTokens.remove(key); // invalidate callbacks before awaiting cancellation
+      _reconnectTimers.remove(key)?.cancel();
+      await subscriptions.remove(key)?.cancel();
+    }
+  });
 
   Future<StreamSubscription<T>?> listenSingle<T>(
     String key,
     Stream<T> Function() stream, {
-    Function(dynamic error)? onError,
-  }) async {
-    if (subscriptions.containsKey(key)) await stopListenSingle(key);
-    subscriptions[key] = null;
-    final subscription = stream().listen(
-      (_) {},
-      cancelOnError: true,
-      onError: (Object error, StackTrace stackTrace) {
-        loggy.log(loggyl.LogLevel.error, 'Stream error: $error');
-        onError?.call(error);
-        final current = subscriptions.remove(key);
-        if (current != null) unawaited(current.cancel());
-      },
-    );
-    subscriptions[key] = subscription;
-    return subscription;
+    void Function(T event)? onData,
+    void Function(dynamic error)? onError,
+    bool reconnect = false,
+  }) => _withSubscriptionLock(() async {
+    if (_disposed) return null;
+    _subscriptionTokens.remove(key);
+    _reconnectTimers.remove(key)?.cancel();
+    await subscriptions.remove(key)?.cancel();
+    if (_disposed) return null;
+    final token = Object();
+    _subscriptionTokens[key] = token;
+    bool isCurrent() => !_disposed && identical(_subscriptionTokens[key], token);
+    var terminated = false;
+    void ended(Object error) {
+      if (!isCurrent() || terminated) return;
+      terminated = true;
+      final old = subscriptions.remove(key);
+      if (old != null) unawaited(old.cancel());
+      onError?.call(error);
+      if (reconnect) {
+        _reconnectTimers[key] = Timer(const Duration(seconds: 2), () {
+          _reconnectTimers.remove(key);
+          if (isCurrent()) {
+            unawaited(
+              listenSingle<T>(key, stream, onData: onData, onError: onError, reconnect: true).catchError((
+                Object e,
+                StackTrace st,
+              ) {
+                loggy.warning('Unable to restore $key', e, st);
+                return null;
+              }),
+            );
+          }
+        });
+      } else {
+        _subscriptionTokens.remove(key);
+      }
+    }
+
+    try {
+      final subscription = stream().listen(
+        (event) {
+          if (isCurrent() && !terminated) onData?.call(event);
+        },
+        cancelOnError: true,
+        onError: (Object error, StackTrace st) => ended(error),
+        onDone: () => ended(StateError('$key closed')),
+      );
+      if (!terminated) subscriptions[key] = subscription;
+      return subscription;
+    } catch (e) {
+      ended(e);
+      return null;
+    }
+  });
+
+  Future<void> dispose() async {
+    if (_disposed) return;
+    _disposed = true;
+    await _lifecycleTail;
+    await stopListenSingle('');
+    await core.dispose();
+    await statusController.close();
+    await logController.close();
   }
 
   loggyl.LogLevel getLogLevel(LogLevel level) {
@@ -498,9 +555,12 @@ class HiddifyCoreService with InfraLogger {
     if (!core.isInitialized() || core.isSingleChannel()) return;
     await stopListenSingle('fg');
     await stopListenSingle('bg');
+    // Native Close(mode) also stops the shared VPN instance on Android.
+    // Keep servers alive and release only UI subscriptions while paused.
+    if (PlatformUtils.isAndroid) return;
     for (final mode in [SetupMode.GRPC_NORMAL_INSECURE, SetupMode.GRPC_NORMAL]) {
       try {
-        await core.fgClient.close(CloseRequest(mode: mode));
+        await core.fgClient.close(CloseRequest(mode: mode), options: unaryOptions);
       } catch (e) {
         loggy.debug('foreground close for $mode failed: $e');
       }
@@ -508,12 +568,9 @@ class HiddifyCoreService with InfraLogger {
   }
 
   TaskEither<String, LANIPResponse> getLANIP() {
-    return TaskEither.tryCatch(
-      () => core.fgClient.getLANIP(Empty()),
-      (error, stackTrace) {
-        loggy.error('failed to get LAN IP', error, stackTrace);
-        return error.toString();
-      },
-    );
+    return TaskEither.tryCatch(() => core.fgClient.getLANIP(Empty(), options: unaryOptions), (error, stackTrace) {
+      loggy.error('failed to get LAN IP', error, stackTrace);
+      return error.toString();
+    });
   }
 }

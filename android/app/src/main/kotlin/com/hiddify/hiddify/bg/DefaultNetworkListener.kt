@@ -23,6 +23,7 @@ object DefaultNetworkListener {
     private sealed class NetworkMessage {
         class Start(val key: Any, val listener: (Network?) -> Unit) : NetworkMessage()
         class Get(val response: CompletableDeferred<Network>) : NetworkMessage()
+        class CancelGet(val response: CompletableDeferred<Network>) : NetworkMessage()
         class Stop(val key: Any) : NetworkMessage()
         class Put(val network: Network) : NetworkMessage()
         class Update(val network: Network) : NetworkMessage()
@@ -83,6 +84,7 @@ object DefaultNetworkListener {
                             }
                         }
 
+                        is NetworkMessage.CancelGet -> pendingRequests.remove(message.response)
                         is NetworkMessage.Stop -> {
                             if (listeners.remove(message.key) != null && listeners.isEmpty()) {
                                 network = null
@@ -135,7 +137,10 @@ object DefaultNetworkListener {
         }
         val response = CompletableDeferred<Network>()
         messages.send(NetworkMessage.Get(response))
-        return response.await()
+        return try { response.await() } finally {
+            response.cancel()
+            messages.trySend(NetworkMessage.CancelGet(response))
+        }
     }
 
     suspend fun stop(key: Any) {

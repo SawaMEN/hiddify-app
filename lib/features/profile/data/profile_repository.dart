@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
+import 'package:hiddify/core/utils/keyed_operations.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fpdart/fpdart.dart';
@@ -48,6 +51,8 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
        _profilePathResolver = profilePathResolver,
        _profileDataSource = profileDataSource;
 
+  // URL lookup and file replacement share one queue, including delete/edit operations.
+  final _operations = KeyedOperations();
   final ProfileDataSource _profileDataSource;
   final ProfilePathResolver _profilePathResolver;
   final HiddifyCoreService _singbox;
@@ -83,13 +88,22 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
   }
 
   @override
-  TaskEither<ProfileFailure, Unit> deleteById(String id, bool isActive) {
-    return TaskEither.tryCatch(() async {
-      await _profileDataSource.deleteById(id, isActive);
-      await _profilePathResolver.file(id).delete();
+  TaskEither<ProfileFailure, Unit> deleteById(String id, bool isActive) => TaskEither.tryCatch(
+    () => _operations.run('profiles', () async {
+      final file = _profilePathResolver.file(id);
+      final backup = File('${file.path}.delete-${const Uuid().v4()}');
+      if (await file.exists()) await file.rename(backup.path);
+      try {
+        await _profileDataSource.deleteById(id, isActive);
+      } catch (_) {
+        if (await backup.exists()) await backup.rename(file.path);
+        rethrow;
+      }
+      await _cleanup(backup);
       return unit;
-    }, ProfileUnexpectedFailure.new);
-  }
+    }),
+    ProfileUnexpectedFailure.new,
+  );
 
   @override
   Stream<Either<ProfileFailure, ProfileEntity?>> watchActiveProfile() {
@@ -121,162 +135,158 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
         .handleExceptions(ProfileUnexpectedFailure.new);
   }
 
+  Future<void> _cleanup(File file) async {
+    try {
+      if (await file.exists()) await file.delete();
+    } catch (e, st) {
+      loggy.warning('Unable to remove temporary profile file', e, st);
+    }
+  }
+
+  void _checkCancelled(CancelToken? token) {
+    if (token?.isCancelled ?? false) {
+      throw const ProfileFailure.cancelByUser('Profile update cancelled');
+    }
+  }
+
+  // Native parse writes only to a staging destination. The old source stays intact
+  // until validation and metadata parsing have both succeeded.
+  Future<void> _validate(File source, String? overrides) async {
+    final output = File('${source.path}.validated');
+    try {
+      final result = await validateConfig(output.path, source.path, overrides, false).run();
+      result.match((error) => throw error, (_) {});
+    } finally {
+      await _cleanup(output);
+    }
+  }
+
+  Future<void> _commitProfile(
+    File source,
+    File destination,
+    Future<void> Function() writeMetadata,
+    CancelToken? token,
+  ) async {
+    _checkCancelled(token);
+    final backup = File('${destination.path}.backup-${const Uuid().v4()}');
+    final existed = await destination.exists();
+    if (existed) await destination.copy(backup.path);
+    var removeBackup = true;
+    try {
+      _checkCancelled(token);
+      // On Android this is an atomic replacement on the same filesystem.
+      await source.rename(destination.path);
+      await writeMetadata();
+    } catch (_) {
+      if (existed && await backup.exists()) {
+        removeBackup = false; // preserve recovery data if restoration itself fails
+        await backup.rename(destination.path);
+        removeBackup = true;
+      } else {
+        await _cleanup(destination);
+      }
+      rethrow;
+    } finally {
+      if (removeBackup) await _cleanup(backup);
+    }
+  }
+
   @override
   TaskEither<ProfileFailure, Unit> upsertRemote(String url, {UserOverride? userOverride, CancelToken? cancelToken}) =>
       TaskEither.tryCatch(
-        () async => await _profileDataSource.getByUrl(url).then((profEntry) => profEntry?.toEntity()),
-        ProfileFailure.unexpected,
-      ).flatMap(
-        (profEntity) => TaskEither<ProfileFailure, Unit>(() async {
-          final id = profEntity?.id ?? const Uuid().v4();
+        () => _operations.run('profiles', () async {
+          _checkCancelled(cancelToken);
+          final entry = await _profileDataSource.getByUrl(url);
+          final existing = entry?.toEntity();
+          final id = existing?.id ?? const Uuid().v4();
           final file = _profilePathResolver.file(id);
-          final tempFile = _profilePathResolver.tempFile(id);
+          final temp = _profilePathResolver.tempFile('$id-${const Uuid().v4()}');
           try {
-            if (profEntity != null && profEntity is RemoteProfileEntity) {
-              final remoteProfile = userOverride == null ? profEntity : profEntity.copyWith(userOverride: userOverride);
-              return await _profileParser
-                  .updateRemote(rp: remoteProfile, tempFilePath: tempFile.path, cancelToken: cancelToken)
-                  .flatMap(
-                    (profEntity) =>
-                        validateConfig(
-                          file.path,
-                          tempFile.path,
-                          ProfileParser.profileOverrideHelper(profile: profEntity),
-                          false,
-                        ).flatMap(
-                          (unit) => TaskEither.tryCatch(() async {
-                            await _profileDataSource.edit(id, profEntity);
-                            return unit;
-                          }, ProfileFailure.unexpected),
-                        ),
-                  )
-                  .run();
-            } else {
-              return await _profileParser
-                  .addRemote(
-                    id: id,
-                    url: url,
-                    tempFilePath: tempFile.path,
-                    userOverride: userOverride,
+            final task = existing is RemoteProfileEntity
+                ? _profileParser.updateRemote(
+                    rp: userOverride == null ? existing : existing.copyWith(userOverride: userOverride),
+                    tempFilePath: temp.path,
                     cancelToken: cancelToken,
                   )
-                  .flatMap(
-                    (profEntity) =>
-                        validateConfig(
-                          file.path,
-                          tempFile.path,
-                          ProfileParser.profileOverrideHelper(profile: profEntity),
-                          false,
-                        ).flatMap(
-                          (unit) => TaskEither.tryCatch(() async {
-                            await _profileDataSource.insert(profEntity);
-                            return unit;
-                          }, ProfileFailure.unexpected),
-                        ),
-                  )
-                  .run();
-            }
+                : _profileParser.addRemote(
+                    id: id,
+                    url: url,
+                    tempFilePath: temp.path,
+                    userOverride: userOverride,
+                    cancelToken: cancelToken,
+                  );
+            final profile = (await task.run()).match((error) => throw error, (value) => value);
+            _checkCancelled(cancelToken);
+            await _validate(temp, ProfileParser.profileOverrideHelper(profile: profile));
+            await _commitProfile(
+              temp,
+              file,
+              () => existing == null ? _profileDataSource.insert(profile) : _profileDataSource.edit(id, profile),
+              cancelToken,
+            );
+            return unit;
           } finally {
-            if (await tempFile.exists()) await tempFile.delete();
+            await _cleanup(temp);
           }
-        }).handleExceptions(ProfileFailure.unexpected),
+        }),
+        (error, st) => error is ProfileFailure ? error : ProfileFailure.unexpected(error, st),
       );
 
   @override
-  TaskEither<ProfileFailure, Unit> addLocal(String content, {UserOverride? userOverride}) =>
-      TaskEither.tryCatch(() async {
-        final id = const Uuid().v4();
-        final file = _profilePathResolver.file(id);
-        final tempFile = _profilePathResolver.tempFile(id);
-        try {
-          await tempFile.writeAsString(content);
-          final task = _profileParser
-              .addLocal(id: id, content: content, tempFilePath: tempFile.path, userOverride: userOverride)
-              .flatMap(
-                (profEntity) =>
-                    validateConfig(
-                      file.path,
-                      tempFile.path,
-                      ProfileParser.profileOverrideHelper(profile: profEntity),
-                      false,
-                    ).flatMap(
-                      (unit) => TaskEither.tryCatch(() async {
-                        await _profileDataSource.insert(profEntity);
-                        return unit;
-                      }, ProfileFailure.unexpected),
-                    ),
-              );
-          return (await task.run()).getOrElse((failure) => throw failure);
-        } finally {
-          if (await tempFile.exists()) await tempFile.delete();
-        }
-      }, ProfileFailure.unexpected);
+  TaskEither<ProfileFailure, Unit> addLocal(String content, {UserOverride? userOverride}) => TaskEither.tryCatch(
+    () => _operations.run('profiles', () async {
+      final id = const Uuid().v4();
+      final file = _profilePathResolver.file(id);
+      final temp = _profilePathResolver.tempFile('$id-${const Uuid().v4()}');
+      try {
+        await temp.writeAsString(content);
+        final profile =
+            (await _profileParser
+                    .addLocal(id: id, content: content, tempFilePath: temp.path, userOverride: userOverride)
+                    .run())
+                .match((e) => throw e, (p) => p);
+        await _validate(temp, ProfileParser.profileOverrideHelper(profile: profile));
+        await _commitProfile(temp, file, () => _profileDataSource.insert(profile), null);
+        return unit;
+      } finally {
+        await _cleanup(temp);
+      }
+    }),
+    (error, st) => error is ProfileFailure ? error : ProfileFailure.unexpected(error, st),
+  );
 
   @override
-  TaskEither<ProfileFailure, Unit> offlineUpdate(ProfileEntity profile, String nContent) =>
-      TaskEither.tryCatch(
-        () async => await _profileDataSource.getById(profile.id).then((profEntry) => profEntry?.toEntity()),
-        ProfileFailure.unexpected,
-      ).flatMap(
-        (oProfile) => TaskEither<ProfileFailure, Unit>(() async {
-          if (oProfile == null || oProfile.runtimeType != profile.runtimeType) {
-            return left(const ProfileFailure.notFound());
-          }
-          if (profile.userOverride == null) loggy.warning('Updaing profile content with "userOverride" == null');
-          final id = oProfile.id;
-          final file = _profilePathResolver.file(id);
-          final tempFile = _profilePathResolver.tempFile(id);
-          try {
-            return await TaskEither.tryCatch(
-                  () async => await tempFile.writeAsString(nContent),
-                  ProfileFailure.unexpected,
-                )
-                .flatMap(
-                  (_) =>
-                      TaskEither.fromEither(
-                        _profileParser.offlineUpdate(
-                          profile: oProfile.copyWith(userOverride: profile.userOverride),
-                          tempFilePath: tempFile.path,
-                        ),
-                      ).flatMap(
-                        (profEntity) =>
-                            validateConfig(
-                              file.path,
-                              tempFile.path,
-                              ProfileParser.profileOverrideHelper(profile: profEntity),
-                              false,
-                            ).flatMap(
-                              (unit) => TaskEither.tryCatch(() async {
-                                await _profileDataSource.edit(id, profEntity);
-                                return unit;
-                              }, ProfileFailure.unexpected),
-                            ),
-                      ),
-                )
-                .run();
-          } finally {
-            if (await tempFile.exists()) await tempFile.delete();
-          }
-        }).handleExceptions(ProfileFailure.unexpected),
-      );
+  TaskEither<ProfileFailure, Unit> offlineUpdate(ProfileEntity profile, String nContent) => TaskEither.tryCatch(
+    () => _operations.run('profiles', () async {
+      final existing = (await _profileDataSource.getById(profile.id))?.toEntity();
+      if (existing == null || existing.runtimeType != profile.runtimeType) throw const ProfileFailure.notFound();
+      final file = _profilePathResolver.file(profile.id);
+      final temp = _profilePathResolver.tempFile('${profile.id}-${const Uuid().v4()}');
+      try {
+        await temp.writeAsString(nContent);
+        final entry = _profileParser
+            .offlineUpdate(
+              profile: existing.copyWith(userOverride: profile.userOverride),
+              tempFilePath: temp.path,
+            )
+            .match((e) => throw e, (p) => p);
+        await _validate(temp, ProfileParser.profileOverrideHelper(profile: entry));
+        await _commitProfile(temp, file, () => _profileDataSource.edit(profile.id, entry), null);
+        return unit;
+      } finally {
+        await _cleanup(temp);
+      }
+    }),
+    (error, st) => error is ProfileFailure ? error : ProfileFailure.unexpected(error, st),
+  );
 
   @override
   TaskEither<ProfileFailure, Unit> validateConfig(String path, String tempPath, String? profileOverride, bool debug) {
-    return TaskEither(
-      () => _singbox.runExclusive(
-        () => TaskEither.fromEither(_configOptionRepo.fullOptionsOverrided(profileOverride))
-            .mapLeft((configOptionFailure) => ProfileFailure.invalidConfig(null, configOptionFailure))
-            .flatMap(
-              (overridedOptions) => _singbox
-                  .changeOptions(overridedOptions)
-                  .mapLeft(ProfileFailure.invalidConfig)
-                  .flatMap(
-                    (_) => _singbox.validateConfigByPath(path, tempPath, debug).mapLeft(ProfileFailure.invalidConfig),
-                  ),
-            )
-            .run(),
-      ),
-    );
+    // Validate override types without applying them to the active background service.
+    // Profile overrides are applied only when this profile is actually connected.
+    return TaskEither.fromEither(_configOptionRepo.fullOptionsOverrided(profileOverride))
+        .mapLeft((failure) => ProfileFailure.invalidConfig(null, failure))
+        .flatMap((_) => _singbox.validateConfigByPath(path, tempPath, debug).mapLeft(ProfileFailure.invalidConfig));
   }
 
   @override
