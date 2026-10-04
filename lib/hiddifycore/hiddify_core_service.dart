@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:fpdart/fpdart.dart';
 import 'package:grpc/grpc.dart';
 import 'package:hiddify/core/directories/directories_provider.dart';
+import 'package:hiddify/core/utils/exception_handler.dart';
 import 'package:hiddify/core/model/directories.dart';
 import 'package:hiddify/core/notification/in_app_notification_controller.dart';
 import 'package:hiddify/core/preferences/general_preferences.dart';
@@ -86,11 +87,34 @@ class HiddifyCoreService with InfraLogger {
     });
   }
 
-  TaskEither<String, Unit> setup() {
+  Future<void> _lifecycleTail = Future<void>.value();
+  Future<Either<String, Unit>>? _setupPending;
+
+  Future<T> _enqueueLifecycle<T>(Future<T> Function() operation) {
+    final next = _lifecycleTail.then((_) => operation());
+    _lifecycleTail = next.then<void>((_) {}, onError: (Object error, StackTrace stackTrace) {});
+    return next;
+  }
+
+  TaskEither<String, Unit> setup() => TaskEither(() async {
+    final pending = _setupPending;
+    if (pending != null) return pending;
+    final operation = _enqueueLifecycle(() => _setup().run());
+    _setupPending = operation;
+    try {
+      return await operation;
+    } finally {
+      _setupPending = null;
+    }
+  });
+
+  TaskEither<String, Unit> _setup() {
     return TaskEither(() async {
       try {
         final directories = ref.read(appDirectoriesProvider).requireValue;
         final debug = ref.read(debugModeNotifierProvider);
+        await stopListenSingle("fg");
+        await stopListenSingle("bg");
         final setupResponse = await core.setup(directories, debug, 3);
 
         if (setupResponse.isNotEmpty) {
@@ -114,30 +138,32 @@ class HiddifyCoreService with InfraLogger {
 
   TaskEither<String, Unit> changeOptions(SingboxConfigOption options) {
     return TaskEither(() async {
-      loggy.debug("changing options");
-      // latestOptions = options;
       try {
-        final res = await core.fgClient.changeHiddifySettings(
-          ChangeHiddifySettingsRequest(hiddifySettingsJson: jsonEncode(options.toJson())),
-        );
-        if (res.messageType != MessageType.EMPTY) return left("${res.messageType} ${res.message}");
-        await core.bgClient.changeHiddifySettings(
-          ChangeHiddifySettingsRequest(hiddifySettingsJson: jsonEncode(options.toJson())),
-        );
-      } on GrpcError catch (e) {
-        if (e.code == StatusCode.unavailable) {
-          loggy.debug("background core is not started yet! $e");
-        } else {
-          rethrow;
+        final request = ChangeHiddifySettingsRequest(hiddifySettingsJson: jsonEncode(options.toJson()));
+        final foreground = await core.fgClient.changeHiddifySettings(request);
+        if (foreground.messageType != MessageType.EMPTY) {
+          return left("${foreground.messageType} ${foreground.message}");
         }
+        if (!core.isSingleChannel() && await core.isBgClientAvailable()) {
+          try {
+            final background = await core.bgClient.changeHiddifySettings(request);
+            if (background.messageType != MessageType.EMPTY) {
+              return left("${background.messageType} ${background.message}");
+            }
+          } on GrpcError catch (e) {
+            if (e.code != StatusCode.unavailable) rethrow;
+            loggy.debug("background core is not started yet! $e");
+          }
+        }
+        return right(unit);
+      } catch (e) {
+        return left(e.toString());
       }
-
-      return right(unit);
     });
   }
 
   TaskEither<ConnectionFailure, Unit> start(String path, String name, bool disableMemoryLimit) {
-    return TaskEither(() async {
+    return TaskEither<ConnectionFailure, Unit>(() async {
       statusController.add(currentState = const CoreStatus.starting());
       loggy.debug("starting");
       final background = await core.setupBackground(path, name);
@@ -183,6 +209,7 @@ class HiddifyCoreService with InfraLogger {
           );
         }
       } on GrpcError catch (e) {
+        statusController.add(currentState = const CoreStatus.stopped());
         loggy.error("failed to start bg core: $e");
         ref.read(coreRestartSignalProvider.notifier).restart();
         if (e.code == StatusCode.unavailable) {
@@ -198,6 +225,9 @@ class HiddifyCoreService with InfraLogger {
       // if (res.messageType != MessageType.EMPTY) return left(res);
 
       return right(unit);
+    }).handleExceptions((error, stackTrace) {
+      statusController.add(currentState = const CoreStatus.stopped());
+      return ConnectionFailure.unexpected(error, stackTrace);
     });
   }
 
@@ -485,7 +515,7 @@ class HiddifyCoreService with InfraLogger {
         if (logBuffer.length > 300) {
           logBuffer.removeAt(0);
         }
-        logController.add(logBuffer);
+        logController.add(List<LogMessage>.unmodifiable(logBuffer));
         // loggy.log(getLogLevel(event.level), event.message);
         event.message.split('\n').forEach((line) {
           loggy.log(getLogLevel(event.level), line);
@@ -560,7 +590,9 @@ class HiddifyCoreService with InfraLogger {
     };
   }
 
-  Future<void> closeFront() async {
+  Future<void> closeFront() => _enqueueLifecycle(_closeFront);
+
+  Future<void> _closeFront() async {
     if (!core.isInitialized()) {
       return;
     }

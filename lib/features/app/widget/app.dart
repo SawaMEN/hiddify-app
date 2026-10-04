@@ -15,6 +15,8 @@ import 'package:hiddify/core/theme/app_theme.dart';
 import 'package:hiddify/core/theme/theme_preferences.dart';
 import 'package:hiddify/features/app_update/notifier/app_update_notifier.dart';
 import 'package:hiddify/features/connection/widget/connection_wrapper.dart';
+import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
+import 'package:hiddify/features/connection/model/connection_status.dart';
 import 'package:hiddify/features/per_app_proxy/overview/per_app_proxy_service_notifier.dart';
 import 'package:hiddify/features/profile/notifier/profiles_update_notifier.dart';
 import 'package:hiddify/features/shortcut/shortcut_wrapper.dart';
@@ -26,21 +28,25 @@ import 'package:upgrader/upgrader.dart';
 
 bool _debugAccessibility = false;
 bool isOnPauseCalled = false;
+bool _coreNeedsResume = false;
 
 class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
   const App({super.key});
 
-  void onInactive(WidgetRef ref) {
-    onPause(ref);
-  }
-
   void onPause(WidgetRef ref) {
     isOnPauseCalled = true;
+    final connection = ref.read(connectionNotifierProvider).value;
+    // Permission activities can pause Flutter while the service is starting.
+    if (connection is Connecting || connection is Disconnecting) return;
+    _coreNeedsResume = true;
     ref.read(hiddifyCoreServiceProvider).closeFront();
   }
 
   void onResume(WidgetRef ref) {
-    ref.read(hiddifyCoreServiceProvider).init();
+    if (_coreNeedsResume) {
+      _coreNeedsResume = false;
+      ref.read(hiddifyCoreServiceProvider).init();
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (isOnPauseCalled) ref.invalidate(perAppProxyServiceProvider);
@@ -120,8 +126,6 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
       loggy.info(appLifecycleState);
       if (appLifecycleState == AppLifecycleState.paused) {
         onPause(ref);
-      } else if (appLifecycleState == AppLifecycleState.inactive) {
-        onInactive(ref);
       } else if (appLifecycleState == AppLifecycleState.resumed) {
         onResume(ref);
       }

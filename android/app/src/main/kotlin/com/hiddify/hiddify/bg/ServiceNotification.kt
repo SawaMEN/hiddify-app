@@ -13,6 +13,7 @@ import android.util.Log
 import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.MutableLiveData
 import com.hiddify.core.api.v2.config.Protocol
 import com.hiddify.core.api.v2.hcommon.Empty
@@ -46,6 +47,7 @@ import okhttp3.OkHttpClient
 import java.io.IOException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.cancel
 class ServiceNotification(private val status: MutableLiveData<Status>, private val service: Service) : BroadcastReceiver(){
     companion object {
         private const val notificationId = 1
@@ -132,10 +134,16 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
     }
 
     private fun registerReceiver() {
-        service.registerReceiver(this, IntentFilter().apply {
-            addAction(Intent.ACTION_SCREEN_ON)
-            addAction(Intent.ACTION_SCREEN_OFF)
-        })
+        if (receiverRegistered) return
+        ContextCompat.registerReceiver(
+            service,
+            this,
+            IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_SCREEN_OFF)
+            },
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         receiverRegistered = true
     }
 
@@ -166,7 +174,8 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
         stopListenSystemInfo()
         ServiceCompat.stopForeground(service, ServiceCompat.STOP_FOREGROUND_REMOVE)
         if (receiverRegistered) {
-            service.unregisterReceiver(this)
+            runCatching { service.unregisterReceiver(this) }
+                .onFailure { Log.w("notification", "receiver was already unregistered", it) }
             receiverRegistered = false
         }
     }
@@ -184,29 +193,31 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
             val coreClient = GrpcClientProvider.grpcClient.create(CoreClient::class)
 
             try {
-                var previous = coreClient.GetSystemInfo().executeBlocking(Empty())
+                var previous = coreClient.GetSystemInfo().execute(Empty())
 
                 while (isActive) {
                     delay(1_000) // ✅ coroutine-friendly
-                    val current = coreClient.GetSystemInfo().executeBlocking(Empty())
+                    val current = coreClient.GetSystemInfo().execute(Empty())
                     updateStatus(previous,current)
                     previous = current
                 }
             } catch (e: CancellationException) {
                 // coroutine cancelled normally
                 Log.d("notification", "SystemInfo polling cancelled")
-                notification.cancel(notificationId)
+
             } catch (e: Exception) {
                 Log.e("notification", "SystemInfo polling failed", e)
-                notification.cancel(notificationId)
+
             }
         }
     }
-    fun stopListenSystemInfo(){
-        try {
-            streamingJob?.cancel()
-        }catch (e: Exception){
-            Log.d("notification", "Exception ${e}")
-        }
+    fun stopListenSystemInfo() {
+        streamingJob?.cancel()
+        streamingJob = null
+    }
+
+    fun destroy() {
+        close()
+        streamingCoroutineScope.cancel()
     }
 }

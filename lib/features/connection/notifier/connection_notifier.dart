@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:hiddify/core/haptic/haptic_service.dart';
+import 'package:hiddify/core/utils/single_call.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/core/preferences/general_preferences.dart';
 import 'package:hiddify/core/router/dialog/dialog_notifier.dart';
@@ -125,14 +126,9 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   final _singleStart = SingleCall();
 
   Future<void> _connect() async {
-    _singleStart.run(
-      () async {
-        await _connectThrottled();
-      },
-      onIgnored: () {
-        loggy.debug("connect called while another connect/disconnect is still running, ignoring");
-      },
-    );
+    await _singleStart.run<void>(() async {
+      await _connectThrottled();
+    }, onIgnored: null);
   }
 
   Future<void> _connectThrottled() async {
@@ -173,19 +169,4 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
 bool serviceRunning(Ref ref) {
   // ref.watch(coreRestartSignalProvider);
   return ref.watch(connectionNotifierProvider).value?.isConnected ?? false;
-}
-
-class SingleCall {
-  bool _running = false;
-
-  Future<T> run<T>(Future<T> Function() task, {required T onIgnored}) async {
-    if (_running) return onIgnored;
-
-    _running = true;
-    try {
-      return await task();
-    } finally {
-      _running = false;
-    }
-  }
 }
