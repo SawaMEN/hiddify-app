@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:dartx/dartx.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
+import 'package:hiddify/core/utils/profile_metadata.dart';
 import 'package:hiddify/features/profile/data/profile_parser.dart';
 
 part 'profile_entity.freezed.dart';
@@ -90,11 +91,15 @@ abstract class UserOverride with _$UserOverride {
   String toStr() => jsonEncode(toJson());
 
   static UserOverride? fromStr(String? str) {
-    if (str != null) {
-      final m = (jsonDecode(str) as Map).cast<String, Object?>();
-      return UserOverride.fromJson(_migrate(m));
+    final map = decodeOptionalJsonObject(str);
+    if (map == null) return null;
+    try {
+      return UserOverride.fromJson(_migrate(map));
+    } on TypeError {
+      return null;
+    } on FormatException {
+      return null;
     }
-    return null;
   }
 
   static Map<String, dynamic> _migrate(Map<String, Object?> json) {

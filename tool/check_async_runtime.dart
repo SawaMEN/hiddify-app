@@ -3,6 +3,7 @@ import 'dart:async';
 import '../lib/core/utils/laststeam.dart';
 import '../lib/core/utils/single_call.dart';
 import '../lib/core/utils/subscription_user_info.dart';
+import '../lib/core/utils/profile_metadata.dart';
 
 void check(bool condition, String message) {
   if (!condition) throw StateError(message);
@@ -19,6 +20,22 @@ Future<void> expectError<T extends Object>(Future<Object?> future) async {
 }
 
 Future<void> main() async {
+  for (final value in [null, 'null', '[]', '"text"', '{broken']) {
+    check(decodeOptionalJsonObject(value) == null, 'Invalid optional JSON must not break startup: $value');
+  }
+  check(
+    decodeOptionalJsonObject('{"profile-title":"test"}')?['profile-title'] == 'test',
+    'Valid stored headers must survive',
+  );
+  check(parseProfileTitle('base64:%%%') == null, 'Malformed title must allow fallback naming');
+  check(parseProfileTitle('base64:/w==') == null, 'Invalid UTF-8 title must allow fallback naming');
+  check(parseProfileTitle('base64:SGVsbG8') == 'Hello', 'Unpadded base64 title must decode');
+  check(parseProfileTitle('  hello  ') == 'hello', 'Title whitespace must be trimmed');
+  check(parseProfileTitle('base64:IA==') == null, 'Blank title must allow fallback naming');
+  for (final value in ['invalid', '', '0', '-1', '2562047789', '999999999999999999999']) {
+    check(parseProfileUpdateInterval(value) == null, 'Invalid interval must be ignored: $value');
+  }
+  check(parseProfileUpdateInterval(' 12 ') == const Duration(hours: 12), 'Valid interval must survive');
   final metadata = parseSubscriptionUserInfo(
     'upload=12;download=34; total=0; expire=999; ; broken; total=invalid; download=-1; unknown=10',
   );

@@ -15,6 +15,7 @@ import 'package:hiddify/core/preferences/general_preferences.dart';
 import 'package:hiddify/core/preferences/preferences_migration.dart';
 import 'package:hiddify/core/preferences/preferences_provider.dart';
 import 'package:hiddify/features/app/widget/app.dart';
+import 'package:hiddify/features/app/widget/startup_app.dart';
 import 'package:hiddify/features/chain/model/chain_enum.dart';
 import 'package:hiddify/features/chain/notifier/chain_profile_notifier.dart';
 import 'package:hiddify/features/log/data/log_data_providers.dart';
@@ -32,6 +33,11 @@ Future<void> lazyBootstrap(WidgetsBinding widgetsBinding, Environment env) async
   FlutterError.onError = Logger.logFlutterError;
   WidgetsBinding.instance.platformDispatcher.onError = Logger.logPlatformDispatcherError;
 
+  runApp(StartupApp(initialization: _initializeApp(env)));
+  FlutterNativeSplash.remove();
+}
+
+Future<Widget> _initializeApp(Environment env) async {
   final stopWatch = Stopwatch()..start();
   final container = ProviderContainer(
     overrides: [environmentProvider.overrideWithValue(env)],
@@ -44,9 +50,16 @@ Future<void> lazyBootstrap(WidgetsBinding widgetsBinding, Environment env) async
   final appInfo = await _init("app info", () => container.read(appInfoProvider.future));
   await _init("preferences", () => container.read(sharedPreferencesProvider.future));
 
-  final enableAnalytics = await container.read(analyticsControllerProvider.future);
-  if (enableAnalytics) {
-    await _init("analytics", () => container.read(analyticsControllerProvider.notifier).enableAnalytics());
+  final enableAnalytics = await _safeInit(
+    "analytics preference",
+    () => container.read(analyticsControllerProvider.future),
+  );
+  if (enableAnalytics == true) {
+    await _safeInit(
+      "analytics",
+      () => container.read(analyticsControllerProvider.notifier).enableAnalytics(),
+      timeout: 5000,
+    );
   }
 
   await _init("preferences migration", () async {
@@ -69,13 +82,15 @@ Future<void> lazyBootstrap(WidgetsBinding widgetsBinding, Environment env) async
   await _init("profile repository", () => container.read(profileRepositoryProvider.future));
   await _init("translations", () => container.read(translationsProvider.future));
   await _safeInit("active profile", () => container.read(activeProfileProvider.future), timeout: 1000);
-  await _init(
+  await _safeInit(
     "chain profile extra security",
     () => container.read(chainProfileNotifierProvider(ChainType.extraSecurity).future),
+    timeout: 3000,
   );
-  await _init(
+  await _safeInit(
     "chain profile unblocker",
     () => container.read(chainProfileNotifierProvider(ChainType.unblocker).future),
+    timeout: 3000,
   );
   await _safeInit("hiddify-core", () => container.read(hiddifyCoreServiceProvider).init());
 
@@ -88,33 +103,29 @@ Future<void> lazyBootstrap(WidgetsBinding widgetsBinding, Environment env) async
   Logger.bootstrap.info("bootstrap took [${stopWatch.elapsedMilliseconds}ms]");
   stopWatch.stop();
 
-  runApp(
-    UncontrolledProviderScope(
-      container: container,
-      child: SentryUserInteractionWidget(child: const App()),
-    ),
+  return UncontrolledProviderScope(
+    container: container,
+    child: SentryUserInteractionWidget(child: const App()),
   );
-
-  FlutterNativeSplash.remove();
 }
 
-Future<T> _init<T>(String name, Future<T> Function() initializer, {int? timeout}) async {
+Future<T> _init<T>(String name, Future<T> Function() initializer, {int timeout = 15000}) async {
   final stopWatch = Stopwatch()..start();
   Logger.bootstrap.info("initializing [$name]");
-  Future<T> func() => timeout != null ? initializer().timeout(Duration(milliseconds: timeout)) : initializer();
+  Future<T> func() => initializer().timeout(Duration(milliseconds: timeout));
   try {
     final result = await func();
     Logger.bootstrap.debug("[$name] initialized in ${stopWatch.elapsedMilliseconds}ms");
     return result;
   } catch (e, stackTrace) {
     Logger.bootstrap.error("[$name] error initializing", e, stackTrace);
-    rethrow;
+    Error.throwWithStackTrace(StateError('Startup failed at [$name]: $e'), stackTrace);
   } finally {
     stopWatch.stop();
   }
 }
 
-Future<T?> _safeInit<T>(String name, Future<T> Function() initializer, {int? timeout}) async {
+Future<T?> _safeInit<T>(String name, Future<T> Function() initializer, {int timeout = 15000}) async {
   try {
     return await _init(name, initializer, timeout: timeout);
   } catch (_) {

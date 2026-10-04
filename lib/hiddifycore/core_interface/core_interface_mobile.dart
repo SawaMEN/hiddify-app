@@ -57,14 +57,16 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
     } catch (e) {
       //core is not started yet
 
-      await methodChannel.invokeMethod("setup", {
-        "baseDir": directories.baseDir.path,
-        "workingDir": directories.workingDir.path,
-        "tempDir": directories.tempDir.path,
-        "grpcPort": portFront,
-        "mode": mode,
-        "debug": debug,
-      });
+      await methodChannel
+          .invokeMethod("setup", {
+            "baseDir": directories.baseDir.path,
+            "workingDir": directories.workingDir.path,
+            "tempDir": directories.tempDir.path,
+            "grpcPort": portFront,
+            "mode": mode,
+            "debug": debug,
+          })
+          .timeout(const Duration(seconds: 10));
       final res = await helloClient.sayHello(HelloRequest(name: "test"), options: helloOptions);
       loggy.info(res.toString());
     } finally {
