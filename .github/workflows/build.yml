@@ -12,6 +12,12 @@ on:
       channel:
         type: string
         default: "dev"
+      run-checks:
+        type: boolean
+        default: true
+      run-tests:
+        type: boolean
+        default: false
 
 env:
   IS_GITHUB_ACTIONS: 1
@@ -21,6 +27,94 @@ env:
   APK_NAME: "${{ inputs.channel == 'dev' && 'Hiddify-Android-arm64-v8a-dev.apk' || 'Hiddify-Android-arm64-v8a.apk' }}"
 
 jobs:
+  analyze:
+    if: ${{ inputs.run-checks }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2.23.0
+        env:
+          CHANNEL: stable
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Cache build_runner state
+        uses: actions/cache@v6
+        with:
+          path: .dart_tool/build
+          key: build-runner-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock', 'build.yaml', 'tool/flag_builder_compat/**') }}
+
+      - name: Generate Dart sources
+        run: |
+          flutter pub get
+          dart run slang
+          dart run build_runner build
+
+      - name: Check async runtime regressions
+        run: dart tool/check_async_runtime.dart
+
+      - name: Analyze Dart errors
+        id: analyze
+        shell: bash
+        run: |
+          set +e
+          flutter analyze --no-fatal-warnings --no-fatal-infos 2>&1 | tee analyze.log
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Upload Dart analyzer log
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dart-analyze-log
+          path: analyze.log
+          retention-days: 1
+
+      - name: Fail on Dart analyzer errors
+        if: ${{ steps.analyze.outputs.status != '0' }}
+        run: exit "${{ steps.analyze.outputs.status }}"
+
+  test:
+    if: ${{ inputs.run-tests }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2.23.0
+        env:
+          CHANNEL: stable
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Cache build_runner state
+        uses: actions/cache@v6
+        with:
+          path: .dart_tool/build
+          key: build-runner-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock', 'build.yaml', 'tool/flag_builder_compat/**') }}
+
+      - name: Generate Dart sources
+        run: |
+          flutter pub get
+          dart run slang
+          dart run build_runner build
+
+      - name: Run tests
+        run: flutter test
+
   build-android-arm64:
     runs-on: ubuntu-latest
     permissions:
@@ -65,26 +159,20 @@ jobs:
               raise SystemExit(f"Unexpected Flutter Gradle settings format: {path}")
           PY
 
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc /opt/hostedtoolcache/CodeQL || true
-          sudo apt-get clean
-
       - name: Setup Java
         uses: actions/setup-java@v6
         with:
           distribution: zulu
           java-version: 17
 
-      - name: Cache Gradle
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Cache build_runner state
         uses: actions/cache@v6
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            gradle-${{ runner.os }}-
+          path: .dart_tool/build
+          key: build-runner-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock', 'build.yaml', 'tool/flag_builder_compat/**') }}
 
       - name: Install build dependencies
         run: make android-apk-install-deps
@@ -127,33 +215,32 @@ jobs:
             -storepass "$ANDROID_SIGNING_STORE_PASSWORD" \
             -alias "$ANDROID_SIGNING_KEY_ALIAS" >/dev/null
 
-      - name: Prepare Android
-        run: make android-apk-prepare
-
-      - name: Check async runtime regressions
-        run: dart tool/check_async_runtime.dart
-
-      - name: Analyze Dart errors
-        id: analyze
+      - name: Prepare Android and toolchain in parallel
         shell: bash
         run: |
-          set +e
-          flutter analyze --no-fatal-warnings --no-fatal-infos 2>&1 | tee analyze.log
-          status=${PIPESTATUS[0]}
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-          exit 0
+          set -euo pipefail
 
-      - name: Upload Dart analyzer log
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: dart-analyze-log
-          path: analyze.log
-          retention-days: 1
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(command -v sdkmanager)"
+          fi
 
-      - name: Fail on Dart analyzer errors
-        if: ${{ steps.analyze.outputs.status != '0' }}
-        run: exit "${{ steps.analyze.outputs.status }}"
+          "$SDKMANAGER" "ndk;30.0.16248370" "cmake;3.22.1" > /tmp/android-sdk-install.log 2>&1 &
+          sdk_pid=$!
+
+          prepare_status=0
+          make android-apk-prepare || prepare_status=$?
+
+          sdk_status=0
+          wait "$sdk_pid" || sdk_status=$?
+
+          if [ "$sdk_status" -ne 0 ]; then
+            cat /tmp/android-sdk-install.log
+            exit "$sdk_status"
+          fi
+          if [ "$prepare_status" -ne 0 ]; then
+            exit "$prepare_status"
+          fi
 
       - name: Build Android ARM64 APK
         env:
@@ -199,8 +286,19 @@ jobs:
           retention-days: 7
 
   update-draft:
-    if: ${{ inputs.upload-artifact && inputs.tag-name == 'draft' }}
-    needs: build-android-arm64
+    needs:
+      - analyze
+      - test
+      - build-android-arm64
+    if: >-
+      ${{
+        always() &&
+        inputs.upload-artifact &&
+        inputs.tag-name == 'draft' &&
+        needs.build-android-arm64.result == 'success' &&
+        (needs.analyze.result == 'success' || needs.analyze.result == 'skipped') &&
+        (needs.test.result == 'success' || needs.test.result == 'skipped')
+      }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -241,8 +339,19 @@ jobs:
           prerelease: true
 
   upload-release:
-    if: ${{ inputs.upload-artifact && inputs.tag-name != 'draft' }}
-    needs: build-android-arm64
+    needs:
+      - analyze
+      - test
+      - build-android-arm64
+    if: >-
+      ${{
+        always() &&
+        inputs.upload-artifact &&
+        inputs.tag-name != 'draft' &&
+        needs.build-android-arm64.result == 'success' &&
+        (needs.analyze.result == 'success' || needs.analyze.result == 'skipped') &&
+        (needs.test.result == 'success' || needs.test.result == 'skipped')
+      }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
