@@ -45,11 +45,14 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Cache build_runner state
+      - name: Cache generated Dart state
         uses: actions/cache@v6
         with:
-          path: .dart_tool/build
-          key: build-runner-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock', 'build.yaml', 'tool/flag_builder_compat/**') }}
+          path: |
+            .dart_tool/build
+            lib/gen/assets.gen.dart
+            lib/gen/fonts.gen.dart
+          key: build-runner-v2-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock', 'pubspec.yaml', 'build.yaml', 'tool/flag_builder_compat/**', 'assets/**') }}
 
       - name: Generate Dart sources
         run: |
@@ -100,11 +103,14 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Cache build_runner state
+      - name: Cache generated Dart state
         uses: actions/cache@v6
         with:
-          path: .dart_tool/build
-          key: build-runner-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock', 'build.yaml', 'tool/flag_builder_compat/**') }}
+          path: |
+            .dart_tool/build
+            lib/gen/assets.gen.dart
+            lib/gen/fonts.gen.dart
+          key: build-runner-v2-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock', 'pubspec.yaml', 'build.yaml', 'tool/flag_builder_compat/**', 'assets/**') }}
 
       - name: Generate Dart sources
         run: |
@@ -168,11 +174,14 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Cache build_runner state
+      - name: Cache generated Dart state
         uses: actions/cache@v6
         with:
-          path: .dart_tool/build
-          key: build-runner-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock', 'build.yaml', 'tool/flag_builder_compat/**') }}
+          path: |
+            .dart_tool/build
+            lib/gen/assets.gen.dart
+            lib/gen/fonts.gen.dart
+          key: build-runner-v2-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock', 'pubspec.yaml', 'build.yaml', 'tool/flag_builder_compat/**', 'assets/**') }}
 
       - name: Install build dependencies
         run: make android-apk-install-deps
