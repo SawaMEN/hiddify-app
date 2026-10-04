@@ -2,6 +2,9 @@ include dependencies.properties
 
 MKDIR := mkdir -p
 ANDROID_OUT=android/app/libs
+CORE_DIR=hiddify-core
+ANDROID_NDK_VERSION=30.0.16248370
+ANDROID_NDK_DIR=$(ANDROID_HOME)/ndk/$(ANDROID_NDK_VERSION)
 
 ifeq ($(CHANNEL),prod)
 TARGET=lib/main_prod.dart
@@ -25,20 +28,34 @@ translate:
 common-prepare: get translate gen
 
 android-install-deps:
-	@echo "No additional Android build tools are required"
+	@echo "Android core is built from the pinned hiddify-core submodule"
 
 android-apk-install-deps: android-install-deps
 
 android-libs:
 	$(MKDIR) $(ANDROID_OUT)
 	@set -eu; \
-	  archive=$$(mktemp); \
-	  trap 'rm -f "$$archive"' EXIT; \
-	  curl --fail --location --retry 3 --connect-timeout 30 \
-	    --header 'Accept: application/octet-stream' \
-	    --output "$$archive" "https://api.github.com/repos/hiddify/hiddify-core/releases/assets/$(core.android.asset_id)"; \
-	  printf '%s  %s\n' "$(core.android.sha256)" "$$archive" | sha256sum --check --status; \
-	  tar --no-same-owner -xzf "$$archive" -C $(ANDROID_OUT)/
+	  echo "Initializing pinned hiddify-core and sing-box submodules..."; \
+	  git submodule update --init --recursive $(CORE_DIR); \
+	  if ! command -v go >/dev/null 2>&1; then \
+	    echo "Go toolchain is required to build hiddify-core"; \
+	    exit 1; \
+	  fi; \
+	  ndk="$(ANDROID_NDK_DIR)"; \
+	  attempt=0; \
+	  while [ ! -f "$$ndk/source.properties" ]; do \
+	    attempt=$$((attempt + 1)); \
+	    if [ "$$attempt" -ge 120 ]; then \
+	      echo "Android NDK $(ANDROID_NDK_VERSION) was not installed at $$ndk"; \
+	      exit 1; \
+	    fi; \
+	    sleep 1; \
+	  done; \
+	  echo "Building hiddify-core from $$(git -C $(CORE_DIR) rev-parse --short HEAD) with NDK $(ANDROID_NDK_VERSION)..."; \
+	  GOTOOLCHAIN=auto ANDROID_NDK_HOME="$$ndk" $(MAKE) -C $(CORE_DIR) android; \
+	  test -s $(CORE_DIR)/bin/hiddify-core.aar; \
+	  cp $(CORE_DIR)/bin/hiddify-core.aar $(ANDROID_OUT)/hiddify-core.aar; \
+	  ls -lh $(ANDROID_OUT)/hiddify-core.aar
 
 android-apk-libs: android-libs
 
