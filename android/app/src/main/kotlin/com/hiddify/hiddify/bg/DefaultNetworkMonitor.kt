@@ -2,13 +2,18 @@ package com.hiddify.hiddify.bg
 
 import android.net.Network
 import android.os.Build
+import android.util.Log
 import com.hiddify.core.libbox.InterfaceUpdateListener
 import com.hiddify.hiddify.Application
 import java.net.NetworkInterface
 
 object DefaultNetworkMonitor {
+    private const val TAG = "DefaultNetworkMonitor"
 
+    @Volatile
     var defaultNetwork: Network? = null
+        private set
+
     private val listenerLock = Any()
     private var listener: InterfaceUpdateListener? = null
 
@@ -20,25 +25,29 @@ object DefaultNetworkMonitor {
         defaultNetwork = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             Application.connectivity.activeNetwork
         } else {
-            DefaultNetworkListener.get()
+            runCatching { DefaultNetworkListener.get() }.getOrNull()
         }
+        checkDefaultInterfaceUpdate(defaultNetwork)
     }
 
-    suspend fun stop() {
-        // A gomobile listener is valid only while its owning core is alive. Do not merely
-        // clear the field: synchronize with an already-running callback so stop() cannot
-        // return while that callback is still invoking the old Go reference.
+    /** Detach only the gomobile callback while keeping Android network discovery alive. */
+    fun detachCoreListener() {
         synchronized(listenerLock) {
             listener = null
         }
+    }
+
+    /** Fully release Android network discovery. Call this only after Mobile.close() returns. */
+    suspend fun stop() {
+        detachCoreListener()
         DefaultNetworkListener.stop(this)
         defaultNetwork = null
     }
 
     suspend fun require(): Network {
-        val network = defaultNetwork
-        if (network != null) {
-            return network
+        defaultNetwork?.let { return it }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            Application.connectivity.activeNetwork?.let { return it }
         }
         return DefaultNetworkListener.get()
     }
@@ -56,8 +65,9 @@ object DefaultNetworkMonitor {
             return
         }
 
-        val interfaceName =
-            (Application.connectivity.getLinkProperties(newNetwork) ?: return).interfaceName ?: return
+        val interfaceName = runCatching {
+            Application.connectivity.getLinkProperties(newNetwork)?.interfaceName
+        }.getOrNull() ?: return
 
         repeat(10) {
             val interfaceIndex = try {
@@ -70,13 +80,24 @@ object DefaultNetworkMonitor {
                 notifyListener(interfaceName, interfaceIndex)
                 return
             }
-            Thread.sleep(100)
+            try {
+                Thread.sleep(100)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                return
+            }
         }
     }
 
     private fun notifyListener(interfaceName: String, interfaceIndex: Int) {
         synchronized(listenerLock) {
-            listener?.updateDefaultInterface(interfaceName, interfaceIndex, false, false)
+            val currentListener = listener ?: return
+            runCatching {
+                currentListener.updateDefaultInterface(interfaceName, interfaceIndex, false, false)
+            }.onFailure {
+                // This callback crosses the gomobile boundary and must never unwind into Android.
+                Log.e(TAG, "failed to notify core about default interface", it)
+            }
         }
     }
 }

@@ -21,12 +21,9 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
 
     private val service = BoxService(this, this)
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) =
-        service.onStartCommand()
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = service.onStartCommand()
 
-    override fun onBind(intent: Intent): IBinder {
-        return super.onBind(intent) ?: service.onBind(intent)
-    }
+    override fun onBind(intent: Intent): IBinder = super.onBind(intent) ?: service.onBind(intent)
 
     override fun onDestroy() {
         service.onDestroy()
@@ -39,41 +36,63 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
     }
 
     override fun autoDetectInterfaceControl(fd: Int) {
-        protect(fd)
+        runCatching { protect(fd) }
+            .onFailure { Log.w(TAG, "failed to protect socket $fd", it) }
     }
 
     var systemProxyAvailable = false
     var systemProxyEnabled = false
 
     private fun addIncludePackage(builder: Builder, packageName: String) {
-        if (packageName == this.packageName) {
-            Log.d(TAG, "cannot include VPN app itself: $packageName")
+        if (packageName.isBlank() || packageName == this.packageName) {
+            if (packageName == this.packageName) Log.d(TAG, "cannot include VPN app itself: $packageName")
             return
         }
-
         try {
             builder.addAllowedApplication(packageName)
         } catch (e: NameNotFoundException) {
             Log.w(TAG, "cannot include missing package: $packageName", e)
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "cannot include package: $packageName", e)
         }
     }
 
     private fun addExcludePackage(builder: Builder, packageName: String) {
+        if (packageName.isBlank()) return
         try {
             builder.addDisallowedApplication(packageName)
         } catch (e: NameNotFoundException) {
             Log.w(TAG, "cannot exclude missing package: $packageName", e)
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "cannot exclude package: $packageName", e)
         }
     }
 
     override fun openTun(options: TunOptions): Int {
+        return try {
+            openTunInternal(options)
+        } catch (e: Exception) {
+            // openTun is invoked through gomobile. Do not allow Android/OEM exceptions to
+            // unwind through the Go callback boundary and terminate the process.
+            Log.e(TAG, "failed to establish VPN TUN", e)
+            -1
+        }
+    }
+
+    private fun openTunInternal(options: TunOptions): Int {
         if (prepare(this) != null) {
-            error("android: missing vpn permission")
+            Log.w(TAG, "VPN permission is missing or was revoked")
+            return -1
+        }
+
+        val safeMtu = options.mtu.coerceIn(576, 65_535)
+        if (safeMtu != options.mtu) {
+            Log.w(TAG, "clamping invalid MTU ${options.mtu} to $safeMtu")
         }
 
         val builder = Builder()
             .setSession("hiddify")
-            .setMtu(options.mtu)
+            .setMtu(safeMtu)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             builder.setMetered(false)
@@ -168,10 +187,7 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
             systemProxyEnabled = Settings.systemProxyEnabled
             if (systemProxyEnabled) {
                 builder.setHttpProxy(
-                    ProxyInfo.buildDirectProxy(
-                        options.httpProxyServer,
-                        options.httpProxyServerPort,
-                    ),
+                    ProxyInfo.buildDirectProxy(options.httpProxyServer, options.httpProxyServerPort),
                 )
             }
         } else {
@@ -180,11 +196,15 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
         }
 
         val pfd = builder.establish()
-            ?: error("android: the application is not prepared or VPN permission was revoked")
+        if (pfd == null) {
+            Log.e(TAG, "Builder.establish() returned null; VPN permission may have been revoked")
+            return -1
+        }
 
         service.fileDescriptor?.let { oldPfd ->
             if (oldPfd !== pfd) {
                 runCatching { oldPfd.close() }
+                    .onFailure { Log.w(TAG, "failed to close previous TUN", it) }
             }
         }
         service.fileDescriptor = pfd

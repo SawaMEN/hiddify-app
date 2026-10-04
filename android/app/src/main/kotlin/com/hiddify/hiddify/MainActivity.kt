@@ -15,10 +15,11 @@ import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import java.util.LinkedList
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.LinkedList
 
 class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
 
@@ -28,6 +29,11 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
     var logCallback: ((Boolean) -> Unit)? = null
     val serviceStatus = MutableLiveData(Status.Stopped)
     val serviceAlerts = MutableLiveData<ServiceEvent?>(null)
+
+    private var startGeneration = 0L
+    private var pendingStartGeneration = 0L
+    private var pendingStart: CompletableDeferred<Boolean>? = null
+    private var serviceStartIssued = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -42,73 +48,163 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         connection.reconnect()
     }
 
-    fun startService() {
+    /**
+     * Starts the selected service and completes only when the service reports Started or a
+     * start-related alert is received. System permission dialogs are part of this request, so a
+     * timed-out/cancelled request can be invalidated and cannot start the service later.
+     */
+    suspend fun startService(): Boolean = withContext(Dispatchers.Main.immediate) {
+        if (serviceStatus.value == Status.Started) return@withContext true
+
+        cancelPendingStartInternal()
+        val generation = ++startGeneration
+        val deferred = CompletableDeferred<Boolean>()
+        pendingStartGeneration = generation
+        pendingStart = deferred
+        serviceStartIssued = false
+
+        beginStart(generation)
+        deferred.await()
+    }
+
+    /**
+     * Invalidates the current permission/start request. Returns true when startForegroundService
+     * had already been issued, so the caller must also account for a service that is about to
+     * transition from Stopped to Starting.
+     */
+    fun cancelPendingStart(message: String? = null): Boolean {
+        val hadPending = pendingStart != null
+        val wasIssued = cancelPendingStartInternal()
+        if (hadPending && message != null) {
+            onServiceAlert(Alert.StartService, message)
+        }
+        return wasIssued
+    }
+
+    private fun cancelPendingStartInternal(): Boolean {
+        val wasIssued = serviceStartIssued
+        startGeneration++
+        pendingStartGeneration = startGeneration
+        serviceStartIssued = false
+        pendingStart?.complete(false)
+        pendingStart = null
+        return wasIssued
+    }
+
+    private fun isCurrentStart(generation: Long): Boolean =
+        pendingStart != null && pendingStartGeneration == generation && startGeneration == generation
+
+    private fun beginStart(generation: Long) {
+        if (!isCurrentStart(generation)) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !ServiceNotification.checkPermission()) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             return
         }
-        startService0()
+        continueStart(generation)
     }
 
-    private fun startService0() {
-        lifecycleScope.launch(Dispatchers.IO) {
-            if (Settings.rebuildServiceMode()) {
-                connection.reconnect()
-            }
-            if (Settings.serviceMode == ServiceMode.VPN && prepareVpn()) {
-                return@launch
+    private fun continueStart(generation: Long) {
+        lifecycleScope.launch {
+            if (!isCurrentStart(generation)) return@launch
+
+            val serviceModeChanged = withContext(Dispatchers.IO) { Settings.rebuildServiceMode() }
+            if (!isCurrentStart(generation)) return@launch
+            if (serviceModeChanged) {
+                withContext(Dispatchers.IO) { connection.reconnect() }
             }
 
-            val intent = Intent(Application.application, Settings.serviceClass())
-            withContext(Dispatchers.Main) {
-                ContextCompat.startForegroundService(this@MainActivity, intent)
+            if (Settings.serviceMode == ServiceMode.VPN) {
+                val permissionIntent = try {
+                    VpnService.prepare(this@MainActivity)
+                } catch (e: Exception) {
+                    failPendingStart(generation)
+                    onServiceAlert(Alert.RequestVPNPermission, e.message)
+                    return@launch
+                }
+                if (permissionIntent != null) {
+                    prepareLauncher.launch(permissionIntent)
+                    return@launch
+                }
             }
-            Settings.startedByUser = true
+
+            issueServiceStart(generation)
         }
     }
 
-    private suspend fun prepareVpn() = withContext(Dispatchers.Main) {
+    private fun issueServiceStart(generation: Long) {
+        if (!isCurrentStart(generation)) return
         try {
-            val intent = VpnService.prepare(this@MainActivity)
-            if (intent != null) {
-                prepareLauncher.launch(intent)
-                true
-            } else {
-                false
-            }
+            val intent = Intent(Application.application, Settings.serviceClass())
+            serviceStartIssued = true
+            ContextCompat.startForegroundService(this, intent)
+            Settings.startedByUser = true
         } catch (e: Exception) {
-            onServiceAlert(Alert.RequestVPNPermission, e.message)
-            true
+            failPendingStart(generation)
+            onServiceAlert(Alert.StartService, e.message)
         }
+    }
+
+    private fun failPendingStart(generation: Long) {
+        if (!isCurrentStart(generation)) return
+        pendingStart?.complete(false)
+        pendingStart = null
+        serviceStartIssued = false
+    }
+
+    private fun completePendingStart(generation: Long, success: Boolean) {
+        if (!isCurrentStart(generation)) return
+        pendingStart?.complete(success)
+        pendingStart = null
+        serviceStartIssued = false
     }
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            val generation = pendingStartGeneration
+            if (!isCurrentStart(generation)) return@registerForActivityResult
             if (Settings.dynamicNotification && !isGranted) {
+                failPendingStart(generation)
                 onServiceAlert(Alert.RequestNotificationPermission, null)
             } else {
-                startService0()
+                continueStart(generation)
             }
         }
 
     private val prepareLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val generation = pendingStartGeneration
+            if (!isCurrentStart(generation)) return@registerForActivityResult
             if (result.resultCode == RESULT_OK) {
-                startService0()
+                issueServiceStart(generation)
             } else {
+                failPendingStart(generation)
                 onServiceAlert(Alert.RequestVPNPermission, null)
             }
         }
 
     override fun onServiceStatusChanged(status: Status) {
         serviceStatus.postValue(status)
+        val generation = pendingStartGeneration
+        lifecycleScope.launch(Dispatchers.Main.immediate) {
+            if (!isCurrentStart(generation)) return@launch
+            when (status) {
+                Status.Started -> completePendingStart(generation, true)
+                Status.Stopped -> if (serviceStartIssued) completePendingStart(generation, false)
+                else -> Unit
+            }
+        }
     }
 
     override fun onServiceAlert(type: Alert, message: String?) {
         serviceAlerts.postValue(ServiceEvent(Status.Stopped, type, message))
+        val generation = pendingStartGeneration
+        lifecycleScope.launch(Dispatchers.Main.immediate) {
+            failPendingStart(generation)
+        }
     }
 
     override fun onDestroy() {
+        cancelPendingStartInternal()
         logCallback = null
         connection.disconnect()
         super.onDestroy()

@@ -1,6 +1,5 @@
 package com.hiddify.hiddify.bg
 
-import android.annotation.TargetApi
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -8,204 +7,206 @@ import android.net.NetworkRequest
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import com.hiddify.hiddify.Application
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.ObsoleteCoroutinesApi
-import kotlinx.coroutines.channels.actor
-import kotlinx.coroutines.runBlocking
-import java.net.UnknownHostException
-
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 
 object DefaultNetworkListener {
+    private const val TAG = "DefaultNetworkListener"
+
     private sealed class NetworkMessage {
         class Start(val key: Any, val listener: (Network?) -> Unit) : NetworkMessage()
-
-        class Get : NetworkMessage() {
-            val response = CompletableDeferred<Network>()
-        }
-
+        class Get(val response: CompletableDeferred<Network>) : NetworkMessage()
         class Stop(val key: Any) : NetworkMessage()
-
         class Put(val network: Network) : NetworkMessage()
-
         class Update(val network: Network) : NetworkMessage()
-
         class Lost(val network: Network) : NetworkMessage()
     }
 
-    @OptIn(DelicateCoroutinesApi::class, ObsoleteCoroutinesApi::class)
-    private val networkActor =
-        GlobalScope.actor<NetworkMessage>(Dispatchers.Unconfined) {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val messages = Channel<NetworkMessage>(Channel.UNLIMITED)
+
+    init {
+        scope.launch {
             val listeners = mutableMapOf<Any, (Network?) -> Unit>()
             var network: Network? = null
-            val pendingRequests = arrayListOf<NetworkMessage.Get>()
-            for (message in channel) {
-                when (message) {
-                    is NetworkMessage.Start -> {
-                        if (listeners.isEmpty()) register()
-                        listeners[message.key] = message.listener
-                        if (network != null) message.listener(network)
-                    }
+            val pendingRequests = arrayListOf<CompletableDeferred<Network>>()
 
-                    is NetworkMessage.Get -> {
-                        check(listeners.isNotEmpty()) { "Getting network without any listeners is not supported" }
-                        if (network == null) {
-                            pendingRequests += message
-                        } else {
-                            message.response.complete(
-                                network,
-                            )
-                        }
-                    }
+            suspend fun notifyListeners(value: Network?) {
+                listeners.values.toList().forEach { listener ->
+                    runCatching { listener(value) }
+                        .onFailure { Log.e(TAG, "network listener callback failed", it) }
+                }
+            }
 
-                    is NetworkMessage.Stop ->
-                        if (listeners.isNotEmpty() &&
-                            // was not empty
-                            listeners.remove(message.key) != null &&
-                            listeners.isEmpty()
-                        ) {
-                            network = null
-                            unregister()
-                        }
-
-                    is NetworkMessage.Put -> {
-                        network = message.network
-                        pendingRequests.forEach { it.response.complete(message.network) }
-                        pendingRequests.clear()
-                        listeners.values.forEach { it(network) }
-                    }
-
-                    is NetworkMessage.Update ->
-                        if (network == message.network) {
-                            listeners.values.forEach {
-                                it(
-                                    network,
-                                )
+            for (message in messages) {
+                try {
+                    when (message) {
+                        is NetworkMessage.Start -> {
+                            if (listeners.isEmpty()) {
+                                register()
+                                if (fallback && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                    network = Application.connectivity.activeNetwork
+                                }
+                            }
+                            listeners[message.key] = message.listener
+                            network?.let { current ->
+                                runCatching { message.listener(current) }
+                                    .onFailure { Log.e(TAG, "initial network listener callback failed", it) }
                             }
                         }
 
-                    is NetworkMessage.Lost ->
-                        if (network == message.network) {
-                            network = null
-                            listeners.values.forEach { it(null) }
+                        is NetworkMessage.Get -> {
+                            val currentNetwork = network
+                            if (currentNetwork != null) {
+                                message.response.complete(currentNetwork)
+                            } else if (fallback && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                val active = Application.connectivity.activeNetwork
+                                if (active != null) {
+                                    network = active
+                                    message.response.complete(active)
+                                } else {
+                                    message.response.completeExceptionally(IllegalStateException("missing default network"))
+                                }
+                            } else if (listeners.isEmpty()) {
+                                message.response.completeExceptionally(
+                                    IllegalStateException("default network listener is not running"),
+                                )
+                            } else {
+                                pendingRequests += message.response
+                            }
                         }
+
+                        is NetworkMessage.Stop -> {
+                            if (listeners.remove(message.key) != null && listeners.isEmpty()) {
+                                network = null
+                                unregister()
+                                val error = CancellationException("default network listener stopped")
+                                pendingRequests.forEach { request ->
+                                    if (!request.isCompleted) request.completeExceptionally(error)
+                                }
+                                pendingRequests.clear()
+                            }
+                        }
+
+                        is NetworkMessage.Put -> {
+                            network = message.network
+                            pendingRequests.forEach { request ->
+                                if (!request.isCompleted) request.complete(message.network)
+                            }
+                            pendingRequests.clear()
+                            notifyListeners(network)
+                        }
+
+                        is NetworkMessage.Update -> {
+                            if (network == message.network) notifyListeners(network)
+                        }
+
+                        is NetworkMessage.Lost -> {
+                            if (network == message.network) {
+                                network = null
+                                notifyListeners(null)
+                            }
+                        }
+                    }
+                } catch (t: Throwable) {
+                    Log.e(TAG, "failed to process network event ${message.javaClass.simpleName}", t)
+                    if (message is NetworkMessage.Get && !message.response.isCompleted) {
+                        message.response.completeExceptionally(t)
+                    }
                 }
             }
         }
+    }
 
-    suspend fun start(key: Any, listener: (Network?) -> Unit) = networkActor.send(
-        NetworkMessage.Start(
-            key,
-            listener,
-        ),
-    )
+    suspend fun start(key: Any, listener: (Network?) -> Unit) {
+        messages.send(NetworkMessage.Start(key, listener))
+    }
 
-    suspend fun get(): Network = if (fallback) {
-        @TargetApi(23)
-        Application.connectivity.activeNetwork
-            ?: error("missing default network") // failed to listen, return current if available
-    } else {
-        NetworkMessage.Get().run {
-            networkActor.send(this)
-            response.await()
+    suspend fun get(): Network {
+        if (fallback && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return Application.connectivity.activeNetwork ?: error("missing default network")
+        }
+        val response = CompletableDeferred<Network>()
+        messages.send(NetworkMessage.Get(response))
+        return response.await()
+    }
+
+    suspend fun stop(key: Any) {
+        messages.send(NetworkMessage.Stop(key))
+    }
+
+    private fun enqueue(message: NetworkMessage) {
+        if (messages.trySend(message).isFailure) {
+            Log.w(TAG, "dropping network callback because listener loop is unavailable")
         }
     }
 
-    suspend fun stop(key: Any) = networkActor.send(NetworkMessage.Stop(key))
-
-    // NB: this runs in ConnectivityThread, and this behavior cannot be changed until API 26
     private object Callback : ConnectivityManager.NetworkCallback() {
-        override fun onAvailable(network: Network) = runBlocking {
-            networkActor.send(
-                NetworkMessage.Put(
-                    network,
-                ),
-            )
+        override fun onAvailable(network: Network) {
+            enqueue(NetworkMessage.Put(network))
         }
 
         override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
-            // it's a good idea to refresh capabilities
-            runBlocking { networkActor.send(NetworkMessage.Update(network)) }
+            enqueue(NetworkMessage.Update(network))
         }
 
-        override fun onLost(network: Network) = runBlocking {
-            networkActor.send(
-                NetworkMessage.Lost(
-                    network,
-                ),
-            )
+        override fun onLost(network: Network) {
+            enqueue(NetworkMessage.Lost(network))
         }
     }
 
+    @Volatile
     private var fallback = false
+
     private val request =
         NetworkRequest.Builder().apply {
             addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
-            if (Build.VERSION.SDK_INT == 23) { // workarounds for OEM bugs
+            if (Build.VERSION.SDK_INT == 23) {
                 removeCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
                 removeCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)
             }
         }.build()
+
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    /**
-     * Unfortunately registerDefaultNetworkCallback is going to return VPN interface since Android P DP1:
-     * https://android.googlesource.com/platform/frameworks/base/+/dda156ab0c5d66ad82bdcf76cda07cbc0a9c8a2e
-     *
-     * This makes doing a requestNetwork with REQUEST necessary so that we don't get ALL possible networks that
-     * satisfies default network capabilities but only THE default network. Unfortunately, we need to have
-     * android.permission.CHANGE_NETWORK_STATE to be able to call requestNetwork.
-     *
-     * Source: https://android.googlesource.com/platform/frameworks/base/+/2df4c7d/services/core/java/com/android/server/ConnectivityService.java#887
-     */
     private fun register() {
-        when (Build.VERSION.SDK_INT) {
-            in 31..Int.MAX_VALUE ->
-                @TargetApi(31)
-                {
-                    Application.connectivity.registerBestMatchingNetworkCallback(
-                        request,
-                        Callback,
-                        mainHandler,
-                    )
-                }
+        fallback = false
+        try {
+            when (Build.VERSION.SDK_INT) {
+                in 31..Int.MAX_VALUE ->
+                    Application.connectivity.registerBestMatchingNetworkCallback(request, Callback, mainHandler)
 
-            in 28 until 31 ->
-                @TargetApi(28)
-                { // we want REQUEST here instead of LISTEN
+                in 28 until 31 ->
                     Application.connectivity.requestNetwork(request, Callback, mainHandler)
-                }
 
-            in 26 until 28 ->
-                @TargetApi(26)
-                {
+                in 26 until 28 ->
                     Application.connectivity.registerDefaultNetworkCallback(Callback, mainHandler)
-                }
 
-            in 24 until 26 ->
-                @TargetApi(24)
-                {
+                in 24 until 26 ->
                     Application.connectivity.registerDefaultNetworkCallback(Callback)
-                }
 
-            else ->
-                try {
-                    fallback = false
-                    Application.connectivity.requestNetwork(request, Callback)
-                } catch (e: RuntimeException) {
-                    fallback =
-                        true // known bug on API 23: https://stackoverflow.com/a/33509180/2245107
-                }
+                else -> Application.connectivity.requestNetwork(request, Callback)
+            }
+        } catch (e: RuntimeException) {
+            fallback = true
+            Log.w(TAG, "network callback registration failed; using activeNetwork fallback", e)
         }
     }
 
     private fun unregister() {
-        runCatching {
-            Application.connectivity.unregisterNetworkCallback(Callback)
+        if (fallback) {
+            fallback = false
+            return
         }
+        runCatching { Application.connectivity.unregisterNetworkCallback(Callback) }
+            .onFailure { Log.w(TAG, "failed to unregister network callback", it) }
     }
 }

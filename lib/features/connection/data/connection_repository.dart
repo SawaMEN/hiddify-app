@@ -35,10 +35,8 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
   });
 
   final Ref ref;
-
   final Directories directories;
   final HiddifyCoreService singbox;
-
   final ConfigOptionRepository configOptionRepository;
   final ProfilePathResolver profilePathResolver;
 
@@ -52,13 +50,12 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
   TaskEither<ConnectionFailure, Unit> setup() {
     if (_initialized) return TaskEither.of(unit);
     return exceptionHandler(() {
-      loggy.debug("setting up singbox");
-
+      loggy.debug('setting up singbox');
       return singbox
           .setup()
-          .map((r) {
+          .map((result) {
             _initialized = true;
-            return r;
+            return result;
           })
           .mapLeft(UnexpectedConnectionFailure.new)
           .run();
@@ -78,28 +75,50 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
   }
 
   @override
-  TaskEither<ConnectionFailure, Unit> connect(ProfileEntity activeProfile, bool disableMemoryLimit) => setup().flatMap(
-    (_) => applyConfigOption(activeProfile).flatMap(
-      (_) => singbox.start(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit),
-      // .mapLeft(UnexpectedConnectionFailure.new),
-    ),
-  );
+  TaskEither<ConnectionFailure, Unit> connect(ProfileEntity activeProfile, bool disableMemoryLimit) {
+    return TaskEither(
+      () => singbox.runExclusive(
+        () => setup()
+            .flatMap(
+              (_) => applyConfigOption(activeProfile).flatMap(
+                (_) => singbox.start(
+                  profilePathResolver.file(activeProfile.id).path,
+                  activeProfile.name,
+                  disableMemoryLimit,
+                ),
+              ),
+            )
+            .run(),
+      ),
+    );
+  }
 
   @override
   TaskEither<ConnectionFailure, Unit> disconnect() => singbox.stop().mapLeft(UnexpectedConnectionFailure.new);
 
   @override
-  TaskEither<ConnectionFailure, Unit> reconnect(ProfileEntity activeProfile, bool disableMemoryLimit) =>
-      applyConfigOption(activeProfile).flatMap(
-        (_) => singbox
-            .restart(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit)
-            .mapLeft(UnexpectedConnectionFailure.new),
-      );
+  TaskEither<ConnectionFailure, Unit> reconnect(ProfileEntity activeProfile, bool disableMemoryLimit) {
+    return TaskEither(
+      () => singbox.runExclusive(
+        () => applyConfigOption(activeProfile)
+            .flatMap(
+              (_) => singbox
+                  .restart(
+                    profilePathResolver.file(activeProfile.id).path,
+                    activeProfile.name,
+                    disableMemoryLimit,
+                  )
+                  .mapLeft(UnexpectedConnectionFailure.new),
+            )
+            .run(),
+      ),
+    );
+  }
 
   @visibleForTesting
   TaskEither<ConnectionFailure, Unit> applyConfigOption(ProfileEntity prof) =>
       TaskEither.fromEither(configOptionRepository.fullOptionsOverrided(prof.profileOverride()))
-          .mapLeft((l) => ConnectionFailure.invalidConfigOption(null, l))
+          .mapLeft((failure) => ConnectionFailure.invalidConfigOption(null, failure))
           .flatMap(
             (overridedOptions) => TaskEither.tryCatch(() async {
               if (!overridedOptions.chainStatus.isOff()) {
@@ -110,7 +129,6 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
                   final isAgreed = await ref.read(dialogNotifierProvider.notifier).showWarpLicense();
                   if (isAgreed == true) {
                     await ref.read(Preferences.warpConsentGiven.notifier).update(true);
-                    // return (await applyConfigOption(prof).run()).match((l) => throw l, (_) => unit);
                   } else {
                     throw const MissingWarpLicense();
                   }
@@ -133,6 +151,6 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
               result.match((error) => throw ConnectionFailure.invalidConfig(error), (_) {});
               _configOptionsSnapshot = overridedOptions;
               return unit;
-            }, (err, st) => err is ConnectionFailure ? err : ConnectionFailure.unexpected(err, st)),
+            }, (error, stackTrace) => error is ConnectionFailure ? error : ConnectionFailure.unexpected(error, stackTrace)),
           );
 }

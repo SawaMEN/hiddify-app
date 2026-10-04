@@ -30,6 +30,8 @@ class MethodHandler(
     companion object {
         const val TAG = "A/MethodHandler"
         const val channelName = "com.hiddify.app/method"
+        private const val START_TIMEOUT_MS = 30_000L
+        private const val START_ISSUE_SETTLE_MS = 5_000L
         private const val STOP_TIMEOUT_MS = 15_000L
 
         enum class Trigger(val method: String) {
@@ -112,8 +114,15 @@ class MethodHandler(
                 Settings.grpcServiceModePort = args["grpcPort"] as Int
                 Settings.startCoreAfterStartingService = false
 
-                mainActivity.startService()
-                true
+                val started = withTimeoutOrNull(START_TIMEOUT_MS) {
+                    mainActivity.startService()
+                }
+                if (started == null) {
+                    mainActivity.cancelPendingStart("timed out waiting for Android permission/service startup")
+                    false
+                } else {
+                    started
+                }
             }
 
             Trigger.Stop.method -> launchResult(
@@ -121,6 +130,18 @@ class MethodHandler(
                 dispatcher = Dispatchers.Main.immediate,
                 errorCode = "android_stop_failed",
             ) {
+                // Invalidate an outstanding permission request before inspecting service state.
+                // If startForegroundService was already issued, give Android time to deliver
+                // onStartCommand so the close broadcast cannot be lost in the Stopped->Starting gap.
+                val startAlreadyIssued = mainActivity.cancelPendingStart()
+                if (startAlreadyIssued && mainActivity.serviceStatus.value == Status.Stopped) {
+                    withTimeoutOrNull(START_ISSUE_SETTLE_MS) {
+                        while (mainActivity.serviceStatus.value == Status.Stopped) {
+                            delay(25L)
+                        }
+                    }
+                }
+
                 val currentStatus = mainActivity.serviceStatus.value ?: Status.Stopped
                 if (currentStatus == Status.Stopped) {
                     Log.d(TAG, "service is already stopped")
