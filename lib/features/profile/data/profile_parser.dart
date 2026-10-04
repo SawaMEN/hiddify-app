@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:hiddify/core/db/db.dart';
 import 'package:hiddify/core/utils/subscription_user_info.dart';
+import 'package:hiddify/core/utils/profile_metadata.dart';
 import 'package:hiddify/core/http_client/dio_http_client.dart';
 import 'package:hiddify/features/profile/data/profile_data_mapper.dart';
 import 'package:hiddify/features/profile/model/profile_entity.dart';
@@ -166,7 +167,7 @@ class ProfileParser {
               : null,
         )
         .catchError((err) {
-          if (CancelToken.isCancel(err as DioException)) {
+          if (err is DioException && CancelToken.isCancel(err)) {
             throw const ProfileFailure.cancelByUser('HTTP request for getting profile content canceled by user.');
           }
           throw err;
@@ -318,11 +319,7 @@ class ProfileParser {
         }
 
         if (headers['profile-title'] case final String titleHeader when name.isEmpty) {
-          if (titleHeader.startsWith("base64:")) {
-            name = utf8.decode(base64.decode(titleHeader.replaceFirst("base64:", "")));
-          } else {
-            name = titleHeader.trim();
-          }
+          name = parseProfileTitle(titleHeader) ?? '';
         }
         if (headers['content-disposition'] case final String contentDispositionHeader when name.isEmpty) {
           final regExp = RegExp('filename="([^"]*)"');
@@ -354,12 +351,13 @@ class ProfileParser {
         ProfileOptions? options;
         if (profile.userOverride?.updateInterval case final int updateInterval
             when updateInterval > 0 && !isAutoUpdateDisable) {
-          options = ProfileOptions(updateInterval: Duration(hours: updateInterval));
+          final interval = parseProfileUpdateInterval(updateInterval.toString());
+          if (interval != null) options = ProfileOptions(updateInterval: interval);
         }
         if (headers['profile-update-interval'] case final String updateIntervalStr
             when options == null && !isAutoUpdateDisable) {
-          final updateInterval = Duration(hours: int.parse(updateIntervalStr));
-          options = ProfileOptions(updateInterval: updateInterval);
+          final interval = parseProfileUpdateInterval(updateIntervalStr);
+          if (interval != null) options = ProfileOptions(updateInterval: interval);
         }
 
         SubscriptionInfo? subInfo;
