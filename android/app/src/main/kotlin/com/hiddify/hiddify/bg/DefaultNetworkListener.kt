@@ -1,6 +1,5 @@
 package com.hiddify.hiddify.bg
 
-import android.annotation.TargetApi
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
@@ -64,8 +63,9 @@ object DefaultNetworkListener {
                         }
 
                         is NetworkMessage.Get -> {
-                            if (network != null) {
-                                message.response.complete(network!!)
+                            val currentNetwork = network
+                            if (currentNetwork != null) {
+                                message.response.complete(currentNetwork)
                             } else if (fallback && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                                 val active = Application.connectivity.activeNetwork
                                 if (active != null) {
@@ -116,7 +116,6 @@ object DefaultNetworkListener {
                         }
                     }
                 } catch (t: Throwable) {
-                    // Never let one OEM callback or listener exception terminate the network loop.
                     Log.e(TAG, "failed to process network event ${message.javaClass.simpleName}", t)
                     if (message is NetworkMessage.Get && !message.response.isCompleted) {
                         message.response.completeExceptionally(t)
@@ -144,8 +143,7 @@ object DefaultNetworkListener {
     }
 
     private fun enqueue(message: NetworkMessage) {
-        val result = messages.trySend(message)
-        if (result.isFailure) {
+        if (messages.trySend(message).isFailure) {
             Log.w(TAG, "dropping network callback because listener loop is unavailable")
         }
     }
@@ -184,26 +182,20 @@ object DefaultNetworkListener {
         try {
             when (Build.VERSION.SDK_INT) {
                 in 31..Int.MAX_VALUE ->
-                    @TargetApi(31)
                     Application.connectivity.registerBestMatchingNetworkCallback(request, Callback, mainHandler)
 
                 in 28 until 31 ->
-                    @TargetApi(28)
                     Application.connectivity.requestNetwork(request, Callback, mainHandler)
 
                 in 26 until 28 ->
-                    @TargetApi(26)
                     Application.connectivity.registerDefaultNetworkCallback(Callback, mainHandler)
 
                 in 24 until 26 ->
-                    @TargetApi(24)
                     Application.connectivity.registerDefaultNetworkCallback(Callback)
 
                 else -> Application.connectivity.requestNetwork(request, Callback)
             }
         } catch (e: RuntimeException) {
-            // API 23 and some OEM stacks reject network callback registration. In that case
-            // use ConnectivityManager.activeNetwork instead of killing the service coroutine.
             fallback = true
             Log.w(TAG, "network callback registration failed; using activeNetwork fallback", e)
         }
