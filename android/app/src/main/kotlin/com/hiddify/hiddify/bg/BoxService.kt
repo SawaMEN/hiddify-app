@@ -31,6 +31,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class BoxService(
@@ -47,18 +49,19 @@ class BoxService(
         private fun initialize() {
             if (initializeOnce) return
 
-            val baseDir = Application.application.filesDir
-            baseDir.mkdirs()
+            val baseDir = Application.application.filesDir.apply { mkdirs() }
+            workingDir = (Application.application.getExternalFilesDir(null) ?: File(baseDir, "working")).apply { mkdirs() }
+            val tempDir = Application.application.cacheDir.apply { mkdirs() }
 
-            workingDir = Application.application.getExternalFilesDir(null) ?: return
-            workingDir.mkdirs()
+            // Tile/boot startup can happen before Flutter writes these paths. Never pass "./"
+            // into gomobile in that case.
+            if (Settings.baseDir.isBlank() || Settings.baseDir == "./") Settings.baseDir = baseDir.path
+            if (Settings.workingDir.isBlank() || Settings.workingDir == "./") Settings.workingDir = workingDir.path
+            if (Settings.tempDir.isBlank() || Settings.tempDir == "./") Settings.tempDir = tempDir.path
 
-            val tempDir = Application.application.cacheDir
-            tempDir.mkdirs()
-
-            Log.d(TAG, "base dir: ${baseDir.path}")
-            Log.d(TAG, "working dir: ${workingDir.path}")
-            Log.d(TAG, "temp dir: ${tempDir.path}")
+            Log.d(TAG, "base dir: ${Settings.baseDir}")
+            Log.d(TAG, "working dir: ${Settings.workingDir}")
+            Log.d(TAG, "temp dir: ${Settings.tempDir}")
 
             Libbox.redirectStderr(File(Settings.workingDir, "stderr.log").path)
             initializeOnce = true
@@ -79,6 +82,7 @@ class BoxService(
     var fileDescriptor: ParcelFileDescriptor? = null
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val lifecycleMutex = Mutex()
     private val status = MutableLiveData(Status.Stopped)
     private val binder = ServiceBinder(status)
     private val notification = ServiceNotification(status, service)
@@ -119,9 +123,7 @@ class BoxService(
 
             withContext(Dispatchers.Main) {
                 notification.show(activeProfileName, R.string.status_starting)
-                binder.broadcast {
-                    it.onServiceResetLogs(listOf())
-                }
+                binder.broadcast { it.onServiceResetLogs(listOf()) }
             }
 
             DefaultNetworkMonitor.start()
@@ -158,6 +160,7 @@ class BoxService(
             notification.start()
         } catch (e: Exception) {
             if (coreSetupSucceeded) {
+                DefaultNetworkMonitor.detachCoreListener()
                 runCatching { Mobile.close(4L) }
                     .onFailure { Log.e(TAG, "failed to close core after start error", it) }
             }
@@ -172,15 +175,28 @@ class BoxService(
     }
 
     suspend fun serviceReload0() {
-        notification.close()
-        status.postValue(Status.Starting)
+        lifecycleMutex.withLock {
+            status.postValue(Status.Starting)
+            withContext(Dispatchers.Main) {
+                notification.show(activeProfileName, R.string.status_starting)
+            }
 
-        runCatching { fileDescriptor?.close() }
-            .onFailure { Log.w(TAG, "failed to close TUN before reload", it) }
-        fileDescriptor = null
-
-        Mobile.stop()
-        startService()
+            closeTun("reload")
+            DefaultNetworkMonitor.detachCoreListener()
+            val closeError = runCatching { Mobile.close(4L) }.exceptionOrNull()
+            if (closeError != null) {
+                Log.e(TAG, "failed to close mobile core for reload", closeError)
+                status.postValue(Status.Started)
+                withContext(Dispatchers.Main) {
+                    notification.show(activeProfileName, R.string.status_started)
+                    binder.broadcast { it.onServiceAlert(Alert.StartService.ordinal, closeError.message) }
+                }
+                return
+            }
+            runCatching { DefaultNetworkMonitor.stop() }
+                .onFailure { Log.w(TAG, "failed to stop network monitor for reload", it) }
+            startService()
+        }
     }
 
     fun getSystemProxyStatus(): SystemProxyStatus {
@@ -199,7 +215,8 @@ class BoxService(
     @RequiresApi(Build.VERSION_CODES.M)
     private fun serviceUpdateIdleMode() {
         if (!Application.powerManager.isDeviceIdleMode) {
-            Mobile.wake()
+            runCatching { Mobile.wake() }
+                .onFailure { Log.w(TAG, "failed to wake mobile core", it) }
         }
     }
 
@@ -207,46 +224,58 @@ class BoxService(
         if (status.value == Status.Stopped || status.value == Status.Stopping) return
 
         status.value = Status.Stopping
-        unregisterReceiver()
-        notification.close()
-
         serviceScope.launch {
-            runCatching { fileDescriptor?.close() }
-                .onFailure { Log.w(TAG, "failed to close TUN", it) }
-            fileDescriptor = null
+            lifecycleMutex.withLock {
+                closeTun("stop")
 
-            runCatching { DefaultNetworkMonitor.stop() }
-                .onFailure { Log.w(TAG, "failed to stop network monitor", it) }
-            Settings.startedByUser = false
+                // Keep Android network discovery alive until gomobile has actually stopped using it.
+                DefaultNetworkMonitor.detachCoreListener()
+                val closeError = runCatching { Mobile.close(4L) }.exceptionOrNull()
+                if (closeError != null) {
+                    Log.e(TAG, "failed to close mobile core", closeError)
+                    withContext(Dispatchers.Main) {
+                        // Allow a subsequent stop request to retry instead of reporting a false Stopped state.
+                        status.value = Status.Started
+                        notification.show(activeProfileName, R.string.status_started)
+                        binder.broadcast { it.onServiceAlert(Alert.StartService.ordinal, closeError.message) }
+                    }
+                    return@withLock
+                }
 
-            runCatching { Mobile.close(4L) }
-                .onFailure { Log.e(TAG, "failed to close mobile core", it) }
+                runCatching { DefaultNetworkMonitor.stop() }
+                    .onFailure { Log.w(TAG, "failed to stop network monitor", it) }
+                Settings.startedByUser = false
 
-            withContext(Dispatchers.Main) {
-                status.value = Status.Stopped
-                service.stopSelf()
+                withContext(Dispatchers.Main) {
+                    unregisterReceiver()
+                    notification.close()
+                    status.value = Status.Stopped
+                    service.stopSelf()
+                }
             }
         }
     }
 
     private suspend fun stopAndAlert(type: Alert, message: String? = null) {
         Settings.startedByUser = false
-
-        runCatching { fileDescriptor?.close() }
-            .onFailure { Log.w(TAG, "failed to close TUN after service error", it) }
-        fileDescriptor = null
+        closeTun("service error")
+        DefaultNetworkMonitor.detachCoreListener()
         runCatching { DefaultNetworkMonitor.stop() }
             .onFailure { Log.w(TAG, "failed to stop network monitor after service error", it) }
 
         withContext(Dispatchers.Main) {
             unregisterReceiver()
             notification.close()
-            binder.broadcast { callback ->
-                callback.onServiceAlert(type.ordinal, message)
-            }
+            binder.broadcast { callback -> callback.onServiceAlert(type.ordinal, message) }
             status.value = Status.Stopped
             service.stopSelf()
         }
+    }
+
+    private fun closeTun(reason: String) {
+        runCatching { fileDescriptor?.close() }
+            .onFailure { Log.w(TAG, "failed to close TUN during $reason", it) }
+        fileDescriptor = null
     }
 
     @Suppress("SameReturnValue")
@@ -270,9 +299,11 @@ class BoxService(
         }
 
         serviceScope.launch {
-            Settings.startedByUser = true
-            initialize()
-            startService()
+            lifecycleMutex.withLock {
+                Settings.startedByUser = true
+                initialize()
+                startService()
+            }
         }
         return Service.START_NOT_STICKY
     }
@@ -281,9 +312,8 @@ class BoxService(
 
     fun onDestroy() {
         unregisterReceiver()
-        runCatching { fileDescriptor?.close() }
-            .onFailure { Log.w(TAG, "failed to close TUN on destroy", it) }
-        fileDescriptor = null
+        closeTun("destroy")
+        DefaultNetworkMonitor.detachCoreListener()
         notification.destroy()
         binder.close()
         serviceScope.cancel()
@@ -303,8 +333,6 @@ class BoxService(
     fun writeDebugMessage(message: String?) {
         if (message == null) return
         Log.d(TAG, message)
-        binder.broadcast {
-            it.onServiceWriteLog(message)
-        }
+        binder.broadcast { it.onServiceWriteLog(message) }
     }
 }
