@@ -27,7 +27,16 @@ class ServiceConnection(private val context: Context, callback: Callback, privat
     private val callback = ServiceCallback(callback)
     private var service: IService? = null
 
-    val status get() = service?.status?.let { Status.values()[it] } ?: Status.Stopped
+    val status: Status
+        get() {
+            val currentService = service ?: return Status.Stopped
+            return try {
+                Status.values().getOrNull(currentService.status) ?: Status.Stopped
+            } catch (e: RemoteException) {
+                Log.w(TAG, "failed to read status from disconnected service", e)
+                Status.Stopped
+            }
+        }
 
     fun connect() {
         val intent =
@@ -41,6 +50,7 @@ class ServiceConnection(private val context: Context, callback: Callback, privat
     }
 
     fun disconnect() {
+        clearService()
         try {
             context.unbindService(this)
         } catch (_: IllegalArgumentException) {
@@ -49,6 +59,7 @@ class ServiceConnection(private val context: Context, callback: Callback, privat
     }
 
     fun reconnect() {
+        clearService()
         try {
             context.unbindService(this)
         } catch (_: IllegalArgumentException) {
@@ -71,22 +82,38 @@ class ServiceConnection(private val context: Context, callback: Callback, privat
             callback.onServiceStatusChanged(service.status)
         } catch (e: RemoteException) {
             Log.e(TAG, "initialize service connection", e)
+            clearService()
         }
         Log.d(TAG, "service connected")
     }
 
     override fun onServiceDisconnected(name: ComponentName?) {
-        try {
-            service?.unregisterCallback(callback)
-        } catch (e: RemoteException) {
-            Log.e(TAG, "cleanup service connection", e)
-        }
+        clearService()
+        callback.onServiceStatusChanged(Status.Stopped.ordinal)
         Log.d(TAG, "service disconnected")
     }
 
     override fun onBindingDied(name: ComponentName?) {
+        clearService()
         reconnect()
         Log.d(TAG, "service dead")
+    }
+
+    override fun onNullBinding(name: ComponentName?) {
+        clearService()
+        callback.onServiceStatusChanged(Status.Stopped.ordinal)
+        Log.w(TAG, "service returned a null binding")
+    }
+
+    private fun clearService() {
+        val currentService = service ?: return
+        service = null
+        if (!register) return
+        try {
+            currentService.unregisterCallback(callback)
+        } catch (e: RemoteException) {
+            Log.w(TAG, "failed to unregister callback from disconnected service", e)
+        }
     }
 
     interface Callback {
