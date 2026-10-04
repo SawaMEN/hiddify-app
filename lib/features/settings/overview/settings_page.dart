@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hiddify/core/localization/translations.dart';
+import 'package:hiddify/core/widget/glass_surface.dart';
 import 'package:hiddify/core/router/dialog/dialog_notifier.dart';
 import 'package:hiddify/core/router/go_router/helper/active_breakpoint_notifier.dart';
 import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
@@ -140,6 +141,7 @@ class SettingsPage extends HookConsumerWidget {
         ],
       ),
       body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: [
           // TipCard(message: t.settings.experimentalMsg),
           SettingsSection(
@@ -218,12 +220,18 @@ class SettingsSection extends HookConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      subtitle: subtitle,
-      trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: () => context.go(namedLocation),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassSurface(
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
+          title: Text(title),
+          subtitle: subtitle,
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: () => context.go(namedLocation),
+        ),
+      ),
     );
   }
 }

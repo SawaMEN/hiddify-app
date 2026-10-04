@@ -65,7 +65,9 @@ dependencies:
   fixnum: ^1.1.0
   protobuf: ^6.1.0
   grpc: ^5.1.0
-  dynamic_color: ^1.9.0
+  dynamic_color: ^2.1.0
+  material_ui: ^1.5.0
+  cupertino_ui: ^1.0.0
   flutter_typeahead: ^6.0.0
   simple_icons: ^16.23.0
   basic_utils: ^5.7.0
@@ -102,6 +104,9 @@ flutter:
     - assets/images/source/ic_launcher_border.png
 
   fonts:
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope.ttf
     - family: Shabnam
       fonts:
         - asset: assets/fonts/Shabnam.ttf

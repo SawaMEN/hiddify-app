@@ -3,10 +3,9 @@ import 'dart:async';
 import 'package:accessibility_tools/accessibility_tools.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hiddify/core/localization/locale_extensions.dart';
 import 'package:hiddify/core/localization/locale_preferences.dart';
 import 'package:hiddify/core/localization/translations.dart';
@@ -14,6 +13,8 @@ import 'package:hiddify/core/model/constants.dart';
 import 'package:hiddify/core/router/go_router/go_router_notifier.dart';
 import 'package:hiddify/core/router/go_router/helper/active_breakpoint_notifier.dart';
 import 'package:hiddify/core/theme/app_theme.dart';
+import 'package:hiddify/core/theme/visual_effects.dart';
+import 'package:hiddify/core/widget/cyber_background.dart';
 import 'package:hiddify/core/theme/theme_preferences.dart';
 import 'package:hiddify/features/app_update/notifier/app_update_notifier.dart';
 import 'package:hiddify/features/connection/widget/connection_wrapper.dart';
@@ -71,7 +72,10 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
     final router = ref.watch(goRouterNotiferProvider);
     final locale = ref.watch(localePreferencesProvider);
     final themeMode = ref.watch(themePreferencesProvider);
-    final theme = AppTheme(themeMode, locale.preferredFontFamily);
+    final theme = useMemoized(() => AppTheme(themeMode, locale.preferredFontFamily), [
+      themeMode,
+      locale.preferredFontFamily,
+    ]);
     final upgrader = ref.watch(upgraderProvider);
     final activeBreakpoint = Breakpoint(context).activeBreakpoint;
 
@@ -109,17 +113,21 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
                     child: child ?? const SizedBox(),
                   );
                   if (kDebugMode && _debugAccessibility) {
-                    return AccessibilityTools(checkFontOverflows: true, child: child);
+                    child = AccessibilityTools(checkFontOverflows: true, child: child);
                   }
                   return AnnotatedRegion<SystemUiOverlayStyle>(
                     value: SystemUiOverlayStyle(
-                      statusBarColor: theme.scaffoldBackgroundColor,
-                      systemNavigationBarColor: theme.scaffoldBackgroundColor,
+                      statusBarColor: Colors.transparent,
+                      statusBarIconBrightness: theme.brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+                      systemNavigationBarColor: theme.canvasColor,
                       systemNavigationBarIconBrightness: theme.brightness == Brightness.dark
                           ? Brightness.light
                           : Brightness.dark,
                     ),
-                    child: child,
+                    child: VisualEffectsHost(
+                      // Third-party widgets still use Flutter's legacy Material types.
+                      child: MaterialUiCompatibilityBridge(child: CyberBackground(child: child)),
+                    ),
                   );
                 },
               );
