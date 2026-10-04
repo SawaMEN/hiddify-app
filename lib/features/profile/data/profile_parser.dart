@@ -166,7 +166,7 @@ class ProfileParser {
               ? _httpClient.userAgent.replaceAll("HiddifyNext", "HiddifyNextX")
               : null,
         )
-        .catchError((err) {
+        .catchError((Object err) {
           if (err is DioException && CancelToken.isCancel(err)) {
             throw const ProfileFailure.cancelByUser('HTTP request for getting profile content canceled by user.');
           }
