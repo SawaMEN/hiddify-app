@@ -192,7 +192,7 @@ class BoxService(
 
     suspend fun serviceReload0() {
         lifecycleMutex.withLock {
-            if (destroyed || coreOwner !== this) return
+            if (destroyed || coreOwner !== this@BoxService) return
             status.postValue(Status.Starting)
             withContext(Dispatchers.Main) {
                 if (destroyed) return@withContext
@@ -250,7 +250,7 @@ class BoxService(
                 if (destroyed) return@withLock
 
                 // Keep Android network discovery alive until gomobile has actually stopped using it.
-                if (coreOwner !== this) {
+                if (coreOwner !== this@BoxService) {
                     withContext(Dispatchers.Main) { status.value = Status.Stopped; service.stopSelf() }
                     return@withLock
                 }
@@ -348,7 +348,7 @@ class BoxService(
 
     // All owners share the mutex. An old onDestroy must never close a new owner's core.
     private suspend fun releaseNative(reason: String) {
-        if (coreOwner !== this) return
+        if (coreOwner !== this@BoxService) return
         DefaultNetworkMonitor.detachCoreListener()
         Mobile.close(4L) // retain ownership and abort replacement if native close throws
         closeTun(reason)

@@ -58,7 +58,7 @@ object LocalResolver : LocalDNSTransport {
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
-    private suspend fun <T> query(start: (CancellationSignal, DnsResolver.Callback<T>) -> Unit): Pair<T, Int> =
+    private suspend fun <T : Any> query(start: (CancellationSignal, DnsResolver.Callback<T>) -> Unit): Pair<T, Int> =
         suspendCancellableCoroutine { continuation ->
             val signal = CancellationSignal()
             val finished = AtomicBoolean(false)

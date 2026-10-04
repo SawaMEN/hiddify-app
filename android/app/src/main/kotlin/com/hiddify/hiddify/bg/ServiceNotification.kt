@@ -52,6 +52,7 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
     companion object {
         private const val notificationId = 1
         private const val notificationChannel = "service"
+        private var foregroundOwner: ServiceNotification? = null
         var coreClient: CoreClient?=null
         val flags =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
@@ -111,6 +112,7 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
 
     fun show(profileName: String, @StringRes contentTextId: Int) {
         closed = false
+        foregroundOwner = this
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Application.notification.createNotificationChannel(
                 NotificationChannel(
@@ -176,7 +178,9 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
     fun close() {
         closed = true
         stopListenSystemInfo()
-        ServiceCompat.stopForeground(service, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        val ownsNotification = foregroundOwner === this
+        ServiceCompat.stopForeground(service, if (ownsNotification) ServiceCompat.STOP_FOREGROUND_REMOVE else ServiceCompat.STOP_FOREGROUND_DETACH)
+        if (ownsNotification) foregroundOwner = null
         if (receiverRegistered) {
             runCatching { service.unregisterReceiver(this) }
                 .onFailure { Log.w("notification", "receiver was already unregistered", it) }

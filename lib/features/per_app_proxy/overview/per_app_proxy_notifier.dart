@@ -227,13 +227,7 @@ class PerAppProxy extends _$PerAppProxy with AppLogger {
   }
 
   Future<void> _importJson(String input) async {
-    var decoded = jsonDecode(input);
-    // Older file exports encoded the complete JSON document as a JSON string.
-    if (decoded is String) decoded = jsonDecode(decoded);
-    if (decoded is! Map<String, dynamic>) {
-      throw const FormatException('Per-app proxy backup must be a JSON object');
-    }
-    final backup = PerAppProxyBackup.fromJson(decoded);
+    final backup = PerAppProxyBackup.fromBackupText(input);
     await ref.read(appProxyDataSourceProvider).importPkgs(backup: backup);
   }
 
@@ -249,6 +243,6 @@ class PerAppProxy extends _$PerAppProxy with AppLogger {
         deselected: await ds.getPkgsByFlag(mode: AppProxyMode.exclude, flag: PkgFlag.forceDeselection),
       ),
     );
-    return const JsonEncoder.withIndent('  ').convert(backup.toJson());
+    return backup.toBackupText();
   }
 }

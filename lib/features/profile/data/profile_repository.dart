@@ -297,6 +297,7 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
   @override
   TaskEither<ProfileFailure, String> getRawConfig(String id) {
     return TaskEither.fromEither(Either.tryCatch(() => _profilePathResolver.file(id), ProfileFailure.unexpected))
-        .flatMap((configFile) => TaskEither.tryCatch(() => configFile.readAsString(), ProfileFailure.unexpected));
+        .flatMap((configFile) => TaskEither.tryCatch(
+          () => _operations.run('profiles', configFile.readAsString), ProfileFailure.unexpected));
   }
 }

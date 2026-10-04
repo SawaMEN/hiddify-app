@@ -361,6 +361,7 @@ class JsonEditor extends StatefulWidget {
     super.key,
     required this.json,
     required this.onChanged,
+    this.onValidationChanged,
     this.duration = const Duration(milliseconds: 500),
     this.enableMoreOptions = true,
     this.enableKeyEdit = true,
@@ -376,6 +377,7 @@ class JsonEditor extends StatefulWidget {
 
   final String json;
   final ValueChanged<dynamic> onChanged;
+  final ValueChanged<bool>? onValidationChanged;
   final Duration duration;
   final bool enableMoreOptions;
   final bool enableKeyEdit;
@@ -428,21 +430,22 @@ class _JsonEditorState extends State<JsonEditor> {
   }
 
   void callOnChanged() {
-    if (_timer?.isActive ?? false) _timer?.cancel();
-    _timer = Timer(widget.duration, () => widget.onChanged(jsonDecode(jsonEncode(_data))));
+    // Publish before Save can be pressed; delayed publication loses the last edit.
+    widget.onChanged(jsonDecode(jsonEncode(_data)));
+    widget.onValidationChanged?.call(true);
   }
 
   void parseData(String value) {
-    if (_timer?.isActive ?? false) _timer?.cancel();
-    _timer = Timer(widget.duration, () {
-      try {
-        _data = jsonDecode(value);
-        widget.onChanged(_data);
-        setState(() => _onError = false);
-      } catch (_) {
-        setState(() => _onError = true);
-      }
-    });
+    try {
+      final data = jsonDecode(value);
+      _data = data;
+      widget.onChanged(data);
+      widget.onValidationChanged?.call(true);
+      setState(() => _onError = false);
+    } catch (_) {
+      widget.onValidationChanged?.call(false);
+      setState(() => _onError = true);
+    }
   }
 
   void copyData() async {
@@ -818,11 +821,5 @@ class _SearchField extends StatelessWidget {
   @override Widget build(BuildContext context) => ColoredBox(color: Theme.of(context).searchBarTheme.backgroundColor?.resolve({}) ?? Colors.black, child: Row(mainAxisSize: MainAxisSize.min, children: [const SizedBox(width: 2), const Icon(Icons.search, size: 20), const SizedBox(width: 5), TextField(onChanged: onChanged, autocorrect: false, autofocus: true, cursorWidth: 1, cursorHeight: 12, decoration: InputDecoration(hintText: "Search", hintStyle: Theme.of(context).textTheme.bodySmall, constraints: const BoxConstraints(maxWidth: 100), border: InputBorder.none, isDense: true, contentPadding: const EdgeInsets.all(3), focusedBorder: InputBorder.none)), const SizedBox(width: 5), InkWell(onTap: () => onAction(_SearchActions.next), child: const Tooltip(message: 'Next', child: Icon(Icons.keyboard_arrow_down_rounded, size: 20))), const SizedBox(width: 2), InkWell(onTap: () => onAction(_SearchActions.prev), child: const Tooltip(message: 'Previous', child: Icon(Icons.keyboard_arrow_up_rounded, size: 20))), const SizedBox(width: 5)]));
 }
 
-List<String> _getSpace(int count) { if (count == 0) return ['', '  ']; String space = ''; for (int i = 0; i < count; i++) space += '  '; return [space, '$space  ']; }
-String _stringifyData(data, int spacing, [bool isLast = false]) {
-  String str = ''; final spaceList = _getSpace(spacing); final objectSpace = spaceList[0]; final dataSpace = spaceList[1];
-  if (data is Map) { str += '$objectSpace{\n'; final keys = data.keys.toList(); for (int i = 0; i < keys.length; i++) { str += '$dataSpace"${keys[i]}": ${_stringifyData(data[keys[i]], spacing + 1, i == keys.length - 1)}\n'; } str += '$objectSpace}'; if (!isLast) str += ','; }
-  else if (data is List) { str += '$objectSpace[\n'; for (int i = 0; i < data.length; i++) { final item = data[i]; str += (item is Map || item is List) ? _stringifyData(item, spacing + 1, i == data.length - 1) : '$dataSpace${_stringifyData(item, spacing + 1, i == data.length - 1)}'; str += '\n'; } str += '$objectSpace]'; if (!isLast) str += ','; }
-  else { str = data is String ? '"$data"' : '$data'; if (!isLast) str += ','; }
-  return str;
-}
+String _stringifyData(dynamic data, int spacing, [bool isLast = false]) =>
+    const JsonEncoder.withIndent('  ').convert(data);
