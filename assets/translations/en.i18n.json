@@ -1,4 +1,4 @@
-﻿{
+{
   "common": {
     "appTitle": "Hiddify",
     "start": "Start",
@@ -206,6 +206,8 @@
         "reset": "Reset options"
       },
       "general": {
+        "visualEffects": "Visual effects",
+        "visualEffectsModes(map)": {"automatic": "Automatic · lightweight on mobile", "quality": "Glass and motion", "reduced": "Reduced · no blur or motion"},
         "title": "General",
         "locale": "Language",
         "themeMode": "Theme mode",

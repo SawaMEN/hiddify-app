@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:text_scroll/text_scroll.dart';
+import 'package:hiddify/core/theme/visual_effects.dart';
 
 class CustomTextScroll extends ConsumerWidget {
   const CustomTextScroll(this.text, {super.key, this.style});
@@ -15,11 +16,14 @@ class CustomTextScroll extends ConsumerWidget {
       maxLines: 1,
       textScaler: MediaQuery.of(context).textScaler,
     )..layout();
-    return textPainter.height;
+    final height = textPainter.height;
+    textPainter.dispose();
+    return height;
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!VisualEffects.blurOf(context)) return Text(text, style: style, maxLines: 1, overflow: TextOverflow.ellipsis);
     return SizedBox(
       height: calculateHeight(context),
       child: TextScroll(

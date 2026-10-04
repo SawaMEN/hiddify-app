@@ -10,6 +10,7 @@ analyzer:
     - "lib/gen/**"
     - "build/**"
     - "dist/**"
+    - android/**
   errors:
     invalid_annotation_target: ignore
 

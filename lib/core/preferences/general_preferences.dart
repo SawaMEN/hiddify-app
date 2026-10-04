@@ -12,6 +12,11 @@ part 'general_preferences.g.dart';
 bool _debugIntroPage = false;
 
 abstract class Preferences {
+  static final visualEffects = PreferencesNotifier.create<String, String>(
+    "visual_effects", "automatic",
+    validator: (value) => const ["automatic", "quality", "reduced"].contains(value),
+  );
+
   static final introCompleted = PreferencesNotifier.create(
     "intro_completed",
     false,

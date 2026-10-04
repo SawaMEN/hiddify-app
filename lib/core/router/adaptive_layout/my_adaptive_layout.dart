@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/core/model/constants.dart';
+import 'package:hiddify/core/widget/glass_surface.dart';
 import 'package:hiddify/core/router/adaptive_layout/shell_route_action.dart';
 import 'package:hiddify/core/router/go_router/helper/active_breakpoint_notifier.dart';
 import 'package:hiddify/core/router/go_router/routing_config_notifier.dart';
@@ -54,6 +55,7 @@ class MyAdaptiveLayout extends HookConsumerWidget {
       };
     }, [isMobileBreakpoint, showProfilesAction, navigationShell.currentIndex]);
     return Material(
+      color: Colors.transparent,
       child: Scaffold(
         body: isMobileBreakpoint
             ? navigationShell
@@ -82,10 +84,17 @@ class MyAdaptiveLayout extends HookConsumerWidget {
         bottomNavigationBar: isMobileBreakpoint
             ? FocusScope(
                 node: navScopeNode,
-                child: NavigationBar(
-                  selectedIndex: navigationShell.currentIndex <= 1 ? navigationShell.currentIndex : 0,
-                  destinations: _navDests(_actions(t, showProfilesAction, isMobileBreakpoint)),
-                  onDestinationSelected: (index) => _onTap(context, index),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: GlassSurface(
+                    radius: 24,
+                    child: NavigationBar(
+                      backgroundColor: Colors.transparent,
+                      selectedIndex: navigationShell.currentIndex <= 1 ? navigationShell.currentIndex : 0,
+                      destinations: _navDests(_actions(t, showProfilesAction, isMobileBreakpoint)),
+                      onDestinationSelected: (index) => _onTap(context, index),
+                    ),
+                  ),
                 ),
               )
             : null,

@@ -1,7 +1,7 @@
 import 'dart:math';
 
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:gap/gap.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/core/model/failures.dart';
@@ -52,11 +52,13 @@ class ProxiesOverviewPage extends HookConsumerWidget with PresLogger {
                   final width = constraints.maxWidth;
                   final crossAxisCount = PlatformUtils.isMobile && width < 600 ? 1 : max(1, (width / 268).floor());
                   return GridView.builder(
-                    padding: const EdgeInsets.only(bottom: 86),
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 100),
                     itemCount: group.items.length,
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: crossAxisCount,
-                      mainAxisExtent: 72,
+                      mainAxisExtent: 80 * MediaQuery.textScalerOf(context).scale(1).clamp(1, 2),
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
                     ),
                     itemBuilder: (context, index) {
                       final proxy = group.items[index];

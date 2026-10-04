@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hiddify/core/model/constants.dart';
 import 'package:hiddify/gen/translations.g.dart';
 import 'package:hiddify/singbox/model/singbox_config_enum.dart';

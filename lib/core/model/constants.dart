@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:hiddify/utils/utils.dart';
 
@@ -44,7 +44,7 @@ abstract class BottomSheetConst {
 }
 
 abstract class ProfileTileConst {
-  static const radius = Radius.circular(16);
+  static const radius = Radius.circular(24);
   static const cardBorderRadius = BorderRadius.all(radius);
   static const borderRadiusRight = BorderRadius.horizontal(right: radius);
   static const borderRadiusLeft = BorderRadius.horizontal(left: radius);

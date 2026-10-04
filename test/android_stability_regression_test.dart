@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hiddify/features/per_app_proxy/model/per_app_proxy_backup.dart';
 import 'package:hiddify/features/profile/details/json_editor.dart';

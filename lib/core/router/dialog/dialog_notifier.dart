@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:hiddify/core/router/dialog/widgets/chain_license_dialog.dart';
 import 'package:hiddify/core/router/dialog/widgets/confirmation_dialog.dart';
 import 'package:hiddify/core/router/dialog/widgets/custom_alert_dialog.dart';

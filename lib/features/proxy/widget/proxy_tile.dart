@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
+import 'package:hiddify/core/widget/glass_surface.dart';
 import 'package:hiddify/core/router/dialog/dialog_notifier.dart';
 import 'package:hiddify/features/proxy/active/ip_widget.dart';
 import 'package:hiddify/gen/fonts.gen.dart';
@@ -18,50 +19,56 @@ class ProxyTile extends HookConsumerWidget with PresLogger {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
-    return ListTile(
-      // shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      title: Text(
-        proxy.tagDisplay,
-        overflow: TextOverflow.ellipsis,
-        style: PlatformUtils.isWindows ? const TextStyle(fontFamily: FontFamily.emoji) : null,
-      ),
-      leading: IPCountryFlag(
-        countryCode: proxy.ipinfo.countryCode,
-        organization: proxy.ipinfo.org,
-        size: 40,
-        padding: const EdgeInsetsDirectional.only(end: 8),
-      ),
-      subtitle: Text.rich(
-        TextSpan(
-          text: proxy.type,
+    return GlassSurface(
+      radius: 20,
+      accent: selected ? theme.colorScheme.primary : theme.colorScheme.outline,
+      child: ListTile(
+        // shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text(
+          proxy.tagDisplay,
+          overflow: TextOverflow.ellipsis,
+          style: PlatformUtils.isWindows ? const TextStyle(fontFamily: FontFamily.emoji) : null,
+        ),
+        leading: IPCountryFlag(
+          countryCode: proxy.ipinfo.countryCode,
+          organization: proxy.ipinfo.org,
+          size: 40,
+          padding: const EdgeInsetsDirectional.only(end: 8),
+        ),
+        subtitle: Text.rich(
+          TextSpan(
+            text: proxy.type,
+            children: [
+              if (proxy.isGroup)
+                TextSpan(
+                  text: ' (${proxy.groupSelectedTagDisplay.trim()})',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+            ],
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        trailing: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            if (proxy.isGroup)
-              TextSpan(
-                text: ' (${proxy.groupSelectedTagDisplay.trim()})',
-                style: Theme.of(context).textTheme.bodySmall,
+            if (proxy.urlTestDelay != 0)
+              Text(
+                proxy.urlTestDelay > 65000 ? "×" : proxy.urlTestDelay.toString(),
+                style: TextStyle(color: delayColor(context, proxy.urlTestDelay)),
               ),
+
+            if (proxy.download > 0) Text("⬩", style: Theme.of(context).textTheme.bodySmall),
           ],
         ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: Column(
-        children: [
-          if (proxy.urlTestDelay != 0)
-            Text(
-              proxy.urlTestDelay > 65000 ? "×" : proxy.urlTestDelay.toString(),
-              style: TextStyle(color: delayColor(context, proxy.urlTestDelay)),
-            ),
 
-          if (proxy.download > 0) Text("⬩", style: Theme.of(context).textTheme.bodySmall),
-        ],
+        selected: selected,
+        selectedTileColor: theme.colorScheme.primaryContainer,
+        onTap: onTap,
+        onLongPress: () async => await ref.read(dialogNotifierProvider.notifier).showProxyInfo(outboundInfo: proxy),
+        horizontalTitleGap: 8,
       ),
-
-      selected: selected,
-      selectedTileColor: theme.colorScheme.primaryContainer,
-      onTap: onTap,
-      onLongPress: () async => await ref.read(dialogNotifierProvider.notifier).showProxyInfo(outboundInfo: proxy),
-      horizontalTitleGap: 4,
     );
   }
 
