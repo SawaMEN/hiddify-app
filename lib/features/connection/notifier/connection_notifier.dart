@@ -26,9 +26,8 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   @override
   Stream<ConnectionStatus> build() async* {
     if (Platform.isIOS) {
-      await _connectionRepo.setup().mapLeft((l) {
-        loggy.error("error setting up connection repository", l);
-      }).run();
+      final result = await _connectionRepo.setup().run();
+      result.match((error) => throw error, (_) {});
     }
 
     listenSelf((previous, next) async {
@@ -76,6 +75,7 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     final haptic = ref.read(hapticServiceProvider.notifier);
     if (state case AsyncError()) {
       await haptic.lightImpact();
+      await ref.read(Preferences.startedByUser.notifier).update(true);
       await _connect();
     } else if (state case AsyncData(:final value)) {
       switch (value) {
@@ -102,13 +102,8 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       }
       loggy.info("active profile changed, reconnecting");
       await ref.read(Preferences.startedByUser.notifier).update(true);
-      await _connectionRepo.reconnect(profile, ref.read(Preferences.disableMemoryLimit)).mapLeft((err) async {
-        loggy.warning("error reconnecting", err);
-        state = AsyncError(err, StackTrace.current);
-        await ref
-            .read(dialogNotifierProvider.notifier)
-            .showCustomAlertFromErr(err.present(ref.read(translationsProvider).requireValue));
-      }).run();
+      final result = await _connectionRepo.reconnect(profile, ref.read(Preferences.disableMemoryLimit)).run();
+      await result.match<Future<void>>((error) => _handleFailure(error, resetStartedByUser: true), (_) async {});
     }
   }
 
@@ -135,33 +130,32 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     final activeProfile = await ref.read(activeProfileProvider.future);
     if (activeProfile == null) {
       loggy.info("no active profile, not connecting");
+      await ref.read(Preferences.startedByUser.notifier).update(false);
       return;
     }
-    await _connectionRepo.connect(activeProfile, ref.read(Preferences.disableMemoryLimit)).mapLeft((
-      ConnectionFailure err,
-    ) async {
-      loggy.warning("error connecting", err);
-      //Go err is not normal object to see the go errors are string and need to be dumped
-      await ref
-          .read(dialogNotifierProvider.notifier)
-          .showCustomAlertFromErr(err.present(ref.read(translationsProvider).requireValue));
-      loggy.warning(err);
-      if (err.toString().contains("panic")) {
-        await Sentry.captureException(Exception(err.toString()));
-      }
-      await ref.read(Preferences.startedByUser.notifier).update(false);
-      state = AsyncError(err, StackTrace.current);
-    }).run();
+    final result = await _connectionRepo.connect(activeProfile, ref.read(Preferences.disableMemoryLimit)).run();
+    await result.match<Future<void>>((error) => _handleFailure(error, resetStartedByUser: true), (_) async {});
   }
 
   Future<void> _disconnect() async {
-    await _connectionRepo.disconnect().mapLeft((err) {
-      loggy.warning("error disconnecting", err);
-      ref
-          .read(dialogNotifierProvider.notifier)
-          .showCustomAlertFromErr(err.present(ref.read(translationsProvider).requireValue));
-      state = AsyncError(err, StackTrace.current);
-    }).run();
+    final result = await _connectionRepo.disconnect().run();
+    await result.match<Future<void>>((error) => _handleFailure(error), (_) async {});
+  }
+
+  Future<void> _handleFailure(ConnectionFailure error, {bool resetStartedByUser = false}) async {
+    loggy.warning("connection operation failed", error);
+    if (!ref.mounted) return;
+    state = AsyncError(error, StackTrace.current);
+    if (resetStartedByUser) {
+      await ref.read(Preferences.startedByUser.notifier).update(false);
+    }
+    if (error.toString().contains("panic")) {
+      await Sentry.captureException(Exception(error.toString()));
+    }
+    if (!ref.mounted) return;
+    final translations = await ref.read(translationsProvider.future);
+    if (!ref.mounted) return;
+    await ref.read(dialogNotifierProvider.notifier).showCustomAlertFromErr(error.present(translations));
   }
 }
 
