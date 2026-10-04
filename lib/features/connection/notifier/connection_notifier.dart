@@ -102,7 +102,9 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       }
       loggy.info("active profile changed, reconnecting");
       await ref.read(Preferences.startedByUser.notifier).update(true);
-      final result = await _connectionRepo.reconnect(profile, ref.read(Preferences.disableMemoryLimit)).run();
+      final result = await _serializeCoreOperation(
+        () => _connectionRepo.reconnect(profile, ref.read(Preferences.disableMemoryLimit)).run(),
+      );
       await result.match<Future<void>>((error) => _handleFailure(error, resetStartedByUser: true), (_) async {});
     }
   }
@@ -119,6 +121,13 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   }
 
   final _singleStart = SingleCall();
+  Future<void> _coreOperationTail = Future<void>.value();
+
+  Future<T> _serializeCoreOperation<T>(Future<T> Function() operation) {
+    final next = _coreOperationTail.then((_) => operation());
+    _coreOperationTail = next.then<void>((_) {}, onError: (Object error, StackTrace stackTrace) {});
+    return next;
+  }
 
   Future<void> _connect() async {
     await _singleStart.run<void>(() async {
@@ -133,12 +142,14 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       await ref.read(Preferences.startedByUser.notifier).update(false);
       return;
     }
-    final result = await _connectionRepo.connect(activeProfile, ref.read(Preferences.disableMemoryLimit)).run();
+    final result = await _serializeCoreOperation(
+      () => _connectionRepo.connect(activeProfile, ref.read(Preferences.disableMemoryLimit)).run(),
+    );
     await result.match<Future<void>>((error) => _handleFailure(error, resetStartedByUser: true), (_) async {});
   }
 
   Future<void> _disconnect() async {
-    final result = await _connectionRepo.disconnect().run();
+    final result = await _serializeCoreOperation(() => _connectionRepo.disconnect().run());
     await result.match<Future<void>>((error) => _handleFailure(error), (_) async {});
   }
 

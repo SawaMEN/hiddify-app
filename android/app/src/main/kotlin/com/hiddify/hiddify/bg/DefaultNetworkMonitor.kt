@@ -24,6 +24,9 @@ object DefaultNetworkMonitor {
     }
 
     suspend fun stop() {
+        // The listener belongs to the current gomobile core instance. Clear it before
+        // unregistering network callbacks so a reconnect can never call a stale Go ref.
+        listener = null
         DefaultNetworkListener.stop(this)
         defaultNetwork = null
     }
