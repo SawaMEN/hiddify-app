@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dartx/dartx.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/core/notification/in_app_notification_controller.dart';
@@ -22,7 +24,8 @@ class ForegroundProfilesUpdateNotifier extends _$ForegroundProfilesUpdateNotifie
   @override
   Stream<ProfileUpdateStatus?> build() {
     var cycleCount = 0;
-    _scheduler = NeatPeriodicTaskScheduler(
+    final generation = ++_generation;
+    final scheduler = NeatPeriodicTaskScheduler(
       name: 'profiles update worker',
       interval: interval,
       timeout: const Duration(minutes: 5),
@@ -32,9 +35,14 @@ class ForegroundProfilesUpdateNotifier extends _$ForegroundProfilesUpdateNotifie
       },
     );
 
-    ref.onDispose(() async {
-      await _scheduler?.stop();
-      _scheduler = null;
+    _scheduler = scheduler;
+    ref.onDispose(() {
+      if (generation == _generation) _scheduler = null;
+      unawaited(
+        scheduler.stop().catchError((Object error, StackTrace stackTrace) {
+          loggy.error("error stopping profile update worker", error, stackTrace);
+        }),
+      );
     });
 
     if (ref.watch(Preferences.introCompleted)) {
@@ -47,6 +55,7 @@ class ForegroundProfilesUpdateNotifier extends _$ForegroundProfilesUpdateNotifie
   }
 
   NeatPeriodicTaskScheduler? _scheduler;
+  int _generation = 0;
   bool _forceNextRun = false;
 
   Future<void> trigger() async {
@@ -63,58 +72,63 @@ class ForegroundProfilesUpdateNotifier extends _$ForegroundProfilesUpdateNotifie
       _forceNextRun = false;
     }
 
-    try {
-      final previousRun = DateTime.tryParse(ref.read(sharedPreferencesProvider).requireValue.getString(prefKey) ?? "");
+    final generation = _generation;
+    bool isCurrent() => ref.mounted && generation == _generation;
+    final preferences = await ref.read(sharedPreferencesProvider.future);
+    if (!isCurrent()) return;
+    final previousRun = DateTime.tryParse(preferences.getString(prefKey) ?? "");
 
-      if (!force && previousRun != null && previousRun.add(interval) > DateTime.now()) {
-        loggy.debug("too soon! previous run: [$previousRun]");
-        return;
+    if (!force && previousRun != null && previousRun.add(interval) > DateTime.now()) {
+      loggy.debug("too soon! previous run: [$previousRun]");
+      return;
+    }
+    loggy.debug("${force ? "[FORCED] " : ""}running, previous run: [$previousRun]");
+
+    final repository = await ref.read(profileRepositoryProvider.future);
+    if (!isCurrent()) return;
+    final remoteProfiles = await repository
+        .watchAll()
+        .map(
+          (event) => event.getOrElse((f) {
+            loggy.error("error getting profiles");
+            throw f;
+          }).whereType<RemoteProfileEntity>(),
+        )
+        .first;
+
+    await for (final profile in Stream.fromIterable(remoteProfiles)) {
+      if (!isCurrent()) return;
+      final updateInterval = profile.options?.updateInterval;
+      if (force || updateInterval != null && updateInterval <= DateTime.now().difference(profile.lastUpdate)) {
+        final t = await ref.read(translationsProvider.future);
+        if (!isCurrent()) return;
+        await repository
+            .upsertRemote(profile.url)
+            .mapLeft((l) {
+              if (!isCurrent()) return;
+              loggy.debug("error updating profile [${profile.id}]", l);
+              ref
+                  .read(inAppNotificationControllerProvider)
+                  .showErrorToast(t.pages.profiles.msg.update.failureNamed(name: profile.name));
+              state = AsyncData((name: profile.name, success: false));
+            })
+            .map((_) {
+              if (!isCurrent()) return;
+              loggy.debug("profile [${profile.id}] updated successfully");
+              ref
+                  .read(inAppNotificationControllerProvider)
+                  .showSuccessToast(t.pages.profiles.msg.update.successNamed(name: profile.name));
+              state = AsyncData((name: profile.name, success: true));
+            })
+            .run();
+      } else {
+        loggy.debug(
+          "skipping profile [${profile.id}] update. last successful update: [${profile.lastUpdate}] - interval: [${profile.options?.updateInterval}]",
+        );
       }
-      loggy.debug("${force ? "[FORCED] " : ""}running, previous run: [$previousRun]");
-
-      final remoteProfiles = await ref
-          .read(profileRepositoryProvider)
-          .requireValue
-          .watchAll()
-          .map(
-            (event) => event.getOrElse((f) {
-              loggy.error("error getting profiles");
-              throw f;
-            }).whereType<RemoteProfileEntity>(),
-          )
-          .first;
-
-      await for (final profile in Stream.fromIterable(remoteProfiles)) {
-        final updateInterval = profile.options?.updateInterval;
-        if (force || updateInterval != null && updateInterval <= DateTime.now().difference(profile.lastUpdate)) {
-          final t = ref.read(translationsProvider).requireValue;
-          await ref
-              .read(profileRepositoryProvider)
-              .requireValue
-              .upsertRemote(profile.url)
-              .mapLeft((l) {
-                loggy.debug("error updating profile [${profile.id}]", l);
-                ref
-                    .read(inAppNotificationControllerProvider)
-                    .showErrorToast(t.pages.profiles.msg.update.failureNamed(name: profile.name));
-                state = AsyncData((name: profile.name, success: false));
-              })
-              .map((_) {
-                loggy.debug("profile [${profile.id}] updated successfully");
-                ref
-                    .read(inAppNotificationControllerProvider)
-                    .showSuccessToast(t.pages.profiles.msg.update.successNamed(name: profile.name));
-                state = AsyncData((name: profile.name, success: true));
-              })
-              .run();
-        } else {
-          loggy.debug(
-            "skipping profile [${profile.id}] update. last successful update: [${profile.lastUpdate}] - interval: [${profile.options?.updateInterval}]",
-          );
-        }
-      }
-    } finally {
-      await ref.read(sharedPreferencesProvider).requireValue.setString(prefKey, DateTime.now().toIso8601String());
+    }
+    if (isCurrent()) {
+      await preferences.setString(prefKey, DateTime.now().toIso8601String());
     }
   }
 }
