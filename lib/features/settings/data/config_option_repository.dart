@@ -137,7 +137,11 @@ abstract class ConfigOptions {
     mapTo: (value) => value.name,
   );
 
-  static final mtu = PreferencesNotifier.create<int, int>("mtu", 9000);
+  static final mtu = PreferencesNotifier.create<int, int>(
+    "mtu",
+    9000,
+    validator: (value) => value >= 576 && value <= 65535,
+  );
 
   static final strictRoute = PreferencesNotifier.create<bool, bool>("strict-route", true);
 
@@ -332,14 +336,6 @@ abstract class ConfigOptions {
   );
 
   static final hasExperimentalFeatures = Provider.autoDispose<bool>((ref) {
-    // final mode = ref.watch(serviceMode);
-    // if (PlatformUtils.isDesktop && mode == ServiceMode.tun) {
-    //   return true;
-    // }
-    // if (ref.watch(enableTlsFragment) || ref.watch(enableTlsMixedSniCase) || ref.watch(enableTlsPadding) || ref.watch(enableMux) || ref.watch(enableWarp) || ref.watch(bypassLan) || ref.watch(allowConnectionFromLan)) {
-    //   return true;
-    // }
-
     return false;
   });
 
@@ -353,7 +349,6 @@ abstract class ConfigOptions {
   static final Map<String, StateNotifierProvider<PreferencesNotifier, dynamic>> preferences = {
     "region": region,
     "balancer-strategy": balancerStrategy,
-    // "block-ads": blockAds,
     "use-xray-core-when-possible": useXrayCoreWhenPossible,
     "service-mode": serviceMode,
     "log-level": logLevel,
@@ -377,18 +372,8 @@ abstract class ConfigOptions {
     "connection-test-url": connectionTestUrl,
     "url-test-interval": urlTestInterval,
     "clash-api-port": clashApiPort,
-    // "bypass-lan": bypassLan,
     "allow-connection-from-lan": allowConnectionFromLan,
     "lan-sharing-password": lanSharingPassword,
-    // "enable-dns-routing": enableDnsRouting,
-
-    // mux
-    // "mux.enable": enableMux,
-    // "mux.padding": muxPadding,
-    // "mux.max-streams": muxMaxStreams,
-    // "mux.protocol": muxProtocol,
-
-    // tls-tricks
     "tls-tricks.enable-fragment": enableTlsFragment,
     "tls-tricks.fragment-packets": fragmentPackets,
     "tls-tricks.fragment-size": tlsFragmentSize,
@@ -396,18 +381,10 @@ abstract class ConfigOptions {
     "tls-tricks.mixed-sni-case": enableTlsMixedSniCase,
     "tls-tricks.enable-padding": enableTlsPadding,
     "tls-tricks.padding-size": tlsPaddingSize,
-
-    // EXTRA-SECURITY
-    // warp
     "extra-security.warp.license-key": extraSecurityWarpLicenseKey,
-    // psiphon
     "extra-security.psiphon.region": extraSecurityPsiphonRegion,
     "extra-security.psiphon.conduit-pairing-id": extraSecurityPsiphonConduitPairingId,
-    // profile
     "extra-security.profile.id": extraSecurityProfileId,
-
-    // UNBLOCKER
-    // warp
     "unblocker.warp.license-key": unblockerWarpLicenseKey,
     "unblocker.warp.clean-ip": unblockerWarpCleanIp,
     "unblocker.warp.clean-port": unblockerWarpPort,
@@ -415,61 +392,16 @@ abstract class ConfigOptions {
     "unblocker.warp.noise-size": unblockerWarpNoiseSize,
     "unblocker.warp.noise-mode": unblockerWarpNoiseMode,
     "unblocker.warp.noise-delay": unblockerWarpNoiseDelay,
-    // psiphon
     "unblocker.psiphon.region": unblockerPsiphonRegion,
     "unblocker.psiphon.conduit-pairing-id": unblockerPsiphonConduitPairingId,
-    // profile
     "unblocker.profile.id": unblockerProfileId,
   };
 
   static final singboxConfigOptions = Provider<SingboxConfigOption>((ref) {
-    // final region = ref.watch(Preferences.region);
-    // final rules = <SingboxRule>[];
-    // final rules = switch (region) {
-    //   Region.ir => [
-    //       const SingboxRule(
-    //         domains: "domain:.ir,geosite:ir",
-    //         ip: "geoip:ir",
-    //         outbound: RuleOutbound.bypass,
-    //       ),
-    //     ],
-    //   Region.cn => [
-    //       const SingboxRule(
-    //         domains: "domain:.cn,geosite:cn",
-    //         ip: "geoip:cn",
-    //         outbound: RuleOutbound.bypass,
-    //       ),
-    //     ],
-    //   Region.ru => [
-    //       const SingboxRule(
-    //         domains: "domain:.ru",
-    //         ip: "geoip:ru",
-    //         outbound: RuleOutbound.bypass,
-    //       ),
-    //     ],
-    //   Region.af => [
-    //       const SingboxRule(
-    //         domains: "domain:.af,geosite:af",
-    //         ip: "geoip:af",
-    //         outbound: RuleOutbound.bypass,
-    //       ),
-    //     ],
-    //   Region.id => [
-    //       const SingboxRule(
-    //         domains: "domain:.id,geosite:id",
-    //         ip: "geoip:id",
-    //         outbound: RuleOutbound.bypass,
-    //       ),
-    //     ],
-    //   _ => <SingboxRule>[],
-    // };
-
     final mode = ref.watch(serviceMode);
-    // final reg = ref.watch(Preferences.region.notifier).raw();
     return SingboxConfigOption(
       region: ref.watch(region).name,
       balancerStrategy: ref.watch(balancerStrategy),
-      // blockAds: ref.watch(blockAds),
       useXrayCoreWhenPossible: ref.watch(useXrayCoreWhenPossible),
       executeConfigAsIs: false,
       logLevel: ref.watch(logLevel),
@@ -495,20 +427,11 @@ abstract class ConfigOptions {
       enableClashApi: ref.watch(enableClashApi),
       clashApiPort: ref.watch(clashApiPort),
       enableTun: mode == ServiceMode.tun,
-      // enableTunService: mode == false, //ServiceMode.tunService,
       setSystemProxy: mode == ServiceMode.systemProxy,
-      // bypassLan: ref.watch(bypassLan),
       allowConnectionFromLan: ref.watch(allowConnectionFromLan),
       lanSharingPassword: ref.watch(lanSharingPassword),
       enableFakeDns: ref.watch(enableFakeDns),
-      // enableDnsRouting: ref.watch(enableDnsRouting),
       independentDnsCache: ref.watch(independentDnsCache),
-      // mux: SingboxMuxOption(
-      //   enable: ref.watch(enableMux),
-      //   padding: ref.watch(muxPadding),
-      //   maxStreams: ref.watch(muxMaxStreams),
-      //   protocol: ref.watch(muxProtocol),
-      // ),
       tlsTricks: SingboxTlsTricks(
         enableFragment: ref.watch(enableTlsFragment),
         fragmentSize: ref.watch(tlsFragmentSize),
@@ -528,7 +451,7 @@ abstract class ConfigOptions {
         profile: SingboxExtraSecurityProfileOption(id: ref.watch(extraSecurityProfileId)),
       ),
       unblocker: SingboxUnblockerOption(
-        mode: ref.watch(extraSecurityMode),
+        mode: ref.watch(unblockerMode),
         warp: SingboxUnblockerWarpOption(
           licenseKey: ref.watch(unblockerWarpLicenseKey),
           cleanIp: ref.watch(unblockerWarpCleanIp),
