@@ -10,16 +10,20 @@ import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import android.os.PowerManager
 import android.util.Log
+import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.MutableLiveData
 import com.hiddify.core.libbox.Libbox
+import com.hiddify.core.libbox.PlatformInterface
+import com.hiddify.core.libbox.SystemProxyStatus
 import com.hiddify.core.mobile.Mobile
 import com.hiddify.core.mobile.SetupOptions
 import com.hiddify.hiddify.Application
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.Settings
+import com.hiddify.hiddify.constant.Action
 import com.hiddify.hiddify.constant.Alert
 import com.hiddify.hiddify.constant.Status
-import com.hiddify.hiddify.model.SystemProxyStatus
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -33,12 +37,14 @@ import kotlinx.coroutines.withContext
 
 class BoxService(
     private val service: Service,
-    private val platformInterface: PlatformInterfaceWrapper,
+    private val platformInterface: PlatformInterface,
 ) {
+
     companion object {
         private const val TAG = "A/BoxService"
+
         private var initializeOnce = false
-        lateinit var workingDir: File
+        private lateinit var workingDir: File
 
         private fun initialize() {
             if (initializeOnce) return
@@ -63,15 +69,13 @@ class BoxService(
 
         fun start() {
             val intent = Intent(Application.application, Settings.serviceClass())
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                Application.application.startForegroundService(intent)
-            } else {
-                Application.application.startService(intent)
-            }
+            ContextCompat.startForegroundService(Application.application, intent)
         }
 
         fun stop() {
-            Application.application.sendBroadcast(Intent(Action.SERVICE_CLOSE))
+            Application.application.sendBroadcast(
+                Intent(Action.SERVICE_CLOSE).setPackage(Application.application.packageName),
+            )
         }
     }
 
@@ -213,7 +217,7 @@ class BoxService(
         serviceReload()
     }
 
-    @androidx.annotation.RequiresApi(Build.VERSION_CODES.M)
+    @RequiresApi(Build.VERSION_CODES.M)
     private fun serviceUpdateIdleMode() {
         if (!Application.powerManager.isDeviceIdleMode) {
             runCatching { Mobile.wake() }
@@ -282,9 +286,23 @@ class BoxService(
     @Suppress("SameReturnValue")
     internal fun onStartCommand(): Int {
         if (status.value != Status.Stopped) return Service.START_NOT_STICKY
-
         status.value = Status.Starting
-        registerReceiver()
+
+        if (!receiverRegistered) {
+            ContextCompat.registerReceiver(
+                service,
+                receiver,
+                IntentFilter().apply {
+                    addAction(Action.SERVICE_CLOSE)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED)
+                    }
+                },
+                ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+            receiverRegistered = true
+        }
+
         serviceScope.launch {
             lifecycleMutex.withLock {
                 Settings.startedByUser = true
@@ -295,9 +313,9 @@ class BoxService(
         return Service.START_NOT_STICKY
     }
 
-    internal fun onBind(intent: Intent): IBinder = binder
+    fun onBind(intent: Intent): IBinder = binder
 
-    internal fun onDestroy() {
+    fun onDestroy() {
         unregisterReceiver()
         closeTun("destroy")
         DefaultNetworkMonitor.detachCoreListener()
@@ -306,29 +324,14 @@ class BoxService(
         serviceScope.cancel()
     }
 
-    internal fun onRevoke() {
+    fun onRevoke() {
         stopService()
-    }
-
-    private fun registerReceiver() {
-        if (receiverRegistered) return
-        val filter = IntentFilter().apply {
-            addAction(Action.SERVICE_CLOSE)
-            addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED)
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            service.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("DEPRECATION")
-            service.registerReceiver(receiver, filter)
-        }
-        receiverRegistered = true
     }
 
     private fun unregisterReceiver() {
         if (!receiverRegistered) return
         runCatching { service.unregisterReceiver(receiver) }
-            .onFailure { Log.w(TAG, "failed to unregister service receiver", it) }
+            .onFailure { Log.w(TAG, "receiver was already unregistered", it) }
         receiverRegistered = false
     }
 
