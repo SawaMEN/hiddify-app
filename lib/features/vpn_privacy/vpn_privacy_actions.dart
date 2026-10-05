@@ -1,6 +1,5 @@
 import 'dart:convert';
 
-import 'package:hiddify/core/model/region.dart';
 import 'package:hiddify/core/preferences/general_preferences.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/features/settings/notifier/config_option/config_option_notifier.dart';
@@ -16,11 +15,13 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 abstract class VpnPrivacyActions {
   static Map<String, Object> _snapshot(WidgetRef ref) => {
     'serviceMode': ref.read(ConfigOptions.serviceMode).key,
-    'region': ref.read(ConfigOptions.region).name,
     'ipv6Mode': ref.read(ConfigOptions.ipv6Mode).key,
     'mtu': ref.read(ConfigOptions.mtu),
     'autoReconnect': ref.read(Preferences.autoReconnect),
     'routingMode': ref.read(VpnPrivacyPreferences.routingMode),
+    'russianNetworkBypass': ref.read(VpnPrivacyPreferences.russianNetworkBypass),
+    'russianAppsBypass': ref.read(VpnPrivacyPreferences.russianAppsBypass),
+    'restrictedServicesProxy': ref.read(VpnPrivacyPreferences.restrictedServicesProxy),
     'customDirectPackages': ref.read(VpnPrivacyPreferences.customDirectPackages),
     'customProxyPackages': ref.read(VpnPrivacyPreferences.customProxyPackages),
     'customDirectDomains': ref.read(VpnPrivacyPreferences.customDirectDomains),
@@ -36,8 +37,10 @@ abstract class VpnPrivacyActions {
 
   static bool isConfigured(WidgetRef ref) =>
       ref.watch(ConfigOptions.serviceMode) == ServiceMode.tun &&
-      ref.watch(ConfigOptions.region) == Region.ru &&
       ref.watch(VpnPrivacyPreferences.routingMode) == 'ru-bypass' &&
+      ref.watch(VpnPrivacyPreferences.russianNetworkBypass) &&
+      ref.watch(VpnPrivacyPreferences.russianAppsBypass) &&
+      ref.watch(VpnPrivacyPreferences.restrictedServicesProxy) &&
       ref.watch(VpnPrivacyPreferences.hideLocalProxy) &&
       ref.watch(VpnPrivacyPreferences.hideClashApi) &&
       ref.watch(VpnPrivacyPreferences.disableSystemProxy) &&
@@ -51,8 +54,6 @@ abstract class VpnPrivacyActions {
   static Future<void> _setRoutingMode(WidgetRef ref, String target, {required bool forceRevision}) async {
     final current = ref.read(VpnPrivacyPreferences.routingMode);
     if (forceRevision && current == target) {
-      // updateTogether suppresses intermediate reconnects, so a temporary alternate value
-      // is safe and guarantees a native-policy revision for "apply again"/restore.
       await ref
           .read(VpnPrivacyPreferences.routingMode.notifier)
           .update(target == 'off' ? 'ru-bypass' : 'off');
@@ -68,11 +69,10 @@ abstract class VpnPrivacyActions {
 
     await ref.read(configOptionNotifierProvider.notifier).updateTogether(
       () async {
-        // RegionalRouting on Android is intentionally disabled outside Region.ru.
-        // Setting ru-bypass without this value was the reason the old one-tap button
-        // appeared to do nothing.
-        await ref.read(ConfigOptions.region.notifier).update(Region.ru);
         await ref.read(ConfigOptions.serviceMode.notifier).update(ServiceMode.tun);
+        await ref.read(VpnPrivacyPreferences.russianNetworkBypass.notifier).update(true);
+        await ref.read(VpnPrivacyPreferences.russianAppsBypass.notifier).update(true);
+        await ref.read(VpnPrivacyPreferences.restrictedServicesProxy.notifier).update(true);
         await ref.read(VpnPrivacyPreferences.hideLocalProxy.notifier).update(true);
         await ref.read(VpnPrivacyPreferences.hideClashApi.notifier).update(true);
         await ref.read(VpnPrivacyPreferences.disableSystemProxy.notifier).update(true);
@@ -113,12 +113,6 @@ abstract class VpnPrivacyActions {
       (value) => value.key,
       ServiceMode.defaultMode,
     );
-    final region = enumByKey(
-      Region.values,
-      snapshot?['region'] as String?,
-      (value) => value.name,
-      Region.other,
-    );
     final ipv6Mode = enumByKey(
       IPv6Mode.values,
       snapshot?['ipv6Mode'] as String?,
@@ -135,11 +129,19 @@ abstract class VpnPrivacyActions {
     await ref.read(configOptionNotifierProvider.notifier).updateTogether(
       () async {
         await ref.read(ConfigOptions.serviceMode.notifier).update(serviceMode);
-        await ref.read(ConfigOptions.region.notifier).update(region);
         await ref.read(ConfigOptions.ipv6Mode.notifier).update(ipv6Mode);
         await ref.read(ConfigOptions.mtu.notifier).update(value<int>('mtu', 9000));
         await ref.read(Preferences.autoReconnect.notifier).update(value<bool>('autoReconnect', true));
         await _setRoutingMode(ref, routingMode, forceRevision: true);
+        await ref
+            .read(VpnPrivacyPreferences.russianNetworkBypass.notifier)
+            .update(value<bool>('russianNetworkBypass', true));
+        await ref
+            .read(VpnPrivacyPreferences.russianAppsBypass.notifier)
+            .update(value<bool>('russianAppsBypass', true));
+        await ref
+            .read(VpnPrivacyPreferences.restrictedServicesProxy.notifier)
+            .update(value<bool>('restrictedServicesProxy', true));
         await ref
             .read(VpnPrivacyPreferences.customDirectPackages.notifier)
             .update(value<String>('customDirectPackages', ''));
@@ -165,8 +167,6 @@ abstract class VpnPrivacyActions {
       applyImmediately: true,
     );
 
-    // Clear only after the previous state has been applied successfully so a
-    // transient reconnect failure never destroys the user's restore point.
     await ref.read(VpnPrivacyPreferences.automaticSetupBackup.notifier).update('');
   }
 }
