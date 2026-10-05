@@ -216,7 +216,8 @@ class BoxService(
                             it.basePath = Settings.baseDir
                             it.workingDir = Settings.workingDir
                             it.tempDir = Settings.tempDir
-                            it.fixAndroidStack = Bugs.fixAndroidStack
+                            // Required by the Go runtime on every supported Android version.
+                            it.fixAndroidStack = true
                             it.mode = 4L
                             it.listen = "127.0.0.1:${Settings.grpcServiceModePort}"
                             it.secret = Settings.grpcAuthToken
