@@ -9,9 +9,9 @@ class AppcastTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             directory=Path(d)
             (directory/'vetroff-Android-arm64-v8a.apk').write_bytes(b'test')
-            generate(directory,'SawaMEN/hiddify-app','v4.2.0','prod')
+            generate(directory,'SawaMEN/hiddify-app','v1.0.1','prod')
             enclosure=ET.parse(directory/'appcast.xml').find('.//enclosure')
-            self.assertIn('/SawaMEN/hiddify-app/releases/download/v4.2.0/',enclosure.attrib['url'])
+            self.assertIn('/SawaMEN/hiddify-app/releases/download/v1.0.1/',enclosure.attrib['url'])
             self.assertEqual(enclosure.attrib['length'],'4')
             self.assertTrue((directory/'SHA256SUMS').exists())
     def test_dev_cannot_publish_stable_feed(self):

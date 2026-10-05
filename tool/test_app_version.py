@@ -11,9 +11,9 @@ class VersionTests(unittest.TestCase):
         validate_tag("dev-latest", "dev", version, build)
 
     def test_wrong_version_build_or_channel_is_rejected(self):
-        for tag in ["v4.1.2", "v4.2.0+40102", "v4.2.0.dev", "draft"]:
+        for tag in ["v4.1.2", "v1.0.1+40102", "v1.0.1.dev", "draft"]:
             with self.assertRaises(ValueError):
-                validate_tag(tag, "prod", "4.2.0", "40200")
+                validate_tag(tag, "prod", "1.0.1", "40201")
 
 
 if __name__ == "__main__":

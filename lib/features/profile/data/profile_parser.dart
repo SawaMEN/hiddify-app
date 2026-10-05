@@ -588,6 +588,9 @@ class ProfileParser {
         'shadowtls' => fragment ?? ProxyType.shadowtls.label,
         'mieru' => fragment ?? ProxyType.mieru.label,
         'warp' => fragment ?? ProxyType.warp.label,
+        // any other link (psiphon://, anytls://, naive+https://, ...): its name, else its scheme
+        final scheme when scheme.isNotEmpty && line.trimLeft().startsWith('$scheme://') =>
+          fragment ?? '${scheme[0].toUpperCase()}${scheme.substring(1)}',
         _ => null,
       };
     }

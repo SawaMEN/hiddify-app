@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hiddify/features/app/widget/startup_app.dart';
 import 'package:hiddify/features/profile/model/profile_entity.dart';
@@ -10,8 +13,45 @@ void main() {
     final startup = Completer<Widget>();
     await tester.pumpWidget(StartupApp(initialization: startup.future));
     await tester.pump(const Duration(seconds: 30));
-    expect(find.text('Starting VetrOFF Client…'), findsOneWidget);
+    expect(find.text('VetrOFF Client'), findsOneWidget);
+    expect(find.text('Starting'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Russian startup is readable and releases its animations after completion', (tester) async {
+    tester.platformDispatcher.localeTestValue = const Locale('ru');
+    addTearDown(tester.platformDispatcher.clearLocaleTestValue);
+    final startup = Completer<Widget>();
+    final boundary = GlobalKey();
+    await tester.pumpWidget(RepaintBoundary(key: boundary, child: StartupApp(initialization: startup.future)));
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('Запуск'), findsOneWidget);
+    expect(find.text('VetrOFF Client'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    if (Platform.environment['IS_GITHUB_ACTIONS'] == '1') {
+      final render = boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+      final image = await render.toImage();
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      final file = File('test/failures/startup-preview.png');
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(bytes!.buffer.asUint8List());
+    }
+    startup.complete(const MaterialApp(home: Text('Ready')));
+    await tester.pumpAndSettle();
+    expect(find.text('Ready'), findsOneWidget);
+    expect(tester.binding.transientCallbackCount, 0);
+  });
+
+  testWidgets('Reduced motion shows startup without scheduling repeating frames', (tester) async {
+    tester.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    final startup = Completer<Widget>();
+    await tester.pumpWidget(StartupApp(initialization: startup.future));
+    await tester.pumpAndSettle();
+    expect(find.text('VetrOFF Client'), findsOneWidget);
+    expect(tester.binding.transientCallbackCount, 0);
     expect(tester.takeException(), isNull);
   });
 
@@ -32,7 +72,7 @@ void main() {
     startup.complete(const MaterialApp(home: Text('Ready')));
     await tester.pumpAndSettle();
     expect(find.text('Ready'), findsOneWidget);
-    expect(find.text('Starting VetrOFF Client…'), findsNothing);
+    expect(find.text('VetrOFF Client'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

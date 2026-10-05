@@ -1,31 +1,29 @@
-"""Render all VetrOFF launcher/splash assets from the canonical polygon SVG.
+"""Render all VetrOFF launcher/splash assets from the original July 22 fan artwork.
 
 Run from the repository root with Python and Pillow installed.
 """
 import re
 from pathlib import Path
-import xml.etree.ElementTree as ET
 
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "android/app/src/main/res"
-LOGO = ROOT / "assets/images/logo.svg"
-BACKGROUND = "#081D25"
-
-
-def paths():
-    for node in ET.parse(LOGO).getroot().findall("{http://www.w3.org/2000/svg}path"):
-        coordinates = [float(x) for x in re.findall(r"-?\d+(?:\.\d+)?", node.attrib["d"])]
-        yield node.attrib["d"], node.attrib["fill"], list(zip(coordinates[::2], coordinates[1::2]))
+LOGO = ROOT / "assets/images/source/vetroff-original.png"
+BACKGROUND = "#020506"
 
 
 def mark(size, color=None):
-    scale = size * 4 / 64
-    image = Image.new("RGBA", (size * 4, size * 4))
-    draw = ImageDraw.Draw(image)
-    for _, fill, points in paths():
-        draw.polygon([(x * scale, y * scale) for x, y in points], fill=color or fill)
+    # Preserve the actual July 22 artwork: crop only the emblem, not a redraw.
+    source = Image.open(LOGO).convert("RGBA")
+    emblem = source.crop((150, 225, 950, 800))
+    image = Image.new("RGBA", (800, 800), BACKGROUND)
+    image.alpha_composite(emblem, (0, 112))
+    if color is not None:
+        # Android notification icons must be monochrome alpha silhouettes.
+        alpha = image.convert("L").point(lambda v: min(255, max(0, (v - 24) * 5)))
+        image = Image.new("RGBA", image.size, color)
+        image.putalpha(alpha)
     return image.resize((size, size), Image.Resampling.LANCZOS)
 
 
@@ -48,18 +46,15 @@ def launcher(size, rounded=False):
     return canvas.resize((size, size), Image.Resampling.LANCZOS)
 
 
-def vector(size=108, inset=22, white=False):
-    elements = "\n".join(
-        f'<path android:pathData="{data}" android:fillColor="{("#FFFFFF" if white else fill)}"/>'
-        for data, fill, _ in paths()
-    )
-    return f'''<vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="{size}dp" android:height="{size}dp"
-    android:viewportWidth="{size}" android:viewportHeight="{size}">
-    <group android:translateX="{inset}" android:translateY="{inset}">
-      {elements}
-    </group>
-</vector>
+def drawable(size=108, mark_size=64, source="vetroff_fan"):
+    return f'''<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:width="{size}dp" android:height="{size}dp" android:gravity="center">
+      <shape><solid android:color="@android:color/transparent"/></shape>
+    </item>
+    <item android:width="{mark_size}dp" android:height="{mark_size}dp" android:gravity="center">
+      <bitmap android:src="@drawable/{source}" android:gravity="fill"/>
+    </item>
+</layer-list>
 '''
 
 
@@ -69,13 +64,16 @@ def generate():
             suffix = "_round" if rounded else ""
             save(launcher(size, rounded), f"android/app/src/main/res/mipmap-{density}/ic_launcher{suffix}.webp")
     save(launcher(512), "android/app/src/main/ic_launcher-playstore.png")
-    (RES / "drawable/ic_launcher_foreground.xml").write_text(vector())
-    (RES / "drawable/android12splash.xml").write_text(vector())
-    (RES / "drawable/ic_stat_logo.xml").write_text(vector(24, 0, True).replace('viewportWidth="24"', 'viewportWidth="64"').replace('viewportHeight="24"', 'viewportHeight="64"'))
+    save(mark(512), "assets/images/logo.png")
+    save(mark(512), "android/app/src/main/res/drawable-nodpi/vetroff_fan.png")
+    save(mark(256, "#FFFFFF"), "android/app/src/main/res/drawable-nodpi/vetroff_notification.png")
+    (RES / "drawable/ic_launcher_foreground.xml").write_text(drawable())
+    (RES / "drawable/android12splash.xml").write_text(drawable())
+    (RES / "drawable/ic_stat_logo.xml").write_text(drawable(24, 24, "vetroff_notification"))
     for density in ["mdpi", "hdpi"]:
         (RES / f"drawable-{density}/ic_stat_logo.png").unlink(missing_ok=True)
     (RES / "drawable/ic_launcher_background.xml").write_text(
-        '<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#081D25"/></shape>\n'
+        '<shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#020506"/></shape>\n'
     )
     for resource in ["ic_launcher_background", "ic_banner_background"]:
         (RES / f"values/{resource}.xml").write_text(f'<resources><color name="{resource}">{BACKGROUND}</color></resources>\n')
@@ -102,7 +100,7 @@ def generate():
     )
     for folder in ["values-v31", "values-night-v31"]:
         p = RES / folder / "styles.xml"
-        text = re.sub(r'(<item name="android:windowSplashScreenBackground">).*?(</item>)', r'\g<1>#081D25\2', p.read_text())
+        text = re.sub(r'(<item name="android:windowSplashScreenBackground">).*?(</item>)', r'\g<1>#020506\2', p.read_text())
         p.write_text(text)
 
 
