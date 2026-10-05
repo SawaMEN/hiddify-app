@@ -1,16 +1,13 @@
 package com.hiddify.hiddify
 
-import android.Manifest
 import android.content.Intent
 import android.net.VpnService
-import android.os.Build
 import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.lifecycleScope
 import com.hiddify.hiddify.bg.ServiceConnection
-import com.hiddify.hiddify.bg.ServiceNotification
 import com.hiddify.hiddify.constant.Alert
 import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
@@ -38,7 +35,6 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
     private val startTracker = ServiceStartTracker()
     var lastStartFailure: ServiceEvent? = null
         private set
-    private var notificationRequestGeneration: Long? = null
     private var vpnRequestGeneration: Long? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -76,7 +72,6 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
             deferred.await()
         } catch (e: Exception) {
             if (e is CancellationException) throw e
-            notificationRequestGeneration = null
             reportStartFailure(generation, Alert.StartService, e.message)
             false
         }
@@ -111,48 +106,42 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
 
     private fun beginStart(generation: Long) {
         if (!isCurrentStart(generation)) return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !ServiceNotification.checkPermission()) {
-            if (notificationRequestGeneration != null) {
-                reportStartFailure(generation, Alert.RequestNotificationPermission, "previous permission request is still open")
-                return
-            }
-            notificationRequestGeneration = generation
-            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            return
-        }
+        // Android 13+ notification permission controls whether the foreground-service
+        // notification is visible in the notification drawer. It is not a prerequisite for
+        // starting the foreground VPN service itself, so denying it must not block connection.
         continueStart(generation)
     }
 
     private fun continueStart(generation: Long) {
         lifecycleScope.launch {
             try {
-            if (!isCurrentStart(generation)) return@launch
+                if (!isCurrentStart(generation)) return@launch
 
-            val serviceModeChanged = withContext(Dispatchers.IO) { Settings.rebuildServiceMode() }
-            if (!isCurrentStart(generation)) return@launch
-            if (serviceModeChanged) {
-                withContext(Dispatchers.IO) { connection.reconnect() }
-            }
-
-            if (Settings.serviceMode == ServiceMode.VPN) {
-                val permissionIntent = try {
-                    VpnService.prepare(this@MainActivity)
-                } catch (e: Exception) {
-                    reportStartFailure(generation, Alert.RequestVPNPermission, e.message)
-                    return@launch
+                val serviceModeChanged = withContext(Dispatchers.IO) { Settings.rebuildServiceMode() }
+                if (!isCurrentStart(generation)) return@launch
+                if (serviceModeChanged) {
+                    withContext(Dispatchers.IO) { connection.reconnect() }
                 }
-                if (permissionIntent != null) {
-                    if (vpnRequestGeneration != null) {
-                        reportStartFailure(generation, Alert.RequestVPNPermission, "previous permission request is still open")
+
+                if (Settings.serviceMode == ServiceMode.VPN) {
+                    val permissionIntent = try {
+                        VpnService.prepare(this@MainActivity)
+                    } catch (e: Exception) {
+                        reportStartFailure(generation, Alert.RequestVPNPermission, e.message)
                         return@launch
                     }
-                    vpnRequestGeneration = generation
-                    prepareLauncher.launch(permissionIntent)
-                    return@launch
+                    if (permissionIntent != null) {
+                        if (vpnRequestGeneration != null) {
+                            reportStartFailure(generation, Alert.RequestVPNPermission, "previous permission request is still open")
+                            return@launch
+                        }
+                        vpnRequestGeneration = generation
+                        prepareLauncher.launch(permissionIntent)
+                        return@launch
+                    }
                 }
-            }
 
-            issueServiceStart(generation)
+                issueServiceStart(generation)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -196,18 +185,6 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         pendingStart = null
         startTracker.reset()
     }
-
-    private val notificationPermissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-            val generation = notificationRequestGeneration ?: return@registerForActivityResult
-            notificationRequestGeneration = null
-            if (!isCurrentStart(generation)) return@registerForActivityResult
-            if (Settings.dynamicNotification && !isGranted) {
-                reportStartFailure(generation, Alert.RequestNotificationPermission, null)
-            } else {
-                continueStart(generation)
-            }
-        }
 
     private val prepareLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
