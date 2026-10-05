@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:hiddify/features/stats/notifier/stats_notifier.dart';
 import 'package:hiddify/features/connection/health/connection_health.dart';
@@ -46,15 +47,18 @@ class _Options extends ConfigOptionNotifier {
 
 class _Info extends AppInfo {
   @override
-  Future<AppInfoEntity> build() async => const AppInfoEntity(
-    name: 'VetrOFF Client',
-    version: '4.1.2',
-    buildNumber: '40102',
-    release: Release.general,
-    operatingSystem: 'android',
-    operatingSystemVersion: 'test',
-    environment: Environment.prod,
-  );
+  Future<AppInfoEntity> build() async {
+    final version = RegExp(r'^version:\s*([\d.]+)\+(\d+)', multiLine: true).firstMatch(File('pubspec.yaml').readAsStringSync())!;
+    return AppInfoEntity(
+      name: 'VetrOFF Client',
+      version: version.group(1)!,
+      buildNumber: version.group(2)!,
+      release: Release.general,
+      operatingSystem: 'android',
+      operatingSystemVersion: 'test',
+      environment: Environment.prod,
+    );
+  }
 }
 
 class _Stats extends StatsNotifier {

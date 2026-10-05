@@ -13,7 +13,6 @@ import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
 import 'package:hiddify/features/proxy/active/active_proxy_notifier.dart';
 import 'package:hiddify/features/settings/notifier/config_option/config_option_notifier.dart';
-import 'package:hiddify/gen/assets.gen.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 class ConnectionButton extends HookConsumerWidget {
@@ -25,7 +24,6 @@ class ConnectionButton extends HookConsumerWidget {
     final connectionStatus = ref.watch(connectionNotifierProvider);
     final delay = ref.watch(activeProxyNotifierProvider.select((value) => value.value?.urlTestDelay ?? 0));
     final requiresReconnect = ref.watch(configOptionNotifierProvider).value;
-    final today = DateTime.now();
     final scheme = Theme.of(context).colorScheme;
     final buttonTheme =
         Theme.of(context).extension<ConnectionButtonTheme>() ??
@@ -82,12 +80,6 @@ class ConnectionButton extends HookConsumerWidget {
         _ => t.connection.connecting,
       },
       buttonColor: buttonColor,
-      image: switch (connectionStatus) {
-        AsyncData(value: Connected()) when requiresReconnect == true => Assets.images.disconnectNorouz,
-        AsyncData(value: Connected()) => Assets.images.connectNorouz,
-        _ => Assets.images.disconnectNorouz,
-      },
-      useImage: today.day >= 19 && today.day <= 23 && today.month == 3,
     );
   }
 }
@@ -98,16 +90,12 @@ class _ConnectionButton extends StatelessWidget {
     required this.enabled,
     required this.label,
     required this.buttonColor,
-    required this.image,
-    required this.useImage,
   });
 
   final VoidCallback? onTap;
   final bool enabled;
   final String label;
   final Color buttonColor;
-  final AssetGenImage image;
-  final bool useImage;
 
   @override
   Widget build(BuildContext context) {
@@ -153,9 +141,7 @@ class _ConnectionButton extends StatelessWidget {
                         customBorder: const CircleBorder(),
                         onTap: enabled ? onTap : null,
                         child: Center(
-                          child: useImage
-                              ? image.image(width: 76, height: 76)
-                              : Icon(Icons.power_settings_new_rounded, size: 64, color: buttonColor),
+                          child: Icon(Icons.power_settings_new_rounded, size: 64, color: buttonColor),
                         ),
                       ),
                     ),

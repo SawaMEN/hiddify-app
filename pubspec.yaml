@@ -1,7 +1,7 @@
 name: hiddify
 description: Android Multi Protocol Proxy Frontend.
 publish_to: "none"
-version: 4.1.2+40102
+version: 4.2.0+40200
 
 environment:
   sdk: ^3.13.5
@@ -97,18 +97,12 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/logo.svg
-    - assets/images/connect_norouz.PNG
-    - assets/images/disconnect_norouz.PNG
     - assets/images/world_map.png
-    - assets/images/source/ic_launcher_border.png
 
   fonts:
     - family: Manrope
       fonts:
         - asset: assets/fonts/Manrope.ttf
-    - family: Shabnam
-      fonts:
-        - asset: assets/fonts/Shabnam.ttf
     - family: Emoji
       fonts:
         - asset: assets/fonts/Emoji.ttf
@@ -119,9 +113,9 @@ flutter_gen:
     flutter_svg: true
 
 flutter_native_splash:
-  color: "#ffffff"
+  color: "#081D25"
   image: assets/images/source/ic_launcher_splash.png
   android_gravity: center
   android_12:
-    color: "#ffffff"
+    color: "#081D25"
     image: assets/images/source/ic_launcher_foreground.png

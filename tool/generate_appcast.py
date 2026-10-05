@@ -4,6 +4,7 @@ import hashlib
 from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
+from check_app_version import declared_version, validate_tag
 
 
 def generate(directory, repository, tag, channel):
@@ -22,6 +23,7 @@ def generate(directory, repository, tag, channel):
     match = re.fullmatch(r"v?(\d+\.\d+\.\d+)(?:\+(\d+))?(?:\.prod)?", tag)
     if not match:
         raise ValueError("Stable release requires a semantic version tag")
+    validate_tag(tag, channel, *declared_version())
     ns = "http://www.andymatuschak.org/xml-namespaces/sparkle"
     ET.register_namespace("sparkle", ns)
     rss = ET.Element("rss", {"version": "2.0"})
