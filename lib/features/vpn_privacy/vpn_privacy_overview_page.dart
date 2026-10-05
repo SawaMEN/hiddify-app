@@ -3,10 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
-import 'package:hiddify/features/vpn_privacy/network_anonymization_page.dart';
+import 'package:hiddify/features/settings/notifier/config_option/config_option_notifier.dart';
+import 'package:hiddify/features/vpn_privacy/privacy_app_selection_page.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_actions.dart';
-import 'package:hiddify/features/vpn_privacy/vpn_privacy_page.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_preferences.dart';
+import 'package:hiddify/singbox/model/singbox_config_enum.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 String _privacyText(BuildContext context, String ru, String en) =>
@@ -27,11 +28,17 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
   bool _busy = false;
   bool? _routingReady;
   int _directApps = 0;
+  int _proxyApps = 0;
+  Map<dynamic, dynamic> _root = const {};
+  bool _rootChecking = true;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshRoutingStatus());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _refreshRoutingStatus();
+      await _refreshRoot();
+    });
   }
 
   void _showError(Object error) {
@@ -52,13 +59,35 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
           }) ??
           const <dynamic, dynamic>{};
       if (!mounted) return;
-      final packages = policy['privacy-direct-packages'];
+      final direct = policy['privacy-direct-packages'];
+      final proxy = policy['privacy-proxy-packages'];
       setState(() {
         _routingReady = policy['privacy-routing-mode'] == 'ru-bypass';
-        _directApps = packages is List ? packages.length : 0;
+        _directApps = direct is List ? direct.length : 0;
+        _proxyApps = proxy is List ? proxy.length : 0;
       });
     } catch (_) {
       if (mounted) setState(() => _routingReady = null);
+    }
+  }
+
+  Future<void> _refreshRoot() async {
+    if (!Platform.isAndroid) {
+      if (mounted) setState(() => _rootChecking = false);
+      return;
+    }
+    try {
+      final root = await _channel.invokeMapMethod<dynamic, dynamic>('detect_root') ?? const {};
+      if (root['detected'] != true || root['helper'] != true) {
+        await ref.read(VpnPrivacyPreferences.useRoot.notifier).update(false);
+      }
+      if (!mounted) return;
+      setState(() {
+        _root = root;
+        _rootChecking = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _rootChecking = false);
     }
   }
 
@@ -77,8 +106,8 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
         throw StateError(
           _privacyText(
             context,
-            'Маршрутизация сохранена, но Android не подтвердил активную политику РФ.',
-            'Routing was saved, but Android did not confirm the Russia policy.',
+            'Настройки сохранены, но Android не подтвердил активную политику РФ.',
+            'Settings were saved, but Android did not confirm the Russia policy.',
           ),
         );
       }
@@ -94,6 +123,52 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
     }
   }
 
+  Future<void> _openSelection(PrivacyAppSelectionKind kind) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => PrivacyAppSelectionPage(kind: kind)),
+    );
+    if (mounted) await _refreshRoutingStatus();
+  }
+
+  Future<void> _setRoot(bool enabled) async {
+    await _run(
+      () async {
+        if (enabled) {
+          final status = await _channel.invokeMapMethod<dynamic, dynamic>('check_root') ?? const {};
+          if (mounted) setState(() => _root = status);
+          if (status['granted'] != true) {
+            throw StateError(_privacyText(context, 'Root-доступ не предоставлен', 'Root permission was not granted'));
+          }
+          if (status['helper'] != true) {
+            throw StateError(
+              _privacyText(context, 'В этом APK отсутствует root-ядро', 'This APK has no root companion'),
+            );
+          }
+        }
+        await ref.read(configOptionNotifierProvider.notifier).updateTogether(
+          () async {
+            if (enabled) await ref.read(ConfigOptions.serviceMode.notifier).update(ServiceMode.tun);
+            await ref.read(VpnPrivacyPreferences.useRoot.notifier).update(enabled);
+          },
+          applyImmediately: true,
+        );
+      },
+      successRu: enabled ? 'Root-режим включён.' : 'Root-режим отключён.',
+      successEn: enabled ? 'Root mode enabled.' : 'Root mode disabled.',
+    );
+  }
+
+  Future<void> _setPrivacyBool(
+    Future<void> Function() update, {
+    required String successRu,
+    required String successEn,
+  }) =>
+      _run(
+        () => ref.read(configOptionNotifierProvider.notifier).updateTogether(update, applyImmediately: true),
+        successRu: successRu,
+        successEn: successEn,
+      );
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -108,16 +183,16 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
         ? _privacyText(
             context,
             _routingReady == false
-                ? 'Настройки сохранены, но маршрутизация требует повторного применения.'
-                : 'Российские приложения идут напрямую, а сервисы из списка ограничений — через VPN.',
+                ? 'Настройки сохранены, но политика приложений требует повторного применения.'
+                : 'Российские приложения и заблокированные сервисы используют единый синхронизированный список правил.',
             _routingReady == false
-                ? 'Settings are saved, but routing needs to be applied again.'
-                : 'Russian apps use the direct network while restricted services use the VPN.',
+                ? 'Settings are saved, but application policy needs to be applied again.'
+                : 'Russian apps and restricted services now use one synchronized application policy.',
           )
         : _privacyText(
             context,
-            'Приложение само выставит рекомендуемые параметры маршрутизации, DNS и защиты от утечек.',
-            'The app will choose recommended routing, DNS, and leak-protection settings.',
+            'Приложение само выставит рекомендуемые параметры DNS, маршрутизации и защиты от утечек.',
+            'The app will choose recommended DNS, routing, and leak-protection settings.',
           );
 
     return Scaffold(
@@ -174,28 +249,17 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
                       ),
                       child: Row(
                         children: [
-                          Icon(
-                            _routingReady == true ? Icons.check_circle_outline : Icons.error_outline,
-                            size: 20,
-                          ),
+                          Icon(_routingReady == true ? Icons.check_circle_outline : Icons.error_outline, size: 20),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               _routingReady == true
                                   ? _privacyText(
                                       context,
-                                      _directApps > 0
-                                          ? 'Маршрутизация активна · $_directApps установленных приложений исключено из VPN'
-                                          : 'Маршрутизация РФ активна',
-                                      _directApps > 0
-                                          ? 'Routing active · $_directApps installed apps bypass the VPN'
-                                          : 'Russia routing is active',
+                                      'Политика активна · напрямую: $_directApps · через VPN: $_proxyApps',
+                                      'Policy active · direct: $_directApps · through VPN: $_proxyApps',
                                     )
-                                  : _privacyText(
-                                      context,
-                                      'Маршрутизация РФ сейчас не активна',
-                                      'Russia routing is not active',
-                                    ),
+                                  : _privacyText(context, 'Политика РФ сейчас не активна', 'Russia policy is not active'),
                             ),
                           ),
                         ],
@@ -258,9 +322,10 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
                   title: _privacyText(context, 'Российские приложения', 'Russian apps'),
                   subtitle: _privacyText(
                     context,
-                    'Известные приложения с проверками VPN автоматически идут напрямую.',
-                    'Known VPN-aware apps automatically use the direct network.',
+                    '$_directApps приложений идут напрямую, вне VPN. Нажмите, чтобы изменить список.',
+                    '$_directApps apps go directly, outside the VPN. Tap to edit the list.',
                   ),
+                  onTap: android && !_busy ? () => _openSelection(PrivacyAppSelectionKind.direct) : null,
                 ),
                 const Divider(height: 1, indent: 56),
                 _FeatureRow(
@@ -268,9 +333,10 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
                   title: _privacyText(context, 'Заблокированные сервисы', 'Restricted services'),
                   subtitle: _privacyText(
                     context,
-                    'Приложения и домены из списка ограничений продолжают работать через VPN.',
-                    'Apps and domains from the restricted list continue through the VPN.',
+                    '$_proxyApps приложений принудительно идут через VPN. Нажмите, чтобы изменить список.',
+                    '$_proxyApps apps are forced through the VPN. Tap to edit the list.',
                   ),
+                  onTap: android && !_busy ? () => _openSelection(PrivacyAppSelectionKind.proxy) : null,
                 ),
                 const Divider(height: 1, indent: 56),
                 _FeatureRow(
@@ -295,28 +361,6 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
               ],
             ),
           ),
-          if (android) ...[
-            const SizedBox(height: 16),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.privacy_tip_outlined),
-                title: Text(_privacyText(context, 'Анонимизация в сети', 'Network anonymization')),
-                subtitle: Text(
-                  _privacyText(
-                    context,
-                    'Экспериментально · не рекомендуется к применению',
-                    'Experimental · not recommended for normal use',
-                  ),
-                ),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: _busy
-                    ? null
-                    : () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(builder: (_) => const NetworkAnonymizationPage()),
-                      ),
-              ),
-            ),
-          ],
           const SizedBox(height: 16),
           Card(
             child: ExpansionTile(
@@ -325,33 +369,156 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
               subtitle: Text(
                 _privacyText(
                   context,
-                  'Root, ручная маршрутизация, MTU, пакеты и домены',
-                  'Root, manual routing, MTU, packages and domains',
+                  'Только дополнительные параметры скрытия VPN',
+                  'Only additional VPN privacy options',
                 ),
               ),
-              childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               children: [
-                Text(
-                  _privacyText(
-                    context,
-                    'Меняйте эти параметры только если понимаете, как они влияют на подключение. Обычной автонастройке они не нужны.',
-                    'Change these options only if you understand their effect on connectivity. Normal automatic setup does not require them.',
+                if (android)
+                  SwitchListTile.adaptive(
+                    value: ref.watch(VpnPrivacyPreferences.useRoot),
+                    onChanged: _busy || _rootChecking || _root['detected'] != true || _root['helper'] != true
+                        ? null
+                        : _setRoot,
+                    secondary: const Icon(Icons.admin_panel_settings_outlined),
+                    title: Text(_privacyText(context, 'Подключение через root', 'Connect using root')),
+                    subtitle: Text(
+                      _privacyText(
+                        context,
+                        _rootChecking
+                            ? 'Проверяется наличие root…'
+                            : _root['detected'] != true
+                            ? 'Root на устройстве не обнаружен.'
+                            : _root['helper'] != true
+                            ? 'В этом APK нет исполняемого root-ядра.'
+                            : 'Запускает ядро без Android VpnService. Требуется разрешение root.',
+                        _rootChecking
+                            ? 'Checking root availability…'
+                            : _root['detected'] != true
+                            ? 'Root was not detected on this device.'
+                            : _root['helper'] != true
+                            ? 'This APK has no executable root companion.'
+                            : 'Runs the core without Android VpnService. Root permission is required.',
+                      ),
+                    ),
+                  ),
+                SwitchListTile.adaptive(
+                  value: ref.watch(VpnPrivacyPreferences.fullTunnel),
+                  onChanged: _busy
+                      ? null
+                      : (value) => _setPrivacyBool(
+                            () => ref.read(VpnPrivacyPreferences.fullTunnel.notifier).update(value),
+                            successRu: value ? 'Полный туннель включён.' : 'Полный туннель отключён.',
+                            successEn: value ? 'Full tunnel enabled.' : 'Full tunnel disabled.',
+                          ),
+                  secondary: const Icon(Icons.security_outlined),
+                  title: Text(_privacyText(context, 'Полный туннель', 'Full tunnel')),
+                  subtitle: Text(
+                    _privacyText(
+                      context,
+                      'Отправляет весь пользовательский трафик через VPN и временно игнорирует прямые исключения приложений.',
+                      'Routes all user traffic through the VPN and temporarily ignores direct application exceptions.',
+                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _busy
+                SwitchListTile.adaptive(
+                  value: ref.watch(VpnPrivacyPreferences.encryptedDns),
+                  onChanged: _busy
+                      ? null
+                      : (value) => _setPrivacyBool(
+                            () => ref.read(VpnPrivacyPreferences.encryptedDns.notifier).update(value),
+                            successRu: 'Настройка DNS применена.',
+                            successEn: 'DNS setting applied.',
+                          ),
+                  secondary: const Icon(Icons.dns_outlined),
+                  title: Text(_privacyText(context, 'Зашифрованный DNS через VPN', 'Encrypted DNS through VPN')),
+                  subtitle: Text(
+                    _privacyText(
+                      context,
+                      'Использует DoH внутри VPN. Рекомендуется оставить включённым.',
+                      'Uses DoH inside the VPN. Recommended to keep enabled.',
+                    ),
+                  ),
+                ),
+                if (android)
+                  SwitchListTile.adaptive(
+                    value: ref.watch(VpnPrivacyPreferences.publicDns),
+                    onChanged: _busy
                         ? null
-                        : () async {
-                            await Navigator.of(context).push(
-                              MaterialPageRoute<void>(builder: (_) => const VpnPrivacyPage()),
-                            );
-                            if (mounted) await _refreshRoutingStatus();
-                          },
-                    icon: const Icon(Icons.tune),
-                    label: Text(_privacyText(context, 'Открыть расширенные настройки', 'Open advanced settings')),
+                        : (value) => _setPrivacyBool(
+                              () => ref.read(VpnPrivacyPreferences.publicDns.notifier).update(value),
+                              successRu: 'Отображение DNS применено.',
+                              successEn: 'DNS network display setting applied.',
+                            ),
+                    secondary: const Icon(Icons.public),
+                    title: Text(
+                      _privacyText(context, 'Публичный DNS в сведениях о сети', 'Public DNS in network information'),
+                    ),
+                    subtitle: Text(
+                      _privacyText(
+                        context,
+                        'Показывает публичный DNS вместо внутреннего адреса туннеля; запросы всё равно перехватывает ядро.',
+                        'Shows a public DNS address instead of the tunnel address; the core still intercepts DNS queries.',
+                      ),
+                    ),
+                  ),
+                SwitchListTile.adaptive(
+                  value: ref.watch(VpnPrivacyPreferences.hideLocalProxy),
+                  onChanged: _busy
+                      ? null
+                      : (value) => _setPrivacyBool(
+                            () => ref.read(VpnPrivacyPreferences.hideLocalProxy.notifier).update(value),
+                            successRu: 'Настройка локального прокси применена.',
+                            successEn: 'Local proxy setting applied.',
+                          ),
+                  secondary: const Icon(Icons.portable_wifi_off_outlined),
+                  title: Text(_privacyText(context, 'Не открывать локальный прокси', 'Disable local proxy')),
+                  subtitle: Text(
+                    _privacyText(
+                      context,
+                      'Не поднимает лишние HTTP/SOCKS/direct listener в режиме VPN.',
+                      'Avoids extra HTTP/SOCKS/direct listeners in VPN mode.',
+                    ),
+                  ),
+                ),
+                SwitchListTile.adaptive(
+                  value: ref.watch(VpnPrivacyPreferences.hideClashApi),
+                  onChanged: _busy
+                      ? null
+                      : (value) => _setPrivacyBool(
+                            () => ref.read(VpnPrivacyPreferences.hideClashApi.notifier).update(value),
+                            successRu: 'Настройка Clash API применена.',
+                            successEn: 'Clash API setting applied.',
+                          ),
+                  secondary: const Icon(Icons.api_outlined),
+                  title: Text(_privacyText(context, 'Не открывать Clash API', 'Disable Clash API')),
+                  subtitle: Text(
+                    _privacyText(
+                      context,
+                      'Не открывает внешний REST-порт управления; внутренняя статистика сохраняется.',
+                      'Does not expose the external REST control port; internal statistics remain available.',
+                    ),
+                  ),
+                ),
+                SwitchListTile.adaptive(
+                  value: ref.watch(VpnPrivacyPreferences.disableSystemProxy),
+                  onChanged: _busy
+                      ? null
+                      : (value) => _setPrivacyBool(
+                            () => ref.read(VpnPrivacyPreferences.disableSystemProxy.notifier).update(value),
+                            successRu: 'Настройка системного прокси применена.',
+                            successEn: 'System proxy setting applied.',
+                          ),
+                  secondary: const Icon(Icons.http_outlined),
+                  title: Text(
+                    _privacyText(context, 'Не объявлять системный HTTP-прокси', 'Disable system HTTP proxy'),
+                  ),
+                  subtitle: Text(
+                    _privacyText(
+                      context,
+                      'Не добавляет HTTP-прокси в сведения о VPN-сети.',
+                      'Does not advertise an HTTP proxy on the VPN network.',
+                    ),
                   ),
                 ),
               ],
@@ -376,31 +543,39 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
 }
 
 class _FeatureRow extends StatelessWidget {
-  const _FeatureRow({required this.icon, required this.title, required this.subtitle});
+  const _FeatureRow({required this.icon, required this.title, required this.subtitle, this.onTap});
 
   final IconData icon;
   final String title;
   final String subtitle;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(padding: const EdgeInsets.only(top: 2), child: Icon(icon, size: 22)),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 3),
-              Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
-            ],
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(padding: const EdgeInsets.only(top: 2), child: Icon(icon, size: 22)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 3),
+                Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
+              ],
+            ),
           ),
-        ),
-      ],
+          if (onTap != null) ...[
+            const SizedBox(width: 8),
+            const Icon(Icons.chevron_right_rounded),
+          ],
+        ],
+      ),
     ),
   );
 }
