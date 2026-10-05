@@ -1,6 +1,7 @@
 import 'package:hiddify/core/app_info/app_info_provider.dart';
 import 'package:hiddify/core/localization/locale_preferences.dart';
 import 'package:hiddify/core/model/constants.dart';
+import 'package:hiddify/core/model/environment.dart';
 import 'package:hiddify/core/preferences/preferences_provider.dart';
 import 'package:hiddify/core/utils/preferences_utils.dart';
 import 'package:hiddify/features/app_update/data/app_update_data_providers.dart';
@@ -18,7 +19,8 @@ part 'app_update_notifier.g.dart';
 @riverpod
 Upgrader upgrader(Ref ref) => Upgrader(
   storeController: UpgraderStoreController(
-    onAndroid: () => ref.read(appInfoProvider).requireValue.release.allowCustomUpdateChecker
+    onAndroid: () =>
+        ref.read(appInfoProvider).requireValue.release.allowCustomUpdateChecker
         ? UpgraderAppcastStore(appcastURL: Constants.appCastUrl)
         : UpgraderPlayStore(),
     oniOS: () => UpgraderAppStore(),
@@ -29,7 +31,9 @@ Upgrader upgrader(Ref ref) => Upgrader(
   ),
   debugLogging: false,
   // durationUntilAlertAgain: const Duration(hours: 12),
-  messages: UpgraderMessages(code: ref.watch(localePreferencesProvider).languageCode),
+  messages: UpgraderMessages(
+    code: ref.watch(localePreferencesProvider).languageCode,
+  ),
 );
 
 @Riverpod(keepAlive: true)
@@ -49,12 +53,18 @@ class AppUpdateNotifier extends _$AppUpdateNotifier with AppLogger {
     state = const AppUpdateState.checking();
     final appInfo = ref.read(appInfoProvider).requireValue;
     if (!appInfo.release.allowCustomUpdateChecker) {
-      loggy.debug("custom update checkers are not allowed for [${appInfo.release.name}] release");
+      loggy.debug(
+        "custom update checkers are not allowed for [${appInfo.release.name}] release",
+      );
       return state = const AppUpdateState.disabled();
     }
     return ref
         .read(appUpdateRepositoryProvider)
-        .getLatestVersion(flavor: appInfo.environment, release: appInfo.release)
+        .getLatestVersion(
+          flavor: appInfo.environment,
+          release: appInfo.release,
+          includePreReleases: appInfo.environment == Environment.dev,
+        )
         .match(
           (err) {
             if (!ref.mounted) return AppUpdateState.error(err);
@@ -68,7 +78,8 @@ class AppUpdateNotifier extends _$AppUpdateNotifier with AppLogger {
               final currentVersion = Version.parse(appInfo.version);
               if (latestVersion > currentVersion ||
                   latestVersion == currentVersion &&
-                      (int.tryParse(remote.buildNumber) ?? 0) > (int.tryParse(appInfo.buildNumber) ?? 0)) {
+                      (int.tryParse(remote.buildNumber) ?? 0) >
+                          (int.tryParse(appInfo.buildNumber) ?? 0)) {
                 if (remote.version == _ignoreReleasePref.read()) {
                   loggy.debug("ignored release [${remote.version}]");
                   return state = AppUpdateStateIgnored(remote);
@@ -76,11 +87,15 @@ class AppUpdateNotifier extends _$AppUpdateNotifier with AppLogger {
                 loggy.debug("new version available: $remote");
                 return state = AppUpdateState.available(remote);
               }
-              loggy.info("already using latest version[$currentVersion], remote: [${remote.version}]");
+              loggy.info(
+                "already using latest version[$currentVersion], remote: [${remote.version}]",
+              );
               return state = const AppUpdateState.notAvailable();
             } catch (error, stackTrace) {
               loggy.warning("error parsing versions", error, stackTrace);
-              return state = AppUpdateState.error(AppUpdateFailure(error, stackTrace));
+              return state = AppUpdateState.error(
+                AppUpdateFailure(error, stackTrace),
+              );
             }
           },
         )
