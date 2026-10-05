@@ -29,35 +29,43 @@ class AnalyticsController extends _$AnalyticsController with AppLogger {
     if (state case AsyncData(value: final enabled)) {
       loggy.debug("enabling analytics");
       state = const AsyncLoading();
-      if (!enabled) {
-        await _preferences.setBool(enableAnalyticsPrefKey, true);
-      }
-
-      // final env = ref.read(environmentProvider);
-      // final appInfo = await ref.read(appInfoProvider.future);
-      final dsn = !kDebugMode || _testCrashReport ? Environment.sentryDSN : "";
       final sentryLogger = SentryLoggyIntegration();
-      LoggerController.instance.addPrinter("analytics", sentryLogger);
+      try {
+        // final env = ref.read(environmentProvider);
+        // final appInfo = await ref.read(appInfoProvider.future);
+        final dsn = !kDebugMode || _testCrashReport ? Environment.sentryDSN : "";
 
-      await SentryFlutter.init((options) {
-        options.dsn = dsn;
-        // options.environment = env.name;
-        // options.dist = appInfo.release.name;
-        options.debug = kDebugMode;
-        options.enableNativeCrashHandling = true;
-        options.enableNdkScopeSync = true;
-        // options.autoAppStart = false;
-        // options.attachScreenshot = true;
-        options.serverName = "";
-        options.attachThreads = true;
-        options.tracesSampleRate = 0;
-        options.sendDefaultPii = false;
-        options.enableUserInteractionTracing = false;
-        options.addIntegration(sentryLogger);
-        options.beforeSend = sentryBeforeSend;
-      });
+        await SentryFlutter.init((options) {
+          options.dsn = dsn;
+          // options.environment = env.name;
+          // options.dist = appInfo.release.name;
+          options.debug = kDebugMode;
+          options.enableNativeCrashHandling = true;
+          options.enableNdkScopeSync = true;
+          // options.autoAppStart = false;
+          // options.attachScreenshot = true;
+          options.serverName = "";
+          options.attachThreads = true;
+          options.tracesSampleRate = 0;
+          options.sendDefaultPii = false;
+          options.enableUserInteractionTracing = false;
+          options.addIntegration(sentryLogger);
+          options.beforeSend = sentryBeforeSend;
+        });
 
-      state = const AsyncData(true);
+        // Do not publish/persist the enabled state until Sentry is fully initialized. Remove a
+        // stale printer first in case a previous initialization was interrupted.
+        LoggerController.instance.removePrinter("analytics");
+        LoggerController.instance.addPrinter("analytics", sentryLogger);
+        if (!enabled && !await _preferences.setBool(enableAnalyticsPrefKey, true)) {
+          throw StateError('Unable to persist analytics preference');
+        }
+        state = const AsyncData(true);
+      } catch (error, stackTrace) {
+        LoggerController.instance.removePrinter("analytics");
+        await Sentry.close();
+        state = AsyncError(error, stackTrace);
+      }
     }
   }
 
@@ -65,10 +73,19 @@ class AnalyticsController extends _$AnalyticsController with AppLogger {
     if (state case AsyncData()) {
       loggy.debug("disabling analytics");
       state = const AsyncLoading();
-      await _preferences.setBool(enableAnalyticsPrefKey, false);
-      await Sentry.close();
-      LoggerController.instance.removePrinter("analytics");
-      state = const AsyncData(false);
+      try {
+        if (!await _preferences.setBool(enableAnalyticsPrefKey, false)) {
+          throw StateError('Unable to persist analytics preference');
+        }
+        await Sentry.close();
+        LoggerController.instance.removePrinter("analytics");
+        state = const AsyncData(false);
+      } catch (error, stackTrace) {
+        // Privacy preference is written before closing the SDK, so a failed close cannot
+        // accidentally re-enable analytics after restart.
+        LoggerController.instance.removePrinter("analytics");
+        state = AsyncError(error, stackTrace);
+      }
     }
   }
 }
