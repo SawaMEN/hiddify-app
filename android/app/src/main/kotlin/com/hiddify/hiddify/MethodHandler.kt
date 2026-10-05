@@ -67,6 +67,27 @@ class MethodHandler(
                 null
             }
 
+            "get_package_identity" -> result.success(com.hiddify.hiddify.privacy.PackageIdentity.status(mainActivity))
+            "prepare_private_package" -> launchResult(result, "package_repack_failed") {
+                check(!BoxService.hasActiveCore()) { "Disconnect VPN before creating a private copy" }
+                com.hiddify.hiddify.privacy.PackageIdentity.prepare(mainActivity,
+                    call.argument<String>("label") ?: "Application",
+                    call.argument<String>("databaseSnapshot") ?: "")
+            }
+            "install_private_package" -> launchResult(result, "package_install_failed", Dispatchers.Main.immediate) {
+                com.hiddify.hiddify.privacy.PackageIdentity.install(mainActivity); null
+            }
+            "launch_private_package" -> launchResult(result, "package_launch_failed", Dispatchers.Main.immediate) {
+                com.hiddify.hiddify.privacy.PackageIdentity.launch(mainActivity); null
+            }
+            "remove_original_package" -> launchResult(result, "package_remove_failed", Dispatchers.Main.immediate) {
+                val original = mainActivity.getSharedPreferences("FlutterSharedPreferences", 0).getString("identity_original", "").orEmpty()
+                check(original.isNotEmpty() && original != mainActivity.packageName)
+                check(java.io.File(mainActivity.filesDir, "identity_migrated").exists())
+                mainActivity.startActivity(android.content.Intent(android.content.Intent.ACTION_DELETE,
+                    android.net.Uri.parse("package:$original"))); null
+            }
+            "get_grpc_auth_token" -> result.success(Settings.grpcAuthToken)
             "get_connection_intent" -> result.success(Settings.connectionDesired)
             "get_service_running" -> result.success(BoxService.isRunning())
             "get_network_status" -> launchResult(result, "android_network_state_failed") {
@@ -119,7 +140,7 @@ class MethodHandler(
                             it.fixAndroidStack = Bugs.fixAndroidStack
                             it.mode = mode.toLong()
                             it.listen = "127.0.0.1:$grpcPort"
-                            it.secret = ""
+                            it.secret = Settings.grpcAuthToken
                             it.debug = Settings.debugMode
                         },
                         BoxService.currentPlatformInterface(),

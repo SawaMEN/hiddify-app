@@ -1,6 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:hiddify/core/widget/glass_surface.dart';
-import 'package:go_router/go_router.dart';
+import 'package:hiddify/features/proxy/overview/proxies_modal.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/core/router/dialog/dialog_notifier.dart';
 import 'package:hiddify/features/connection/model/connection_status.dart';
@@ -45,7 +45,7 @@ class ActiveProxyFooter extends ConsumerWidget with InfraLogger {
       radius: 24,
       child: InkWell(
         onTap: () {
-          context.goNamed('proxies');
+          showProxiesModal(context);
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),

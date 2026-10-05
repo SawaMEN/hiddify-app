@@ -29,6 +29,7 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
 
   bool _isBgClientAvailable = false;
   bool _debug = false;
+  CallOptions? _localAuthorization;
   ChannelCredentials _channelCredentials = const ChannelCredentials.insecure();
   Stream<CoreStatus> _serviceEvents = const Stream.empty();
 
@@ -40,6 +41,11 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
   ClientChannel? _bgChannel;
   @override
   Future<String> setup(Directories directories, bool debug, int mode) async {
+    if (Platform.isAndroid) {
+      final token = await methodChannel.invokeMethod<String>('get_grpc_auth_token');
+      if (token == null || token.isEmpty) throw StateError('Local control authorization is missing');
+      _localAuthorization = CallOptions(metadata: {'authorization': 'Bearer $token'});
+    }
     final channelOption = [1, 2].contains(mode)
         ? MTLSChannelCredentials(serverPublicKey: serverPublicKey, clientKey: cert)
         : const ChannelCredentials.insecure();
@@ -62,7 +68,7 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
         options: ChannelOptions(credentials: channelOption),
       );
       try {
-        await HelloClient(channel).sayHello(
+        await HelloClient(channel, options: _localAuthorization).sayHello(
           HelloRequest(name: "test"),
           options: CallOptions(timeout: const Duration(seconds: 3)),
         );
@@ -110,8 +116,8 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
       port: portBack,
       options: ChannelOptions(credentials: channelOption),
     );
-    fgClient = CoreClient(_fgChannel!);
-    bgClient = CoreClient(_bgChannel!);
+    fgClient = CoreClient(_fgChannel!, options: _localAuthorization);
+    bgClient = CoreClient(_bgChannel!, options: _localAuthorization);
     return "";
   }
 
@@ -197,7 +203,7 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
       port: portBack,
       options: ChannelOptions(credentials: _channelCredentials),
     );
-    bgClient = CoreClient(_bgChannel!);
+    bgClient = CoreClient(_bgChannel!, options: _localAuthorization);
     _isBgClientAvailable = true;
     return const CoreStarted();
   }

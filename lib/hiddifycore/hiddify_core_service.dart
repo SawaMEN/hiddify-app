@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:hiddify/features/vpn_privacy/vpn_privacy_preferences.dart';
+import 'package:hiddify/features/vpn_privacy/vpn_privacy_policy.dart';
+
 import 'package:fpdart/fpdart.dart';
 import 'package:grpc/grpc.dart';
 import 'package:hiddify/core/directories/directories_provider.dart';
@@ -186,7 +189,20 @@ class HiddifyCoreService with InfraLogger {
   TaskEither<String, Unit> changeOptions(SingboxConfigOption options) {
     return _serialized(() async {
       try {
-        final request = ChangeHiddifySettingsRequest(hiddifySettingsJson: jsonEncode(options.toJson()));
+        final json = applyVpnPrivacyPolicy(
+          options.toJson(),
+          android: PlatformUtils.isAndroid,
+          fullTunnel: ref.read(VpnPrivacyPreferences.fullTunnel),
+          hideLocalProxy: ref.read(VpnPrivacyPreferences.hideLocalProxy),
+          hideClashApi: ref.read(VpnPrivacyPreferences.hideClashApi),
+          disableSystemProxy: ref.read(VpnPrivacyPreferences.disableSystemProxy),
+          encryptedDns: ref.read(VpnPrivacyPreferences.encryptedDns),
+        );
+        if (!options.enableMixedPort) json['mixed-port'] = 0;
+        if (!options.enableDirectPort) json['direct-port'] = 0;
+        if (!options.enableTproxyPort) json['tproxy-port'] = 0;
+        if (!options.enableRedirectPort) json['redirect-port'] = 0;
+        final request = ChangeHiddifySettingsRequest(hiddifySettingsJson: jsonEncode(json));
         final foreground = await core.fgClient.changeHiddifySettings(request, options: unaryOptions);
         if (foreground.messageType != MessageType.EMPTY) {
           return left('${foreground.messageType} ${foreground.message}');

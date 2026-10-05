@@ -43,6 +43,15 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
     private var vpnRequestGeneration: Long? = null
     private var notificationRequestInFlight = false
 
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        val migrationError = runCatching { com.hiddify.hiddify.privacy.PackageIdentity.importMigration(this) }.exceptionOrNull()
+        super.onCreate(savedInstanceState)
+        if (migrationError != null) {
+            android.app.AlertDialog.Builder(this).setMessage(migrationError.message)
+                .setPositiveButton(android.R.string.ok) { _, _ -> finish() }.show()
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         reconnect()

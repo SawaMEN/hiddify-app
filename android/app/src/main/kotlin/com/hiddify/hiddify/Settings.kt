@@ -13,6 +13,23 @@ import java.io.ObjectInputStream
 
 object Settings {
 
+    val privacyFullTunnel get() = getBoolean("flutter.privacy-full-tunnel", false)
+    val privacyHideLocalProxy get() = getBoolean("flutter.privacy-hide-local-proxy", false)
+    val privacyHideClashApi get() = getBoolean("flutter.privacy-hide-clash-api", false)
+    val privacyEncryptedDns get() = getBoolean("flutter.privacy-encrypted-dns", false)
+    val privacyPublicDns get() = getBoolean("flutter.privacy-public-dns", false)
+    val privacyDisableSystemProxy get() = getBoolean("flutter.privacy-disable-system-proxy", true)
+    val privacyDisableIpv6 get() = getString("flutter.ipv6-mode", "ipv4_only") == "ipv4_only"
+    val grpcAuthToken: String
+        @Synchronized get() {
+            val saved = getString("local_control_token", "")
+            if (saved.isNotEmpty()) return saved
+            val bytes = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
+            val token = Base64.encodeToString(bytes, Base64.NO_WRAP or Base64.URL_SAFE)
+            check(preferences.edit().putString("local_control_token", token).commit())
+            return token
+        }
+
     var connectionDesired: Boolean
         get() = getBoolean("flutter.connection_desired", getBoolean("flutter.started_by_user", false))
         set(value) = preferences.edit().putBoolean("flutter.connection_desired", value).apply()

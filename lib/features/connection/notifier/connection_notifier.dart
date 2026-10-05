@@ -106,6 +106,13 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     }
   }
 
+  /// Stop intent and core before snapshotting data for a separate package.
+  Future<void> disconnectForMigration() async {
+    _cancelRecovery();
+    await ref.read(Preferences.startedByUser.notifier).update(false);
+    await _disconnect();
+  }
+
   Future<void> toggleConnection() async {
     if (_retryTimer != null || _retrying) {
       _cancelRecovery();

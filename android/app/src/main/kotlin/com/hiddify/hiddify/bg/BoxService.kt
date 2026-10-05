@@ -194,7 +194,7 @@ class BoxService(
                         it.fixAndroidStack = Bugs.fixAndroidStack
                         it.mode = 4L
                         it.listen = "127.0.0.1:${Settings.grpcServiceModePort}"
-                        it.secret = ""
+                        it.secret = Settings.grpcAuthToken
                         it.debug = Settings.debugMode
                     },
                     platformInterface,
@@ -211,6 +211,8 @@ class BoxService(
                 finishCancelledStart("cancelled during native setup")
                 return
             }
+            Mobile.applyDevicePrivacy(Settings.privacyFullTunnel, Settings.privacyHideLocalProxy,
+                Settings.privacyHideClashApi, Settings.privacyDisableSystemProxy, Settings.privacyEncryptedDns)
             if (Settings.startCoreAfterStartingService) {
                 Mobile.start(selectedConfigPath, "")
                 if (!Settings.connectionDesired) {
