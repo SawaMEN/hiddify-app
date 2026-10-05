@@ -132,21 +132,15 @@ class BoxService(
     private suspend fun finishCancelledStart(reason: String) {
         Settings.startedByUser = false
         val closeError = runCatching { releaseNative(reason) }.exceptionOrNull()
-        if (closeError != null) {
-            Log.e(TAG, "failed to close cancelled native start", closeError)
-            status.postValue(Status.Started)
-            withContext(Dispatchers.Main) {
-                if (destroyed) return@withContext
-                notification.show(activeProfileName, R.string.status_started)
-                binder.broadcast { it.onServiceAlert(Alert.StartService.ordinal, closeError.message) }
-            }
-            return
-        }
         closeTun(reason)
         withContext(Dispatchers.Main) {
             if (destroyed) return@withContext
             unregisterReceiver()
             notification.close()
+            if (closeError != null) {
+                Log.e(TAG, "failed to close cancelled native start", closeError)
+                binder.broadcast { it.onServiceAlert(Alert.StartService.ordinal, closeError.message) }
+            }
             status.value = Status.Stopped
             service.stopSelf()
         }
@@ -319,25 +313,23 @@ class BoxService(
                 }
                 DefaultNetworkMonitor.detachCoreListener()
                 val closeError = runCatching { Mobile.close(4L) }.exceptionOrNull()
-                if (closeError != null) {
-                    Log.e(TAG, "failed to close mobile core", closeError)
-                    withContext(Dispatchers.Main) {
-                        // Allow a subsequent stop request to retry instead of reporting a false Stopped state.
-                        status.value = Status.Started
-                        if (destroyed) return@withContext
-                        notification.show(activeProfileName, R.string.status_started)
-                        binder.broadcast { it.onServiceAlert(Alert.StartService.ordinal, closeError.message) }
-                    }
-                    return@withLock
-                }
-
                 closeTun("stop")
-                coreOwner = null
                 runCatching { DefaultNetworkMonitor.stop() }
                     .onFailure { Log.w(TAG, "failed to stop network monitor", it) }
                 Settings.startedByUser = false
 
+                if (closeError == null) {
+                    coreOwner = null
+                } else {
+                    // Keep ownership until onDestroy retries the native close, but never keep a
+                    // dead TUN/network monitor alive after the user requested a stop.
+                    Log.e(TAG, "failed to close mobile core", closeError)
+                }
+
                 withContext(Dispatchers.Main) {
+                    if (closeError != null) {
+                        binder.broadcast { it.onServiceAlert(Alert.StartService.ordinal, closeError.message) }
+                    }
                     unregisterReceiver()
                     notification.close()
                     status.value = Status.Stopped
@@ -350,13 +342,13 @@ class BoxService(
     private suspend fun stopAndAlert(type: Alert, message: String? = null) {
         if (destroyed) return
         Settings.startedByUser = false
-        releaseNative("service error")
+        val closeError = runCatching { releaseNative("service error") }.exceptionOrNull()
         closeTun("service error")
 
         withContext(Dispatchers.Main) {
             unregisterReceiver()
             notification.close()
-            binder.broadcast { callback -> callback.onServiceAlert(type.ordinal, message) }
+            binder.broadcast { callback -> callback.onServiceAlert(type.ordinal, message ?: closeError?.message) }
             status.value = Status.Stopped
             service.stopSelf()
         }
@@ -418,10 +410,21 @@ class BoxService(
     private suspend fun releaseNative(reason: String) {
         if (coreOwner !== this@BoxService) return
         DefaultNetworkMonitor.detachCoreListener()
-        Mobile.close(4L) // retain ownership and abort replacement if native close throws
-        closeTun(reason)
-        runCatching { DefaultNetworkMonitor.stop() }.onFailure { Log.w(TAG, "network cleanup failed", it) }
-        coreOwner = null
+        var closeError: Exception? = null
+        try {
+            Mobile.close(4L)
+        } catch (e: Exception) {
+            closeError = e
+            Log.e(TAG, "failed to close native core during $reason", e)
+        } finally {
+            // Android resources must always be released even when gomobile close fails. Keeping
+            // the owner on failure lets onDestroy/replacement retry the native close later.
+            closeTun(reason)
+            runCatching { DefaultNetworkMonitor.stop() }
+                .onFailure { Log.w(TAG, "network cleanup failed", it) }
+            if (closeError == null) coreOwner = null
+        }
+        closeError?.let { throw it }
     }
 
     fun onBind(intent: Intent): IBinder = binder
