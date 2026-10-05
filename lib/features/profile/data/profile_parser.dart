@@ -63,7 +63,9 @@ class ProfileParser {
   final Ref _ref;
   final DioHttpClient _httpClient;
 
-  ProfileParser({required Ref ref, required DioHttpClient httpClient}) : _ref = ref, _httpClient = httpClient;
+  ProfileParser({required Ref ref, required DioHttpClient httpClient})
+    : _ref = ref,
+      _httpClient = httpClient;
   TaskEither<ProfileFailure, ProfileEntriesCompanion> addLocal({
     required String id,
     required String content,
@@ -71,7 +73,8 @@ class ProfileParser {
     required UserOverride? userOverride,
   }) {
     return TaskEither.tryCatch(() async {
-          if (!_ref.mounted) throw const ProfileFailure.cancelByUser('Profile parser disposed');
+          if (!_ref.mounted)
+            throw const ProfileFailure.cancelByUser('Profile parser disposed');
           await expandRemoteLinesInParallel(
             tempFilePath: tempFilePath,
             httpClient: _httpClient,
@@ -93,7 +96,12 @@ class ProfileParser {
                 userOverride: userOverride,
                 populatedHeaders: populatedHeaders,
               ),
-            ).flatMap((profEntity) => Either.tryCatch(() => profEntity.toInsertEntry(), ProfileFailure.unexpected)),
+            ).flatMap(
+              (profEntity) => Either.tryCatch(
+                () => profEntity.toInsertEntry(),
+                ProfileFailure.unexpected,
+              ),
+            ),
           ),
         );
   }
@@ -118,7 +126,12 @@ class ProfileParser {
             userOverride: userOverride,
             populatedHeaders: populatedHeaders,
           ),
-        ).flatMap((profEntity) => Either.tryCatch(() => profEntity.toInsertEntry(), ProfileFailure.unexpected)),
+        ).flatMap(
+          (profEntity) => Either.tryCatch(
+            () => profEntity.toInsertEntry(),
+            ProfileFailure.unexpected,
+          ),
+        ),
       ),
     ),
   );
@@ -133,7 +146,19 @@ class ProfileParser {
         parse(
           tempFilePath: tempFilePath,
           profile: rp.copyWith(populatedHeaders: populatedHeaders),
-        ).flatMap((profEntity) => Either.tryCatch(() => profEntity.copyWith(lastUpdate: nextProfileUpdateTime(rp.lastUpdate, profEntity.lastUpdate)).toUpdateEntry(), ProfileFailure.unexpected)),
+        ).flatMap(
+          (profEntity) => Either.tryCatch(
+            () => profEntity
+                .copyWith(
+                  lastUpdate: nextProfileUpdateTime(
+                    rp.lastUpdate,
+                    profEntity.lastUpdate,
+                  ),
+                )
+                .toUpdateEntry(),
+            ProfileFailure.unexpected,
+          ),
+        ),
       ),
     ),
   );
@@ -160,7 +185,14 @@ class ProfileParser {
       content: content,
     ).flatMap(
       (entity) => Either.tryCatch(
-        () => entity.copyWith(lastUpdate: nextProfileUpdateTime(profile.lastUpdate, entity.lastUpdate)).toUpdateEntry(),
+        () => entity
+            .copyWith(
+              lastUpdate: nextProfileUpdateTime(
+                profile.lastUpdate,
+                entity.lastUpdate,
+              ),
+            )
+            .toUpdateEntry(),
         ProfileFailure.unexpected,
       ),
     );
@@ -170,38 +202,48 @@ class ProfileParser {
     String url,
     String tempFilePath,
     CancelToken? cancelToken,
-  ) => TaskEither.tryCatch(() async {
-    // if (url.startsWith("http://"))
-    //   throw const ProfileFailure.invalidUrl('HTTP is not supported. Please use HTTPS for secure connection.');
+  ) => TaskEither.tryCatch(
+    () async {
+      // if (url.startsWith("http://"))
+      //   throw const ProfileFailure.invalidUrl('HTTP is not supported. Please use HTTPS for secure connection.');
 
-    final rs =
-        await SubscriptionCache.download(
-          _httpClient,
-          url.trim(),
-          tempFilePath,
-          cancelToken: cancelToken,
-          userAgent: _ref.read(ConfigOptions.useXrayCoreWhenPossible)
-              ? _httpClient.userAgent.replaceAll("HiddifyNext", "HiddifyNextX")
-              : null,
-        ).catchError((Object err) {
-          if (err is DioException && CancelToken.isCancel(err)) {
-            throw const ProfileFailure.cancelByUser('HTTP request for getting profile content canceled by user.');
-          }
-          throw err;
-        });
-    if (!_ref.mounted) throw const ProfileFailure.cancelByUser('Profile parser disposed');
-    await expandRemoteLinesInParallel(
-      tempFilePath: tempFilePath,
-      httpClient: _httpClient,
-      cancelToken: cancelToken ?? CancelToken(),
-      ref: _ref,
-    );
-    // fixing headers before return
-    return rs.headers.map.map((key, value) {
-      if (value.length == 1) return MapEntry(key, value.first);
-      return MapEntry(key, value);
-    });
-  }, (err, st) => err is ProfileFailure ? err : ProfileFailure.unexpected(err, st));
+      final rs =
+          await SubscriptionCache.download(
+            _httpClient,
+            url.trim(),
+            tempFilePath,
+            cancelToken: cancelToken,
+            userAgent: _ref.read(ConfigOptions.useXrayCoreWhenPossible)
+                ? _httpClient.userAgent.replaceAll(
+                    "HiddifyNext",
+                    "HiddifyNextX",
+                  )
+                : null,
+          ).catchError((Object err) {
+            if (err is DioException && CancelToken.isCancel(err)) {
+              throw const ProfileFailure.cancelByUser(
+                'HTTP request for getting profile content canceled by user.',
+              );
+            }
+            throw err;
+          });
+      if (!_ref.mounted)
+        throw const ProfileFailure.cancelByUser('Profile parser disposed');
+      await expandRemoteLinesInParallel(
+        tempFilePath: tempFilePath,
+        httpClient: _httpClient,
+        cancelToken: cancelToken ?? CancelToken(),
+        ref: _ref,
+      );
+      // fixing headers before return
+      return rs.headers.map.map((key, value) {
+        if (value.length == 1) return MapEntry(key, value.first);
+        return MapEntry(key, value);
+      });
+    },
+    (err, st) =>
+        err is ProfileFailure ? err : ProfileFailure.unexpected(err, st),
+  );
   Future<void> expandRemoteLinesInParallel({
     required String tempFilePath,
     required DioHttpClient httpClient,
@@ -214,10 +256,18 @@ class ProfileParser {
         : null;
     final content = await File(tempFilePath).readAsString();
     final lines = content.split('\n');
-    if (lines.where((l) => l.trim().startsWith('http://') || l.trim().startsWith('https://')).length > 128)
+    if (lines
+            .where(
+              (l) =>
+                  l.trim().startsWith('http://') ||
+                  l.trim().startsWith('https://'),
+            )
+            .length >
+        128)
       throw const FormatException('Too many nested subscriptions');
     var bytes = utf8.encode(content).length;
-    if (bytes > 8 * 1024 * 1024) throw const FormatException('Subscription too large');
+    if (bytes > 8 * 1024 * 1024)
+      throw const FormatException('Subscription too large');
 
     final results = List<String?>.filled(lines.length, null);
 
@@ -240,13 +290,20 @@ class ProfileParser {
 
         final tempFile = File('$tempFilePath.$currentIndex');
         try {
-          await httpClient.download(line, tempFile.path, cancelToken: cancelToken, userAgent: userAgent);
+          await httpClient.download(
+            line,
+            tempFile.path,
+            cancelToken: cancelToken,
+            userAgent: userAgent,
+          );
 
           final downloaded = await tempFile.readAsString();
           bytes += utf8.encode(downloaded).length;
           if (bytes > 8 * 1024 * 1024) {
             cancelToken.cancel('Aggregate size limit');
-            throw const FormatException('Nested subscriptions exceed size limit');
+            throw const FormatException(
+              'Nested subscriptions exceed size limit',
+            );
           }
           results[currentIndex] = downloaded.trim();
         } catch (err) {
@@ -263,28 +320,39 @@ class ProfileParser {
     // Start workers
     await Future.wait(List.generate(parallelism, (_) => worker()));
     if (cancelToken.isCancelled) {
-      throw const ProfileFailure.cancelByUser('HTTP request for getting profile content canceled by user.');
+      throw const ProfileFailure.cancelByUser(
+        'HTTP request for getting profile content canceled by user.',
+      );
     }
 
     if (results.any((e) => e != null)) {
       final newContent = results.join("\n");
-      if (utf8.encode(newContent).length > 8 * 1024 * 1024) throw const FormatException("Subscription too large");
+      if (utf8.encode(newContent).length > 8 * 1024 * 1024)
+        throw const FormatException("Subscription too large");
       await File(tempFilePath).writeAsString(newContent);
     }
   }
 
-  static TaskEither<ProfileFailure, Map<String, dynamic>> _readHeaders(String path, Map<String, dynamic> headers) =>
-      TaskEither.tryCatch(() async {
-        final content = await File(path).readAsString();
-        return (await compute(_headersInWorker, (content, headers))).match((e) => throw e, (v) => v);
-      }, (e, st) => e is ProfileFailure ? e : ProfileFailure.unexpected(e, st));
+  static TaskEither<ProfileFailure, Map<String, dynamic>> _readHeaders(
+    String path,
+    Map<String, dynamic> headers,
+  ) => TaskEither.tryCatch(() async {
+    final content = await File(path).readAsString();
+    return (await compute(_headersInWorker, (
+      content,
+      headers,
+    ))).match((e) => throw e, (v) => v);
+  }, (e, st) => e is ProfileFailure ? e : ProfileFailure.unexpected(e, st));
 
   static Either<ProfileFailure, Map<String, dynamic>> populateHeaders({
     required String content,
     Map<String, dynamic>? remoteHeaders,
   }) => Either.tryCatch(() {
     final contentHeaders = _parseHeadersFromContent(content);
-    return _mergeAndValidateHeaders(contentHeaders, Map<String, dynamic>.from(remoteHeaders ?? {}));
+    return _mergeAndValidateHeaders(
+      contentHeaders,
+      Map<String, dynamic>.from(remoteHeaders ?? {}),
+    );
   }, ProfileFailure.unexpected);
 
   static Map<String, dynamic> _mergeAndValidateHeaders(
@@ -298,7 +366,9 @@ class ProfileParser {
     }
     final headers = <String, dynamic>{};
     for (final entry in remoteHeaders.entries) {
-      if (allowedProfileHeaders.contains(entry.key) && entry.value != null && entry.value.toString().isNotEmpty) {
+      if (allowedProfileHeaders.contains(entry.key) &&
+          entry.value != null &&
+          entry.value.toString().isNotEmpty) {
         headers[entry.key] = entry.value;
       }
     }
@@ -315,7 +385,11 @@ class ProfileParser {
       if (line.startsWith("#") || line.startsWith("//")) {
         final index = line.indexOf(':');
         if (index == -1) continue;
-        final key = line.substring(0, index).replaceFirst(RegExp("^#|//"), "").trim().toLowerCase();
+        final key = line
+            .substring(0, index)
+            .replaceFirst(RegExp("^#|//"), "")
+            .trim()
+            .toLowerCase();
         final value = line.substring(index + 1).trim();
         headers[key] = value;
       }
@@ -328,8 +402,12 @@ class ProfileParser {
     if (map case {"upload": final upload?, "download": final download?}) {
       final total = map['total'];
       var expire = map['expire'];
-      final total1 = (total == null || total == 0) ? infiniteTrafficThreshold + 1 : total;
-      expire = (expire == null || expire == 0 || expire > 8_640_000_000_000) ? infiniteTimeThreshold : expire;
+      final total1 = (total == null || total == 0)
+          ? infiniteTrafficThreshold + 1
+          : total;
+      expire = (expire == null || expire == 0 || expire > 8_640_000_000_000)
+          ? infiniteTimeThreshold
+          : expire;
       return SubscriptionInfo(
         upload: upload,
         download: download,
@@ -348,21 +426,25 @@ class ProfileParser {
   }) => Either.tryCatch(() {
     final headers = Map<String, dynamic>.from(profile.populatedHeaders ?? {});
     var name = '';
-    if (profile.userOverride?.name case final String oName when oName.isNotEmpty) {
+    if (profile.userOverride?.name case final String oName
+        when oName.isNotEmpty) {
       name = oName;
     }
 
-    if (headers['profile-title'] case final String titleHeader when name.isEmpty) {
+    if (headers['profile-title'] case final String titleHeader
+        when name.isEmpty) {
       name = parseProfileTitle(titleHeader) ?? '';
     }
-    if (headers['content-disposition'] case final String contentDispositionHeader when name.isEmpty) {
+    if (headers['content-disposition']
+        case final String contentDispositionHeader when name.isEmpty) {
       name = parseContentDispositionFilename(contentDispositionHeader) ?? '';
     }
     if (profile case RemoteProfileEntity(:final url)) {
       if (Uri.parse(url).fragment case final fragment when name.isEmpty) {
         name = fragment;
       }
-      if (Uri.parse(url).pathSegments.lastOrNull case final part? when name.isEmpty) {
+      if (Uri.parse(url).pathSegments.lastOrNull case final part?
+          when name.isEmpty) {
         final pattern = RegExp(r"\.(json|yaml|yml|txt)[\s\S]*");
         name = part.replaceFirst(pattern, "");
       }
@@ -377,7 +459,8 @@ class ProfileParser {
       }
     }
 
-    final isAutoUpdateDisable = profile.userOverride?.isAutoUpdateDisable ?? false;
+    final isAutoUpdateDisable =
+        profile.userOverride?.isAutoUpdateDisable ?? false;
     ProfileOptions? options;
     if (profile.userOverride?.updateInterval case final int updateInterval
         when updateInterval > 0 && !isAutoUpdateDisable) {
@@ -396,16 +479,23 @@ class ProfileParser {
     }
 
     if (subInfo != null) {
-      if (headers['profile-web-page-url'] case final String profileWebPageUrl when isUrl(profileWebPageUrl)) {
+      if (headers['profile-web-page-url'] case final String profileWebPageUrl
+          when isUrl(profileWebPageUrl)) {
         subInfo = subInfo.copyWith(webPageUrl: profileWebPageUrl);
       }
-      if (headers['support-url'] case final String profileSupportUrl when isUrl(profileSupportUrl)) {
+      if (headers['support-url'] case final String profileSupportUrl
+          when isUrl(profileSupportUrl)) {
         subInfo = subInfo.copyWith(supportUrl: profileSupportUrl);
       }
     }
 
     return profile.map(
-      remote: (rp) => rp.copyWith(name: name, lastUpdate: DateTime.now(), options: options, subInfo: subInfo),
+      remote: (rp) => rp.copyWith(
+        name: name,
+        lastUpdate: DateTime.now(),
+        options: options,
+        subInfo: subInfo,
+      ),
       local: (lp) => lp.copyWith(name: name, lastUpdate: DateTime.now()),
     );
   }, ProfileFailure.unexpected);
@@ -419,7 +509,9 @@ class ProfileParser {
     for (final line in lines) {
       final uri = Uri.tryParse(line);
       if (uri == null) continue;
-      final fragment = uri.hasFragment ? Uri.decodeComponent(uri.fragment.split(" -> ")[0]) : null;
+      final fragment = uri.hasFragment
+          ? Uri.decodeComponent(uri.fragment.split(" -> ")[0])
+          : null;
       name ??= switch (uri.scheme) {
         'ss' => fragment ?? ProxyType.shadowsocks.label,
         'ssconf' => fragment ?? ProxyType.shadowsocks.label,
@@ -441,7 +533,9 @@ class ProfileParser {
     return name ?? ProxyType.unknown.label;
   }
 
-  static String profileOverrideHelper({required ProfileEntriesCompanion profile}) {
+  static String profileOverrideHelper({
+    required ProfileEntriesCompanion profile,
+  }) {
     final populatedHeaders = profile.populatedHeaders.value;
 
     Map<String, dynamic>? mPopulatedHeaders;
@@ -462,44 +556,60 @@ class ProfileParser {
   }) {
     final headers = Map<String, dynamic>.from(populatedHeaders ?? {});
 
-    if (userOverride?.enableWarp ?? (headers['enable-warp'].toString() == 'true')) {
+    if (userOverride?.enableWarp ??
+        (headers['enable-warp'].toString() == 'true')) {
       headers['chain-status'] = 'extra_security';
       headers['extra-security'] = {'mode': 'warp'};
     }
 
-    if (userOverride?.enablePsiphon ?? (headers['enable-psiphon'].toString() == 'true')) {
+    if (userOverride?.enablePsiphon ??
+        (headers['enable-psiphon'].toString() == 'true')) {
       headers['chain-status'] = 'extra_security';
       headers['extra-security'] = {'mode': 'psiphon'};
     }
 
-    if (userOverride?.enableFragment ?? (headers['enable-fragment'].toString() == 'true')) {
+    if (userOverride?.enableFragment ??
+        (headers['enable-fragment'].toString() == 'true')) {
       headers['tls-tricks'] = {'enable-fragment': true};
     } else if (userOverride?.enableFragment == false) {
       headers['tls-tricks'] = {'enable-fragment': false};
     }
 
     headers.removeWhere(
-      (key, value) => !allowedOverrideConfigs.contains(key) || value == null || value.toString().isEmpty,
+      (key, value) =>
+          !allowedOverrideConfigs.contains(key) ||
+          value == null ||
+          value.toString().isEmpty,
     );
 
-    final profileOverrideStr = jsonEncode({for (final key in headers.keys) key: headers[key]});
+    final profileOverrideStr = jsonEncode({
+      for (final key in headers.keys) key: headers[key],
+    });
     return profileOverrideStr;
   }
 
-  static Map<String, dynamic> applyProfileOverride(Map<String, dynamic> main, String? profileOverride) {
+  static Map<String, dynamic> applyProfileOverride(
+    Map<String, dynamic> main,
+    String? profileOverride,
+  ) {
     if (profileOverride == null) return main;
     if (profileOverride.contains("{")) {
-      final profileOverrideMap = jsonDecode(profileOverride) as Map<String, dynamic>;
+      final profileOverrideMap =
+          jsonDecode(profileOverride) as Map<String, dynamic>;
       return _mergeJson(main, profileOverrideMap);
     } else {
       return main;
     }
   }
 
-  static Map<String, dynamic> _mergeJson(Map<String, dynamic> main, Map<String, dynamic> override) {
+  static Map<String, dynamic> _mergeJson(
+    Map<String, dynamic> main,
+    Map<String, dynamic> override,
+  ) {
     override.forEach((key, value) {
       if (main.containsKey(key)) {
-        if (main[key] is Map<String, dynamic> && value is Map<String, dynamic>) {
+        if (main[key] is Map<String, dynamic> &&
+            value is Map<String, dynamic>) {
           main[key] = _mergeJson(main[key] as Map<String, dynamic>, value);
         } else {
           main[key] = value;
@@ -512,5 +622,6 @@ class ProfileParser {
   }
 }
 
-Either<ProfileFailure, Map<String, dynamic>> _headersInWorker((String, Map<String, dynamic>) args) =>
-    ProfileParser.populateHeaders(content: args.$1, remoteHeaders: args.$2);
+Either<ProfileFailure, Map<String, dynamic>> _headersInWorker(
+  (String, Map<String, dynamic>) args,
+) => ProfileParser.populateHeaders(content: args.$1, remoteHeaders: args.$2);

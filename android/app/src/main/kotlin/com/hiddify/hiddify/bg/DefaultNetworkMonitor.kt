@@ -114,7 +114,7 @@ object DefaultNetworkMonitor {
             if (next == lastInterface && network == lastNetwork) return
             val recovering = lastInterface != null && interfaceIndex >= 0
             runCatching {
-                                val capabilities = network?.let { Application.connectivity.getNetworkCapabilities(it) }
+                val capabilities = network?.let { Application.connectivity.getNetworkCapabilities(it) }
                 val expensive = capabilities != null && !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
                 val constrained = expensive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
                     Application.connectivity.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
