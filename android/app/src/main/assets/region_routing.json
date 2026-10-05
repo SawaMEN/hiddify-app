@@ -1,7 +1,7 @@
 {
-  "version": 2,
+  "version": 3,
   "updated": "2026-10-05",
-  "catalogueNotes": "VPN-aware packages are based on static APK research. First-party domains are routing targets associated with those apps and do not imply that every hostname performs VPN detection.",
+  "catalogueNotes": "VPN-aware packages follow the RKS Global 16 April 2026 repeat analysis, which found VPN detection in all 30 sampled apps. First-party domains are routing targets associated with those apps and do not imply that every hostname performs VPN detection.",
   "ruVpnAwarePackages": [
     "com.avito.android",
     "com.idamob.tinkoff.android",
@@ -11,27 +11,31 @@
     "com.wildberries.ru",
     "com.yandex.browser",
     "ru.alfabank.mobile.android",
+    "ru.beru.android",
     "ru.dublgis.dgismobile",
+    "ru.foodfox.client",
     "ru.kinopoisk",
+    "ru.mail.mailapp",
+    "ru.megafon.mlk",
     "ru.megamarket.marketplace",
     "ru.mts.mymts",
+    "ru.nspk.mirpay",
     "ru.ok.android",
     "ru.oneme.app",
     "ru.ozon.app.android",
+    "ru.rostel",
     "ru.rutube.app",
     "ru.sbcs.store",
     "ru.sberbankmobile",
     "ru.vk.store",
     "ru.vtb24.mobilebanking.android",
     "ru.yandex.music",
-    "ru.yandex.yandexmaps"
+    "ru.yandex.taxi",
+    "ru.yandex.yandexmaps",
+    "ru.zen.android"
   ],
   "ruCompatibilityPackages": [
-    "ru.gosuslugi.gosuslugi",
-    "ru.rostel",
     "ru.mts.money",
-    "ru.nspk.mirpay",
-    "ru.yandex.taxi",
     "ru.yandex.searchplugin"
   ],
   "ruVpnAwareDomains": [
@@ -39,10 +43,16 @@
     "2gis.ru",
     "alfabank.ru",
     "avito.ru",
+    "dzen.ru",
+    "gosuslugi.ru",
     "kinopoisk.ru",
+    "mail.ru",
     "max.ru",
+    "megafon.ru",
     "megamarket.ru",
+    "mironline.ru",
     "mts.ru",
+    "nspk.ru",
     "ok.ru",
     "okcdn.ru",
     "oneme.ru",
@@ -65,11 +75,7 @@
     "yandex.net",
     "yandex.ru"
   ],
-  "ruCompatibilityDomains": [
-    "gosuslugi.ru",
-    "mironline.ru",
-    "nspk.ru"
-  ],
+  "ruCompatibilityDomains": [],
   "proxyPackages": [
     "com.discord",
     "com.facebook.katana",
