@@ -67,12 +67,24 @@ class MethodHandler(
                 null
             }
 
+            "get_regional_routing" -> launchResult(result, "regional_routing_failed") {
+                com.hiddify.hiddify.privacy.RegionalRouting.policy(mainActivity, call.argument<String>("region") ?: "other")
+            }
+            "save_privacy_core_options" -> launchResult(result, "privacy_options_failed") {
+                Settings.configOptions = call.argument<String>("json") ?: "{}"; null
+            }
+            "check_root" -> launchResult(result, "root_check_failed") {
+                com.hiddify.hiddify.privacy.RootCore.check(mainActivity)
+            }
+            "generate_private_package" -> result.success(com.hiddify.hiddify.privacy.PackageIdentity.generatePackageName())
             "get_package_identity" -> result.success(com.hiddify.hiddify.privacy.PackageIdentity.status(mainActivity))
             "prepare_private_package" -> launchResult(result, "package_repack_failed") {
                 check(!BoxService.hasActiveCore()) { "Disconnect VPN before creating a private copy" }
                 com.hiddify.hiddify.privacy.PackageIdentity.prepare(mainActivity,
                     call.argument<String>("label") ?: "Application",
-                    call.argument<String>("databaseSnapshot") ?: "")
+                    call.argument<String>("databaseSnapshot") ?: "",
+                    call.argument<String>("style") ?: "meet",
+                    call.argument<String>("package") ?: "")
             }
             "install_private_package" -> launchResult(result, "package_install_failed", Dispatchers.Main.immediate) {
                 com.hiddify.hiddify.privacy.PackageIdentity.install(mainActivity); null

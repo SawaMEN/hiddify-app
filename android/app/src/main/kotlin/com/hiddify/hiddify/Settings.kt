@@ -13,10 +13,24 @@ import java.io.ObjectInputStream
 
 object Settings {
 
+    val privacyUseRoot get() = getBoolean("flutter.privacy-use-root", false) && serviceMode == ServiceMode.VPN
+    val privacyRoutingMode get() = getString("flutter.privacy-routing-mode", "ru-bypass")
+    val privacyDirectPackages get() = getString("flutter.privacy-direct-packages", "")
+    val privacyProxyPackages get() = getString("flutter.privacy-proxy-packages", "")
+    val privacyDirectDomains get() = getString("flutter.privacy-direct-domains", "")
+    val privacyProxyDomains get() = getString("flutter.privacy-proxy-domains", "")
+    val rootRouteTable: Int
+        @Synchronized get() {
+            val existing = getInt("privacy_root_route_table", 0)
+            if (existing in 12000..29999) return existing
+            val table = 12000 + java.security.SecureRandom().nextInt(18000)
+            check(preferences.edit().putInt("privacy_root_route_table", table).commit())
+            return table
+        }
     val privacyFullTunnel get() = getBoolean("flutter.privacy-full-tunnel", false)
-    val privacyHideLocalProxy get() = getBoolean("flutter.privacy-hide-local-proxy", false)
-    val privacyHideClashApi get() = getBoolean("flutter.privacy-hide-clash-api", false)
-    val privacyEncryptedDns get() = getBoolean("flutter.privacy-encrypted-dns", false)
+    val privacyHideLocalProxy get() = getBoolean("flutter.privacy-hide-local-proxy", true)
+    val privacyHideClashApi get() = getBoolean("flutter.privacy-hide-clash-api", true)
+    val privacyEncryptedDns get() = getBoolean("flutter.privacy-encrypted-dns", true)
     val privacyPublicDns get() = getBoolean("flutter.privacy-public-dns", false)
     val privacyDisableSystemProxy get() = getBoolean("flutter.privacy-disable-system-proxy", true)
     val privacyDisableIpv6 get() = getString("flutter.ipv6-mode", "ipv4_only") == "ipv4_only"
@@ -142,14 +156,14 @@ object Settings {
         set(value) = preferences.edit().putBoolean(SettingsKey.STARTED_BY_USER, value).apply()
 
     fun serviceClass(): Class<*> = when (serviceMode) {
-        ServiceMode.VPN -> VPNService::class.java
+        ServiceMode.VPN -> if (privacyUseRoot) ProxyService::class.java else VPNService::class.java
         else -> ProxyService::class.java
     }
 
     private var currentServiceMode: String? = null
 
     suspend fun rebuildServiceMode(): Boolean {
-        val newMode = if (serviceMode == ServiceMode.VPN) ServiceMode.VPN else ServiceMode.NORMAL
+        val newMode = if (privacyUseRoot) "root" else if (serviceMode == ServiceMode.VPN) ServiceMode.VPN else ServiceMode.NORMAL
         if (currentServiceMode == newMode) return false
         currentServiceMode = newMode
         return true

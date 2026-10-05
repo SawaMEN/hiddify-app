@@ -113,6 +113,15 @@ class BoxService(
     private val binder = ServiceBinder(status)
     private val notification = ServiceNotification(service)
     private var receiverRegistered = false
+    private var packagesReceiverRegistered = false
+    private val packagesReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return
+            if (Settings.privacyRoutingMode == "off" || Settings.privacyFullTunnel) return
+            Settings.startCoreAfterStartingService = true
+            serviceReload()
+        }
+    }
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -128,6 +137,8 @@ class BoxService(
     }
 
     private var activeProfileName = ""
+    private var rootActive = false
+    private var rootMonitor: kotlinx.coroutines.Job? = null
 
     private suspend fun finishCancelledStart(reason: String) {
         Settings.startedByUser = false
@@ -183,6 +194,22 @@ class BoxService(
             }
             coreOwner = this
             DefaultNetworkMonitor.start()
+            if (Settings.privacyUseRoot) {
+                rootActive = true
+                com.hiddify.hiddify.privacy.RootCore.start(service)
+                if (!Settings.connectionDesired) {
+                    finishCancelledStart("cancelled during root setup")
+                    return
+                }
+                rootMonitor = serviceScope.launch {
+                    while (com.hiddify.hiddify.privacy.RootCore.isAlive()) kotlinx.coroutines.delay(1000)
+                    lifecycleMutex.withLock {
+                        if (rootActive && !destroyed && coreOwner === this@BoxService) {
+                            stopAndAlert(Alert.StartService, "Root core exited; connection stopped")
+                        }
+                    }
+                }
+            } else {
             Libbox.setMemoryLimit(!Settings.disableMemoryLimit)
 
             try {
@@ -213,12 +240,20 @@ class BoxService(
             }
             Mobile.applyDevicePrivacy(Settings.privacyFullTunnel, Settings.privacyHideLocalProxy,
                 Settings.privacyHideClashApi, Settings.privacyDisableSystemProxy, Settings.privacyEncryptedDns)
+            val stored = org.json.JSONObject(Settings.configOptions.ifBlank { "{}" })
+            val policy = org.json.JSONObject()
+            com.hiddify.hiddify.privacy.RegionalRouting.policy(service, stored.optString("region", "other")).forEach { (key, value) ->
+                policy.put(key, if (value is List<*>) org.json.JSONArray(value) else value)
+            }
+            Mobile.applyRegionalPrivacy(policy.toString())
             if (Settings.startCoreAfterStartingService) {
                 Mobile.start(selectedConfigPath, "")
                 if (!Settings.connectionDesired) {
                     finishCancelledStart("cancelled during native start")
                     return
                 }
+            }
+
             }
 
             if (destroyed) return
@@ -252,7 +287,7 @@ class BoxService(
             }
 
             DefaultNetworkMonitor.detachCoreListener()
-            val closeError = runCatching { Mobile.close(4L) }.exceptionOrNull()
+            val closeError = runCatching { closeCore() }.exceptionOrNull()
             if (closeError != null) {
                 Log.e(TAG, "failed to close mobile core for reload", closeError)
                 status.postValue(Status.Started)
@@ -287,7 +322,7 @@ class BoxService(
 
     @RequiresApi(Build.VERSION_CODES.M)
     private fun serviceUpdateIdleMode() {
-        if (!Application.powerManager.isDeviceIdleMode) {
+        if (!rootActive && !Application.powerManager.isDeviceIdleMode) {
             runCatching { Mobile.wake() }
                 .onFailure { Log.w(TAG, "failed to wake mobile core", it) }
         }
@@ -314,7 +349,7 @@ class BoxService(
                     return@withLock
                 }
                 DefaultNetworkMonitor.detachCoreListener()
-                val closeError = runCatching { Mobile.close(4L) }.exceptionOrNull()
+                val closeError = runCatching { closeCore() }.exceptionOrNull()
                 closeTun("stop")
                 runCatching { DefaultNetworkMonitor.stop() }
                     .onFailure { Log.w(TAG, "failed to stop network monitor", it) }
@@ -356,6 +391,14 @@ class BoxService(
         }
     }
 
+    private suspend fun closeCore() {
+        rootMonitor?.cancel(); rootMonitor = null
+        if (rootActive) {
+            com.hiddify.hiddify.privacy.RootCore.stop()
+            rootActive = false
+        } else Mobile.close(4L)
+    }
+
     private fun closeTun(reason: String) {
         runCatching { fileDescriptor?.close() }
             .onFailure { Log.w(TAG, "failed to close TUN during $reason", it) }
@@ -379,6 +422,12 @@ class BoxService(
                     ContextCompat.RECEIVER_NOT_EXPORTED,
                 )
                 receiverRegistered = true
+                ContextCompat.registerReceiver(service, packagesReceiver, IntentFilter().apply {
+                    addAction(Intent.ACTION_PACKAGE_ADDED)
+                    addAction(Intent.ACTION_PACKAGE_REMOVED)
+                    addDataScheme("package")
+                }, ContextCompat.RECEIVER_NOT_EXPORTED)
+                packagesReceiverRegistered = true
             }
         } catch (e: Exception) {
             Log.e(TAG, "foreground registration failed", e)
@@ -414,7 +463,7 @@ class BoxService(
         DefaultNetworkMonitor.detachCoreListener()
         var closeError: Exception? = null
         try {
-            Mobile.close(4L)
+            closeCore()
         } catch (e: Exception) {
             closeError = e
             Log.e(TAG, "failed to close native core during $reason", e)
@@ -459,6 +508,10 @@ class BoxService(
     }
 
     private fun unregisterReceiver() {
+        if (packagesReceiverRegistered) {
+            runCatching { service.unregisterReceiver(packagesReceiver) }
+            packagesReceiverRegistered = false
+        }
         if (!receiverRegistered) return
         runCatching { service.unregisterReceiver(receiver) }
             .onFailure { Log.w(TAG, "receiver was already unregistered", it) }

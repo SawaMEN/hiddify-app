@@ -138,7 +138,7 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
                     connection.reconnect()
                 }
 
-                if (Settings.serviceMode == ServiceMode.VPN) {
+                if (Settings.serviceMode == ServiceMode.VPN && !Settings.privacyUseRoot) {
                     val permissionIntent = try {
                         VpnService.prepare(this@MainActivity)
                     } catch (e: Exception) {

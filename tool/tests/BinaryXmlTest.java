@@ -52,6 +52,24 @@ public class BinaryXmlTest {
         byte[] renamedTable = BinaryXml.renameResourcePackage(table.array(), "app.hiddify.com", "app.random.identity");
         String resourceName = new String(renamedTable,24,"app.random.identity".length()*2,java.nio.charset.StandardCharsets.UTF_16LE);
         if(!resourceName.equals("app.random.identity") || renamedTable.length!=table.capacity()) throw new AssertionError("Resource package was not renamed");
+        byte[] pool = BinaryXml.rewrite(fixture(true), v -> switch(v) {
+            case "app.hiddify.com" -> "icon";
+            case "app.hiddify.com.privacy.files" -> "roundIcon";
+            case "com.hiddify.hiddify.MainActivity" -> "activity";
+            default -> "application";
+        });
+        ByteBuffer icons = ByteBuffer.allocate(pool.length-8+24+76*2).order(ByteOrder.LITTLE_ENDIAN);
+        icons.put(pool,0,pool.length-8);
+        icons.putShort((short)0x180).putShort((short)8).putInt(24).putInt(0x01010002).putInt(0x0101052c).putInt(0).putInt(0);
+        int applicationOffset = icons.position();
+        for(int name:new int[]{3,2}) {
+            icons.putShort((short)0x102).putShort((short)16).putInt(76).putInt(1).putInt(-1);
+            icons.putInt(-1).putInt(name).putShort((short)20).putShort((short)20).putShort((short)2).putShort((short)0).putShort((short)0).putShort((short)0);
+            for(int attribute:new int[]{0,1}) icons.putInt(-1).putInt(attribute).putInt(-1).putShort((short)8).put((byte)0).put((byte)1).putInt(0x7f010001);
+        }
+        icons.putInt(4,icons.capacity());
+        ByteBuffer changed = ByteBuffer.wrap(BinaryXml.setApplicationIcon(icons.array(),0x7f010002)).order(ByteOrder.LITTLE_ENDIAN);
+        if(changed.getInt(applicationOffset+52)!=0x7f010002 || changed.getInt(applicationOffset+72)!=0x7f010002 || changed.getInt(applicationOffset+76+52)!=0x7f010001) throw new AssertionError("Only application icons should change");
         System.out.println("BinaryXml fixtures passed (UTF-8, UTF-16, Unicode, authorities, corruption)");
     }
 }

@@ -50,3 +50,5 @@ app.*.map.json
 /cert.pem
 /key.pem
 /sign.pfx
+
+android/app/src/main/jniLibs/arm64-v8a/libhiddify-root.so

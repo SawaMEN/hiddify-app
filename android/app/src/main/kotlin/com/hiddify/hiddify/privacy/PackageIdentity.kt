@@ -65,16 +65,25 @@ object PackageIdentity {
             "installed" to (pkg.isNotEmpty() && matchesCertificate(activity, pkg)), "original" to original)
     }
 
-    fun prepare(activity: Activity, label: String, databaseSnapshot: String): String {
+    fun generatePackageName(): String = "app." + (1..2).joinToString(".") {
+        buildString { repeat(12) { append(('a'.code + SecureRandom().nextInt(26)).toChar()) } }
+    }
+
+    fun prepare(activity: Activity, label: String, databaseSnapshot: String, style: String = "meet", requestedPackage: String = ""): String {
         require(label.isNotBlank() && label.length <= 40) { "Application name must contain 1–40 characters" }
         require(activity.applicationInfo.splitSourceDirs.isNullOrEmpty()) { "Use the standalone arm64 APK to rename the package; split APK installations are unsupported" }
         val snapshot = File(databaseSnapshot)
         require(snapshot.isFile && snapshot.canonicalPath.startsWith(activity.cacheDir.canonicalPath + File.separator)) { "Invalid database snapshot" }
+        val icon = when (style) {
+            "meet" -> com.hiddify.hiddify.R.drawable.ic_privacy_meet
+            "notes" -> com.hiddify.hiddify.R.drawable.ic_privacy_notes
+            else -> error("Unknown private appearance")
+        }
         ensureKey()
         val prefs = preferences(activity)
-        val pkg = prefs.getString("target", null) ?: "app." + (1..2).joinToString(".") {
-            buildString { repeat(12) { append(('a'.code + SecureRandom().nextInt(26)).toChar()) } }
-        }
+        val pkg = requestedPackage.ifBlank { prefs.getString("target", null) ?: generatePackageName() }
+        require(pkg.matches(Regex("app\\.[a-z]{12}\\.[a-z]{12}")) && pkg != activity.packageName) { "Invalid generated package" }
+
         val folder = File(activity.cacheDir, "privacy").apply { mkdirs() }
         val unsigned = File(folder, "unsigned.apk")
         val signed = File(folder, "application.apk")
@@ -92,7 +101,7 @@ object PackageIdentity {
                         if (entry.isDirectory || signatureEntry) return@forEach
                         val patch = entry.name == "resources.arsc" || entry.name == "AndroidManifest.xml" || entry.name.startsWith("res/") && entry.name.endsWith(".xml")
                         val bytes = if (patch) source.getInputStream(entry).use { it.readBytes() } else null
-                        val modified = if (entry.name == "resources.arsc" && bytes != null)
+                        var modified = if (entry.name == "resources.arsc" && bytes != null)
                             BinaryXml.renameResourcePackage(bytes, oldPackage, pkg)
                         else if (bytes != null && bytes.size >= 8 && bytes[0] == 3.toByte() && bytes[1] == 0.toByte())
                             BinaryXml.rewrite(bytes) { value ->
@@ -102,6 +111,7 @@ object PackageIdentity {
                                     else -> value
                                 }
                             } else bytes
+                        if (entry.name == "AndroidManifest.xml" && modified != null) modified = BinaryXml.setApplicationIcon(modified, icon)
                         val next = ZipEntry(entry.name)
                         next.time = 946684800000L
                         next.method = entry.method
@@ -173,7 +183,7 @@ object PackageIdentity {
                 if (!root.exists()) return
                 root.walkTopDown().filter { it.isFile }.forEach { file ->
                     val relative = file.relativeTo(root).invariantSeparatorsPath
-                    if (relative == "db.sqlite" || relative.startsWith("db.sqlite-") || relative.endsWith(".log") ||
+                    if (relative.startsWith("root-core/") || relative == "root-launch.json" || relative == "db.sqlite" || relative.startsWith("db.sqlite-") || relative.endsWith(".log") ||
                         relative.endsWith(".p12") || relative.contains("local_control")) return@forEach
                     output.putNextEntry(ZipEntry("$prefix/$relative")); file.inputStream().use { it.copyTo(output) }; output.closeEntry()
                 }
@@ -265,7 +275,7 @@ object PackageIdentity {
             java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1")).use { front ->
                 java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1")).use { back ->
                     check(activity.getSharedPreferences("FlutterSharedPreferences", 0).edit()
-                        .remove("local_control_token").remove("grpc_flutter_public_key").remove("flutter.grpc_flutter_public_key")
+                        .remove("privacy_root_route_table").remove("local_control_token").remove("grpc_flutter_public_key").remove("flutter.grpc_flutter_public_key")
                         .putInt("local_control_front_port", front.localPort)
                         .putInt("local_control_back_port", back.localPort)
                         .putInt(com.hiddify.hiddify.constant.SettingsKey.GRPC_PORT, back.localPort)

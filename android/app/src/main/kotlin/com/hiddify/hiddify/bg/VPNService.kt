@@ -100,7 +100,7 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
         }
 
         val builder = Builder()
-            .setSession("hiddify")
+            .setSession(applicationInfo.loadLabel(packageManager).toString())
             .setMtu(safeMtu)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -180,7 +180,16 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
                     }
                 }
 
-                if (Settings.perAppProxyEnabled) {
+                val configured = org.json.JSONObject(Settings.configOptions.ifBlank { "{}" })
+                val autoMode = configured.optString("privacy-routing-mode", "off")
+                if (autoMode == "ru-bypass" || autoMode == "proxy-selected") {
+                    val policy = com.hiddify.hiddify.privacy.RegionalRouting.policy(this, configured.optString("region", "other"))
+                    if (policy["privacy-routing-mode"] != "off") {
+                        @Suppress("UNCHECKED_CAST")
+                        (policy["privacy-direct-packages"] as List<String>).forEach { addExcludePackage(builder, it) }
+                        addExcludePackage(builder, packageName)
+                    }
+                } else if (Settings.perAppProxyEnabled) {
                     val appList = Settings.perAppProxyList
                     if (Settings.perAppProxyMode == PerAppProxyMode.INCLUDE) {
                         val effectiveApps = appList.filter { pkg ->

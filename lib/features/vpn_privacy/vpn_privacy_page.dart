@@ -27,6 +27,8 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
   static const _channel = MethodChannel('com.hiddify.app/method');
   Map<dynamic, dynamic> _identity = {};
   bool _busy = false;
+  Map<dynamic, dynamic> _root = {};
+  Map<dynamic, dynamic> _routing = {};
 
   @override
   void initState() {
@@ -50,7 +52,16 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
     if (!Platform.isAndroid) return;
     try {
       final identity = await _channel.invokeMapMethod<dynamic, dynamic>('get_package_identity') ?? {};
-      if (mounted) setState(() => _identity = identity);
+      final routing =
+          await _channel.invokeMapMethod<dynamic, dynamic>('get_regional_routing', {
+            'region': ref.read(ConfigOptions.region).name,
+          }) ??
+          {};
+      if (mounted)
+        setState(() {
+          _identity = identity;
+          _routing = routing;
+        });
     } catch (error) {
       if (mounted) _error(error);
     }
@@ -89,38 +100,58 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
   );
 
   Future<void> _createCopy() async {
-    final name = TextEditingController(text: 'Application');
+    final style = ref.read(VpnPrivacyPreferences.copyStyle);
+    var packageName = await _channel.invokeMethod<String>('generate_private_package') ?? '';
+    if (!mounted) return;
+    final name = TextEditingController(text: style == 'meet' ? 'Meet' : 'Notes');
     final label = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(_text(context, 'Скрыть пакет приложения', 'Hide application package')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              _text(
-                context,
-                'Будет создана копия с новым случайным пакетом и подписью. VPN отключится. После установки нажмите «Открыть скрытую копию» здесь для переноса профилей. Исходная версия останется до её удаления вручную. Обычный APK обновления устанавливается как исходное приложение.',
-                'Creates a copy with a random package and new signature. VPN will disconnect. After installation, use Open private copy here to migrate profiles. The original stays until you remove it. Regular update APKs install as the original application.',
-              ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text(_text(context, 'Скрыть пакет приложения', 'Hide application package')),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _text(
+                    context,
+                    'Будет создана копия с новым случайным пакетом и подписью. VPN отключится. После установки нажмите «Открыть скрытую копию» здесь для переноса профилей. Исходная версия останется до её удаления вручную. Обычный APK обновления устанавливается как исходное приложение.',
+                    'Creates a copy with a random package and new signature. VPN will disconnect. After installation, use Open private copy here to migrate profiles. The original stays until you remove it. Regular update APKs install as the original application.',
+                  ),
+                ),
+                SelectableText(packageName),
+                TextButton.icon(
+                  icon: const Icon(Icons.shuffle),
+                  label: Text(_text(context, 'Сгенерировать другой пакет', 'Generate another package')),
+                  onPressed: () async {
+                    try {
+                      final next = await _channel.invokeMethod<String>('generate_private_package');
+                      if (context.mounted && next != null) setDialogState(() => packageName = next);
+                    } catch (error) {
+                      if (mounted) _error(error);
+                    }
+                  },
+                ),
+                TextField(
+                  controller: name,
+                  maxLength: 40,
+                  decoration: InputDecoration(labelText: _text(context, 'Название приложения', 'Application name')),
+                ),
+              ],
             ),
-            TextField(
-              controller: name,
-              maxLength: 40,
-              decoration: InputDecoration(labelText: _text(context, 'Название приложения', 'Application name')),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text(_text(context, 'Отмена', 'Cancel'))),
+            FilledButton(
+              onPressed: () {
+                final value = name.text.trim();
+                if (value.isNotEmpty) Navigator.pop(context, value);
+              },
+              child: Text(_text(context, 'Создать копию', 'Create copy')),
             ),
           ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(_text(context, 'Отмена', 'Cancel'))),
-          FilledButton(
-            onPressed: () {
-              final value = name.text.trim();
-              if (value.isNotEmpty) Navigator.pop(context, value);
-            },
-            child: Text(_text(context, 'Создать копию', 'Create copy')),
-          ),
-        ],
       ),
     );
     // The dialog can still be animating out when its controller stops being used.
@@ -136,6 +167,8 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
         await ref.read(dbProvider).customStatement('VACUUM INTO ?', [snapshot.path]);
         await _channel.invokeMethod<String>('prepare_private_package', {
           'label': label,
+          'style': style,
+          'package': packageName,
           'databaseSnapshot': snapshot.path,
         });
         await _channel.invokeMethod<void>('install_private_package');
@@ -144,6 +177,37 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
       }
     });
   }
+
+  Future<void> _setRoot(bool enabled) => _perform(() async {
+    if (enabled) {
+      final status = await _channel.invokeMapMethod<dynamic, dynamic>('check_root') ?? {};
+      if (mounted) setState(() => _root = status);
+      if (status['granted'] != true)
+        throw StateError(_text(context, 'Root-доступ не предоставлен', 'Root permission was not granted'));
+      if (status['helper'] != true)
+        throw StateError(_text(context, 'В этом APK отсутствует root-ядро', 'This APK has no root companion'));
+    }
+    await ref.read(VpnPrivacyPreferences.useRoot.notifier).update(enabled);
+  });
+
+  Widget _listSetting(
+    String ru,
+    String en,
+    StateNotifierProvider<PreferencesNotifier<String, String>, String> preference,
+  ) => ValuePreferenceWidget(
+    value: ref.watch(preference),
+    preferences: ref.watch(preference.notifier),
+    enabled: !_busy,
+    title: _text(context, ru, en),
+    icon: Icons.rule,
+    inputToValue: (value) => value.trim(),
+    validateInput: (value) =>
+        value.length <= 8192 &&
+        value
+            .split(RegExp(r'[\s,;]+'))
+            .where((s) => s.isNotEmpty)
+            .every((s) => RegExp(r'^(?:\*\.)?[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)+$').hasMatch(s)),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -158,11 +222,89 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
             child: Text(
               _text(
                 context,
-                'Эти настройки уменьшают локальные признаки и утечки. Android всё равно сообщает о сети VPN. Скрытие пакета не скрывает VpnService, IP сервера или геолокацию и не гарантирует прохождение RKNHardering.',
-                'These settings reduce local signals and leaks. Android still reports the VPN network. Renaming the package does not hide VpnService, server IP or location, and does not guarantee passing RKNHardering.',
+                'Эти настройки уменьшают локальные признаки и утечки. В обычном режиме Android сообщает о сети VPN; root-режим избегает VpnService, но другие признаки могут остаться. Скрытие пакета не скрывает VpnService, IP сервера или геолокацию и не гарантирует прохождение RKNHardering.',
+                'These settings reduce local signals and leaks. Normal mode reports a VPN network; root mode avoids VpnService, but other signals may remain. Renaming the package does not hide VpnService, server IP or location, and does not guarantee passing RKNHardering.',
               ),
             ),
           ),
+          if (android) ...[
+            SwitchListTile.adaptive(
+              value: ref.watch(VpnPrivacyPreferences.useRoot),
+              onChanged: _busy ? null : _setRoot,
+              title: Text(_text(context, 'Подключение через root', 'Connect using root')),
+              subtitle: Text(
+                _text(
+                  context,
+                  'Запускает ядро с правами root без Android VpnService. Доступ подтверждается в вашем root-менеджере. Требуется поддержка TUN ядром устройства.',
+                  'Runs the core as root without Android VpnService. Grant access in your root manager. Requires kernel TUN support.',
+                ),
+              ),
+            ),
+            if (_root.isNotEmpty)
+              ListTile(
+                subtitle: Text(
+                  _text(
+                    context,
+                    'Root: ${_root['granted'] == true ? "доступен" : "нет доступа"}; ядро в APK: ${_root['helper'] == true ? "есть" : "нет"}',
+                    'Root granted: ${_root['granted']}; bundled companion: ${_root['helper']}',
+                  ),
+                ),
+              ),
+            ChoicePreferenceWidget(
+              selected: ref.watch(VpnPrivacyPreferences.routingMode),
+              preferences: ref.watch(VpnPrivacyPreferences.routingMode.notifier),
+              choices: const ['off', 'ru-bypass', 'proxy-selected'],
+              enabled: !_busy,
+              title: _text(context, 'Автомаршрутизация для РФ', 'Automatic routing for Russia'),
+              icon: Icons.alt_route,
+              presentChoice: (mode) => switch (mode) {
+                'ru-bypass' => _text(context, 'Российские сервисы напрямую', 'Russian services directly'),
+                'proxy-selected' => _text(
+                  context,
+                  'Прокси для выбранных зарубежных сервисов',
+                  'Proxy selected foreign services',
+                ),
+                _ => _text(context, 'Выключено', 'Off'),
+              },
+            ),
+            ListTile(
+              subtitle: Text(
+                _text(
+                  context,
+                  'Включается автоматически только при регионе РФ. Российские приложения из списка идут вне VPN. В режиме выбранных сервисов остальной трафик идёт напрямую. Домены и пакеты определяются при подключении; геосписки обновляет ядро. Полный туннель отключает исключения. Списки примерные: доступность сервисов и проверки могут меняться.',
+                  'Activates only for the Russia region. Listed Russian apps bypass VPN. Selected-services mode sends other traffic directly. Packages are detected at connection; the core updates geo rules. Full tunnel overrides exceptions. Lists are suggestions: service availability and detection can change.',
+                ),
+              ),
+            ),
+            if (_routing['privacy-routing-mode'] != null)
+              ListTile(
+                title: Text(_text(context, 'Текущая автоматическая политика', 'Current automatic policy')),
+                subtitle: Text(
+                  '${_routing['privacy-routing-mode']}\n${(_routing['privacy-direct-packages'] as List? ?? []).join(', ')}',
+                ),
+              ),
+            _listSetting(
+              'Дополнительные прямые пакеты',
+              'Additional direct packages',
+              VpnPrivacyPreferences.customDirectPackages,
+            ),
+            _listSetting(
+              'Дополнительные проксируемые пакеты',
+              'Additional proxied packages',
+              VpnPrivacyPreferences.customProxyPackages,
+            ),
+            _listSetting(
+              'Дополнительные прямые домены',
+              'Additional direct domains',
+              VpnPrivacyPreferences.customDirectDomains,
+            ),
+            _listSetting(
+              'Дополнительные проксируемые домены',
+              'Additional proxied domains',
+              VpnPrivacyPreferences.customProxyDomains,
+            ),
+            const Divider(),
+          ],
           _switch(
             'Не открывать локальный прокси',
             'Disable local proxy',
@@ -255,6 +397,17 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
             ),
           const Divider(),
           if (android) ...[
+            ChoicePreferenceWidget(
+              selected: ref.watch(VpnPrivacyPreferences.copyStyle),
+              preferences: ref.watch(VpnPrivacyPreferences.copyStyle.notifier),
+              choices: const ['meet', 'notes'],
+              enabled: !_busy,
+              title: _text(context, 'Оформление скрытой копии', 'Private copy appearance'),
+              icon: Icons.palette_outlined,
+              presentChoice: (style) => style == 'meet'
+                  ? _text(context, 'Meet — знакомства', 'Meet — dating')
+                  : _text(context, 'Notes — заметки', 'Notes — notes'),
+            ),
             ListTile(
               title: Text(_text(context, 'Пакет приложения', 'Application package')),
               subtitle: Text('${_identity['package'] ?? ''}'),
@@ -316,8 +469,8 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
             child: Text(
               _text(
                 context,
-                'Репутацию выходного IP и признаки датацентра меняют выбором сервера. Для отсутствия локального VPN-интерфейса туннель нужно перенести на роутер или внешний шлюз.',
-                'Exit IP reputation and hosting signals depend on the server. To avoid a local VPN interface, move the tunnel to a router or external gateway.',
+                'Репутацию выходного IP и признаки датацентра меняют выбором сервера. Root-режим всё равно создаёт TUN-интерфейс. Полное отсутствие локального туннеля возможно с роутером или внешним шлюзом.',
+                'Exit IP reputation and hosting signals depend on the server. Root mode still creates a TUN interface. A router or external gateway can avoid a local tunnel.',
               ),
             ),
           ),

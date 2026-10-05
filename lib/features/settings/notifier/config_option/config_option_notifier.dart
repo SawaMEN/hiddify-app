@@ -35,6 +35,7 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
       if (running && _desiredRevision > _appliedRevision) _scheduleUpdate();
     });
     for (final preference in [
+      VpnPrivacyPreferences.useRoot,
       VpnPrivacyPreferences.fullTunnel,
       VpnPrivacyPreferences.hideLocalProxy,
       VpnPrivacyPreferences.hideClashApi,
@@ -49,6 +50,24 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
         _scheduleUpdate();
       });
     }
+    for (final preference in [
+      VpnPrivacyPreferences.routingMode,
+      VpnPrivacyPreferences.customDirectPackages,
+      VpnPrivacyPreferences.customProxyPackages,
+      VpnPrivacyPreferences.customDirectDomains,
+      VpnPrivacyPreferences.customProxyDomains,
+    ]) {
+      ref.listen(preference, (previous, next) {
+        if (previous == next) return;
+        _nativePolicyChanged = true;
+        _desiredRevision++;
+        _scheduleUpdate();
+      });
+    }
+    ref.listen(ConfigOptions.region, (previous, next) {
+      if (previous == next) return;
+      _nativePolicyChanged = true;
+    });
     return false;
   }
 

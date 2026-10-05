@@ -1,3 +1,5 @@
+import 'package:flutter/services.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -198,10 +200,21 @@ class HiddifyCoreService with InfraLogger {
           disableSystemProxy: ref.read(VpnPrivacyPreferences.disableSystemProxy),
           encryptedDns: ref.read(VpnPrivacyPreferences.encryptedDns),
         );
+        if (PlatformUtils.isAndroid) {
+          const channel = MethodChannel('com.hiddify.app/method');
+          final regional = await channel.invokeMapMethod<String, dynamic>('get_regional_routing', {
+            'region': json['region'],
+          });
+          if (regional != null) json.addAll(regional);
+        }
         if (!options.enableMixedPort) json['mixed-port'] = 0;
         if (!options.enableDirectPort) json['direct-port'] = 0;
         if (!options.enableTproxyPort) json['tproxy-port'] = 0;
         if (!options.enableRedirectPort) json['redirect-port'] = 0;
+        if (PlatformUtils.isAndroid) {
+          await const MethodChannel('com.hiddify.app/method')
+              .invokeMethod<void>('save_privacy_core_options', {'json': jsonEncode(json)});
+        }
         final request = ChangeHiddifySettingsRequest(hiddifySettingsJson: jsonEncode(json));
         final foreground = await core.fgClient.changeHiddifySettings(request, options: unaryOptions);
         if (foreground.messageType != MessageType.EMPTY) {

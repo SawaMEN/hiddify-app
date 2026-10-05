@@ -64,6 +64,45 @@ public final class BinaryXml {
         System.arraycopy(xml, start + size, result, start + newSize, xml.length - start - size);
         return result;
     }
+    /** Replaces only application launcher icon references, preserving all component icons. */
+    public static byte[] setApplicationIcon(byte[] manifest, int icon) {
+        java.util.ArrayList<String> strings = new java.util.ArrayList<>();
+        rewrite(manifest, value -> { strings.add(value); return value; });
+        byte[] result = manifest.clone();
+        ByteBuffer b = ByteBuffer.wrap(result).order(ByteOrder.LITTLE_ENDIAN);
+        int[] resources = new int[0];
+        for (int offset = 8; offset < result.length;) {
+            if (result.length - offset < 8) throw new IllegalArgumentException("Truncated manifest chunk");
+            int type = b.getShort(offset) & 0xffff, header = b.getShort(offset + 2) & 0xffff, size = b.getInt(offset + 4);
+            if (size < header || header < 8 || size > result.length - offset) throw new IllegalArgumentException("Invalid manifest chunk");
+            if (type == 0x180) {
+                if ((size - header) % 4 != 0) throw new IllegalArgumentException("Invalid resource map");
+                resources = new int[(size - header) / 4];
+                for (int i = 0; i < resources.length; i++) resources[i] = b.getInt(offset + header + i * 4);
+            } else if (type == 0x102) {
+                if (header != 16 || size < 36) throw new IllegalArgumentException("Invalid element");
+                int name = b.getInt(offset + 20);
+                if (name < 0 || name >= strings.size()) throw new IllegalArgumentException("Invalid element name");
+                if (strings.get(name).equals("application")) {
+                    int start = offset + 16 + (b.getShort(offset + 24) & 0xffff);
+                    int stride = b.getShort(offset + 26) & 0xffff, count = b.getShort(offset + 28) & 0xffff;
+                    if (stride < 20 || start < offset + 36 || count > (offset + size - start) / stride) throw new IllegalArgumentException("Invalid attributes");
+                    for (int i = 0; i < count; i++) {
+                        int attribute = start + i * stride, index = b.getInt(attribute + 4);
+                        if (index < 0 || index >= resources.length) continue;
+                        if (resources[index] == 0x01010002 || resources[index] == 0x0101052c) {
+                            b.putInt(attribute + 8, -1);
+                            b.put(attribute + 15, (byte) 1); // TYPE_REFERENCE
+                            b.putInt(attribute + 16, icon);
+                        }
+                    }
+                }
+            }
+            offset += size;
+        }
+        return result;
+    }
+
     /** Rename the fixed-width resource package so runtime getIdentifier(newPackage) still works. */
     public static byte[] renameResourcePackage(byte[] table, String oldPackage, String newPackage) {
         if (newPackage.length() >= 128) throw new IllegalArgumentException("Resource package too long");
