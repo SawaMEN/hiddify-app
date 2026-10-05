@@ -35,11 +35,10 @@ class BootReceiver : BroadcastReceiver() {
                     Log.w(TAG, "skipping automatic restart because VPN permission is missing")
                     return@launch
                 }
-                if (Settings.dynamicNotification && !ServiceNotification.checkPermission()) {
-                    Log.w(TAG, "skipping automatic restart because notification permission is missing")
-                    return@launch
-                }
 
+                // Android notification permission is optional for a foreground service. The
+                // service must still be restarted after boot/package replacement when the user
+                // has denied notification-drawer visibility.
                 Settings.startCoreAfterStartingService = true
                 runCatching { BoxService.start() }
                     .onFailure { Log.e(TAG, "failed to restart service after boot/package update", it) }
