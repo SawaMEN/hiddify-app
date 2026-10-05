@@ -49,6 +49,18 @@ class GeneralPage extends HookConsumerWidget {
               if (selected != null) await ref.read(Preferences.visualEffects.notifier).update(selected);
             },
           ),
+          SwitchListTile.adaptive(
+            title: Text(t.client.autoReconnect),
+            subtitle: Text(t.client.autoReconnectHint),
+            value: ref.watch(Preferences.autoReconnect),
+            onChanged: ref.read(Preferences.autoReconnect.notifier).update,
+          ),
+          SwitchListTile.adaptive(
+            title: Text(t.client.smartSelection),
+            subtitle: Text(t.client.smartSelectionHint),
+            value: ref.watch(Preferences.smartServerSelection),
+            onChanged: ref.read(Preferences.smartServerSelection.notifier).update,
+          ),
           const EnableAnalyticsPrefTile(),
           SwitchListTile.adaptive(
             title: Text(t.pages.settings.general.autoIpCheck),

@@ -69,8 +69,15 @@ Android API 37 declares minor version 0. Android library plugins use NDK 30
 consistently, including the JNI package. This avoids a fallback to Flutter's
 older NDK during configuration.
 
-The final application branch incorporates main revision dc433e00, including
-its newer regression coverage. Its Flutter tests and complete ARM64 APK are
-being verified by the pull-request CI. The previous local APK attempt did not
-produce a confirmed artifact before the temporary environment was reset.
+The application at dc433e00 plus these updates passed 50 Flutter tests,
+async runtime checks, both CI analyzers and the complete Android ARM64 APK
+build. Analysis had no compilation errors, with 10 warnings and style notices.
+All 11 native APK libraries passed ARM64, ELF and ZIP 16 KB alignment checks.
+The APK v2 debug signature verified; a production signing key was not used.
+
+The final branch also incorporates main revision 324a872c, preserving its VPN
+reliability, diagnostics and subscription-import changes. Pull-request CI
+checks the combined revision. The native helper delegates to the same Makefile
+recipe so both entry points use the pinned generators, source versions and
+provenance output.
 No device-level VPN, battery or performance validation has been completed.

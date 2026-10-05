@@ -12,8 +12,11 @@ part 'general_preferences.g.dart';
 bool _debugIntroPage = false;
 
 abstract class Preferences {
+  static final autoReconnect = PreferencesNotifier.create<bool, bool>("auto_reconnect", true);
+  static final smartServerSelection = PreferencesNotifier.create<bool, bool>("smart_server_selection", false);
   static final visualEffects = PreferencesNotifier.create<String, String>(
-    "visual_effects", "automatic",
+    "visual_effects",
+    "automatic",
     validator: (value) => const ["automatic", "quality", "reduced"].contains(value),
   );
 

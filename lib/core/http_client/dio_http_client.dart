@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -72,7 +73,7 @@ class DioHttpClient with InfraLogger {
   //     return false;
   //   }
   // }
-  Future<bool> isPortOpen(String host, int port, {Duration timeout = const Duration(seconds: 5)}) async {
+  Future<bool> isPortOpen(String host, int port, {Duration timeout = const Duration(milliseconds: 300)}) async {
     try {
       final socket = await Socket.connect(host, port, timeout: timeout);
       await socket.close();
@@ -117,19 +118,47 @@ class DioHttpClient with InfraLogger {
     String? userAgent,
     ({String username, String password})? credentials,
     bool proxyOnly = false,
+    Map<String, dynamic>? headers,
+    bool acceptNotModified = false,
+    int maxBytes = 8 * 1024 * 1024,
   }) async {
     final mode = proxyOnly
         ? "proxy"
         : await isPortOpen("127.0.0.1", port)
         ? "both"
         : "direct";
-    final dio = _dio[mode]!;
-    return dio.download(
-      url,
-      path,
-      cancelToken: cancelToken,
-      options: _options(url, userAgent: userAgent, credentials: credentials),
-    );
+    final token = CancelToken();
+    var finished = false;
+    var exceeded = false;
+    cancelToken?.whenCancel.then((error) {
+      if (!finished) token.cancel(error);
+    });
+    if (cancelToken?.isCancelled ?? false) token.cancel('Cancelled');
+    final deadline = Timer(const Duration(seconds: 60), () => token.cancel('Download deadline exceeded'));
+    final options = _options(url, userAgent: userAgent, credentials: credentials);
+    options.headers = {...?options.headers, ...?headers};
+    if (acceptNotModified)
+      options.validateStatus = (code) => code != null && (code == 304 || code >= 200 && code < 300);
+    try {
+      return await _dio[mode]!.download(
+        url,
+        path,
+        cancelToken: token,
+        options: options,
+        onReceiveProgress: (received, total) {
+          if (received > maxBytes || total > maxBytes) {
+            exceeded = true;
+            token.cancel('Size limit exceeded');
+          }
+        },
+      );
+    } catch (_) {
+      if (exceeded) throw const FormatException('Subscription exceeds 8 MiB limit');
+      rethrow;
+    } finally {
+      finished = true;
+      deadline.cancel();
+    }
   }
 
   Options _options(String url, {String? userAgent, ({String username, String password})? credentials}) {

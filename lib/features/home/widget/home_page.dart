@@ -1,5 +1,8 @@
 import 'package:dartx/dartx.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:hiddify/features/home/widget/home_speed.dart';
+import 'package:hiddify/features/connection/health/health_status_widget.dart';
+import 'package:hiddify/features/connection/diagnostics/diagnostics_page.dart';
 import 'package:gap/gap.dart';
 import 'package:hiddify/core/app_info/app_info_provider.dart';
 import 'package:hiddify/core/localization/translations.dart';
@@ -39,6 +42,12 @@ class HomePage extends ConsumerWidget {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: t.client.diagnostics,
+            icon: const Icon(Icons.health_and_safety_rounded),
+            onPressed: () =>
+                Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const DiagnosticsPage())),
+          ),
           IconButton.filledTonal(
             key: const ValueKey('profile_add_button'),
             tooltip: t.pages.profiles.add,
@@ -76,26 +85,26 @@ class HomePage extends ConsumerWidget {
                       },
                     ),
                   ),
-                  SliverFillRemaining(
-                    hasScrollBody: false,
+                  SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
                       child: Column(
                         children: [
-                          const Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.symmetric(vertical: 24),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  RepaintBoundary(child: ConnectionButton()),
-                                  Gap(12),
-                                  ActiveProxyDelayIndicator(),
-                                ],
-                              ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                RepaintBoundary(child: ConnectionButton()),
+                                Gap(12),
+                                ActiveProxyDelayIndicator(),
+                                HealthStatusWidget(),
+                              ],
                             ),
                           ),
                           const ActiveProxyFooter(),
+                          const Gap(12),
+                          const HomeSpeed(),
                           const Gap(16),
                           GlassSurface(
                             blur: true,

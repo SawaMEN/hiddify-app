@@ -56,6 +56,20 @@ class MethodHandler(
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
+            "get_connection_intent" -> result.success(Settings.connectionDesired)
+            "get_service_running" -> result.success(BoxService.isRunning())
+            "get_network_status" -> launchResult(result, "android_network_state_failed") {
+                com.hiddify.hiddify.Application.connectivity.allNetworks.any { network ->
+                    val caps = com.hiddify.hiddify.Application.connectivity.getNetworkCapabilities(network)
+                    caps != null && !caps.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) &&
+                        caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                }
+            }
+            "get_vpn_protection" -> result.success(BoxService.vpnProtection())
+            "open_vpn_settings" -> launchResult(result, "android_vpn_settings_failed", Dispatchers.Main.immediate) {
+                mainActivity.startActivity(android.content.Intent(android.provider.Settings.ACTION_VPN_SETTINGS))
+                null
+            }
             Trigger.AddGrpcClientPublicKey.method -> launchResult(
                 result = result,
                 errorCode = "android_add_grpc_key_failed",
@@ -110,6 +124,7 @@ class MethodHandler(
                 errorCode = "android_start_failed",
             ) {
                 val args = call.arguments as Map<*, *>
+                Settings.connectionDesired = true
                 Settings.activeConfigPath = args["path"] as String? ?: ""
                 Settings.activeProfileName = args["name"] as String? ?: ""
                 Settings.debugMode = args["debug"] as Boolean? ?: false
@@ -141,6 +156,7 @@ class MethodHandler(
                 // Invalidate an outstanding permission request before inspecting service state.
                 // If startForegroundService was already issued, give Android time to deliver
                 // onStartCommand so the close broadcast cannot be lost in the Stopped->Starting gap.
+                Settings.connectionDesired = false
                 val startAlreadyIssued = mainActivity.cancelPendingStart()
                 if (startAlreadyIssued && mainActivity.serviceStatus.value == Status.Stopped) {
                     withTimeoutOrNull(START_ISSUE_SETTLE_MS) {
