@@ -8,10 +8,7 @@ import 'package:hiddify/core/router/go_router/go_router_notifier.dart';
 import 'package:hiddify/features/per_app_proxy/model/per_app_proxy_mode.dart';
 import 'package:hiddify/features/profile/add/add_profile_modal.dart';
 import 'package:hiddify/features/profile/overview/profiles_modal.dart';
-import 'package:hiddify/features/route_rules/overview/predefined_rules_modal.dart';
-
 import 'package:hiddify/utils/link_parsers.dart';
-
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'bottom_sheets_notifier.g.dart';
@@ -24,7 +21,6 @@ class BottomSheetsNotifier extends _$BottomSheetsNotifier {
   Future<T?> _show<T>({required Widget child, required bool isScrollControlled}) async {
     final context = rootNavKey.currentContext;
     if (context == null) return null;
-    // ref.read(popupCountNotifierProvider.notifier).increase();
     return await Navigator.of(context)
         .push<T>(
           ModalBottomSheetRoute(
@@ -41,17 +37,13 @@ class BottomSheetsNotifier extends _$BottomSheetsNotifier {
             ),
           ),
         )
-        .then((value) {
-          // ref.read(popupCountNotifierProvider.notifier).decrease();
-          return value;
-        });
+        .then((value) => value);
   }
 
   Future<void> showAddProfile({String? url, bool triggeredByDeepLink = false}) async {
     if (url != null && triggeredByDeepLink) {
       final profileLink = LinkParser.parse(url);
       if (profileLink == null) return;
-      // Preventing Zero-click SSRF
       final t = ref.watch(translationsProvider).requireValue;
       final isConfirmed = await ref
           .read(dialogNotifierProvider.notifier)
@@ -73,7 +65,4 @@ class BottomSheetsNotifier extends _$BottomSheetsNotifier {
 
   Future<void> showAutoAppsSelection({required AppProxyMode mode}) async =>
       await _show(isScrollControlled: false, child: AutoAppsSelectionModal(mode: mode));
-
-  Future<void> showPredefinedRules() async =>
-      await _show(isScrollControlled: true, child: const PredefinedRulesModal());
 }
