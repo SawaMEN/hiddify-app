@@ -47,6 +47,9 @@ abstract class SingboxConfigOption with _$SingboxConfigOption {
     required String lanSharingPassword,
     required bool enableFakeDns,
     required bool independentDnsCache,
+    @Default(<String, dynamic>{})
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    Map<String, dynamic> routeRule,
     required SingboxTlsTricks tlsTricks,
     required ChainStatus chainStatus,
     required SingboxExtraSecurityOption extraSecurity,
