@@ -35,8 +35,6 @@ dependencies:
   share_plus: ^13.3.1
   package_info_plus: ^10.2.2
   url_launcher: ^6.2.5
-  sentry_flutter: 9.30.1
-  sentry_dart_plugin: ^3.4.0
   path: ^1.9.0
   loggy: ^2.0.3
   meta: ^1.15.0
@@ -127,10 +125,3 @@ flutter_native_splash:
   android_12:
     color: "#ffffff"
     image: assets/images/source/ic_launcher_foreground.png
-
-sentry:
-  upload_debug_symbols: true
-  upload_source_maps: true
-  upload_sources: true
-  log_level: info
-  ignore_missing: true

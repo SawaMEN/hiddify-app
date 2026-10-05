@@ -1,5 +1,8 @@
 import 'dart:io';
 
+import 'package:hiddify/core/preferences/general_preferences.dart';
+import 'package:hiddify/features/settings/notifier/config_option/config_option_notifier.dart';
+
 import 'package:flutter/services.dart';
 import 'package:hiddify/core/model/region.dart';
 import 'package:material_ui/material_ui.dart';
@@ -99,6 +102,34 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
     value: ref.watch(preference),
     onChanged: _busy || !available ? null : (value) => _perform(() => ref.read(preference.notifier).update(value)),
   );
+
+  Future<void> _configureAutomatically() async {
+    await ref.read(configOptionNotifierProvider.notifier).updateTogether(() async {
+      await ref.read(ConfigOptions.serviceMode.notifier).update(ServiceMode.tun);
+      await ref.read(VpnPrivacyPreferences.hideLocalProxy.notifier).update(true);
+      await ref.read(VpnPrivacyPreferences.hideClashApi.notifier).update(true);
+      await ref.read(VpnPrivacyPreferences.disableSystemProxy.notifier).update(true);
+      await ref.read(VpnPrivacyPreferences.publicDns.notifier).update(true);
+      await ref.read(VpnPrivacyPreferences.encryptedDns.notifier).update(true);
+      await ref.read(VpnPrivacyPreferences.fullTunnel.notifier).update(false);
+      await ref.read(VpnPrivacyPreferences.routingMode.notifier).update('ru-bypass');
+      await ref.read(ConfigOptions.ipv6Mode.notifier).update(IPv6Mode.disable);
+      await ref.read(ConfigOptions.mtu.notifier).update(1400);
+      await ref.read(Preferences.autoReconnect.notifier).update(true);
+    });
+    if (mounted)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _text(
+              context,
+              'Настройки применены. Root и скрытая копия включаются отдельно.',
+              'Settings applied. Root and private copy are enabled separately.',
+            ),
+          ),
+        ),
+      );
+  }
 
   Future<void> _createCopy() async {
     final style = ref.read(VpnPrivacyPreferences.copyStyle);
@@ -218,6 +249,21 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
       appBar: AppBar(title: Text(VpnPrivacyPage.title(context))),
       body: ListView(
         children: [
+          FilledButton.icon(
+            onPressed: _busy ? null : () => _perform(_configureAutomatically),
+            icon: const Icon(Icons.auto_fix_high),
+            label: Text(_text(context, 'Настроить всё автоматически', 'Configure automatically')),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(
+              _text(
+                context,
+                'Применяет рекомендуемые параметры скрытия, DNS, маршрутизации и восстановления связи. Root и установка скрытой копии — отдельные действия.',
+                'Applies recommended privacy, DNS, routing and recovery settings. Root and private-copy installation are separate actions.',
+              ),
+            ),
+          ),
           if (_busy) const LinearProgressIndicator(),
           Padding(
             padding: const EdgeInsets.all(20),

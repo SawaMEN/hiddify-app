@@ -39,7 +39,6 @@ class GeneralPage extends HookConsumerWidget {
             value: ref.watch(Preferences.smartServerSelection),
             onChanged: ref.read(Preferences.smartServerSelection.notifier).update,
           ),
-          const EnableAnalyticsPrefTile(),
           SwitchListTile.adaptive(
             title: Text(t.pages.settings.general.autoIpCheck),
             value: ref.watch(Preferences.autoCheckIp),

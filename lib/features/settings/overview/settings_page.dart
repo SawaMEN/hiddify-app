@@ -1,9 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
-import 'dart:io';
 
-import 'package:hiddify/features/connection/diagnostics/diagnostics_page.dart';
-import 'package:hiddify/features/connection/health/vpn_protection_page.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hiddify/core/localization/translations.dart';
@@ -153,18 +150,6 @@ class SettingsPage extends HookConsumerWidget {
               title: t.pages.profiles.title,
               icon: Icons.view_list_rounded,
               namedLocation: context.namedLocation('profiles'),
-            ),
-          ListTile(
-            title: Text(t.client.diagnostics),
-            leading: const Icon(Icons.health_and_safety_rounded),
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const DiagnosticsPage())),
-          ),
-          if (Platform.isAndroid)
-            ListTile(
-              title: Text(t.client.vpnProtection),
-              leading: const Icon(Icons.shield_rounded),
-              onTap: () =>
-                  Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const VpnProtectionPage())),
             ),
           SettingsSection(
             title: t.pages.settings.general.title,

@@ -409,7 +409,8 @@ class BoxService(
 
     @Suppress("SameReturnValue")
     internal fun onStartCommand(): Int {
-        if (destroyed || status.value != Status.Stopped) return Service.START_NOT_STICKY
+        if (destroyed) return Service.START_NOT_STICKY
+        if (status.value != Status.Stopped) return if (Settings.connectionDesired) Service.START_STICKY else Service.START_NOT_STICKY
         status.value = Status.Starting
         try {
             // Android's foreground deadline starts before IO/setup, not after it.
@@ -456,7 +457,7 @@ class BoxService(
                 }
             }
         }
-        return Service.START_NOT_STICKY
+        return if (Settings.connectionDesired) Service.START_STICKY else Service.START_NOT_STICKY
     }
 
     // All owners share the mutex. An old onDestroy must never close a new owner's core.

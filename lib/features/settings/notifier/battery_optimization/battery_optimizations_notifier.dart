@@ -13,7 +13,6 @@ class BatteryOptimizationNotifier extends _$BatteryOptimizationNotifier {
   Future<void> requestToIgnore() async {
     state = const AsyncLoading();
     await BatteryOptimizationRepositoryImpl().requestIgnoreBatteryOptimizations();
-    Future.delayed(const Duration(seconds: 1));
     ref.invalidateSelf();
   }
 }

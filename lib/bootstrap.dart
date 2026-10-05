@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
-import 'package:hiddify/core/analytics/analytics_controller.dart';
 import 'package:hiddify/core/app_info/app_info_provider.dart';
 import 'package:hiddify/core/directories/directories_provider.dart';
 import 'package:hiddify/core/localization/translations.dart';
@@ -25,7 +24,6 @@ import 'package:hiddify/hiddifycore/hiddify_core_service_provider.dart';
 import 'package:hiddify/riverpod_observer.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 Future<void> lazyBootstrap(WidgetsBinding widgetsBinding, Environment env) async {
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
@@ -91,12 +89,6 @@ Future<Widget> _initializeApp(Environment env) async {
 
   // Optional plugin initialization must not keep the startup screen visible.
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    unawaited(
-      _safeInit("analytics", () async {
-        final enabled = await container.read(analyticsControllerProvider.future);
-        if (enabled) await container.read(analyticsControllerProvider.notifier).enableAnalytics();
-      }, timeout: 5000),
-    );
     if (defaultTargetPlatform == TargetPlatform.android && !kIsWeb) {
       unawaited(_safeInit("android display mode", FlutterDisplayMode.setHighRefreshRate));
     }
@@ -107,7 +99,7 @@ Future<Widget> _initializeApp(Environment env) async {
 
   return UncontrolledProviderScope(
     container: container,
-    child: SentryUserInteractionWidget(child: const App()),
+    child: const App(),
   );
 }
 

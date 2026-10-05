@@ -251,14 +251,11 @@ jobs:
         run: make android-apk-prepare
 
       - name: Build Android ARM64 APK
-        env:
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
         run: |
           flutter build apk \
             --release \
             --target="${BUILD_TARGET}" \
-            --target-platform android-arm64 \
-            --dart-define=sentry_dsn="${SENTRY_DSN}"
+            --target-platform android-arm64
 
       - name: Collect and verify ARM64 APK
         run: |

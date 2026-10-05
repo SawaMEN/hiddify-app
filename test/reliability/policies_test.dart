@@ -4,13 +4,11 @@ import 'package:hiddify/features/connection/health/connection_health.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hiddify/core/privacy/redactor.dart';
-import 'package:hiddify/core/analytics/analytics_filter.dart';
 import 'package:hiddify/features/connection/health/recovery_policy.dart';
 import 'package:hiddify/features/profile/import/import_summary.dart';
 import 'package:hiddify/features/proxy/selection/server_ranker.dart';
 import 'package:hiddify/features/route_rules/inspection/route_inspector.dart';
 import 'package:hiddify/hiddifycore/generated/v2/config/route_rule.pb.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 void main() {
   test('A captive portal 200 cannot satisfy a 204 probe', () {
@@ -236,35 +234,4 @@ void main() {
     ])
       expect(result, isNot(contains(secret)));
   });
-  test(
-    'Telemetry sanitizes serialized exception frames and drops request data',
-    () async {
-      final event = SentryEvent(
-        message: SentryMessage('token=private-token https://vpn.example.org/s'),
-        request: SentryRequest(
-          url: 'https://private.example.org/',
-          headers: {'Authorization': 'private-auth'},
-        ),
-        extra: {'password': 'private-password'},
-        exceptions: [
-          SentryException(
-            type: 'Error',
-            value: '192.0.2.12 token=private-token',
-          ),
-        ],
-        breadcrumbs: [Breadcrumb(message: 'vless://private@vpn.example.org')],
-      );
-      final result = await sentryBeforeSend(event, Hint());
-      final serialized = jsonEncode(result!.toJson());
-      for (final secret in [
-        'private-token',
-        'private-auth',
-        'private-password',
-        'private.example.org',
-        '192.0.2.12',
-        'vless://',
-      ])
-        expect(serialized, isNot(contains(secret)));
-    },
-  );
 }

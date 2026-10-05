@@ -25,7 +25,7 @@ Scope: the Android stability audit, including profile/editor data loss and async
 | Per-app backups | Single JSON object export; UTF-8 import; accept old double-encoded documents |
 | Per-app notifiers | Capture dependencies before await; mounted/generation guards; timer cleanup; avoid late-final build reassignment |
 | Logs | Cancel hidden/paused subscriptions instead of buffering broadcast snapshots; dispose debouncer |
-| Diagnostics | Preserve app logs across restart; rotate current/previous 2 MiB files; handle sink errors; guard uninitialized Sentry hub |
+| Diagnostics | Preserve app logs across restart; rotate current/previous 2 MiB files; handle sink errors; analytics SDK removed |
 | Proxy groups | Empty-group handling; deterministic delay comparator; copy protobufs before sorting/selection |
 | QR | Ignore duplicate/empty detections and double navigation |
 | Throttling | Await async callback and propagate errors; release running guard after failure |
@@ -58,3 +58,9 @@ These require an Android device/emulator and are not claimed as completed by sta
 Native process termination (OOM, vendor restrictions, Go panic, JNI fault) still requires the actual crash trace for attribution. Kotlin exception handling cannot recover a process killed by the OS or a native fatal signal. File/metadata rollback handles runtime failures; a process kill between the file rename and database commit is not a cross-filesystem/database transaction.
 
 The Android adapter requires API types absent in v4.1.0. The pinned compatible snapshot comes from the upstream draft release, fetched by immutable asset ID, never by a moving tag. If the supplier deletes that asset, dependency preparation fails explicitly. SHA-256: `4efd7799c53cacb26594a584ac7ae743dd7071901be8846af846bde4807bd1f1`.
+
+## Background recovery and simplified privacy setup
+
+Android services request START_STICKY while connectionDesired is true. A restarted proxy/root service loads its saved core options and active profile. Opening or resuming Flutter probes the real daemon status with a bounded RPC, rather than accepting the Android wrapper’s Started state. An orphaned service is stopped before reconnecting; generation checks preserve an explicit user disconnect. A first successful connection offers Android battery exemption once, after optional notification permission. Denial does not stop the connection. Android force-stop and manufacturer-specific background limits still require device testing.
+
+The settings overview no longer links Connection diagnostics or Android VPN protection. Sentry dependencies, initialization, interaction tracking, exception upload and analytics controls were removed. Local diagnostic logs remain available. The privacy page adds a single action applying hidden proxy/API ports, disabled system proxy, encrypted public DNS, IPv4, MTU 1400, RU bypass and automatic reconnect in one update batch. Root and signed private-copy installation retain their separate system permissions and actions; custom rules are preserved.

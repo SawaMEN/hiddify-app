@@ -476,6 +476,23 @@ class HiddifyCoreService with InfraLogger {
     });
   }
 
+  /// Query the daemon rather than trusting the Android service wrapper's state.
+  Future<bool> backgroundCoreRunning() async {
+    try {
+      final status = await core.bgClient
+          .coreInfoListener(Empty(), options: CallOptions(timeout: const Duration(seconds: 4)))
+          .map(CoreStatus.fromCoreInfo)
+          .first
+          .timeout(const Duration(seconds: 4));
+      currentState = status;
+      _publishStatus(status);
+      return status is CoreStarted || status is CoreStarting;
+    } catch (error) {
+      loggy.warning('Background core did not answer: $error');
+      return false;
+    }
+  }
+
   Stream<CoreStatus> watchStatus() async* {
     if (core.isInitialized() && (core.isSingleChannel() || await core.isBgClientAvailable())) {
       await startListeningStatus('bg', core.bgClient);

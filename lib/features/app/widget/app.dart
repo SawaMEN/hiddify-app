@@ -35,6 +35,7 @@ import 'package:upgrader/upgrader.dart';
 bool _debugAccessibility = false;
 bool isOnPauseCalled = false;
 bool _coreNeedsResume = false;
+bool _restoringCore = false;
 
 class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
   const App({super.key});
@@ -55,13 +56,21 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
 
   void onResume(WidgetRef ref) {
     ref.read(appForegroundProvider.notifier).set(true);
-    if (_coreNeedsResume) {
-      _coreNeedsResume = false;
-      unawaited(
-        ref.read(hiddifyCoreServiceProvider).init().catchError((Object error, StackTrace stackTrace) {
+    if (!_restoringCore) {
+      _restoringCore = true;
+      unawaited(() async {
+        try {
+          if (_coreNeedsResume) {
+            _coreNeedsResume = false;
+            await ref.read(hiddifyCoreServiceProvider).init();
+          }
+          if (ref.context.mounted) await ref.read(connectionNotifierProvider.notifier).restoreOnResume();
+        } catch (error, stackTrace) {
           loggy.warning("Unable to restore core listeners", error, stackTrace);
-        }),
-      );
+        } finally {
+          _restoringCore = false;
+        }
+      }());
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -93,6 +102,7 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
         ref.read(activeBreakpointNotifierProvider.notifier).update(activeBreakpoint);
+        onResume(ref);
       });
       return null;
     }, [activeBreakpoint]);

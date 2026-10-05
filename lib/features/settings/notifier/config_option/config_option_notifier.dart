@@ -75,6 +75,17 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
   int _desiredRevision = 0;
   int _appliedRevision = 0;
   bool _nativePolicyChanged = false;
+  Future<void> updateTogether(Future<void> Function() operation) async {
+    _importing = true;
+    _updateTimer?.cancel();
+    try {
+      await operation();
+    } finally {
+      _importing = false;
+      if (ref.mounted) _scheduleUpdate();
+    }
+  }
+
   bool _importing = false;
   bool _applying = false;
   Future<void> _updates = Future<void>.value();

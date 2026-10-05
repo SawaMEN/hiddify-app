@@ -22,6 +22,11 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
     private val service = BoxService(this, this)
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // A sticky restart must not undo an explicit disconnect.
+        if (intent == null && !Settings.connectionDesired) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         // A system Always-on start can happen before the Flutter engine exists.
         if (intent?.getBooleanExtra("started_by_app", false) != true) {
             Settings.connectionDesired = true
