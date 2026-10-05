@@ -25,6 +25,9 @@ object DefaultNetworkMonitor {
         private set
 
     private val listenerLock = Any()
+    // Native callbacks must finish before Mobile.close(), but must never run while listenerLock
+    // is held: gomobile can synchronously call back into platform code and invert that lock.
+    private val nativeCallbackLock = Any()
     private var listener: InterfaceUpdateListener? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var updateJob: Job? = null
@@ -55,6 +58,8 @@ object DefaultNetworkMonitor {
             lastInterface = null
             lastNetwork = null
         }
+        // Do not let Mobile.close() race an already-issued updateDefaultInterface/Mobile.wake.
+        synchronized(nativeCallbackLock) { }
     }
 
     /** Fully release Android network discovery. Call this only after Mobile.close() returns. */
@@ -107,12 +112,21 @@ object DefaultNetworkMonitor {
     }
 
     private fun notifyListener(interfaceName: String, interfaceIndex: Int, network: Network?, expectedGeneration: Int) {
-        synchronized(listenerLock) {
+        val snapshot = synchronized(listenerLock) {
             if (expectedGeneration != generation) return
             val currentListener = listener ?: return
             val next = Pair(interfaceName, interfaceIndex)
             if (next == lastInterface && network == lastNetwork) return
-            val recovering = lastInterface != null && interfaceIndex >= 0
+            Triple(currentListener, next, lastInterface != null && interfaceIndex >= 0)
+        }
+        val (currentListener, next, recovering) = snapshot
+
+        synchronized(nativeCallbackLock) {
+            val stillCurrent = synchronized(listenerLock) {
+                expectedGeneration == generation && listener === currentListener
+            }
+            if (!stillCurrent) return
+
             runCatching {
                 val capabilities = network?.let { Application.connectivity.getNetworkCapabilities(it) }
                 val expensive = capabilities != null && !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
@@ -120,8 +134,13 @@ object DefaultNetworkMonitor {
                     Application.connectivity.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
                 currentListener.updateDefaultInterface(interfaceName, interfaceIndex, expensive, constrained)
                 if (recovering) Mobile.wake()
-                lastInterface = next
-                lastNetwork = network
+            }.onSuccess {
+                synchronized(listenerLock) {
+                    if (expectedGeneration == generation && listener === currentListener) {
+                        lastInterface = next
+                        lastNetwork = network
+                    }
+                }
             }.onFailure {
                 Log.e(TAG, "failed to notify core about default interface", it)
             }
