@@ -5,57 +5,33 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
-import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyProperties
 import android.util.Base64
 import androidx.core.content.FileProvider
 import com.android.apksig.ApkSigner
 import com.android.apksig.ApkVerifier
 import java.io.File
-import java.math.BigInteger
-import java.security.KeyPairGenerator
-import java.security.KeyStore
-import java.security.PrivateKey
 import java.security.SecureRandom
 import java.security.Signature
-import java.security.cert.X509Certificate
-import java.util.Date
 import java.util.zip.CRC32
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
-import javax.security.auth.x500.X500Principal
 
 /** Random package + manifest rewriting + new APK signature, as in Magisk AppMigration.
  * Uses Android's installer; root is not needed. Never removes the original application. */
 object PackageIdentity {
-    private const val ALIAS = "private-package-signing"
     private const val PREFS = "package_identity"
     private const val LIMIT = 256L * 1024 * 1024
     private fun preferences(activity: Activity) = activity.getSharedPreferences(PREFS, 0)
-    private fun keyStore() = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-    private fun certificate(): X509Certificate = keyStore().getCertificate(ALIAS) as X509Certificate
-    private fun key(): PrivateKey = keyStore().getKey(ALIAS, null) as PrivateKey
-    private fun ensureKey() {
-        if (keyStore().containsAlias(ALIAS)) return
-        val now = System.currentTimeMillis()
-        KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore").apply {
-            initialize(KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY)
-                .setKeySize(2048).setDigests(KeyProperties.DIGEST_SHA256)
-                .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
-                .setCertificateSubject(X500Principal("CN=Application"))
-                .setCertificateSerialNumber(BigInteger(128, SecureRandom()))
-                .setCertificateNotBefore(Date(now - 86400000L))
-                .setCertificateNotAfter(Date(now + 30L * 365 * 86400000L)).build())
-            generateKeyPair()
-        }
-    }
+    private fun identity(activity: Activity) = SoftwareSigningIdentity.loadOrCreate(activity.applicationContext)
+
     private fun matchesCertificate(activity: Activity, pkg: String): Boolean = runCatching {
+        val expected = identity(activity).certificate.encoded
         @Suppress("DEPRECATION")
         val signatures = if (Build.VERSION.SDK_INT >= 28)
             activity.packageManager.getPackageInfo(pkg, PackageManager.GET_SIGNING_CERTIFICATES).signingInfo!!.apkContentsSigners
         else activity.packageManager.getPackageInfo(pkg, PackageManager.GET_SIGNATURES).signatures!!
-        signatures.any { it.toByteArray().contentEquals(certificate().encoded) }
+        signatures.any { it.toByteArray().contentEquals(expected) }
     }.getOrDefault(false)
 
     fun status(activity: Activity): Map<String, Any> {
@@ -79,7 +55,7 @@ object PackageIdentity {
             "notes" -> com.hiddify.hiddify.R.drawable.ic_privacy_notes
             else -> error("Unknown private appearance")
         }
-        ensureKey()
+        val identity = identity(activity)
         val prefs = preferences(activity)
         val pkg = requestedPackage.ifBlank { prefs.getString("target", null) ?: generatePackageName() }
         require(pkg.matches(Regex("app\\.[a-z]{12}\\.[a-z]{12}")) && pkg != activity.packageName) { "Invalid generated package" }
@@ -89,6 +65,8 @@ object PackageIdentity {
         val signed = File(folder, "application.apk")
         val oldPackage = activity.packageName
         val oldLabel = activity.applicationInfo.loadLabel(activity.packageManager).toString()
+        unsigned.delete()
+        signed.delete()
         // Keep original compression; mmap-able libraries are aligned to 16 KiB.
         ZipFile(activity.applicationInfo.sourceDir).use { source ->
             CountingOutput(unsigned.outputStream()).use { counted ->
@@ -135,24 +113,59 @@ object PackageIdentity {
             }
         }
         try {
-            val signer = ApkSigner.SignerConfig.Builder("application", key(), listOf(certificate())).build()
-            ApkSigner.Builder(listOf(signer)).setInputApk(unsigned).setOutputApk(signed)
-                .setMinSdkVersion(23).setAlignmentPreserved(true).setLibraryPageAlignmentBytes(16384).setV1SigningEnabled(true).setV2SigningEnabled(true).setV3SigningEnabled(true).build().sign()
-            check(ApkVerifier.Builder(signed).setMinCheckedPlatformVersion(23).build().verify().isVerified) { "Repacked APK signature verification failed" }
+            val signer = ApkSigner.SignerConfig.Builder("application", identity.privateKey, listOf(identity.certificate)).build()
+            try {
+                ApkSigner.Builder(listOf(signer)).setInputApk(unsigned).setOutputApk(signed)
+                    .setMinSdkVersion(23)
+                    .setAlignmentPreserved(true)
+                    .setLibraryPageAlignmentBytes(16384)
+                    .setV1SigningEnabled(true)
+                    .setV2SigningEnabled(true)
+                    .setV3SigningEnabled(true)
+                    .build().sign()
+            } catch (error: Exception) {
+                signed.delete()
+                throw IllegalStateException("APK signing failed: ${error.causeChain()}", error)
+            }
+            val verification = ApkVerifier.Builder(signed).setMinCheckedPlatformVersion(23).build().verify()
+            check(verification.isVerified) {
+                val errors = verification.errors.joinToString("; ") { it.toString() }
+                "Repacked APK signature verification failed${if (errors.isBlank()) "" else ": $errors"}"
+            }
+            check(verification.signerCertificates.any { it.encoded.contentEquals(identity.certificate.encoded) }) {
+                "Repacked APK was signed by an unexpected certificate"
+            }
             check(activity.packageManager.getPackageArchiveInfo(signed.path, 0)?.packageName == pkg) { "Repacked package verification failed" }
             val archive = File(folder, "migration.zip")
+            archive.delete()
             createMigration(activity, archive, snapshot)
             val signature = Signature.getInstance("SHA256withRSA").apply {
-                initSign(key()); archive.inputStream().use { input -> val b = ByteArray(65536); while (true) { val n=input.read(b); if(n<0) break; update(b,0,n) } }
+                initSign(identity.privateKey)
+                archive.inputStream().use { input ->
+                    val buffer = ByteArray(65536)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read < 0) break
+                        update(buffer, 0, read)
+                    }
+                }
             }.sign()
             check(prefs.edit().putString("target", pkg).putString("migration_signature", Base64.encodeToString(signature, Base64.NO_WRAP)).commit())
             return pkg
-        } finally { unsigned.delete(); snapshot.delete() }
+        } finally {
+            unsigned.delete()
+            snapshot.delete()
+        }
     }
 
     fun install(activity: Activity) {
         val apk = File(activity.cacheDir, "privacy/application.apk")
         check(apk.isFile) { "Create the private copy first" }
+        val identity = identity(activity)
+        val verification = ApkVerifier.Builder(apk).setMinCheckedPlatformVersion(23).build().verify()
+        check(verification.isVerified && verification.signerCertificates.any { it.encoded.contentEquals(identity.certificate.encoded) }) {
+            "Private APK signature is invalid; create the private copy again"
+        }
         val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.privacy.files", apk)
         activity.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
@@ -222,14 +235,35 @@ object PackageIdentity {
                 val buffer=ByteArray(65536); var total=0L
                 while(true) { val n=input.read(buffer); if(n<0) break; total+=n; check(total<=LIMIT); out.write(buffer,0,n) }
             } }
-            @Suppress("DEPRECATION")
-            val info = activity.packageManager.getPackageInfo(activity.packageName, PackageManager.GET_SIGNATURES)
-            val cert = java.security.cert.CertificateFactory.getInstance("X.509")
-                .generateCertificate(info.signatures!![0].toByteArray().inputStream())
-            val verifier = Signature.getInstance("SHA256withRSA").apply { initVerify(cert)
-                temporary.inputStream().use { input -> val b=ByteArray(65536); while(true) { val n=input.read(b); if(n<0) break; update(b,0,n) } }
+            val signatureValue = activity.intent.getStringExtra("identity_signature").orEmpty()
+            check(signatureValue.isNotBlank()) { "Missing migration signature" }
+            val signatureBytes = try {
+                Base64.decode(signatureValue, Base64.DEFAULT)
+            } catch (error: IllegalArgumentException) {
+                throw IllegalStateException("Invalid migration signature encoding", error)
             }
-            check(verifier.verify(Base64.decode(activity.intent.getStringExtra("identity_signature"), Base64.DEFAULT))) { "Invalid migration signature" }
+            @Suppress("DEPRECATION")
+            val signatures = if (Build.VERSION.SDK_INT >= 28)
+                activity.packageManager.getPackageInfo(activity.packageName, PackageManager.GET_SIGNING_CERTIFICATES).signingInfo!!.apkContentsSigners
+            else activity.packageManager.getPackageInfo(activity.packageName, PackageManager.GET_SIGNATURES).signatures!!
+            val certificateFactory = java.security.cert.CertificateFactory.getInstance("X.509")
+            val signatureValid = signatures.any { packageSignature ->
+                runCatching {
+                    val cert = certificateFactory.generateCertificate(packageSignature.toByteArray().inputStream())
+                    Signature.getInstance("SHA256withRSA").apply {
+                        initVerify(cert)
+                        temporary.inputStream().use { input ->
+                            val buffer = ByteArray(65536)
+                            while (true) {
+                                val read = input.read(buffer)
+                                if (read < 0) break
+                                update(buffer, 0, read)
+                            }
+                        }
+                    }.verify(signatureBytes)
+                }.getOrDefault(false)
+            }
+            check(signatureValid) { "Invalid migration signature" }
             staging.deleteRecursively()
             check(staging.mkdirs()) { "Unable to stage migration" }
             var total = 0L
@@ -296,6 +330,11 @@ object PackageIdentity {
             activity.intent.removeExtra("identity_migration")
         }
     }
+
+    private fun Throwable.causeChain(): String = generateSequence(this) { it.cause }
+        .map { cause -> cause.message?.takeIf(String::isNotBlank) ?: cause.javaClass.simpleName }
+        .distinct()
+        .joinToString(" -> ")
 
     private class CountingOutput(out: java.io.OutputStream) : java.io.FilterOutputStream(out) {
         var count=0L
