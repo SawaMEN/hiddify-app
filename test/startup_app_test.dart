@@ -17,9 +17,20 @@ void main() {
     expect(find.text('Starting'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(tester.takeException(), isNull);
+    addTearDown(() => tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    expect(tester.binding.transientCallbackCount, 0);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(tester.binding.transientCallbackCount, greaterThan(0));
   });
 
   testWidgets('Russian startup is readable and releases its animations after completion', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
     tester.platformDispatcher.localeTestValue = const Locale('ru');
     addTearDown(tester.platformDispatcher.clearLocaleTestValue);
     final startup = Completer<Widget>();
@@ -30,6 +41,7 @@ void main() {
     expect(find.text('VetrOFF Client'), findsOneWidget);
     expect(tester.takeException(), isNull);
     if (Platform.environment['IS_GITHUB_ACTIONS'] == '1') {
+      await tester.runAsync(() async {
       final render = boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
       final image = await render.toImage();
       final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
@@ -37,6 +49,7 @@ void main() {
       final file = File('test/failures/startup-preview.png');
       await file.parent.create(recursive: true);
       await file.writeAsBytes(bytes!.buffer.asUint8List());
+      });
     }
     startup.complete(const MaterialApp(home: Text('Ready')));
     await tester.pumpAndSettle();

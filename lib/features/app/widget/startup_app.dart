@@ -33,7 +33,7 @@ class _StartupScene extends StatefulWidget {
 class _StartupSceneState extends State<_StartupScene> with TickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _entrance;
   late final AnimationController _breathing;
-  late final Animation<double> _reveal;
+  late final CurvedAnimation _reveal;
   bool _reducedMotion = false;
   bool _foreground = true;
 
@@ -55,7 +55,9 @@ class _StartupSceneState extends State<_StartupScene> with TickerProviderStateMi
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    _foreground = state == AppLifecycleState.resumed;
+    final foreground = state == AppLifecycleState.resumed;
+    if (_foreground == foreground) return;
+    setState(() => _foreground = foreground);
     _syncAnimations();
   }
 
@@ -73,6 +75,7 @@ class _StartupSceneState extends State<_StartupScene> with TickerProviderStateMi
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _reveal.dispose();
     _entrance.dispose();
     _breathing.dispose();
     super.dispose();
@@ -81,7 +84,7 @@ class _StartupSceneState extends State<_StartupScene> with TickerProviderStateMi
   @override
   Widget build(BuildContext context) {
     final english = WidgetsBinding.instance.platformDispatcher.locale.languageCode == 'en';
-    return Stack(
+    return TickerMode(enabled: _foreground, child: Stack(
       fit: StackFit.expand,
       children: [
         const RepaintBoundary(child: CustomPaint(painter: _StartupBackdrop())),
@@ -94,7 +97,7 @@ class _StartupSceneState extends State<_StartupScene> with TickerProviderStateMi
               children: [
                 AnimatedBuilder(
                   animation: _breathing,
-                  child: Image.asset('assets/images/logo.png', width: 176, height: 176, semanticLabel: 'VetrOFF'),
+                  child: ClipOval(child: Image.asset('assets/images/logo.png', width: 176, height: 176, semanticLabel: 'VetrOFF')),
                   builder: (context, child) => Container(
                     decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: [BoxShadow(
                       color: const Color(0xFF26C6F5).withValues(alpha: .08 + _breathing.value * .08),
@@ -130,7 +133,7 @@ class _StartupSceneState extends State<_StartupScene> with TickerProviderStateMi
           ),
         ))),
       ],
-    );
+    ));
   }
 }
 

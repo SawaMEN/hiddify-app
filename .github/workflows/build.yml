@@ -124,6 +124,15 @@ jobs:
           python3 tool/test_appcast.py
           python3 tool/test_app_version.py
 
+      - name: Upload startup screen preview
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: startup-screen-preview
+          path: test/failures/startup-preview.png
+          if-no-files-found: ignore
+          retention-days: 7
+
       - name: Upload visual test failures
         if: failure()
         uses: actions/upload-artifact@v7.0.1
