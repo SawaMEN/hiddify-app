@@ -311,16 +311,16 @@ jobs:
           import os, re, subprocess
           from pathlib import Path
           sys.path.insert(0, 'tool')
-          from check_app_version import declared_version
+          from check_app_version import apk_minimum_sdk, declared_version
           aapt = Path(os.environ['ANDROID_HOME']) / 'build-tools/37.0.0/aapt2'
           metadata = subprocess.check_output([str(aapt), 'dump', 'badging', sys.argv[1]], text=True)
           version, build = declared_version()
           actual = re.search(r"package:.*versionCode='([^']+)'.*versionName='([^']+)'", metadata)
           if actual is None or actual.groups() != (build, version):
               raise SystemExit('APK version does not match pubspec.yaml')
-          minimum = re.search(r"sdkVersion:'(\d+)'", metadata)
-          if minimum is None or minimum.group(1) != '29':
-              raise SystemExit('APK must require Android 10 / API 29')
+          minimum = apk_minimum_sdk(metadata)
+          if minimum != 29:
+              raise SystemExit(f'APK must require Android 10 / API 29; actual minSdk={minimum}')
           print(f'APK version {version}+{build}, minimum Android 10 verified')
           PYROOT
 

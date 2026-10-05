@@ -13,6 +13,14 @@ def declared_version(path=ROOT / "pubspec.yaml"):
     return match.group(1), match.group(2)
 
 
+def apk_minimum_sdk(metadata):
+    # AAPT2 renamed sdkVersion to minSdkVersion; accept both tool generations.
+    match = re.search(r"^(?:minSdkVersion|sdkVersion):'(\d+)'\s*$", metadata, re.M)
+    if not match:
+        raise ValueError("APK minimum SDK is missing from AAPT badging")
+    return int(match.group(1))
+
+
 def validate_tag(tag, channel, version, build):
     if tag in {"draft", "dev-latest"} and channel == "dev":
         return
