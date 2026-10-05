@@ -18,6 +18,7 @@ import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
 import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 import java.util.LinkedList
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -42,6 +43,9 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         private set
     private var vpnRequestGeneration: Long? = null
     private var notificationRequestInFlight = false
+    private var backgroundChannel: MethodChannel? = null
+    private var backgroundUiReady = false
+    private var batteryPromptOpen = false
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         val migrationError = runCatching { com.hiddify.hiddify.privacy.PackageIdentity.importMigration(this) }.exceptionOrNull()
@@ -54,6 +58,16 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        backgroundChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "vetroff/background_permissions").also { channel ->
+            channel.setMethodCallHandler { call, result ->
+                if (call.method == "ready") {
+                    backgroundUiReady = true
+                    result.success(null)
+                    requestNotificationPermissionIfNeeded()
+                    requestBatteryExemptionIfNeeded()
+                } else result.notImplemented()
+            }
+        }
         reconnect()
         flutterEngine.plugins.add(MethodHandler(lifecycleScope, this))
         flutterEngine.plugins.add(PlatformSettingsHandler())
@@ -210,23 +224,25 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         }
 
     private fun requestBatteryExemptionIfNeeded() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || notificationRequestInFlight ||
+        if (!backgroundUiReady || batteryPromptOpen || notificationRequestInFlight ||
             !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) ||
             serviceStatus.value != Status.Started ||
             Application.powerManager.isIgnoringBatteryOptimizations(packageName)) return
         val prefs = getSharedPreferences("background_permissions", MODE_PRIVATE)
         if (prefs.getBoolean("battery_prompt_shown", false)) return
-        prefs.edit().putBoolean("battery_prompt_shown", true).apply()
-        val ru = java.util.Locale.getDefault().language == "ru"
-        android.app.AlertDialog.Builder(this)
-            .setTitle(if (ru) "Работа в фоне" else "Background connection")
-            .setMessage(if (ru) "Разрешите работу без ограничений батареи, чтобы Android не прерывал VPN в фоне." else "Allow unrestricted battery use to keep your VPN running in the background.")
-            .setNegativeButton(if (ru) "Позже" else "Later", null)
-            .setPositiveButton(if (ru) "Разрешить" else "Allow") { _, _ ->
-                runCatching { startActivity(Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                    android.net.Uri.parse("package:$packageName"))) }
-                    .onFailure { Log.w("MainActivity", "Battery exemption unavailable", it) }
-            }.show()
+        val channel = backgroundChannel ?: return
+        batteryPromptOpen = true
+        channel.invokeMethod("batteryPrompt", null, object : MethodChannel.Result {
+            override fun success(result: Any?) {
+                batteryPromptOpen = false
+                if (result == true) prefs.edit().putBoolean("battery_prompt_shown", true).apply()
+            }
+            override fun error(code: String, message: String?, details: Any?) {
+                batteryPromptOpen = false
+                Log.w("MainActivity", "Background permission explanation unavailable: $code")
+            }
+            override fun notImplemented() { batteryPromptOpen = false }
+        })
     }
 
     private fun requestNotificationPermissionIfNeeded() {
@@ -298,6 +314,9 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
     }
 
     override fun onDestroy() {
+        backgroundUiReady = false
+        backgroundChannel?.setMethodCallHandler(null)
+        backgroundChannel = null
         cancelPendingStartInternal()
         logCallback = null
         connection.disconnect()

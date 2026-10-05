@@ -13,7 +13,9 @@ void main() {
   testWidgets('An unfinished initializer displays startup instead of a blank screen', (tester) async {
     final startup = Completer<Widget>();
     await tester.pumpWidget(StartupApp(initialization: startup.future));
+    final initialAngle = tester.widget<RotationTransition>(find.byKey(const ValueKey('startup_rotor'))).turns.value;
     await tester.pump(const Duration(seconds: 30));
+    expect(tester.widget<RotationTransition>(find.byKey(const ValueKey('startup_rotor'))).turns.value, isNot(initialAngle));
     expect(find.text('VetrOFF Client'), findsOneWidget);
     expect(find.text('Starting'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);

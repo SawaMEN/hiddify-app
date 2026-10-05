@@ -53,7 +53,7 @@ object DefaultNetworkListener {
                         is NetworkMessage.Start -> {
                             if (listeners.isEmpty()) {
                                 register()
-                                if (fallback && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                if (fallback) {
                                     network = Application.connectivity.activeNetwork
                                 }
                             }
@@ -68,7 +68,7 @@ object DefaultNetworkListener {
                             val currentNetwork = network
                             if (currentNetwork != null) {
                                 message.response.complete(currentNetwork)
-                            } else if (fallback && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            } else if (fallback) {
                                 val active = Application.connectivity.activeNetwork
                                 if (active != null) {
                                     network = active
@@ -133,7 +133,7 @@ object DefaultNetworkListener {
     }
 
     suspend fun get(): Network {
-        if (fallback && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (fallback) {
             return Application.connectivity.activeNetwork ?: error("missing default network")
         }
         val response = CompletableDeferred<Network>()
@@ -179,10 +179,6 @@ object DefaultNetworkListener {
         NetworkRequest.Builder().apply {
             addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
-            if (Build.VERSION.SDK_INT == 23) {
-                removeCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-                removeCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)
-            }
         }.build()
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -190,20 +186,10 @@ object DefaultNetworkListener {
     private fun register() {
         fallback = false
         try {
-            when (Build.VERSION.SDK_INT) {
-                in 31..Int.MAX_VALUE ->
-                    Application.connectivity.registerBestMatchingNetworkCallback(request, Callback, mainHandler)
-
-                in 28 until 31 ->
-                    Application.connectivity.requestNetwork(request, Callback, mainHandler)
-
-                in 26 until 28 ->
-                    Application.connectivity.registerDefaultNetworkCallback(Callback, mainHandler)
-
-                in 24 until 26 ->
-                    Application.connectivity.registerDefaultNetworkCallback(Callback)
-
-                else -> Application.connectivity.requestNetwork(request, Callback)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                Application.connectivity.registerBestMatchingNetworkCallback(request, Callback, mainHandler)
+            } else {
+                Application.connectivity.requestNetwork(request, Callback, mainHandler)
             }
         } catch (e: RuntimeException) {
             fallback = true

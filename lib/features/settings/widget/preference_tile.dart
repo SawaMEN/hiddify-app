@@ -1,4 +1,6 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hiddify/features/app/widget/background_permission_prompt.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/core/router/dialog/dialog_notifier.dart';
 import 'package:hiddify/core/utils/preferences_utils.dart';
@@ -161,6 +163,7 @@ class BatteryOptimizationWidget extends HookConsumerWidget {
     final t = ref.watch(translationsProvider).requireValue;
 
     final isIgnoringBatteryOptimizations = ref.watch(batteryOptimizationNotifierProvider);
+    final promptOpen = useState(false);
 
     return isIgnoringBatteryOptimizations.when(
       data: (isIgnored) => isIgnored
@@ -169,8 +172,15 @@ class BatteryOptimizationWidget extends HookConsumerWidget {
               title: Text(t.pages.settings.general.ignoreBatteryOptimizations),
               subtitle: Text(t.pages.settings.general.ignoreBatteryOptimizationsMsg),
               leading: const Icon(Icons.battery_saver_rounded),
-              onTap: () async {
-                await ref.read(batteryOptimizationNotifierProvider.notifier).requestToIgnore();
+              onTap: promptOpen.value ? null : () async {
+                promptOpen.value = true;
+                try {
+                  final allow = await showBackgroundPermissionExplanation(context, Localizations.localeOf(context).languageCode);
+                  if (!context.mounted || !allow) return;
+                  await ref.read(batteryOptimizationNotifierProvider.notifier).requestToIgnore();
+                } finally {
+                  if (context.mounted) promptOpen.value = false;
+                }
               },
             ),
       error: (_, _) => const SizedBox(),

@@ -124,12 +124,12 @@ jobs:
           python3 tool/test_appcast.py
           python3 tool/test_app_version.py
 
-      - name: Upload startup screen preview
+      - name: Upload client screen previews
         if: always()
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: startup-screen-preview
-          path: test/failures/startup-preview.png
+          name: client-ui-previews
+          path: test/failures/*preview.png
           if-no-files-found: ignore
           retention-days: 7
 
@@ -318,7 +318,10 @@ jobs:
           actual = re.search(r"package:.*versionCode='([^']+)'.*versionName='([^']+)'", metadata)
           if actual is None or actual.groups() != (build, version):
               raise SystemExit('APK version does not match pubspec.yaml')
-          print(f'APK version {version}+{build} verified')
+          minimum = re.search(r"sdkVersion:'(\d+)'", metadata)
+          if minimum is None or minimum.group(1) != '29':
+              raise SystemExit('APK must require Android 10 / API 29')
+          print(f'APK version {version}+{build}, minimum Android 10 verified')
           PYROOT
 
           cp "$APK_PATH" "out/${APK_NAME}"

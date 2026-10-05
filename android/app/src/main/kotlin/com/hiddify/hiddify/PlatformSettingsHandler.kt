@@ -107,8 +107,7 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
             val pending = ignoreRequestResult ?: return false
             ignoreRequestResult = null
             pending.safely {
-                success(Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
-                    Application.powerManager.isIgnoringBatteryOptimizations(Application.application.packageName))
+                success(Application.powerManager.isIgnoringBatteryOptimizations(Application.application.packageName))
             }
             return true
         }
@@ -127,19 +126,12 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
             Trigger.IsIgnoringBatteryOptimizations.method -> {
                 result.safely {
                     success(
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            Application.powerManager.isIgnoringBatteryOptimizations(Application.application.packageName)
-                        } else {
-                            true
-                        }
+                        Application.powerManager.isIgnoringBatteryOptimizations(Application.application.packageName)
                     )
                 }
             }
 
             Trigger.RequestIgnoreBatteryOptimizations.method -> {
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                    return result.success(true)
-                }
                 mainHandler.post {
                     val currentActivity = activity
                     if (currentActivity == null) {

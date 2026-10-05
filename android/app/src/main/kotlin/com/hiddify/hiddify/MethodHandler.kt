@@ -5,7 +5,6 @@ import com.hiddify.core.libbox.Libbox
 import com.hiddify.core.mobile.Mobile
 import com.hiddify.core.mobile.SetupOptions
 import com.hiddify.hiddify.bg.BoxService
-import com.hiddify.hiddify.bg.Bugs
 import com.hiddify.hiddify.constant.Alert
 import com.hiddify.hiddify.constant.Status
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -153,7 +152,7 @@ class MethodHandler(
                             it.basePath = Settings.baseDir
                             it.workingDir = Settings.workingDir
                             it.tempDir = Settings.tempDir
-                            it.fixAndroidStack = Bugs.fixAndroidStack
+                            it.fixAndroidStack = true
                             it.mode = mode.toLong()
                             it.listen = "127.0.0.1:$grpcPort"
                             it.secret = Settings.grpcAuthToken

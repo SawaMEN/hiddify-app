@@ -1,4 +1,4 @@
-"""Render all VetrOFF launcher/splash assets from the original July 22 fan artwork.
+"""Render all VetrOFF launcher/splash assets from the transparent centered fan rotor.
 
 Run from the repository root with Python and Pillow installed.
 """
@@ -9,19 +9,14 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "android/app/src/main/res"
-LOGO = ROOT / "assets/images/source/vetroff-original.png"
+LOGO = ROOT / "assets/images/source/vetroff-rotor.png"
 BACKGROUND = "#020506"
 
 
 def mark(size, color=None):
-    # Preserve the actual July 22 artwork: crop only the emblem, not a redraw.
-    source = Image.open(LOGO).convert("RGBA")
-    emblem = source.crop((150, 225, 950, 800))
-    image = Image.new("RGBA", (800, 800), BACKGROUND)
-    image.alpha_composite(emblem, (0, 112))
+    image = Image.open(LOGO).convert("RGBA")
     if color is not None:
-        # Android notification icons must be monochrome alpha silhouettes.
-        alpha = image.convert("L").point(lambda v: min(255, max(0, (v - 24) * 5)))
+        alpha = image.getchannel("A")
         image = Image.new("RGBA", image.size, color)
         image.putalpha(alpha)
     return image.resize((size, size), Image.Resampling.LANCZOS)
@@ -35,11 +30,6 @@ def save(image, path):
 
 def launcher(size, rounded=False):
     canvas = Image.new("RGBA", (size * 4, size * 4))
-    draw = ImageDraw.Draw(canvas)
-    if rounded:
-        draw.ellipse((0, 0, size * 4 - 1, size * 4 - 1), fill=BACKGROUND)
-    else:
-        draw.rounded_rectangle((0, 0, size * 4 - 1, size * 4 - 1), radius=size * .8, fill=BACKGROUND)
     logo = mark(int(size * 4 * .82))
     offset = (canvas.width - logo.width) // 2
     canvas.alpha_composite(logo, (offset, offset))

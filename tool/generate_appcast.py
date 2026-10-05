@@ -34,7 +34,7 @@ def generate(directory, repository, tag, channel):
             continue
         item = ET.SubElement(feed, "item")
         ET.SubElement(item, "title").text = match[1]
-        ET.SubElement(item, f"{{{ns}}}minimumSystemVersion").text = "7.0.0"
+        ET.SubElement(item, f"{{{ns}}}minimumSystemVersion").text = "10.0.0"
         ET.SubElement(item, "link").text = f"https://github.com/{repository}/releases/tag/{tag}"
         ET.SubElement(item, "enclosure", {
             "url": f"https://github.com/{repository}/releases/download/{tag}/{apk.name}",

@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:material_ui/material_ui.dart';
 
 /// Renders before preferences, translations and platform plugins load.
@@ -32,7 +30,7 @@ class _StartupScene extends StatefulWidget {
 
 class _StartupSceneState extends State<_StartupScene> with TickerProviderStateMixin, WidgetsBindingObserver {
   late final AnimationController _entrance;
-  late final AnimationController _breathing;
+  late final AnimationController _rotor;
   late final CurvedAnimation _reveal;
   bool _reducedMotion = false;
   bool _foreground = true;
@@ -42,7 +40,7 @@ class _StartupSceneState extends State<_StartupScene> with TickerProviderStateMi
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _entrance = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
-    _breathing = AnimationController(vsync: this, duration: const Duration(milliseconds: 3200));
+    _rotor = AnimationController(vsync: this, duration: const Duration(seconds: 4));
     _reveal = CurvedAnimation(parent: _entrance, curve: Curves.easeOutCubic);
   }
 
@@ -64,11 +62,11 @@ class _StartupSceneState extends State<_StartupScene> with TickerProviderStateMi
   void _syncAnimations() {
     if (_reducedMotion || !_foreground) {
       _entrance.stop();
-      _breathing.stop();
+      _rotor.stop();
       if (_reducedMotion) _entrance.value = 1;
     } else {
       if (!_entrance.isCompleted) _entrance.forward();
-      if (!_breathing.isAnimating) _breathing.repeat(reverse: true);
+      if (!_rotor.isAnimating) _rotor.repeat();
     }
   }
 
@@ -77,7 +75,7 @@ class _StartupSceneState extends State<_StartupScene> with TickerProviderStateMi
     WidgetsBinding.instance.removeObserver(this);
     _reveal.dispose();
     _entrance.dispose();
-    _breathing.dispose();
+    _rotor.dispose();
     super.dispose();
   }
 
@@ -95,18 +93,12 @@ class _StartupSceneState extends State<_StartupScene> with TickerProviderStateMi
             child: FadeTransition(opacity: _reveal, child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                AnimatedBuilder(
-                  animation: _breathing,
-                  child: ClipOval(child: Image.asset('assets/images/logo.png', width: 176, height: 176, semanticLabel: 'VetrOFF')),
-                  builder: (context, child) => Container(
-                    decoration: BoxDecoration(shape: BoxShape.circle, boxShadow: [BoxShadow(
-                      color: const Color(0xFF26C6F5).withValues(alpha: .08 + _breathing.value * .08),
-                      blurRadius: 36 + _breathing.value * 16,
-                      spreadRadius: 4,
-                    )]),
-                    child: child,
-                  ),
-                ),
+                RepaintBoundary(child: RotationTransition(
+                  key: const ValueKey('startup_rotor'),
+                  turns: _rotor,
+                  alignment: Alignment.center,
+                  child: Image.asset('assets/images/logo.png', width: 176, height: 176, semanticLabel: 'VetrOFF'),
+                )),
                 const SizedBox(height: 28),
                 SlideTransition(
                   position: Tween<Offset>(begin: const Offset(0, .35), end: Offset.zero).animate(_reveal),
@@ -152,11 +144,7 @@ class _StartupBackdrop extends CustomPainter {
     for (double y = 0; y < size.height; y += 56) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), line);
     }
-    final orbit = Paint()..color = const Color(0x1446C8FF)..style = PaintingStyle.stroke..strokeWidth = 1;
-    final center = Offset(size.width * .5, size.height * .36);
-    final radius = math.min(size.width, size.height) * .72;
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius), -.6, 1.7, false, orbit);
-    canvas.drawArc(Rect.fromCircle(center: center, radius: radius * 1.18), 2.5, 1.4, false, orbit);
+
   }
   @override
   bool shouldRepaint(_StartupBackdrop oldDelegate) => false;

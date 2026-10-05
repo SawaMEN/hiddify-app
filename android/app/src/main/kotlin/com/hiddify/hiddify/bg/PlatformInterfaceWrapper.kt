@@ -5,7 +5,6 @@ import android.os.Build
 import android.os.Process
 import android.system.OsConstants
 import android.util.Log
-import androidx.annotation.RequiresApi
 import com.hiddify.core.libbox.AutoRedirectHandler
 import com.hiddify.core.libbox.AutoRedirectSession
 import com.hiddify.core.libbox.BridgeOptions
@@ -49,9 +48,8 @@ interface PlatformInterfaceWrapper : PlatformInterface {
         return -1
     }
 
-    override fun useProcFS(): Boolean = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
+    override fun useProcFS(): Boolean = false
 
-    @RequiresApi(Build.VERSION_CODES.Q)
     override fun findConnectionOwner(
         ipProtocol: Int,
         sourceAddress: String,

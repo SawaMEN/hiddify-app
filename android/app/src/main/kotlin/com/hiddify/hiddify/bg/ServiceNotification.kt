@@ -43,8 +43,7 @@ class ServiceNotification(private val service: Service) : BroadcastReceiver() {
     companion object {
         private const val notificationChannel = "service"
         private var foregroundOwner: ServiceNotification? = null
-        val flags =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        const val flags = PendingIntent.FLAG_IMMUTABLE
 
         fun hasRuntimePermission(): Boolean =
             Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
@@ -53,8 +52,7 @@ class ServiceNotification(private val service: Service) : BroadcastReceiver() {
 
         fun checkPermission(): Boolean {
             if (!hasRuntimePermission() || !NotificationManagerCompat.from(Application.application).areNotificationsEnabled()) return false
-            return Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
-                Application.notification.getNotificationChannel(notificationChannel)?.importance != NotificationManager.IMPORTANCE_NONE
+            return Application.notification.getNotificationChannel(notificationChannel)?.importance != NotificationManager.IMPORTANCE_NONE
         }
 
         // Called on Android main after granting permission or returning from system settings.
@@ -67,18 +65,15 @@ class ServiceNotification(private val service: Service) : BroadcastReceiver() {
             }.onFailure { Log.w("notification", "failed to refresh foreground notification", it) }
         }
 
-        fun settingsIntent(): Intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+        fun settingsIntent(): Intent = if (
             NotificationManagerCompat.from(Application.application).areNotificationsEnabled() &&
             Application.notification.getNotificationChannel(notificationChannel) != null) {
             Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
                 .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, Application.application.packageName)
                 .putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, notificationChannel)
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        } else {
             Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                 .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, Application.application.packageName)
-        } else {
-            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                android.net.Uri.parse("package:${Application.application.packageName}"))
         }
     }
 
@@ -89,13 +84,13 @@ class ServiceNotification(private val service: Service) : BroadcastReceiver() {
     @Volatile private var closed = true
     private var pollingGeneration = 0L
     private var receiverRegistered = false
-    private var profileName = "Hiddify"
+    private var profileName = "VetrOFF Client"
 
     private val notificationBuilder by lazy {
         NotificationCompat.Builder(service, notificationChannel)
                 .setShowWhen(false)
                 .setOngoing(true)
-                .setContentTitle("Hiddify")
+                .setContentTitle("VetrOFF Client")
                 .setOnlyAlertOnce(true)
                 .setSmallIcon(R.drawable.ic_stat_logo)
                 .setCategory(NotificationCompat.CATEGORY_SERVICE)
@@ -127,17 +122,13 @@ class ServiceNotification(private val service: Service) : BroadcastReceiver() {
     }
 
     fun show(profileName: String, @StringRes contentTextId: Int) {
-        this.profileName = profileName.takeIf { it.isNotBlank() } ?: "Hiddify"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Application.notification.createNotificationChannel(
-                NotificationChannel(
-                    notificationChannel, "hiddify service", NotificationManager.IMPORTANCE_LOW
-                )
-            )
-        }
+        this.profileName = profileName.takeIf { it.isNotBlank() } ?: "VetrOFF Client"
+        Application.notification.createNotificationChannel(
+            NotificationChannel(notificationChannel, "VetrOFF Client", NotificationManager.IMPORTANCE_LOW)
+        )
         service.startForeground(
             notificationId, notificationBuilder
-                .setContentTitle(profileName.takeIf { it.isNotBlank() } ?: "Hiddify")
+                .setContentTitle(profileName.takeIf { it.isNotBlank() } ?: "VetrOFF Client")
                 .setContentText(service.getString(contentTextId)).build()
         )
         foregroundOwner?.takeIf { it !== this }?.stopListenSystemInfo()
