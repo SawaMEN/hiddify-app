@@ -74,6 +74,7 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
     }
     try {
       final root = await _channel.invokeMapMethod<dynamic, dynamic>('detect_root') ?? const {};
+      if (!mounted) return;
       if (root['detected'] != true || root['helper'] != true) {
         await ref.read(VpnPrivacyPreferences.useRoot.notifier).update(false);
       }
@@ -98,6 +99,7 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
     try {
       await operation();
       await _refreshRoutingStatus();
+      if (!mounted) return;
       if (verifyRouting && Platform.isAndroid && _routingReady == false) {
         throw StateError(
           _privacyText(
@@ -131,6 +133,7 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
       () async {
         if (enabled) {
           final status = await _channel.invokeMapMethod<dynamic, dynamic>('check_root') ?? const {};
+          if (!mounted) return;
           if (mounted) setState(() => _root = status);
           if (status['granted'] != true) {
             throw StateError(_privacyText(context, 'Root-доступ не предоставлен', 'Root permission was not granted'));

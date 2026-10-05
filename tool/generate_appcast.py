@@ -26,7 +26,7 @@ def generate(directory, repository, tag, channel):
     ET.register_namespace("sparkle", ns)
     rss = ET.Element("rss", {"version": "2.0"})
     feed = ET.SubElement(rss, "channel")
-    ET.SubElement(feed, "title").text = "Hiddify SawaMEN updates"
+    ET.SubElement(feed, "title").text = "VetrOFF Client SawaMEN updates"
     for apk in apks:
         if "arm64" not in apk.name.lower() or "dev" in apk.name.lower():
             continue

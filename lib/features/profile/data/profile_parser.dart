@@ -215,8 +215,8 @@ class ProfileParser {
             cancelToken: cancelToken,
             userAgent: _ref.read(ConfigOptions.useXrayCoreWhenPossible)
                 ? _httpClient.userAgent.replaceAll(
-                    "HiddifyNext",
-                    "HiddifyNextX",
+                    "vetroff/",
+                    "vetroff-xray/",
                   )
                 : null,
           ).catchError((Object err) {
@@ -253,7 +253,7 @@ class ProfileParser {
     int parallelism = 4,
   }) async {
     final userAgent = ref.read(ConfigOptions.useXrayCoreWhenPossible)
-        ? httpClient.userAgent.replaceAll('HiddifyNext', 'HiddifyNextX')
+        ? httpClient.userAgent.replaceAll('vetroff/', 'vetroff-xray/')
         : null;
     final content = await File(tempFilePath).readAsString();
     final lines = content.split('\n');

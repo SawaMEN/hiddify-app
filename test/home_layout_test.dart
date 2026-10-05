@@ -47,7 +47,7 @@ class _Options extends ConfigOptionNotifier {
 class _Info extends AppInfo {
   @override
   Future<AppInfoEntity> build() async => const AppInfoEntity(
-    name: 'Hiddify',
+    name: 'VetrOFF Client',
     version: '4.1.2',
     buildNumber: '40102',
     release: Release.general,

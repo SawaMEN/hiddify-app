@@ -15,8 +15,6 @@ import 'package:hiddify/utils/platform_utils.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_preferences.dart';
 import 'package:json_path/json_path.dart';
 import 'package:hiddify/core/utils/preferences_utils.dart';
-import 'package:hiddify/features/route_rules/notifier/rules_notifier.dart';
-import 'package:hiddify/hiddifycore/generated/v2/config/route_rule.pb.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'config_option_notifier.g.dart';
@@ -42,6 +40,13 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
       VpnPrivacyPreferences.disableSystemProxy,
       VpnPrivacyPreferences.publicDns,
       VpnPrivacyPreferences.encryptedDns,
+      VpnPrivacyPreferences.russianNetworkBypass,
+      VpnPrivacyPreferences.russianAppsBypass,
+      VpnPrivacyPreferences.restrictedServicesProxy,
+      VpnPrivacyPreferences.anonymizationBlockQuic,
+      VpnPrivacyPreferences.anonymizationBlockStun,
+      VpnPrivacyPreferences.anonymizationBlockPlainHttp,
+      VpnPrivacyPreferences.anonymizationIsolateLan,
     ]) {
       ref.listen(preference, (previous, next) {
         if (previous == next) return;
@@ -146,6 +151,7 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
               snapshot?.enableTun != options.enableTun)
           ? await notifier.reconnectService(activeProfile)
           : await notifier.reconnect(activeProfile);
+      if (!success) throw StateError('Unable to reconnect with changed settings');
       if (success) {
         _appliedRevision = revision;
         if (_desiredRevision == revision) _nativePolicyChanged = false;
@@ -232,10 +238,8 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
       notifier.entry.parseRaw(res.value);
       updates.add((notifier, res.value, notifier.raw()));
     }
-    final routeValue = decoded['route-rule'];
-    final routes = routeValue == null ? null : (RouteRule()..mergeFromProto3Json(routeValue));
-    if (updates.isEmpty && routes == null) throw const FormatException('No supported settings');
-    final previousRules = routes == null ? null : ref.read(rulesNotifierProvider).map((r) => r.deepCopy()).toList();
+    // Legacy route-rule payloads are ignored after removal of the route editor.
+    if (updates.isEmpty) throw const FormatException('No supported settings');
     _importing = true;
     _updateTimer?.cancel();
     final applied = <(PreferencesNotifier, dynamic)>[];
@@ -245,13 +249,9 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
         await notifier.updateRaw(raw);
         applied.add((notifier, previous));
       }
-      if (routes != null) await ref.read(rulesNotifierProvider.notifier).replaceRules(routes.rules);
     } catch (_) {
       for (final (notifier, previous) in applied.reversed) {
         await notifier.updateRaw(previous);
-      }
-      if (previousRules != null && ref.mounted) {
-        await ref.read(rulesNotifierProvider.notifier).replaceRules(previousRules);
       }
       rethrow;
     } finally {

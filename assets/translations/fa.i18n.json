@@ -1,6 +1,6 @@
 {
   "common": {
-    "appTitle": "هیدیفای",
+    "appTitle": "VetrOFF Client",
     "start": "شروع",
     "version": "نسخه",
     "ok": "باشه",
@@ -95,7 +95,7 @@
   "intro": {
     "banner": "هرآنچه برای اینترنت بدون محدودیت نیاز دارید",
     "termsAndPolicyCaution(rich)": "با ادامه، شما با ${tap(@:pages.about.termsAndConditions)} موافقت می‌کنید",
-    "info(rich)": "ساخته شده با ❤️ توسط هیدیفای - ${tap_source(متن‌باز)} (${tap_license(مجوز)})"
+    "info(rich)": "ساخته شده با ❤️ توسط VetrOFF Client - ${tap_source(متن‌باز)} (${tap_license(مجوز)})"
   },
   "pages": {
     "home": {

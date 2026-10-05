@@ -24,7 +24,7 @@ env:
   CHANNEL: "${{ inputs.channel }}"
   FLUTTER_VERSION: '3.47.6'
   BUILD_TARGET: "${{ inputs.channel == 'prod' && 'lib/main_prod.dart' || 'lib/main.dart' }}"
-  APK_NAME: "${{ inputs.channel == 'dev' && 'Hiddify-Android-arm64-v8a-dev.apk' || 'Hiddify-Android-arm64-v8a.apk' }}"
+  APK_NAME: "${{ inputs.channel == 'dev' && 'vetroff-Android-arm64-v8a-dev.apk' || 'vetroff-Android-arm64-v8a.apk' }}"
 
 jobs:
   analyze:
@@ -411,7 +411,7 @@ jobs:
         with:
           prerelease: ${{ inputs.channel != 'prod' }}
           make_latest: ${{ inputs.channel == 'prod' }}
-          name: ${{ inputs.channel == 'dev' && 'Hiddify Dev' || inputs.tag-name }}
+          name: ${{ inputs.channel == 'dev' && 'VetrOFF Client Dev' || inputs.tag-name }}
           tag_name: ${{ inputs.tag-name }}
           body_path: ./release.md
           files: ./out/*

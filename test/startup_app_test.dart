@@ -10,7 +10,7 @@ void main() {
     final startup = Completer<Widget>();
     await tester.pumpWidget(StartupApp(initialization: startup.future));
     await tester.pump(const Duration(seconds: 30));
-    expect(find.text('Starting Hiddify…'), findsOneWidget);
+    expect(find.text('Starting VetrOFF Client…'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -20,7 +20,7 @@ void main() {
     await tester.pumpWidget(StartupApp(initialization: startup.future));
     startup.completeError(StateError('Startup failed at [preferences]'));
     await tester.pumpAndSettle();
-    expect(find.text('Unable to start Hiddify'), findsOneWidget);
+    expect(find.text('Unable to start VetrOFF Client'), findsOneWidget);
     expect(find.textContaining('preferences'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(tester.takeException(), isNull);
@@ -32,7 +32,7 @@ void main() {
     startup.complete(const MaterialApp(home: Text('Ready')));
     await tester.pumpAndSettle();
     expect(find.text('Ready'), findsOneWidget);
-    expect(find.text('Starting Hiddify…'), findsNothing);
+    expect(find.text('Starting VetrOFF Client…'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

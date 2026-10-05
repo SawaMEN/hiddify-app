@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
 import com.hiddify.hiddify.bg.VPNService
+import com.hiddify.hiddify.bg.BoxService
 
 /**
  * Best-effort reduction of the package-manager signal used by apps that enumerate
@@ -17,6 +18,9 @@ object VpnServiceVisibility {
     private const val TAG = "A/VpnServiceVisibility"
 
     fun sync(context: Context, hideForRootMode: Boolean) {
+        // Disabling a live VpnService can tear down its tunnel before normal cleanup.
+        // The next root service start synchronizes visibility again after it closes.
+        if (hideForRootMode && BoxService.currentPlatformInterface() is VPNService) return
         val component = ComponentName(context, VPNService::class.java)
         val manager = context.packageManager
         val desired = if (hideForRootMode) {
@@ -24,9 +28,8 @@ object VpnServiceVisibility {
         } else {
             PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
         }
-        if (manager.getComponentEnabledSetting(component) == desired) return
-
         runCatching {
+            if (manager.getComponentEnabledSetting(component) == desired) return@runCatching
             manager.setComponentEnabledSetting(
                 component,
                 desired,

@@ -26,7 +26,7 @@ class StartupApp extends StatelessWidget {
                       if (snapshot.hasError) ...[
                         const Icon(Icons.error_outline, size: 48),
                         const SizedBox(height: 16),
-                        const Text('Unable to start Hiddify'),
+                        const Text('Unable to start VetrOFF Client'),
                         const SizedBox(height: 16),
                         SelectableText('${snapshot.error}', textAlign: TextAlign.center),
                         const SizedBox(height: 16),
@@ -34,7 +34,7 @@ class StartupApp extends StatelessWidget {
                       ] else ...[
                         const CircularProgressIndicator(),
                         const SizedBox(height: 24),
-                        const Text('Starting Hiddify…'),
+                        const Text('Starting VetrOFF Client…'),
                       ],
                     ],
                   ),

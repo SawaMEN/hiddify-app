@@ -36,6 +36,8 @@ class _NetworkAnonymizationPageState extends ConsumerState<NetworkAnonymizationP
           ),
         ),
       );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -98,6 +100,8 @@ class _NetworkAnonymizationPageState extends ConsumerState<NetworkAnonymizationP
           ),
         ),
       );
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
