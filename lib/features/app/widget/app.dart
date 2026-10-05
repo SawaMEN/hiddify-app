@@ -114,13 +114,13 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
                 title: Constants.appName,
                 builder: (context, child) {
                   final theme = Theme.of(context);
-                  child = UpgradeAlert(
+                  Widget appChild = UpgradeAlert(
                     upgrader: upgrader,
                     navigatorKey: router.routerDelegate.navigatorKey,
                     child: child ?? const SizedBox(),
                   );
                   if (kDebugMode && _debugAccessibility) {
-                    child = AccessibilityTools(checkFontOverflows: true, child: child);
+                    appChild = AccessibilityTools(checkFontOverflows: true, child: appChild);
                   }
                   return AnnotatedRegion<SystemUiOverlayStyle>(
                     value: SystemUiOverlayStyle(
@@ -135,7 +135,7 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
                       // Third-party widgets still use Flutter's legacy Material types.
                       child: TickerMode(
                         enabled: ref.watch(appForegroundProvider),
-                        child: MaterialUiCompatibilityBridge(child: CyberBackground(child: child)),
+                        child: MaterialUiCompatibilityBridge(child: CyberBackground(child: appChild)),
                       ),
                     ),
                   );
