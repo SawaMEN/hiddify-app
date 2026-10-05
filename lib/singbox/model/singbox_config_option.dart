@@ -17,7 +17,6 @@ abstract class SingboxConfigOption with _$SingboxConfigOption {
   const factory SingboxConfigOption({
     required String region,
     required BalancerStrategy balancerStrategy,
-    // required bool blockAds,
     required bool useXrayCoreWhenPossible,
     required bool executeConfigAsIs,
     required LogLevel logLevel,
@@ -43,16 +42,11 @@ abstract class SingboxConfigOption with _$SingboxConfigOption {
     required bool enableClashApi,
     required int clashApiPort,
     required bool enableTun,
-    // required bool enableTunService,
     required bool setSystemProxy,
-    // required bool bypassLan,
     required bool allowConnectionFromLan,
     required String lanSharingPassword,
     required bool enableFakeDns,
-    // required bool enableDnsRouting,
     required bool independentDnsCache,
-    required Map<String, dynamic> routeRule,
-    // required SingboxMuxOption mux,
     required SingboxTlsTricks tlsTricks,
     required ChainStatus chainStatus,
     required SingboxExtraSecurityOption extraSecurity,
@@ -155,19 +149,6 @@ abstract class SingboxUnblockerProfileOption with _$SingboxUnblockerProfileOptio
   factory SingboxUnblockerProfileOption.fromJson(Map<String, dynamic> json) =>
       _$SingboxUnblockerProfileOptionFromJson(json);
 }
-
-// @freezed
-// class SingboxMuxOption with _$SingboxMuxOption {
-//   @JsonSerializable(fieldRename: FieldRename.kebab)
-//   const factory SingboxMuxOption({
-//     required bool enable,
-//     required bool padding,
-//     required int maxStreams,
-//     required MuxProtocol protocol,
-//   }) = _SingboxMuxOption;
-
-//   factory SingboxMuxOption.fromJson(Map<String, dynamic> json) => _$SingboxMuxOptionFromJson(json);
-// }
 
 @freezed
 abstract class SingboxTlsTricks with _$SingboxTlsTricks {
