@@ -12,13 +12,13 @@ void main() {
     'lib/core/router/go_router/routing_config_notifier.dart',
   ).readAsStringSync();
 
-  test('one-tap setup explicitly enables the Russia regional policy', () {
+  test('one-tap setup explicitly enables and reapplies the Russia regional policy', () {
     expect(actions, contains('ConfigOptions.region.notifier).update(Region.ru)'));
-    expect(actions, contains("VpnPrivacyPreferences.routingMode.notifier).update('ru-bypass')"));
+    expect(actions, contains("_setRoutingMode(ref, 'ru-bypass', forceRevision: true)"));
     expect(actions, contains('applyImmediately: true'));
 
     final regionIndex = actions.indexOf('ConfigOptions.region.notifier).update(Region.ru)');
-    final routingIndex = actions.indexOf("VpnPrivacyPreferences.routingMode.notifier).update('ru-bypass')");
+    final routingIndex = actions.indexOf("_setRoutingMode(ref, 'ru-bypass', forceRevision: true)");
     expect(regionIndex, greaterThanOrEqualTo(0));
     expect(routingIndex, greaterThan(regionIndex));
   });
@@ -46,7 +46,7 @@ void main() {
   });
 
   test('router opens the simple privacy overview by default', () {
-    expect(router, contains("vpn_privacy_overview_page.dart"));
+    expect(router, contains('vpn_privacy_overview_page.dart'));
     expect(router, contains('child: const VpnPrivacyOverviewPage()'));
   });
 }
