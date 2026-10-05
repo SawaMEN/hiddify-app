@@ -103,9 +103,12 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
       if (await file.exists()) await file.rename(backup.path);
       try {
         await _profileDataSource.deleteById(id, isActive);
-      } catch (_) {
-        if (await backup.exists()) await backup.rename(file.path);
-        rethrow;
+      } catch (error, stackTrace) {
+        final restored = await _restoreBackup(backup, file);
+        if (!restored && await backup.exists()) {
+          loggy.error('Unable to restore profile file after database delete failed; recovery backup preserved', error, stackTrace);
+        }
+        Error.throwWithStackTrace(error, stackTrace);
       }
       await _cleanup(backup);
       return unit;
@@ -151,6 +154,18 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
     }
   }
 
+  Future<bool> _restoreBackup(File backup, File destination) async {
+    try {
+      if (!await backup.exists()) return false;
+      if (await destination.exists()) await destination.delete();
+      await backup.rename(destination.path);
+      return true;
+    } catch (error, stackTrace) {
+      loggy.error('Unable to restore profile backup ${backup.path}', error, stackTrace);
+      return false;
+    }
+  }
+
   void _checkCancelled(CancelToken? token) {
     if (token?.isCancelled ?? false) {
       throw const ProfileFailure.cancelByUser('Profile update cancelled');
@@ -185,15 +200,21 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
       // On Android this is an atomic replacement on the same filesystem.
       await source.rename(destination.path);
       await writeMetadata();
-    } catch (_) {
+    } catch (error, stackTrace) {
       if (existed && await backup.exists()) {
-        removeBackup = false; // preserve recovery data if restoration itself fails
-        await backup.rename(destination.path);
-        removeBackup = true;
+        removeBackup = false;
+        final restored = await _restoreBackup(backup, destination);
+        if (restored) {
+          removeBackup = true;
+        } else {
+          // Do not let a second filesystem error hide the original DB/metadata failure. The
+          // uniquely named backup remains in place for manual/automatic recovery.
+          loggy.error('Profile commit rollback failed; recovery backup preserved', error, stackTrace);
+        }
       } else {
         await _cleanup(destination);
       }
-      rethrow;
+      Error.throwWithStackTrace(error, stackTrace);
     } finally {
       if (removeBackup) await _cleanup(backup);
     }
