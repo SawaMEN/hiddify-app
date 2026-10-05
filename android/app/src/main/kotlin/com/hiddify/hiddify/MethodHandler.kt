@@ -58,6 +58,15 @@ class MethodHandler(
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
+            "refresh_notification" -> launchResult(result, "android_notification_refresh_failed", Dispatchers.Main.immediate) {
+                com.hiddify.hiddify.bg.ServiceNotification.refreshActive()
+                null
+            }
+            "open_notification_settings" -> launchResult(result, "android_notification_settings_failed", Dispatchers.Main.immediate) {
+                mainActivity.startActivity(com.hiddify.hiddify.bg.ServiceNotification.settingsIntent())
+                null
+            }
+
             "get_connection_intent" -> result.success(Settings.connectionDesired)
             "get_service_running" -> result.success(BoxService.isRunning())
             "get_network_status" -> launchResult(result, "android_network_state_failed") {

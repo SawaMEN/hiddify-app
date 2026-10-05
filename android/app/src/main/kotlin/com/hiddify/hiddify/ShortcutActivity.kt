@@ -7,7 +7,6 @@ import android.os.Build
 import android.os.Bundle
 import android.net.VpnService
 import android.util.Log
-import com.hiddify.hiddify.bg.ServiceNotification
 import com.hiddify.hiddify.constant.ServiceMode
 import androidx.core.content.getSystemService
 import androidx.core.content.pm.ShortcutInfoCompat
@@ -60,8 +59,7 @@ class ShortcutActivity : Activity(), ServiceConnection.Callback {
             Status.Stopped -> {
                 try {
                     if (Settings.activeConfigPath.isBlank() ||
-                        (Settings.serviceMode == ServiceMode.VPN && VpnService.prepare(this) != null) ||
-                        (Settings.dynamicNotification && !ServiceNotification.checkPermission())) {
+                        (Settings.serviceMode == ServiceMode.VPN && VpnService.prepare(this) != null)) {
                         startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     } else {
                         Settings.startCoreAfterStartingService = true

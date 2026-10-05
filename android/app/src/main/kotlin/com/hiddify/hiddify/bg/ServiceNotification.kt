@@ -1,5 +1,7 @@
 package com.hiddify.hiddify.bg
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -12,69 +14,82 @@ import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.StringRes
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.MutableLiveData
-import com.hiddify.core.api.v2.config.Protocol
 import com.hiddify.core.api.v2.hcommon.Empty
 import com.hiddify.core.api.v2.hcore.CoreClient
 import com.hiddify.core.api.v2.hcore.SystemInfo
-import com.hiddify.core.api.v2.hello.HelloClient
-import com.hiddify.core.api.v2.hello.HelloRequest
 import com.hiddify.hiddify.Application
 import com.hiddify.hiddify.MainActivity
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.Settings
 import com.hiddify.hiddify.constant.Action
-import com.hiddify.hiddify.constant.Status
-//import com.hiddify.hiddify.utils.CommandClient
 import com.hiddify.core.libbox.Libbox
-import com.hiddify.hiddify.Application.Companion.notification
 import com.hiddify.hiddify.utils.GrpcClientProvider
-import com.squareup.wire.GrpcClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.isActive
 
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
-import java.io.IOException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancel
-class ServiceNotification(private val status: MutableLiveData<Status>, private val service: Service) : BroadcastReceiver(){
+class ServiceNotification(private val service: Service) : BroadcastReceiver() {
     companion object {
-        private const val notificationId = 1
         private const val notificationChannel = "service"
         private var foregroundOwner: ServiceNotification? = null
-        var coreClient: CoreClient?=null
         val flags =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
 
+        fun hasRuntimePermission(): Boolean =
+            Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+                ContextCompat.checkSelfPermission(Application.application, Manifest.permission.POST_NOTIFICATIONS) ==
+                    PackageManager.PERMISSION_GRANTED
+
         fun checkPermission(): Boolean {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                return true
-            }
-            return Application.notification.areNotificationsEnabled()
+            if (!hasRuntimePermission() || !NotificationManagerCompat.from(Application.application).areNotificationsEnabled()) return false
+            return Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+                Application.notification.getNotificationChannel(notificationChannel)?.importance != NotificationManager.IMPORTANCE_NONE
+        }
+
+        // Called on Android main after granting permission or returning from system settings.
+        fun refreshActive() {
+            val owner = foregroundOwner ?: return
+            if (owner.closed) return
+            runCatching {
+                owner.service.startForeground(owner.notificationId, owner.notificationBuilder.build())
+                owner.updatePolling()
+            }.onFailure { Log.w("notification", "failed to refresh foreground notification", it) }
+        }
+
+        fun settingsIntent(): Intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            NotificationManagerCompat.from(Application.application).areNotificationsEnabled() &&
+            Application.notification.getNotificationChannel(notificationChannel) != null) {
+            Intent(android.provider.Settings.ACTION_CHANNEL_NOTIFICATION_SETTINGS)
+                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, Application.application.packageName)
+                .putExtra(android.provider.Settings.EXTRA_CHANNEL_ID, notificationChannel)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, Application.application.packageName)
+        } else {
+            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                android.net.Uri.parse("package:${Application.application.packageName}"))
         }
     }
-    val streamingCoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-
-//
-//    private val commandClient =
-//            CommandClient(GlobalScope, CommandClient.ConnectionType.Status, this)
-    @Volatile private var closed = false
+    // VPN and proxy have independent Android foreground IDs. Destroying one service must not
+    // remove the replacement service's notification.
+    private val notificationId = if (service is VPNService) 1 else 2
+    private val streamingCoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    @Volatile private var closed = true
     private var pollingGeneration = 0L
     private var receiverRegistered = false
-
+    private var profileName = "Hiddify"
 
     private val notificationBuilder by lazy {
         NotificationCompat.Builder(service, notificationChannel)
@@ -112,8 +127,7 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
     }
 
     fun show(profileName: String, @StringRes contentTextId: Int) {
-        closed = false
-        foregroundOwner = this
+        this.profileName = profileName.takeIf { it.isNotBlank() } ?: "Hiddify"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             Application.notification.createNotificationChannel(
                 NotificationChannel(
@@ -126,16 +140,23 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
                 .setContentTitle(profileName.takeIf { it.isNotBlank() } ?: "Hiddify")
                 .setContentText(service.getString(contentTextId)).build()
         )
+        foregroundOwner?.takeIf { it !== this }?.stopListenSystemInfo()
+        closed = false
+        foregroundOwner = this
     }
 
+    suspend fun start() = withContext(Dispatchers.Main.immediate) {
+        if (closed || foregroundOwner !== this@ServiceNotification) return@withContext
+        registerReceiver()
+        updatePolling()
+    }
 
-    suspend fun start() {
-        if (Settings.dynamicNotification && checkPermission()) {
-//            commandClient.connect()
-            startListenSystemInfo()
-            withContext(Dispatchers.Main) {
-                if (!closed) registerReceiver()
-            }
+    private fun updatePolling() {
+        if (!closed && foregroundOwner === this && Settings.dynamicNotification && checkPermission() &&
+            Application.powerManager.isInteractive) {
+            if (streamingJob?.isActive != true) startListenSystemInfo()
+        } else {
+            stopListenSystemInfo()
         }
     }
 
@@ -154,11 +175,12 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
     }
 
     fun updateStatus(previous:SystemInfo,status: SystemInfo, elapsedMillis: Long) {
+        if (closed || foregroundOwner !== this || !checkPermission()) return
         val seconds = elapsedMillis.coerceAtLeast(1).toDouble() / 1000
         val uplink = ((status.uplink_total - previous.uplink_total).coerceAtLeast(0) / seconds).toLong()
         val downlink = ((status.downlink_total - previous.downlink_total).coerceAtLeast(0) / seconds).toLong()
         val content = "${Libbox.formatBytes(uplink)}/s ↑\t${Libbox.formatBytes(downlink)}/s ↓ \n${status.current_outbound}"
-        val title = "${status.current_profile}"
+        val title = status.current_profile.takeIf { it.isNotBlank() } ?: profileName
         Application.notificationManager.notify(
                 notificationId,
                 notificationBuilder.setContentTitle(title).setContentText(content).build()
@@ -168,7 +190,7 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             Intent.ACTION_SCREEN_ON -> {
-                startListenSystemInfo()
+                refreshActive()
             }
 
             Intent.ACTION_SCREEN_OFF -> {
@@ -181,7 +203,7 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
         closed = true
         stopListenSystemInfo()
         val ownsNotification = foregroundOwner === this
-        ServiceCompat.stopForeground(service, if (ownsNotification) ServiceCompat.STOP_FOREGROUND_REMOVE else ServiceCompat.STOP_FOREGROUND_DETACH)
+        ServiceCompat.stopForeground(service, ServiceCompat.STOP_FOREGROUND_REMOVE)
         if (ownsNotification) foregroundOwner = null
         if (receiverRegistered) {
             runCatching { service.unregisterReceiver(this) }
@@ -195,21 +217,24 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
     fun startListenSystemInfo() {
         // Cancel any previous stream if still running
         Log.d("notification","startListenSystemInfo")
-        if (closed) return
+        if (closed || foregroundOwner !== this || !Settings.dynamicNotification || !checkPermission() ||
+            !Application.powerManager.isInteractive) return
         streamingJob?.cancel()
         val generation = ++pollingGeneration
 
         streamingJob = streamingCoroutineScope.launch(Dispatchers.IO) {
             Log.d("notification", "startListenSystemInfo-launch")
 
-            val coreClient = GrpcClientProvider.grpcClient.create(CoreClient::class)
+            var coreClient: CoreClient? = null
 
             var previous: SystemInfo? = null
             var previousTime = 0L
             var failures = 0
             while (isActive && !closed && generation == pollingGeneration) {
                 try {
-                    val current = coreClient.GetSystemInfo().execute(Empty())
+                    if (!Settings.dynamicNotification || !checkPermission()) break
+                    val client = coreClient ?: GrpcClientProvider.grpcClient.create(CoreClient::class).also { coreClient = it }
+                    val current = client.GetSystemInfo().execute(Empty())
                     val now = SystemClock.elapsedRealtime()
                     val baseline = previous
                     if (baseline != null) {
@@ -227,6 +252,7 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
                 } catch (error: Exception) {
                     Log.w("notification", "SystemInfo polling failed; retrying", error)
                     previous = null
+                    coreClient = null
                     failures = (failures + 1).coerceAtMost(5)
                     delay(1_000L * failures)
                 }

@@ -106,6 +106,10 @@ object Settings {
         get() = getBoolean(SettingsKey.DISABLE_MEMORY_LIMIT, false)
         set(value) = preferences.edit().putBoolean(SettingsKey.DISABLE_MEMORY_LIMIT, value).apply()
 
+    var notificationPermissionAsked: Boolean
+        get() = getBoolean("notification_permission_asked", false)
+        set(value) = preferences.edit().putBoolean("notification_permission_asked", value).apply()
+
     var dynamicNotification: Boolean
         get() = getBoolean(SettingsKey.DYNAMIC_NOTIFICATION, true)
         set(value) = preferences.edit().putBoolean(SettingsKey.DYNAMIC_NOTIFICATION, value).apply()

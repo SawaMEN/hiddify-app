@@ -1,12 +1,17 @@
 package com.hiddify.hiddify
 
+import android.Manifest
+import android.os.Build
 import android.content.Intent
 import android.net.VpnService
 import android.util.Log
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.withResumed
+import com.hiddify.hiddify.bg.ServiceNotification
 import com.hiddify.hiddify.bg.ServiceConnection
 import com.hiddify.hiddify.constant.Alert
 import com.hiddify.hiddify.constant.ServiceMode
@@ -36,6 +41,7 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
     var lastStartFailure: ServiceEvent? = null
         private set
     private var vpnRequestGeneration: Long? = null
+    private var notificationRequestInFlight = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -120,7 +126,7 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
                 val serviceModeChanged = withContext(Dispatchers.IO) { Settings.rebuildServiceMode() }
                 if (!isCurrentStart(generation)) return@launch
                 if (serviceModeChanged) {
-                    withContext(Dispatchers.IO) { connection.reconnect() }
+                    connection.reconnect()
                 }
 
                 if (Settings.serviceMode == ServiceMode.VPN) {
@@ -186,6 +192,39 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         startTracker.reset()
     }
 
+    // This prompt happens after startup completes. Denial never fails or stops the VPN.
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
+            notificationRequestInFlight = false
+            ServiceNotification.refreshActive()
+        }
+
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
+            !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) ||
+            serviceStatus.value != Status.Started || notificationRequestInFlight ||
+            Settings.notificationPermissionAsked || ServiceNotification.hasRuntimePermission()) return
+        try {
+            notificationRequestInFlight = true
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            Settings.notificationPermissionAsked = true
+        } catch (error: Exception) {
+            notificationRequestInFlight = false
+            Log.w("MainActivity", "unable to request optional notification permission", error)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // On Android 29+, onResume can precede the lifecycle's RESUMED event.
+        lifecycleScope.launch {
+            lifecycle.withResumed {
+                ServiceNotification.refreshActive()
+                requestNotificationPermissionIfNeeded()
+            }
+        }
+    }
+
     private val prepareLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
             val generation = vpnRequestGeneration ?: return@registerForActivityResult
@@ -202,12 +241,16 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         lifecycleScope.launch(Dispatchers.Main.immediate) {
             serviceStatus.value = status
             val generation = pendingStartGeneration
-            if (!isCurrentStart(generation)) return@launch
-            val result = startTracker.onStatus(status) ?: return@launch
-            if (!result && lastStartFailure == null) {
-                lastStartFailure = ServiceEvent(Status.Stopped, Alert.StartService, "Android service stopped during startup")
+            if (isCurrentStart(generation)) {
+                val result = startTracker.onStatus(status)
+                if (result != null) {
+                    if (!result && lastStartFailure == null) {
+                        lastStartFailure = ServiceEvent(Status.Stopped, Alert.StartService, "Android service stopped during startup")
+                    }
+                    completePendingStart(generation, result)
+                }
             }
-            completePendingStart(generation, result)
+            if (status == Status.Started) requestNotificationPermissionIfNeeded()
         }
     }
 
