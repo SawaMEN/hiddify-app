@@ -4,7 +4,6 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hiddify/core/localization/translations.dart';
-import 'package:hiddify/core/model/region.dart';
 import 'package:hiddify/core/preferences/general_preferences.dart';
 import 'package:hiddify/core/router/bottom_sheets/bottom_sheets_notifier.dart';
 import 'package:hiddify/features/route_rules/notifier/rules_notifier.dart';
@@ -178,18 +177,6 @@ class RoutingOptionsPage extends HookConsumerWidget {
             child: Column(
               children: [
                 Divider(height: 4, thickness: 4, color: theme.colorScheme.primaryContainer),
-                ChoicePreferenceWidget(
-                  selected: ref.watch(ConfigOptions.region),
-                  preferences: ref.watch(ConfigOptions.region.notifier),
-                  choices: Region.values,
-                  title: t.pages.settings.routing.generalOptions.region,
-                  showFlag: true,
-                  icon: Icons.place_rounded,
-                  presentChoice: (value) => value.present(t),
-                  onChanged: (_) async {
-                    await ref.read(ConfigOptions.directDnsAddress.notifier).reset();
-                  },
-                ),
                 ChoicePreferenceWidget(
                   title: t.pages.settings.routing.generalOptions.balancerStrategy.title,
                   icon: Icons.balance_rounded,
