@@ -38,9 +38,13 @@ void main() {
     expect(notifier, contains('Future<void> applyPending()'));
   });
 
-  test('ordinary VPN privacy screen hides raw automatic policy details', () {
+  test('ordinary VPN privacy screen hides raw automatic policy UI', () {
+    // The overview may read internal policy keys to present a friendly status/count,
+    // but it must not expose the old raw policy/debug controls to normal users.
     expect(overview, isNot(contains('Текущая автоматическая политика')));
-    expect(overview, isNot(contains('privacy-direct-packages')));
+    expect(overview, isNot(contains('Пакеты напрямую')));
+    expect(overview, isNot(contains('Домены напрямую')));
+    expect(overview, isNot(contains('Пакеты через VPN')));
     expect(overview, contains('Для опытных пользователей'));
     expect(overview, contains('Вернуть всё как было'));
   });
