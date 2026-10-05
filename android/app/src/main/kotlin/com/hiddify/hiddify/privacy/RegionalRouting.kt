@@ -7,10 +7,10 @@ import org.json.JSONObject
 /**
  * Bundled routing catalogue.
  *
- * `ruVpnAware*` entries are based on published static APK research. Domain entries are
- * first-party routing targets associated with those apps; they are not a claim that every
- * individual hostname performs VPN detection. Compatibility entries are intentionally kept
- * separate from VPN-aware entries so the UI can report what was actually observed.
+ * `ruVpnAware*` entries follow the published 16 April 2026 repeat APK analysis and
+ * device testing. Domain entries are first-party routing targets associated with those
+ * apps; they are not a claim that every individual hostname performs VPN detection.
+ * Compatibility entries are intentionally kept separate from VPN-aware entries.
  */
 object RegionalRouting {
     private val tokenPattern = Regex("[a-z0-9_\\-]+(\\.[a-z0-9_\\-]+)+")
@@ -29,7 +29,7 @@ object RegionalRouting {
 
     private fun catalogueTokens(catalogue: JSONObject, keys: List<String>, domain: Boolean): List<String> {
         val result = keys.flatMap { key ->
-            val array = catalogue.optJSONArray(key) ?: return@flatMap emptyList()
+            val array = catalogue.optJSONArray(key) ?: return@flatMap emptyList<String>()
             tokens(List(array.length()) { array.getString(it) }.joinToString(","), domain)
         }.distinct()
         require(result.size <= 256) { "Too many bundled routing entries" }
