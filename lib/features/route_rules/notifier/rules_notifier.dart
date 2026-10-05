@@ -82,8 +82,11 @@ class RulesNotifier extends _$RulesNotifier with AppLogger {
     final t = ref.read(translationsProvider).requireValue;
     try {
       final routeRules = RouteRule(rules: state);
-      final base64Data = base64.encode(utf8.encode(jsonEncode(routeRules.writeToJson())));
-      await Clipboard.setData(ClipboardData(text: 'hiddify:///settings/routing-options?routeRule=$base64Data'));
+      final base64Data = base64Url.encode(utf8.encode(jsonEncode(routeRules.writeToJson())));
+      final uri = Uri.parse(
+        'hiddify:///settings/routing-options',
+      ).replace(queryParameters: {'routeRule': base64Data});
+      await Clipboard.setData(ClipboardData(text: uri.toString()));
       ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.export.clipboard.success);
       return true;
     } on PlatformException {
@@ -135,7 +138,10 @@ class RulesNotifier extends _$RulesNotifier with AppLogger {
 
   Future<bool> importRules(String encodedBase64) async {
     final t = ref.read(translationsProvider).requireValue;
-    final base64Content = base64.decode(encodedBase64);
+    // Base64Codec.normalize accepts both standard and URL-safe alphabets. Replacing spaces
+    // recovers legacy links where an unescaped '+' was decoded as a query-string space.
+    final normalized = base64.normalize(encodedBase64.trim().replaceAll(' ', '+'));
+    final base64Content = base64.decode(normalized);
     final routeRules = RouteRule.fromJson(jsonDecode(utf8.decode(base64Content)) as String);
     await replaceRules(routeRules.rules);
     ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.import.success);
