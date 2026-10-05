@@ -260,12 +260,21 @@ object PackageIdentity {
                 if(oldExternal.isNotEmpty()) text=text.replace(oldExternal, activity.getExternalFilesDir(null)!!.path)
                 prefFile.writeText(text)
             }
-            activity.getSharedPreferences("FlutterSharedPreferences", 0).edit()
-                .remove("local_control_token").remove("grpc_flutter_public_key").remove("flutter.grpc_flutter_public_key")
-                .putBoolean("flutter.connection_desired", false).putBoolean("flutter.started_by_user", false)
-                .putString("identity_original", metadata!!.getString("original")).commit().also {
-                    check(it) { "Unable to save migrated preferences" }
+            // Keep both reservations open until distinct ports have been persisted. The
+            // original application may still own its foreground control listener.
+            java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1")).use { front ->
+                java.net.ServerSocket(0, 1, java.net.InetAddress.getByName("127.0.0.1")).use { back ->
+                    check(activity.getSharedPreferences("FlutterSharedPreferences", 0).edit()
+                        .remove("local_control_token").remove("grpc_flutter_public_key").remove("flutter.grpc_flutter_public_key")
+                        .putInt("local_control_front_port", front.localPort)
+                        .putInt("local_control_back_port", back.localPort)
+                        .putInt(com.hiddify.hiddify.constant.SettingsKey.GRPC_PORT, back.localPort)
+                        .putBoolean("flutter.connection_desired", false).putBoolean("flutter.started_by_user", false)
+                        .putString("identity_original", metadata!!.getString("original")).commit()) {
+                        "Unable to save migrated preferences"
+                    }
                 }
+            }
             ready.writeText("1")
         } catch (error: Exception) {
             copied.forEach { it.delete() }

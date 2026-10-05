@@ -27,6 +27,9 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
   static const portBack = 17079;
   static const portFront = 17078;
 
+  int _portFront = portFront;
+  int _portBack = portBack;
+
   bool _isBgClientAvailable = false;
   bool _debug = false;
   CallOptions? _localAuthorization;
@@ -45,6 +48,14 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
       final token = await methodChannel.invokeMethod<String>('get_grpc_auth_token');
       if (token == null || token.isEmpty) throw StateError('Local control authorization is missing');
       _localAuthorization = CallOptions(metadata: {'authorization': 'Bearer $token'});
+      final ports = await methodChannel.invokeMapMethod<String, dynamic>('get_grpc_ports');
+      final front = ports?['front'];
+      final back = ports?['back'];
+      if (front is! int || back is! int || front < 1 || front > 65535 || back < 1 || back > 65535 || front == back) {
+        throw StateError('Local control ports are invalid');
+      }
+      _portFront = front;
+      _portBack = back;
     }
     final channelOption = [1, 2].contains(mode)
         ? MTLSChannelCredentials(serverPublicKey: serverPublicKey, clientKey: cert)
@@ -64,7 +75,7 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
     Future<void> hello() async {
       final channel = ClientChannel(
         '127.0.0.1',
-        port: portFront,
+        port: _portFront,
         options: ChannelOptions(credentials: channelOption),
       );
       try {
@@ -80,7 +91,7 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
     var foregroundReady = false;
     // A refused local TCP connection returns immediately on a cold launch. Avoid
     // spending the gRPC deadline probing a server that has not been created yet.
-    if (await isPortOpen('127.0.0.1', portFront)) {
+    if (await isPortOpen('127.0.0.1', _portFront)) {
       try {
         await hello();
         foregroundReady = true;
@@ -95,7 +106,7 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
             "baseDir": directories.baseDir.path,
             "workingDir": directories.workingDir.path,
             "tempDir": directories.tempDir.path,
-            "grpcPort": portFront,
+            "grpcPort": _portFront,
             "mode": mode,
             "debug": debug,
           })
@@ -108,12 +119,12 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
     await _bgChannel?.shutdown();
     _fgChannel = ClientChannel(
       '127.0.0.1',
-      port: portFront,
+      port: _portFront,
       options: ChannelOptions(credentials: channelOption),
     );
     _bgChannel = ClientChannel(
       '127.0.0.1',
-      port: portBack,
+      port: _portBack,
       options: ChannelOptions(credentials: channelOption),
     );
     fgClient = CoreClient(_fgChannel!, options: _localAuthorization);
@@ -123,7 +134,7 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
 
   @override
   Future<CoreStatus> setupBackground(String path, String name) async {
-    // if (!await waitUntilPort(portBack, false, stop)) return const CoreStatus.stopped(alert: CoreAlert.createService);
+    // if (!await waitUntilPort(_portBack, false, stop)) return const CoreStatus.stopped(alert: CoreAlert.createService);
     if (!await stop()) return const CoreStatus.stopped(alert: CoreAlert.createService);
     final status = _status;
     if (status == null) {
@@ -136,7 +147,7 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
           .invokeMethod<bool>("start", {
             "path": path,
             "name": name,
-            "grpcPort": portBack,
+            "grpcPort": _portBack,
             "startBg": true,
             "debug": _debug,
           })
@@ -188,7 +199,7 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
       loggy.info("Waiting for starting core finished");
     }
 
-    if (!await waitUntilPort(portBack, true, null, maxTry: 10)) {
+    if (!await waitUntilPort(_portBack, true, null, maxTry: 10)) {
       await stopMethodChannel();
       return const CoreStatus.stopped(
         alert: CoreAlert.startService,
@@ -200,7 +211,7 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
     await _bgChannel?.shutdown();
     _bgChannel = ClientChannel(
       '127.0.0.1',
-      port: portBack,
+      port: _portBack,
       options: ChannelOptions(credentials: _channelCredentials),
     );
     bgClient = CoreClient(_bgChannel!, options: _localAuthorization);
@@ -212,7 +223,7 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
   Future<bool> stop() async {
     final nativeStopped = await stopMethodChannel();
     if (!nativeStopped) return false;
-    if (!await waitUntilPort(portBack, false, null, maxTry: 10)) {
+    if (!await waitUntilPort(_portBack, false, null, maxTry: 10)) {
       return false;
     }
 
@@ -247,12 +258,12 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
 
   @override
   Future<bool> isActiveFg() async {
-    return await isPortOpen("127.0.0.1", portFront);
+    return await isPortOpen("127.0.0.1", _portFront);
   }
 
   @override
   Future<bool> isActiveBg() async {
-    return await isPortOpen("127.0.0.1", portBack);
+    return await isPortOpen("127.0.0.1", _portBack);
   }
 }
 

@@ -20,6 +20,8 @@ object Settings {
     val privacyPublicDns get() = getBoolean("flutter.privacy-public-dns", false)
     val privacyDisableSystemProxy get() = getBoolean("flutter.privacy-disable-system-proxy", true)
     val privacyDisableIpv6 get() = getString("flutter.ipv6-mode", "ipv4_only") == "ipv4_only"
+    val grpcFrontPort get() = getInt("local_control_front_port", 17078).takeIf { it in 1..65535 } ?: 17078
+    val grpcBackPort get() = getInt("local_control_back_port", 17079).takeIf { it in 1..65535 && it != grpcFrontPort } ?: 17079
     val grpcAuthToken: String
         @Synchronized get() {
             val saved = getString("local_control_token", "")
@@ -182,7 +184,7 @@ object Settings {
         }
 
     var grpcServiceModePort: Int
-        get() = getInt(SettingsKey.GRPC_PORT, 17079).takeIf { it in 1..65535 && it != 17078 } ?: 17079
+        get() = getInt(SettingsKey.GRPC_PORT, grpcBackPort).takeIf { it in 1..65535 && it != grpcFrontPort } ?: grpcBackPort
         set(value) = preferences.edit().putInt(SettingsKey.GRPC_PORT, value).apply()
 
     var startCoreAfterStartingService: Boolean

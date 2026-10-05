@@ -87,6 +87,7 @@ class MethodHandler(
                 mainActivity.startActivity(android.content.Intent(android.content.Intent.ACTION_DELETE,
                     android.net.Uri.parse("package:$original"))); null
             }
+            "get_grpc_ports" -> result.success(mapOf("front" to Settings.grpcFrontPort, "back" to Settings.grpcBackPort))
             "get_grpc_auth_token" -> result.success(Settings.grpcAuthToken)
             "get_connection_intent" -> result.success(Settings.connectionDesired)
             "get_service_running" -> result.success(BoxService.isRunning())
