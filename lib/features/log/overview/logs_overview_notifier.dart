@@ -45,7 +45,7 @@ class LogsOverviewNotifier extends _$LogsOverviewNotifier with AppLogger {
       if (!state.paused) _attach();
     });
     _attach();
-    return const LogsOverviewState();
+    return LogsOverviewState(filter: _filter, levelFilter: _levelFilter);
   }
 
   void _detach() {

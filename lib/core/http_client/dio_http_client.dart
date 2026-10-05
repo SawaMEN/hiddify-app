@@ -139,7 +139,7 @@ class DioHttpClient with InfraLogger {
     if (credentials != null) {
       userInfo = "${credentials.username}:${credentials.password}";
     } else if (uri.userInfo.isNotEmpty) {
-      userInfo = uri.userInfo;
+      userInfo = Uri.decodeComponent(uri.userInfo);
     }
 
     String? basicAuth;

@@ -7,7 +7,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 export 'package:hooks_riverpod/legacy.dart' show StateNotifier, StateNotifierProvider;
 
 class PreferencesEntry<T, P> with InfraLogger {
-  PreferencesEntry({required this.preferences, required this.key, required this.defaultValue, this.mapFrom, this.mapTo, this.validator});
+  PreferencesEntry({
+    required this.preferences,
+    required this.key,
+    required this.defaultValue,
+    this.mapFrom,
+    this.mapTo,
+    this.validator,
+  });
 
   final SharedPreferences preferences;
   final String key;
@@ -28,8 +35,14 @@ class PreferencesEntry<T, P> with InfraLogger {
           value = mapFrom!(persisted);
         }
       } else if (T == List<String>) {
-        final storedValue = preferences.getString(key);
-        value = storedValue == null ? defaultValue : storedValue.split(";") as T;
+        final storedValue = preferences.get(key);
+        value = storedValue == null
+            ? defaultValue
+            : storedValue is List
+            ? List<String>.from(storedValue) as T
+            : storedValue == ''
+            ? <String>[] as T
+            : (storedValue as String).split(';') as T;
       } else {
         value = preferences.get(key) as T? ?? defaultValue;
       }
@@ -43,23 +56,17 @@ class PreferencesEntry<T, P> with InfraLogger {
   }
 
   Future<bool> write(T value) async {
-    Object? mapped = value;
-    if (mapTo != null) {
-      mapped = mapTo!(value);
-    }
-    loggy.debug("updating preference [$key]($T) to [$mapped]");
+    loggy.debug('updating preference [$key]');
     try {
-      if (!(validator?.call(value) ?? true)) {
-        loggy.warning("invalid value [$value] for preference [$key]($T)");
-        return false;
-      }
-
+      if (!(validator?.call(value) ?? true)) return false;
+      final Object? mapped = mapTo != null ? mapTo!(value) : value;
+      if (mapped == null) return await preferences.remove(key);
       return switch (mapped) {
         final String value => await preferences.setString(key, value),
         final bool value => await preferences.setBool(key, value),
         final int value => await preferences.setInt(key, value),
         final double value => await preferences.setDouble(key, value),
-        final List<String> value => await preferences.setString(key, value.join(";")),
+        final List<String> value => await preferences.setStringList(key, value),
         _ => throw const FormatException("Invalid Type"),
       };
     } catch (e, stackTrace) {
@@ -68,15 +75,16 @@ class PreferencesEntry<T, P> with InfraLogger {
     }
   }
 
+  T parseRaw(P input) {
+    final value = mapFrom != null ? mapFrom!(input) : input as T;
+    if (!(validator?.call(value) ?? true)) throw FormatException('Invalid preference [$key]');
+    return value;
+  }
+
   Future<T?> writeRaw(P input) async {
-    final T value;
-    if (mapFrom != null) {
-      value = mapFrom!(input);
-    } else {
-      value = input as T;
-    }
-    if (await write(value)) return value;
-    return null;
+    final value = parseRaw(input);
+    if (!await write(value)) throw StateError('Unable to persist preference [$key]');
+    return value;
   }
 
   Future<void> remove() async {
@@ -89,7 +97,9 @@ class PreferencesEntry<T, P> with InfraLogger {
 }
 
 class PreferencesNotifier<T, P> extends StateNotifier<T> {
-  PreferencesNotifier._({required Ref ref, required this.entry, this.overrideValue, this.possibleValues}) : _ref = ref, super(overrideValue ?? entry.read());
+  PreferencesNotifier._({required Ref ref, required this.entry, this.overrideValue, this.possibleValues})
+    : _ref = ref,
+      super(overrideValue ?? entry.read());
 
   final Ref _ref;
   final PreferencesEntry<T, P> entry;
@@ -108,20 +118,40 @@ class PreferencesNotifier<T, P> extends StateNotifier<T> {
   }) => StateNotifierProvider(
     (ref) => PreferencesNotifier._(
       ref: ref,
-      entry: PreferencesEntry<T, P>(preferences: ref.read(sharedPreferencesProvider).requireValue, key: key, defaultValue: defaultValueFunction?.call(ref) ?? defaultValue, mapFrom: mapFrom, mapTo: mapTo, validator: validator),
+      entry: PreferencesEntry<T, P>(
+        preferences: ref.read(sharedPreferencesProvider).requireValue,
+        key: key,
+        defaultValue: defaultValueFunction?.call(ref) ?? defaultValue,
+        mapFrom: mapFrom,
+        mapTo: mapTo,
+        validator: validator,
+      ),
       overrideValue: overrideValue,
       possibleValues: possibleValues,
     ),
   );
 
-  static StateNotifierProvider<PreferencesNotifier<T, P>, T> createAutoDispose<T, P>(String key, T defaultValue, {T Function(P value)? mapFrom, P Function(T value)? mapTo, bool Function(T value)? validator, T? overrideValue}) =>
-      StateNotifierProvider.autoDispose(
-        (ref) => PreferencesNotifier._(
-          ref: ref,
-          entry: PreferencesEntry<T, P>(preferences: ref.read(sharedPreferencesProvider).requireValue, key: key, defaultValue: defaultValue, mapFrom: mapFrom, mapTo: mapTo, validator: validator),
-          overrideValue: overrideValue,
-        ),
-      );
+  static StateNotifierProvider<PreferencesNotifier<T, P>, T> createAutoDispose<T, P>(
+    String key,
+    T defaultValue, {
+    T Function(P value)? mapFrom,
+    P Function(T value)? mapTo,
+    bool Function(T value)? validator,
+    T? overrideValue,
+  }) => StateNotifierProvider.autoDispose(
+    (ref) => PreferencesNotifier._(
+      ref: ref,
+      entry: PreferencesEntry<T, P>(
+        preferences: ref.read(sharedPreferencesProvider).requireValue,
+        key: key,
+        defaultValue: defaultValue,
+        mapFrom: mapFrom,
+        mapTo: mapTo,
+        validator: validator,
+      ),
+      overrideValue: overrideValue,
+    ),
+  );
 
   P raw() {
     final value = overrideValue ?? state;
@@ -131,7 +161,7 @@ class PreferencesNotifier<T, P> extends StateNotifier<T> {
 
   Future<void> updateRaw(P input) async {
     final value = await entry.writeRaw(input);
-    if (value != null) state = value;
+    state = value as T;
   }
 
   Future<void> update(T value) async {

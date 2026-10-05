@@ -1,5 +1,6 @@
 {
   "common": {
+    "invalidInput": "Некорректное значение",
     "appTitle": "Hiddify",
     "start": "Начать",
     "version": "Версия",

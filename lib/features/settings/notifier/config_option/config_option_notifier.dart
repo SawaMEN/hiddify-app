@@ -12,6 +12,9 @@ import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/utils/custom_loggers.dart';
 import 'package:json_path/json_path.dart';
+import 'package:hiddify/core/utils/preferences_utils.dart';
+import 'package:hiddify/features/route_rules/notifier/rules_notifier.dart';
+import 'package:hiddify/hiddifycore/generated/v2/config/route_rule.pb.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'config_option_notifier.g.dart';
@@ -35,9 +38,12 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
   Timer? _updateTimer;
   int _desiredRevision = 0;
   int _appliedRevision = 0;
+  bool _importing = false;
+  bool _applying = false;
   Future<void> _updates = Future<void>.value();
 
   void _scheduleUpdate() {
+    if (_importing || _applying) return;
     _updateTimer?.cancel();
     _updateTimer = Timer(const Duration(milliseconds: 300), () {
       _updates = _updates.then((_) => _applyOptions()).catchError((Object error, StackTrace stackTrace) {
@@ -55,13 +61,14 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
     final activeProfile = await ref.read(activeProfileProvider.future);
     if (!ref.mounted || !ref.read(serviceRunningProvider)) return;
     final notifier = ref.read(connectionNotifierProvider.notifier);
-    // Mark this attempt before restarting; the running-status listener must not
-    // schedule it again merely because profile overrides differ from global options.
-    _appliedRevision = revision;
-    if (snapshot?.enableTun != options.enableTun) {
-      await notifier.reconnectService(activeProfile);
-    } else {
-      await notifier.reconnect(activeProfile);
+    _applying = true;
+    try {
+      final success = snapshot?.enableTun != options.enableTun
+          ? await notifier.reconnectService(activeProfile)
+          : await notifier.reconnect(activeProfile);
+      if (success) _appliedRevision = revision;
+    } finally {
+      _applying = false;
     }
     if (ref.mounted && _desiredRevision > revision) _scheduleUpdate();
   }
@@ -129,19 +136,44 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
     }
   }
 
-  Future<void> _importJson(String input) async {
-    if (jsonDecode(input) case final Map<String, dynamic> map) {
-      for (final option in ConfigOptions.preferences.entries) {
-        final query = option.key.split('.').map((e) => '["$e"]').join();
-        final res = JsonPath('\$$query').read(map).firstOrNull;
-        if (res?.value case final value?) {
-          try {
-            await ref.read(option.value.notifier).updateRaw(value);
-          } catch (e) {
-            loggy.debug("error updating [${option.key}]: $e", e);
-          }
-        }
+  Future<void> importJson(String input) async {
+    final decoded = jsonDecode(input);
+    if (decoded is! Map<String, dynamic>) throw const FormatException('Settings must be a JSON object');
+    final updates = <(PreferencesNotifier, dynamic, dynamic)>[];
+    // Validate every supplied value before writing any of them.
+    for (final option in ConfigOptions.preferences.entries) {
+      final query = option.key.split('.').map((e) => '["$e"]').join();
+      final res = JsonPath('\$$query').read(decoded).firstOrNull;
+      if (res == null) continue;
+      final notifier = ref.read(option.value.notifier);
+      notifier.entry.parseRaw(res.value);
+      updates.add((notifier, res.value, notifier.raw()));
+    }
+    final routeValue = decoded['route-rule'];
+    final routes = routeValue == null ? null : (RouteRule()..mergeFromProto3Json(routeValue));
+    if (updates.isEmpty && routes == null) throw const FormatException('No supported settings');
+    final previousRules = routes == null ? null : ref.read(rulesNotifierProvider).map((r) => r.deepCopy()).toList();
+    _importing = true;
+    _updateTimer?.cancel();
+    final applied = <(PreferencesNotifier, dynamic)>[];
+    try {
+      for (final (notifier, raw, previous) in updates) {
+        if (!ref.mounted) throw StateError('Settings import disposed');
+        await notifier.updateRaw(raw);
+        applied.add((notifier, previous));
       }
+      if (routes != null) await ref.read(rulesNotifierProvider.notifier).replaceRules(routes.rules);
+    } catch (_) {
+      for (final (notifier, previous) in applied.reversed) {
+        await notifier.updateRaw(previous);
+      }
+      if (previousRules != null && ref.mounted) {
+        await ref.read(rulesNotifierProvider.notifier).replaceRules(previousRules);
+      }
+      rethrow;
+    } finally {
+      _importing = false;
+      if (ref.mounted) _scheduleUpdate();
     }
   }
 
@@ -150,7 +182,7 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
     try {
       final input = await Clipboard.getData(Clipboard.kTextPlain).then((value) => value?.text);
       if (input == null) return false;
-      await _importJson(input);
+      await importJson(input);
       ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.import.success);
       return true;
     } catch (e, st) {
@@ -166,7 +198,7 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
       final file = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ['json']);
       if (file == null) return false;
       final bytes = await file.readAsBytes();
-      await _importJson(utf8.decode(bytes));
+      await importJson(utf8.decode(bytes));
       ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.import.success);
       return true;
     } catch (e, st) {
@@ -177,9 +209,15 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
   }
 
   Future<void> resetOption() async {
-    for (final option in ConfigOptions.preferences.values) {
-      await ref.read(option.notifier).reset();
+    _importing = true;
+    _updateTimer?.cancel();
+    try {
+      for (final option in ConfigOptions.preferences.values) {
+        await ref.read(option.notifier).reset();
+      }
+    } finally {
+      _importing = false;
+      if (ref.mounted) _scheduleUpdate();
     }
-    ref.invalidateSelf();
   }
 }

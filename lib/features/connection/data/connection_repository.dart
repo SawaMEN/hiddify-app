@@ -103,11 +103,7 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
         () => applyConfigOption(activeProfile)
             .flatMap(
               (_) => singbox
-                  .restart(
-                    profilePathResolver.file(activeProfile.id).path,
-                    activeProfile.name,
-                    disableMemoryLimit,
-                  )
+                  .restart(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit)
                   .mapLeft(UnexpectedConnectionFailure.new),
             )
             .run(),
@@ -116,41 +112,44 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
   }
 
   @visibleForTesting
-  TaskEither<ConnectionFailure, Unit> applyConfigOption(ProfileEntity prof) =>
-      TaskEither.fromEither(configOptionRepository.fullOptionsOverrided(prof.profileOverride()))
-          .mapLeft((failure) => ConnectionFailure.invalidConfigOption(null, failure))
-          .flatMap(
-            (overridedOptions) => TaskEither.tryCatch(() async {
-              if (!overridedOptions.chainStatus.isOff()) {
-                final isWarpLicenseAgreed = ref.read(Preferences.warpConsentGiven) == true;
-                final isWarpEnabled =
-                    overridedOptions.unblocker.mode.isWarp() || overridedOptions.extraSecurity.mode.isWarp();
-                if (!isWarpLicenseAgreed && isWarpEnabled) {
-                  final isAgreed = await ref.read(dialogNotifierProvider.notifier).showWarpLicense();
-                  if (isAgreed == true) {
-                    await ref.read(Preferences.warpConsentGiven.notifier).update(true);
-                  } else {
-                    throw const MissingWarpLicense();
-                  }
-                }
-
-                final isPsiphonLicenseAgreed = ref.read(Preferences.psiphonConsentGiven) == true;
-                final isPsiphonEnabled =
-                    overridedOptions.unblocker.mode.isPsiphon() || overridedOptions.extraSecurity.mode.isPsiphon();
-                if (!isPsiphonLicenseAgreed && isPsiphonEnabled) {
-                  final isAgreed = await ref.read(dialogNotifierProvider.notifier).showPsiphonLicense();
-                  if (isAgreed == true) {
-                    await ref.read(Preferences.psiphonConsentGiven.notifier).update(true);
-                  } else {
-                    throw const MissingPsiphonLicense();
-                  }
-                }
+  TaskEither<ConnectionFailure, Unit> applyConfigOption(
+    ProfileEntity prof,
+  ) => TaskEither.fromEither(configOptionRepository.fullOptionsOverrided(prof.profileOverride()))
+      .mapLeft((failure) => ConnectionFailure.invalidConfigOption(null, failure))
+      .flatMap(
+        (overridedOptions) => TaskEither.tryCatch(() async {
+          if (!overridedOptions.chainStatus.isOff()) {
+            final isWarpLicenseAgreed = ref.read(Preferences.warpConsentGiven) == true;
+            final isWarpEnabled =
+                (overridedOptions.chainStatus.isUnblocker() && overridedOptions.unblocker.mode.isWarp()) ||
+                (overridedOptions.chainStatus.isExtraSecurity() && overridedOptions.extraSecurity.mode.isWarp());
+            if (!isWarpLicenseAgreed && isWarpEnabled) {
+              final isAgreed = await ref.read(dialogNotifierProvider.notifier).showWarpLicense();
+              if (isAgreed == true) {
+                await ref.read(Preferences.warpConsentGiven.notifier).update(true);
+              } else {
+                throw const MissingWarpLicense();
               }
+            }
 
-              final result = await singbox.changeOptions(overridedOptions).run();
-              result.match((error) => throw ConnectionFailure.invalidConfig(error), (_) {});
-              _configOptionsSnapshot = overridedOptions;
-              return unit;
-            }, (error, stackTrace) => error is ConnectionFailure ? error : ConnectionFailure.unexpected(error, stackTrace)),
-          );
+            final isPsiphonLicenseAgreed = ref.read(Preferences.psiphonConsentGiven) == true;
+            final isPsiphonEnabled =
+                (overridedOptions.chainStatus.isUnblocker() && overridedOptions.unblocker.mode.isPsiphon()) ||
+                (overridedOptions.chainStatus.isExtraSecurity() && overridedOptions.extraSecurity.mode.isPsiphon());
+            if (!isPsiphonLicenseAgreed && isPsiphonEnabled) {
+              final isAgreed = await ref.read(dialogNotifierProvider.notifier).showPsiphonLicense();
+              if (isAgreed == true) {
+                await ref.read(Preferences.psiphonConsentGiven.notifier).update(true);
+              } else {
+                throw const MissingPsiphonLicense();
+              }
+            }
+          }
+
+          final result = await singbox.changeOptions(overridedOptions).run();
+          result.match((error) => throw ConnectionFailure.invalidConfig(error), (_) {});
+          _configOptionsSnapshot = overridedOptions;
+          return unit;
+        }, (error, stackTrace) => error is ConnectionFailure ? error : ConnectionFailure.unexpected(error, stackTrace)),
+      );
 }

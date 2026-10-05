@@ -267,6 +267,7 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
         final entry = _profileParser
             .offlineUpdate(
               profile: existing.copyWith(userOverride: profile.userOverride),
+              previousContent: await file.readAsString(),
               tempFilePath: temp.path,
             )
             .match((e) => throw e, (p) => p);
@@ -296,8 +297,11 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
 
   @override
   TaskEither<ProfileFailure, String> getRawConfig(String id) {
-    return TaskEither.fromEither(Either.tryCatch(() => _profilePathResolver.file(id), ProfileFailure.unexpected))
-        .flatMap((configFile) => TaskEither.tryCatch(
-          () => _operations.run('profiles', configFile.readAsString), ProfileFailure.unexpected));
+    return TaskEither.fromEither(
+      Either.tryCatch(() => _profilePathResolver.file(id), ProfileFailure.unexpected),
+    ).flatMap(
+      (configFile) =>
+          TaskEither.tryCatch(() => _operations.run('profiles', configFile.readAsString), ProfileFailure.unexpected),
+    );
   }
 }

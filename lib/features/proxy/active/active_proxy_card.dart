@@ -54,7 +54,10 @@ class ActiveProxyFooter extends ConsumerWidget with InfraLogger {
               InkWell(
                 onTap: () async {
                   await handleUrlTest();
-                  await ref.read(dialogNotifierProvider.notifier).showProxyInfo(outboundInfo: activeProxy);
+                  if (!context.mounted) return;
+                  final current = ref.read(activeProxyNotifierProvider).value;
+                  if (current != null)
+                    await ref.read(dialogNotifierProvider.notifier).showProxyInfo(outboundInfo: current);
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),

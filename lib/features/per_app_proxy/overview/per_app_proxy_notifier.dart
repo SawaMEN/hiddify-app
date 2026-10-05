@@ -100,6 +100,8 @@ class PerAppProxy extends _$PerAppProxy with AppLogger {
     await ref.read(appProxyDataSourceProvider).clearAll(mode: _mode!);
     if (!ref.mounted) return;
     await ref.read(Preferences.autoAppsSelectionRegion.notifier).update(null);
+    if (!ref.mounted) return;
+    await ref.read(Preferences.autoAppsSelectionLastUpdate.notifier).update(null);
   }
 
   Future<bool> importClipboard() async {
@@ -213,8 +215,9 @@ class PerAppProxy extends _$PerAppProxy with AppLogger {
       var body = const JsonEncoder.withIndent('  ')
           .convert({'addedPkgs': userSelected.toList(), 'removedPkgs': forceDeselected.toList()});
       body = '```\n$body\n```';
-      UriUtils.tryLaunch(Uri.parse('https://github.com/hiddify/Android-GFW-Apps/issues/new?title=$title&body=$body'));
-      return true;
+      return await UriUtils.tryLaunch(
+        Uri.https('github.com', '/hiddify/Android-GFW-Apps/issues/new', {'title': title, 'body': body}),
+      );
     } else {
       ref
           .read(inAppNotificationControllerProvider)

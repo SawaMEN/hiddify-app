@@ -243,15 +243,15 @@ abstract class ConfigOptions {
   static final chainStatus = PreferencesNotifier.create<ChainStatus, String>(
     "chain-status",
     ChainStatus.off,
-    mapFrom: ChainStatus.values.byName,
+    mapFrom: (value) => ChainStatus.values.firstWhere((e) => e.key == value || e.name == value),
     mapTo: (value) => value.name,
   );
 
   static final extraSecurityPsiphonRegion = PreferencesNotifier.create<PsiphonRegion, String>(
     "extra-security-psiphon-region",
     PsiphonRegion.auto,
-    mapFrom: PsiphonRegion.values.byName,
-    mapTo: (value) => value.name,
+    mapFrom: (value) => PsiphonRegion.values.firstWhere((e) => e.key == value || e.name == value),
+    mapTo: (value) => value.key,
   );
 
   static final extraSecurityPsiphonConduitPairingId = PreferencesNotifier.create<String, String>(
@@ -262,8 +262,8 @@ abstract class ConfigOptions {
   static final unblockerPsiphonRegion = PreferencesNotifier.create<PsiphonRegion, String>(
     "unblocker-psiphon-region",
     PsiphonRegion.auto,
-    mapFrom: PsiphonRegion.values.byName,
-    mapTo: (value) => value.name,
+    mapFrom: (value) => PsiphonRegion.values.firstWhere((e) => e.key == value || e.name == value),
+    mapTo: (value) => value.key,
   );
 
   static final unblockerPsiphonConduitPairingId = PreferencesNotifier.create<String, String>(
@@ -310,7 +310,7 @@ abstract class ConfigOptions {
   static final unblockerWarpPort = PreferencesNotifier.create<int, int>(
     "unblocker-warp-port",
     0,
-    validator: (value) => isPort(value.toString()),
+    validator: (value) => value == 0 || isPort(value.toString()),
   );
 
   static final unblockerWarpNoise = PreferencesNotifier.create<OptionalRange, String>(
@@ -371,6 +371,12 @@ abstract class ConfigOptions {
     "strict-route": strictRoute,
     "connection-test-url": connectionTestUrl,
     "url-test-interval": urlTestInterval,
+    "enable-clash-api": enableClashApi,
+    "enable-fake-dns": enableFakeDns,
+    "independent-dns-cache": independentDnsCache,
+    "chain-status": chainStatus,
+    "extra-security.mode": extraSecurityMode,
+    "unblocker.mode": unblockerMode,
     "clash-api-port": clashApiPort,
     "allow-connection-from-lan": allowConnectionFromLan,
     "lan-sharing-password": lanSharingPassword,

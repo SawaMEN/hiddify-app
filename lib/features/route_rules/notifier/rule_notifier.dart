@@ -55,16 +55,21 @@ enum RuleEnum {
   };
 
   FormFieldValidator<String>? validator(Translations t) => switch (this) {
-    ruleSet => (value) => isUrl('$value') ? null : t.pages.settings.routing.routeRule.rule.validUrl,
+    ruleSet =>
+      (value) => (isUrl('$value') || RegExp(r'^(?:geosite|geoip)-[a-zA-Z0-9_-]+$').hasMatch('$value'))
+          ? null
+          : t.pages.settings.routing.routeRule.rule.validUrl,
     processName => (value) => isProcessName('$value') ? null : t.pages.settings.routing.routeRule.rule.validProcessName,
     processPath => (value) => isProcessPath('$value') ? null : t.pages.settings.routing.routeRule.rule.validProcessPath,
-    portRange || sourcePortRange =>
-      (value) => isPortOrPortRange('$value') ? null : t.pages.settings.routing.routeRule.rule.validPortRange,
+    portRange || sourcePortRange => (
+      value,
+    ) => isPortOrPortRange('$value') ? null : t.pages.settings.routing.routeRule.rule.validPortRange,
     ipCidr ||
     sourceIpCidr => (value) => isIpCidr('$value') ? null : t.pages.settings.routing.routeRule.rule.validIpCidr,
     domain => (value) => isDomain('$value') ? null : t.pages.settings.routing.routeRule.rule.validDomain,
-    domainSuffix =>
-      (value) => isDomainSuffix('$value') ? null : t.pages.settings.routing.routeRule.rule.validDomainSuffix,
+    domainSuffix => (
+      value,
+    ) => isDomainSuffix('$value') ? null : t.pages.settings.routing.routeRule.rule.validDomainSuffix,
     _ => null,
   };
 }
@@ -72,6 +77,7 @@ enum RuleEnum {
 @riverpod
 class RuleNotifier extends _$RuleNotifier {
   bool isEditMode = false;
+  Rule? _original;
 
   @override
   Rule build(int? listOrder) {
@@ -80,7 +86,10 @@ class RuleNotifier extends _$RuleNotifier {
       return Rule(name: t.pages.settings.routing.routeRule.rule.title, outbound: Outbound.direct, network: Network.all);
     } else {
       isEditMode = true;
-      return ref.read(rulesNotifierProvider).where((rule) => rule.listOrder == listOrder).first;
+      final rule = ref.read(rulesNotifierProvider).where((rule) => rule.listOrder == listOrder).firstOrNull;
+      if (rule == null) throw StateError('Rule was deleted');
+      _original = rule.deepCopy();
+      return rule.deepCopy();
     }
   }
 
@@ -98,7 +107,7 @@ class RuleNotifier extends _$RuleNotifier {
     assert(state.hasName() && state.hasOutbound());
     if (isEditMode) {
       assert(state.hasListOrder() && state.hasEnabled());
-      await ref.read(rulesNotifierProvider.notifier).updateRule(state);
+      await ref.read(rulesNotifierProvider.notifier).updateRule(state, expected: _original);
     } else {
       await ref.read(rulesNotifierProvider.notifier).addRule(state);
     }
@@ -108,8 +117,8 @@ class RuleNotifier extends _$RuleNotifier {
 @riverpod
 bool isRuleEdited(Ref ref, int? listOrder) {
   if (listOrder == null) return true;
-  return ref.watch(ruleNotifierProvider(listOrder)) !=
-      ref.watch(rulesNotifierProvider.select((value) => value.where((rule) => rule.listOrder == listOrder))).first;
+  final original = ref.watch(rulesNotifierProvider).where((rule) => rule.listOrder == listOrder).firstOrNull;
+  return original == null || ref.watch(ruleNotifierProvider(listOrder)) != original;
 }
 
 @riverpod

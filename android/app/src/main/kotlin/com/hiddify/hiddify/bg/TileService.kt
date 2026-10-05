@@ -66,7 +66,14 @@ class TileService : TileService(), ServiceConnection.Callback {
         }
 
         Settings.startCoreAfterStartingService = true
-        BoxService.start()
+        try {
+            BoxService.start()
+        } catch (error: Exception) {
+            Log.e(TAG, "Tile could not start foreground service", error)
+            onServiceStatusChanged(Status.Stopped)
+            openMainApp()
+            return
+        }
         qsTile?.apply {
             state = Tile.STATE_UNAVAILABLE
             updateTile()

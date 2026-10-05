@@ -1,5 +1,6 @@
 {
   "common": {
+    "invalidInput": "Invalid value",
     "appTitle": "Hiddify",
     "start": "Start",
     "version": "Version",

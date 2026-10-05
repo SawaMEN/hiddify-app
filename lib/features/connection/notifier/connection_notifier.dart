@@ -49,7 +49,11 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
 
     ref.listen(activeProfileProvider.select((value) => value.asData?.value), (previous, next) async {
       if (previous == null) return;
-      final shouldReconnect = next == null || previous.id != next.id;
+      final shouldReconnect =
+          next == null ||
+          previous.id != next.id ||
+          previous.lastUpdate != next.lastUpdate ||
+          previous.userOverride != next.userOverride;
       if (shouldReconnect) {
         await reconnect(next);
       }
@@ -97,11 +101,12 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     }
   }
 
-  Future<void> reconnect(ProfileEntity? profile) async {
+  Future<bool> reconnect(ProfileEntity? profile) async {
     if (state case AsyncData(:final value) when value == const Connected()) {
       if (profile == null) {
         loggy.info("no active profile, disconnecting");
-        return _disconnect();
+        await _disconnect();
+        return false;
       }
       loggy.info("active profile changed, reconnecting");
       await ref.read(Preferences.startedByUser.notifier).update(true);
@@ -109,13 +114,18 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
         () => _connectionRepo.reconnect(profile, ref.read(Preferences.disableMemoryLimit)).run(),
       );
       await result.match<Future<void>>((error) => _handleFailure(error, resetStartedByUser: true), (_) async {});
+      return result.isRight();
     }
+    return false;
   }
 
   // Recreate the Android service explicitly when switching VPN/proxy mode.
   // Toggling twice depends on status stream timing and can leave it disconnected.
-  Future<void> reconnectService(ProfileEntity? profile) async {
-    if (profile == null) return _disconnect();
+  Future<bool> reconnectService(ProfileEntity? profile) async {
+    if (profile == null) {
+      await _disconnect();
+      return false;
+    }
     final repository = _connectionRepo;
     final disableMemoryLimit = ref.read(Preferences.disableMemoryLimit);
     final result = await _serializeCoreOperation(() async {
@@ -123,6 +133,7 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       return stopped.match((error) async => stopped, (_) => repository.connect(profile, disableMemoryLimit).run());
     });
     await result.match<Future<void>>((error) => _handleFailure(error, resetStartedByUser: true), (_) async {});
+    return result.isRight();
   }
 
   Future<void> abortConnection() async {
@@ -130,6 +141,7 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       switch (value) {
         case Connected() || Connecting():
           loggy.debug("aborting connection");
+          await ref.read(Preferences.startedByUser.notifier).update(false);
           await _disconnect();
         default:
       }
