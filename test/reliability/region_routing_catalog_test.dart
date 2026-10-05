@@ -117,6 +117,12 @@ void main() {
     final application = File(
       'android/app/src/main/kotlin/com/hiddify/hiddify/Application.kt',
     ).readAsStringSync();
+    final tile = File(
+      'android/app/src/main/kotlin/com/hiddify/hiddify/bg/TileService.kt',
+    ).readAsStringSync();
+    final shortcut = File(
+      'android/app/src/main/kotlin/com/hiddify/hiddify/ShortcutActivity.kt',
+    ).readAsStringSync();
 
     expect(visibility, contains('COMPONENT_ENABLED_STATE_DISABLED'));
     expect(visibility, contains('COMPONENT_ENABLED_STATE_DEFAULT'));
@@ -128,6 +134,14 @@ void main() {
     expect(
       application,
       contains('VpnServiceVisibility.sync(this, Settings.privacyUseRoot)'),
+    );
+    expect(
+      tile,
+      contains('!Settings.privacyUseRoot && VpnService.prepare(this) != null'),
+    );
+    expect(
+      shortcut,
+      contains('!Settings.privacyUseRoot && VpnService.prepare(this) != null'),
     );
   });
 }
