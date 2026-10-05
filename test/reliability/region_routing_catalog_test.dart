@@ -106,4 +106,28 @@ void main() {
     final proxy = entries('proxyPackages').toSet();
     expect(direct.intersection(proxy), isEmpty);
   });
+
+  test('root mode hides the Android VPN service enumeration signal and restores it', () {
+    final visibility = File(
+      'android/app/src/main/kotlin/com/hiddify/hiddify/privacy/VpnServiceVisibility.kt',
+    ).readAsStringSync();
+    final settings = File(
+      'android/app/src/main/kotlin/com/hiddify/hiddify/Settings.kt',
+    ).readAsStringSync();
+    final application = File(
+      'android/app/src/main/kotlin/com/hiddify/hiddify/Application.kt',
+    ).readAsStringSync();
+
+    expect(visibility, contains('COMPONENT_ENABLED_STATE_DISABLED'));
+    expect(visibility, contains('COMPONENT_ENABLED_STATE_DEFAULT'));
+    expect(visibility, contains('setComponentEnabledSetting'));
+    expect(
+      settings,
+      contains('VpnServiceVisibility.sync(Application.application, rootMode)'),
+    );
+    expect(
+      application,
+      contains('VpnServiceVisibility.sync(this, Settings.privacyUseRoot)'),
+    );
+  });
 }
