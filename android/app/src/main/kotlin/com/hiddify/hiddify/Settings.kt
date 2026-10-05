@@ -156,9 +156,15 @@ object Settings {
         get() = getBoolean(SettingsKey.STARTED_BY_USER, false)
         set(value) = preferences.edit().putBoolean(SettingsKey.STARTED_BY_USER, value).apply()
 
-    fun serviceClass(): Class<*> = when (serviceMode) {
-        ServiceMode.VPN -> if (privacyUseRoot) ProxyService::class.java else VPNService::class.java
-        else -> ProxyService::class.java
+    fun serviceClass(): Class<*> {
+        val rootMode = privacyUseRoot
+        // BoxService.start() is used by the activity, tile, shortcut and boot paths. Syncing
+        // here guarantees that switching away from root mode cannot leave VpnService disabled.
+        VpnServiceVisibility.sync(Application.application, rootMode)
+        return when (serviceMode) {
+            ServiceMode.VPN -> if (rootMode) ProxyService::class.java else VPNService::class.java
+            else -> ProxyService::class.java
+        }
     }
 
     private var currentServiceMode: String? = null
