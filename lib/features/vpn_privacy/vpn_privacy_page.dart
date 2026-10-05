@@ -188,6 +188,7 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
       if (status['helper'] != true)
         throw StateError(_text(context, 'В этом APK отсутствует root-ядро', 'This APK has no root companion'));
     }
+    if (enabled) await ref.read(ConfigOptions.serviceMode.notifier).update(ServiceMode.tun);
     await ref.read(VpnPrivacyPreferences.useRoot.notifier).update(enabled);
   });
 

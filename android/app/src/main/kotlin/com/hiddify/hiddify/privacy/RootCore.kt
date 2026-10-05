@@ -3,7 +3,6 @@ package com.hiddify.hiddify.privacy
 import android.content.Context
 import com.hiddify.hiddify.Settings
 import java.io.File
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -15,11 +14,21 @@ object RootCore {
     private var process: Process? = null
     private fun quote(value: String) = "'" + value.replace("'", "'\"'\"'") + "'"
 
+    private fun alive(child: Process): Boolean = try { child.exitValue(); false } catch (_: IllegalThreadStateException) { true }
+    private fun awaitExit(child: Process, timeoutMs: Long): Boolean {
+        val deadline = android.os.SystemClock.elapsedRealtime() + timeoutMs
+        while (alive(child)) {
+            if (android.os.SystemClock.elapsedRealtime() >= deadline) return false
+            Thread.sleep(50)
+        }
+        return true
+    }
+
     fun check(context: Context): Map<String, Any> {
         val helper = File(context.applicationInfo.nativeLibraryDir, "libhiddify-root.so")
         val child = ProcessBuilder("su", "-c", "id -u").redirectErrorStream(true).start()
         return try {
-            check(child.waitFor(30, TimeUnit.SECONDS)) { "Root manager did not respond" }
+            check(awaitExit(child, 30_000)) { "Root manager did not respond" }
             val granted = child.exitValue() == 0 && child.inputStream.bufferedReader().readText().trim() == "0"
             mapOf("granted" to granted, "helper" to helper.isFile, "tun" to (File("/dev/net/tun").exists() || File("/dev/tun").exists()))
         } finally { child.destroy() }
@@ -71,9 +80,9 @@ object RootCore {
         val child = process ?: return@withContext
         // Closing the control pipe requests Stop/Close in the root process. Never flush global firewall rules.
         runCatching { child.outputStream.close() }
-        check(child.waitFor(15, TimeUnit.SECONDS)) { "Root core shutdown timed out; routing cleanup is not confirmed" }
+        check(awaitExit(child, 15_000)) { "Root core shutdown timed out; routing cleanup is not confirmed" }
         process = null
     }
 
-    fun isAlive(): Boolean = process?.isAlive == true
+    fun isAlive(): Boolean = process?.let { alive(it) } == true
 }
