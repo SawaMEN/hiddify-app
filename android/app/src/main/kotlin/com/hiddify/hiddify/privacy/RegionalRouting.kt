@@ -45,7 +45,7 @@ object RegionalRouting {
         return PackageSelection(false, merged(automatic, stored, false))
     }
 
-    fun policy(context: Context): Map<String, Any> {
+    fun policy(context: Context, @Suppress("UNUSED_PARAMETER") legacyRegion: String = "other"): Map<String, Any> {
         val mode = Settings.privacyRoutingMode.takeIf { !Settings.privacyFullTunnel } ?: "off"
         val catalogue = JSONObject(context.assets.open("region_routing.json").bufferedReader().use { it.readText() })
         val version = catalogue.optInt("version", 1)
