@@ -54,13 +54,14 @@ void main() {
       containsAll(const {
         'com.discord',
         'com.facebook.katana',
+        'com.google.android.youtube',
         'com.instagram.android',
+        'com.roblox.client',
         'com.snapchat.android',
         'com.viber.voip',
         'com.whatsapp',
         'org.telegram.messenger',
         'org.thoughtcrime.securesms',
-        'com.google.android.youtube',
       }),
     );
     expect(
@@ -69,6 +70,7 @@ void main() {
         'discord.com',
         'facebook.com',
         'instagram.com',
+        'roblox.com',
         'signal.org',
         'telegram.org',
         'viber.com',
