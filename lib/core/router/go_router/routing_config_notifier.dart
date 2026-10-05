@@ -1,7 +1,5 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
-import 'package:hiddify/core/localization/translations.dart';
-import 'package:hiddify/core/notification/in_app_notification_controller.dart';
 import 'package:hiddify/core/preferences/general_preferences.dart';
 import 'package:hiddify/core/router/adaptive_layout/my_adaptive_layout.dart';
 import 'package:hiddify/core/router/bottom_sheets/bottom_sheets_notifier.dart';
@@ -12,19 +10,14 @@ import 'package:hiddify/features/about/widget/about_page.dart';
 import 'package:hiddify/features/home/widget/home_page.dart';
 import 'package:hiddify/features/intro/widget/intro_page.dart';
 import 'package:hiddify/features/log/overview/logs_page.dart';
-import 'package:hiddify/features/per_app_proxy/overview/per_app_proxy_page.dart';
 import 'package:hiddify/features/profile/details/profile_details_page.dart';
 import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
 import 'package:hiddify/features/profile/overview/profiles_page.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_overview_page.dart';
-import 'package:hiddify/features/route_rules/notifier/rule_notifier.dart';
-import 'package:hiddify/features/route_rules/overview/generic_list_page.dart';
-import 'package:hiddify/features/route_rules/overview/rule_page.dart';
 import 'package:hiddify/features/settings/overview/sections/chain_options_page.dart';
 import 'package:hiddify/features/settings/overview/sections/dns_options_page.dart';
 import 'package:hiddify/features/settings/overview/sections/general_page.dart';
 import 'package:hiddify/features/settings/overview/sections/inbound_options_page.dart';
-import 'package:hiddify/features/settings/overview/sections/routing_options_page.dart';
 import 'package:hiddify/features/settings/overview/sections/tls_tricks_page.dart';
 import 'package:hiddify/features/settings/overview/settings_page.dart';
 import 'package:hiddify/utils/utils.dart';
@@ -32,18 +25,15 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'routing_config_notifier.g.dart';
 
-// each branch in go router has its own focus scope
 final branchesScope = <String, FocusScopeNode>{
   'home': FocusScopeNode(),
   'profiles': FocusScopeNode(),
   'settings': FocusScopeNode(),
   'vpnPrivacy': FocusScopeNode(),
-  'routingOptions': FocusScopeNode(),
   'logs': FocusScopeNode(),
   'about': FocusScopeNode(),
 };
 
-// when the routing config is not yet initialized, this config is used
 final loadingConfig = RoutingConfig(
   routes: <RouteBase>[
     GoRoute(
@@ -54,16 +44,15 @@ final loadingConfig = RoutingConfig(
 );
 
 String getNameOfBranch(bool isMobileBreakpoint, bool showProfilesAction, int index) => isMobileBreakpoint
-    ? ['home', 'vpnPrivacy', 'routingOptions', 'settings'][index]
-    : ['home', if (showProfilesAction) 'profiles', 'vpnPrivacy', 'routingOptions', 'settings', 'logs', 'about'][index];
+    ? ['home', 'vpnPrivacy', 'settings'][index]
+    : ['home', if (showProfilesAction) 'profiles', 'vpnPrivacy', 'settings', 'logs', 'about'][index];
 
 int getIndexOfBranch(bool isMobileBreakpoint, bool showProfilesAction, String name) => isMobileBreakpoint
-    ? ['home', 'vpnPrivacy', 'routingOptions', 'settings'].indexOf(name)
+    ? ['home', 'vpnPrivacy', 'settings'].indexOf(name)
     : [
         'home',
         if (showProfilesAction) 'profiles',
         'vpnPrivacy',
-        'routingOptions',
         'settings',
         'logs',
         'about',
@@ -83,17 +72,13 @@ class RoutingConfigNotifier extends _$RoutingConfigNotifier {
     if (isMobileBreakpoint == null) return loadingConfig;
     return RoutingConfig(
       redirect: (context, state) {
-        // fix path-parameters for deep link
         String? url;
         if (LinkParser.protocols.contains(state.uri.scheme)) {
-          // Android & iOS deep link
           url = state.uri.toString();
         } else if (PlatformUtils.isDesktop && newUrlFromAppLink.isNotEmpty) {
-          // Desktops deep link
           url = newUrlFromAppLink;
           newUrlFromAppLink = '';
         } else if (state.uri.queryParameters['url'] != null) {
-          // Get the configured URL for intro
           url = state.uri.queryParameters['url'];
         }
 
@@ -181,67 +166,6 @@ class RoutingConfigNotifier extends _$RoutingConfigNotifier {
                     state.pageKey,
                     FocusScope(node: branchesScope['vpnPrivacy'], child: const VpnPrivacyOverviewPage()),
                   ),
-                ),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: <GoRoute>[
-                GoRoute(
-                  name: 'routingOptions',
-                  path: '/settings/routing-options',
-                  pageBuilder: (_, state) => customTransition(
-                    TransitionType.slide,
-                    state.pageKey,
-                    FocusScope(
-                      node: branchesScope['routingOptions'],
-                      child: RoutingOptionsPage(routeRule: state.uri.queryParameters['routeRule']),
-                    ),
-                  ),
-                  routes: <GoRoute>[
-                    GoRoute(
-                      name: 'rule',
-                      path: 'rule/:orderId',
-                      pageBuilder: (_, state) {
-                        final orderIdString = state.pathParameters['orderId']!;
-                        return customTransition(
-                          TransitionType.slide,
-                          state.pageKey,
-                          RulePage(ruleListOrder: orderIdString != 'new' ? int.tryParse(orderIdString) : null),
-                        );
-                      },
-                      onExit: (context, state) async {
-                        final t = ref.read(translationsProvider).requireValue;
-                        final orderId = int.tryParse(state.pathParameters['orderId']!);
-                        final isRuleEdited = ref.read(isRuleEditedProvider(orderId));
-                        if (orderId != null && isRuleEdited) {
-                          await ref.read(ruleNotifierProvider(orderId).notifier).save();
-                          ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.autoSave.success);
-                        }
-                        return true;
-                      },
-                      routes: <GoRoute>[
-                        GoRoute(
-                          name: 'genericList',
-                          path: 'generic-list/:ruleEnum',
-                          pageBuilder: (_, state) {
-                            final orderId = int.tryParse(state.pathParameters['orderId']!);
-                            final ruleEnum = RuleEnum.values.byName(state.pathParameters['ruleEnum']!);
-                            return customTransition(
-                              TransitionType.slide,
-                              state.pageKey,
-                              GenericListPage(ruleListOrder: orderId, ruleEnum: ruleEnum),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                    GoRoute(
-                      name: 'perAppProxy',
-                      path: 'per-app-proxy',
-                      pageBuilder: (_, state) =>
-                          customTransition(TransitionType.slide, state.pageKey, const PerAppProxyPage()),
-                    ),
-                  ],
                 ),
               ],
             ),
