@@ -59,7 +59,7 @@ class ShortcutActivity : Activity(), ServiceConnection.Callback {
             Status.Stopped -> {
                 try {
                     if (Settings.activeConfigPath.isBlank() ||
-                        (Settings.serviceMode == ServiceMode.VPN && VpnService.prepare(this) != null)) {
+                        (Settings.serviceMode == ServiceMode.VPN && !Settings.privacyUseRoot && VpnService.prepare(this) != null)) {
                         startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     } else {
                         Settings.startCoreAfterStartingService = true
