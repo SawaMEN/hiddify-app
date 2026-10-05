@@ -87,11 +87,13 @@ class PreferencesEntry<T, P> with InfraLogger {
     return value;
   }
 
-  Future<void> remove() async {
+  Future<bool> remove() async {
     try {
-      await preferences.remove(key);
+      if (!preferences.containsKey(key)) return true;
+      return await preferences.remove(key);
     } catch (e, stackTrace) {
       loggy.warning("error removing preference[$key]: $e", e, stackTrace);
+      return false;
     }
   }
 }
@@ -169,7 +171,9 @@ class PreferencesNotifier<T, P> extends StateNotifier<T> {
   }
 
   Future<void> reset() async {
-    await entry.remove();
+    if (!await entry.remove()) {
+      throw StateError('Unable to remove preference [${entry.key}]');
+    }
     _ref.invalidateSelf();
   }
 }
