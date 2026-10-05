@@ -91,7 +91,7 @@ object RegionalRouting {
             installedUid(packageName)?.let { it !in directUids } == true
         }
 
-        return mapOf(
+        val regionalPolicy = mapOf<String, Any>(
             "privacy-routing-mode" to mode,
             "privacy-catalogue-version" to version,
             "privacy-vpn-aware-packages" to installedVpnAware,
@@ -103,5 +103,6 @@ object RegionalRouting {
             "privacy-root-exclude-uids" to (listOf(0, context.applicationInfo.uid) + if (mode == "ru-bypass" || mode == "proxy-selected") directUids else emptySet<Int>()),
             "privacy-root-table" to Settings.rootRouteTable,
         )
+        return regionalPolicy + NetworkPrivacySettings.policy(context)
     }
 }

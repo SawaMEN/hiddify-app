@@ -16,6 +16,25 @@ abstract class VpnPrivacyPreferences {
   static final publicDns = PreferencesNotifier.create<bool, bool>('privacy-public-dns', false);
   static final encryptedDns = PreferencesNotifier.create<bool, bool>('privacy-encrypted-dns', true);
 
+  // Experimental network anonymization switches are intentionally off by default.
+  // They can reduce network-level metadata but may break protocols and local services.
+  static final anonymizationBlockQuic = PreferencesNotifier.create<bool, bool>(
+    'privacy-anonymization-block-quic',
+    false,
+  );
+  static final anonymizationBlockStun = PreferencesNotifier.create<bool, bool>(
+    'privacy-anonymization-block-stun',
+    false,
+  );
+  static final anonymizationBlockPlainHttp = PreferencesNotifier.create<bool, bool>(
+    'privacy-anonymization-block-plain-http',
+    false,
+  );
+  static final anonymizationIsolateLan = PreferencesNotifier.create<bool, bool>(
+    'privacy-anonymization-isolate-lan',
+    false,
+  );
+
   /// Snapshot captured before the first one-tap automatic setup. It lets the user
   /// restore the exact previous state instead of guessing which defaults they used.
   static final automaticSetupBackup = PreferencesNotifier.create<String, String>('privacy-auto-setup-backup', '');
