@@ -7,9 +7,7 @@ import 'package:hiddify/core/utils/json_converters.dart';
 import 'package:hiddify/core/utils/preferences_utils.dart';
 import 'package:hiddify/features/log/model/log_level.dart';
 import 'package:hiddify/features/profile/data/profile_parser.dart';
-import 'package:hiddify/features/route_rules/notifier/rules_notifier.dart';
 import 'package:hiddify/features/settings/model/config_option_failure.dart';
-import 'package:hiddify/hiddifycore/generated/v2/config/route_rule.pb.dart';
 import 'package:hiddify/singbox/model/singbox_config_enum.dart';
 import 'package:hiddify/singbox/model/singbox_config_option.dart';
 import 'package:hiddify/utils/utils.dart';
@@ -38,7 +36,6 @@ abstract class ConfigOptions {
     mapTo: (value) => value.name,
   );
   static final useXrayCoreWhenPossible = PreferencesNotifier.create<bool, bool>("use-xray-core-when-possible", false);
-  // static final blockAds = PreferencesNotifier.create<bool, bool>("block-ads", false);
   static final logLevel = PreferencesNotifier.create<LogLevel, String>(
     "log-level",
     LogLevel.warn,
@@ -60,9 +57,6 @@ abstract class ConfigOptions {
     "tcp://8.8.8.8",
     possibleValues: List.of([
       "local",
-      // "udp://223.5.5.5",
-      // "udp://1.1.1.1",
-      // "udp://1.1.1.2",
       "tcp://8.8.8.8",
       "tcp://1.1.1.1",
       "https://1.1.1.1/dns-query",
@@ -178,15 +172,11 @@ abstract class ConfigOptions {
     validator: (value) => isPort(value.toString()),
   );
 
-  // static final bypassLan = PreferencesNotifier.create<bool, bool>("bypass-lan", false);
-
   static final allowConnectionFromLan = PreferencesNotifier.create<bool, bool>("allow-connection-from-lan", false);
 
   static final lanSharingPassword = PreferencesNotifier.create<String, String>("lan_sharing_password", "");
 
   static final enableFakeDns = PreferencesNotifier.create<bool, bool>("enable-fake-dns", false);
-
-  // static final enableDnsRouting = PreferencesNotifier.create<bool, bool>("enable-dns-routing", true);
 
   static final independentDnsCache = PreferencesNotifier.create<bool, bool>("independent-dns-cache", true);
 
@@ -339,7 +329,6 @@ abstract class ConfigOptions {
     return false;
   });
 
-  /// preferences to exclude from share and export
   static final privatePreferencesKeys = {
     "extra-security.warp.license-key",
     "unblocker.warp.license-key",
@@ -467,13 +456,13 @@ abstract class ConfigOptions {
           noiseSize: ref.watch(unblockerWarpNoiseSize),
           noiseDelay: ref.watch(unblockerWarpNoiseDelay),
         ),
-        psiphon: SingboxUnblockerPsiphonOption(
+        psiphon: SingboxExtraSecurityPsiphonOption(
           region: ref.watch(unblockerPsiphonRegion),
           conduitPairingId: ref.watch(unblockerPsiphonConduitPairingId),
         ),
         profile: SingboxUnblockerProfileOption(id: ref.watch(unblockerProfileId)),
       ),
-      routeRule: RouteRule(rules: ref.watch(rulesNotifierProvider)).toProto3Json()! as Map<String, dynamic>,
+      routeRule: const <String, dynamic>{},
     );
   });
 }
