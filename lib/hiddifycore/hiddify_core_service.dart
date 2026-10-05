@@ -509,6 +509,7 @@ class HiddifyCoreService with InfraLogger {
       ...subscriptions.keys,
       ..._subscriptionTokens.keys,
       ..._reconnectTimers.keys,
+      ..._reconnectPolicies.keys,
     }.where((key) => key.startsWith(prefix)).toList();
     for (final key in keys) {
       _subscriptionTokens.remove(key); // invalidate callbacks before awaiting cancellation
