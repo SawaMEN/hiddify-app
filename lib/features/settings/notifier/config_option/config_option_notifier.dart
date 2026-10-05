@@ -66,7 +66,12 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
     }
     ref.listen(ConfigOptions.region, (previous, next) {
       if (previous == next) return;
+      // Android regional routing is built from this value outside sing-box's ordinary
+      // option diff. Treat a region change as a native policy revision so switching to
+      // Russia immediately rebuilds VpnService package exclusions and routing rules.
       _nativePolicyChanged = true;
+      _desiredRevision++;
+      _scheduleUpdate();
     });
     return false;
   }
@@ -75,15 +80,40 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
   int _desiredRevision = 0;
   int _appliedRevision = 0;
   bool _nativePolicyChanged = false;
-  Future<void> updateTogether(Future<void> Function() operation) async {
+
+  Future<void> updateTogether(
+    Future<void> Function() operation, {
+    bool applyImmediately = false,
+  }) async {
     _importing = true;
     _updateTimer?.cancel();
     try {
       await operation();
     } finally {
       _importing = false;
-      if (ref.mounted) _scheduleUpdate();
+      if (ref.mounted) {
+        if (applyImmediately) {
+          await applyPending();
+        } else {
+          _scheduleUpdate();
+        }
+      }
     }
+  }
+
+  /// Flushes the debounced option queue and waits until the active service has
+  /// consumed the newest revision. If the VPN is stopped, the saved settings are
+  /// used on the next start and there is nothing to reconnect right now.
+  Future<void> applyPending() async {
+    if (!ref.mounted) return;
+    _updateTimer?.cancel();
+    final pending = _updates.then((_) => _applyOptions());
+    // Keep the serial queue usable after a failed reconnect, while still surfacing
+    // the current failure to the caller that explicitly requested immediate apply.
+    _updates = pending.catchError((Object error, StackTrace stackTrace) {
+      loggy.warning('Unable to apply changed options', error, stackTrace);
+    });
+    await pending;
   }
 
   bool _importing = false;

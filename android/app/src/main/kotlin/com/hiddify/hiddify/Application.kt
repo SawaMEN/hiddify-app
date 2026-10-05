@@ -10,6 +10,7 @@ import android.net.wifi.WifiManager
 import android.os.PowerManager
 import androidx.core.content.getSystemService
 import com.hiddify.hiddify.bg.AppChangeReceiver
+import com.hiddify.hiddify.privacy.VpnServiceVisibility
 import go.Seq
 import com.hiddify.hiddify.Application as BoxApplication
 
@@ -24,6 +25,10 @@ class Application : Application() {
         super.onCreate()
 
         Seq.setContext(this)
+        // Root mode does not use Android VpnService. Keep its manifest component out of
+        // ordinary package-manager service queries while root mode is selected, and restore
+        // it automatically after switching back to the normal Android VPN path.
+        VpnServiceVisibility.sync(this, Settings.privacyUseRoot)
 
         registerReceiver(AppChangeReceiver(), IntentFilter().apply {
             addAction(Intent.ACTION_PACKAGE_ADDED)

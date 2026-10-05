@@ -16,7 +16,7 @@ import 'package:hiddify/features/per_app_proxy/overview/per_app_proxy_page.dart'
 import 'package:hiddify/features/profile/details/profile_details_page.dart';
 import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
 import 'package:hiddify/features/profile/overview/profiles_page.dart';
-import 'package:hiddify/features/vpn_privacy/vpn_privacy_page.dart';
+import 'package:hiddify/features/vpn_privacy/vpn_privacy_overview_page.dart';
 import 'package:hiddify/features/route_rules/notifier/rule_notifier.dart';
 import 'package:hiddify/features/route_rules/overview/generic_list_page.dart';
 import 'package:hiddify/features/route_rules/overview/rule_page.dart';
@@ -98,20 +98,15 @@ class RoutingConfigNotifier extends _$RoutingConfigNotifier {
         }
 
         if (!ref.read(Preferences.introCompleted)) {
-          // Intro is not completed
           return Uri(path: '/intro', queryParameters: url == null ? null : {'url': url}).toString();
         } else if (state.matchedLocation == '/intro') {
-          // Intro is completed
-          // Current page in '/intro'
           if (url != null && Uri.parse(url).host == 'import') {
             WidgetsBinding.instance.addPostFrameCallback(
-              (_) =>
-                  ref.read(bottomSheetsNotifierProvider.notifier).showAddProfile(url: url, triggeredByDeepLink: true),
+              (_) => ref.read(bottomSheetsNotifierProvider.notifier).showAddProfile(url: url, triggeredByDeepLink: true),
             );
           }
           return '/home';
         } else if (url != null && Uri.parse(url).host == 'import') {
-          // Auto import profile from url
           WidgetsBinding.instance.addPostFrameCallback(
             (_) => ref.read(bottomSheetsNotifierProvider.notifier).showAddProfile(url: url, triggeredByDeepLink: true),
           );
@@ -122,7 +117,6 @@ class RoutingConfigNotifier extends _$RoutingConfigNotifier {
           return path;
         } else if (state.matchedLocation.contains('chain-options') &&
             (ref.watch(hasAnyProfileProvider).value == false)) {
-          // Prevent showing chainOptions while hasAnyProfile == false
           return '/settings';
         }
         return null;
@@ -185,7 +179,7 @@ class RoutingConfigNotifier extends _$RoutingConfigNotifier {
                   pageBuilder: (_, state) => customTransition(
                     TransitionType.fade,
                     state.pageKey,
-                    FocusScope(node: branchesScope['vpnPrivacy'], child: const VpnPrivacyPage()),
+                    FocusScope(node: branchesScope['vpnPrivacy'], child: const VpnPrivacyOverviewPage()),
                   ),
                 ),
               ],
@@ -273,7 +267,6 @@ class RoutingConfigNotifier extends _$RoutingConfigNotifier {
                       pageBuilder: (_, state) =>
                           customTransition(TransitionType.slide, state.pageKey, const GeneralPage()),
                     ),
-
                     GoRoute(
                       name: 'dnsOptions',
                       path: 'dns-options',
