@@ -8,6 +8,7 @@ import com.hiddify.hiddify.bg.VPNService
 import com.hiddify.hiddify.constant.PerAppProxyMode
 import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.SettingsKey
+import com.hiddify.hiddify.privacy.VpnServiceVisibility
 import java.io.ByteArrayInputStream
 import java.io.ObjectInputStream
 
@@ -163,7 +164,12 @@ object Settings {
     private var currentServiceMode: String? = null
 
     suspend fun rebuildServiceMode(): Boolean {
-        val newMode = if (privacyUseRoot) "root" else if (serviceMode == ServiceMode.VPN) ServiceMode.VPN else ServiceMode.NORMAL
+        val rootMode = privacyUseRoot
+        // This runs immediately before Android starts the selected service. Re-enable the
+        // VpnService component before normal VPN mode so hiding it in root mode can never
+        // make a later non-root connection unavailable.
+        VpnServiceVisibility.sync(Application.application, rootMode)
+        val newMode = if (rootMode) "root" else if (serviceMode == ServiceMode.VPN) ServiceMode.VPN else ServiceMode.NORMAL
         if (currentServiceMode == newMode) return false
         currentServiceMode = newMode
         return true
