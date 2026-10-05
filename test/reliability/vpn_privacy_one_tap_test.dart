@@ -12,15 +12,14 @@ void main() {
     'lib/core/router/go_router/routing_config_notifier.dart',
   ).readAsStringSync();
 
-  test('one-tap setup explicitly enables and reapplies the Russia regional policy', () {
-    expect(actions, contains('ConfigOptions.region.notifier).update(Region.ru)'));
+  test('one-tap setup enables independent regional switches without changing the core region', () {
+    for (final preference in ['russianNetworkBypass', 'russianAppsBypass', 'restrictedServicesProxy']) {
+      expect(actions, contains('VpnPrivacyPreferences.$preference.notifier).update(true)'));
+      expect(notifier, contains('VpnPrivacyPreferences.$preference,'));
+    }
+    expect(actions, isNot(contains('ConfigOptions.region.notifier)')));
     expect(actions, contains("_setRoutingMode(ref, 'ru-bypass', forceRevision: true)"));
     expect(actions, contains('applyImmediately: true'));
-
-    final regionIndex = actions.indexOf('ConfigOptions.region.notifier).update(Region.ru)');
-    final routingIndex = actions.indexOf("_setRoutingMode(ref, 'ru-bypass', forceRevision: true)");
-    expect(regionIndex, greaterThanOrEqualTo(0));
-    expect(routingIndex, greaterThan(regionIndex));
   });
 
   test('automatic setup keeps an exact restore point', () {

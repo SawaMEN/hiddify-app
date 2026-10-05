@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hiddify/core/localization/translations.dart';
@@ -36,7 +36,10 @@ void main() {
       addTearDown(router.dispose);
       await tester.pumpWidget(ProviderScope(
         overrides: [translationsProvider.overrideWith((_) async => TranslationsEn())],
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(
+          routerConfig: router,
+          builder: (context, child) => MaterialUiCompatibilityBridge(child: child!),
+        ),
       ));
       // Resolve translations before opening the dialog.
       final context = tester.element(find.text('Open'));
