@@ -203,56 +203,58 @@ class BoxService(
                 }
                 rootMonitor = serviceScope.launch {
                     while (com.hiddify.hiddify.privacy.RootCore.isAlive()) kotlinx.coroutines.delay(1000)
-                    lifecycleMutex.withLock {
-                        if (rootActive && !destroyed && coreOwner === this@BoxService) {
-                            stopAndAlert(Alert.StartService, "Root core exited; connection stopped")
+                    serviceScope.launch {
+                        lifecycleMutex.withLock {
+                            if (rootActive && !destroyed && coreOwner === this@BoxService) {
+                                stopAndAlert(Alert.StartService, "Root core exited; connection stopped")
+                            }
                         }
                     }
                 }
             } else {
-            Libbox.setMemoryLimit(!Settings.disableMemoryLimit)
+                Libbox.setMemoryLimit(!Settings.disableMemoryLimit)
 
-            try {
-                Mobile.setup(
-                    SetupOptions().also {
-                        it.basePath = Settings.baseDir
-                        it.workingDir = Settings.workingDir
-                        it.tempDir = Settings.tempDir
-                        it.fixAndroidStack = Bugs.fixAndroidStack
-                        it.mode = 4L
-                        it.listen = "127.0.0.1:${Settings.grpcServiceModePort}"
-                        it.secret = Settings.grpcAuthToken
-                        it.debug = Settings.debugMode
-                    },
-                    platformInterface,
-                )
-                if (destroyed) return
-            } catch (e: Exception) {
-                // setup() can fail after allocating native state. Always make a best-effort close
-                // before tearing down Android network callbacks so a later setup starts cleanly.
-                stopAndAlert(Alert.CreateService, e.message)
-                return
-            }
-
-            if (!Settings.connectionDesired) {
-                finishCancelledStart("cancelled during native setup")
-                return
-            }
-            Mobile.applyDevicePrivacy(Settings.privacyFullTunnel, Settings.privacyHideLocalProxy,
-                Settings.privacyHideClashApi, Settings.privacyDisableSystemProxy, Settings.privacyEncryptedDns)
-            val stored = org.json.JSONObject(Settings.configOptions.ifBlank { "{}" })
-            val policy = org.json.JSONObject()
-            com.hiddify.hiddify.privacy.RegionalRouting.policy(service, stored.optString("region", "other")).forEach { (key, value) ->
-                policy.put(key, if (value is List<*>) org.json.JSONArray(value) else value)
-            }
-            Mobile.applyRegionalPrivacy(policy.toString())
-            if (Settings.startCoreAfterStartingService) {
-                Mobile.start(selectedConfigPath, "")
-                if (!Settings.connectionDesired) {
-                    finishCancelledStart("cancelled during native start")
+                try {
+                    Mobile.setup(
+                        SetupOptions().also {
+                            it.basePath = Settings.baseDir
+                            it.workingDir = Settings.workingDir
+                            it.tempDir = Settings.tempDir
+                            it.fixAndroidStack = Bugs.fixAndroidStack
+                            it.mode = 4L
+                            it.listen = "127.0.0.1:${Settings.grpcServiceModePort}"
+                            it.secret = Settings.grpcAuthToken
+                            it.debug = Settings.debugMode
+                        },
+                        platformInterface,
+                    )
+                    if (destroyed) return
+                } catch (e: Exception) {
+                    // setup() can fail after allocating native state. Always make a best-effort close
+                    // before tearing down Android network callbacks so a later setup starts cleanly.
+                    stopAndAlert(Alert.CreateService, e.message)
                     return
                 }
-            }
+
+                if (!Settings.connectionDesired) {
+                    finishCancelledStart("cancelled during native setup")
+                    return
+                }
+                Mobile.applyDevicePrivacy(Settings.privacyFullTunnel, Settings.privacyHideLocalProxy,
+                    Settings.privacyHideClashApi, Settings.privacyDisableSystemProxy, Settings.privacyEncryptedDns)
+                val stored = org.json.JSONObject(Settings.configOptions.ifBlank { "{}" })
+                val policy = org.json.JSONObject()
+                com.hiddify.hiddify.privacy.RegionalRouting.policy(service, stored.optString("region", "other")).forEach { (key, value) ->
+                    policy.put(key, if (value is List<*>) org.json.JSONArray(value) else value)
+                }
+                Mobile.applyRegionalPrivacy(policy.toString())
+                if (Settings.startCoreAfterStartingService) {
+                    Mobile.start(selectedConfigPath, "")
+                    if (!Settings.connectionDesired) {
+                        finishCancelledStart("cancelled during native start")
+                        return
+                    }
+                }
 
             }
 

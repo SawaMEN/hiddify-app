@@ -36,7 +36,7 @@ object RegionalRouting {
             "privacy-direct-domains" to list("ruDomains", Settings.privacyDirectDomains, true),
             "privacy-proxy-domains" to list("proxyDomains", Settings.privacyProxyDomains, true),
             "privacy-root" to Settings.privacyUseRoot,
-            "privacy-root-exclude-uids" to listOf(0, context.applicationInfo.uid),
+            "privacy-root-exclude-uids" to (listOf(0, context.applicationInfo.uid) + if (mode == "ru-bypass" || mode == "proxy-selected") directUids else emptySet<Int>()),
             "privacy-root-table" to Settings.rootRouteTable,
         )
     }

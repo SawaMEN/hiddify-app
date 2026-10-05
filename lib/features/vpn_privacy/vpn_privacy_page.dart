@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:hiddify/core/model/region.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:hiddify/core/db/provider/db_providers.dart';
@@ -228,6 +229,16 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
             ),
           ),
           if (android) ...[
+            ChoicePreferenceWidget(
+              selected: ref.watch(ConfigOptions.region),
+              preferences: ref.watch(ConfigOptions.region.notifier),
+              choices: Region.values,
+              enabled: !_busy,
+              title: _text(context, 'Регион маршрутизации', 'Routing region'),
+              icon: Icons.public,
+              presentChoice: (region) =>
+                  region == Region.ru ? _text(context, 'Россия', 'Russia') : region.name.toUpperCase(),
+            ),
             SwitchListTile.adaptive(
               value: ref.watch(VpnPrivacyPreferences.useRoot),
               onChanged: _busy ? null : _setRoot,
