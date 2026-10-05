@@ -144,6 +144,9 @@ void main() {
           ),
         ),
       );
+      await tester.runAsync(() async {
+        await precacheImage(const AssetImage('assets/images/logo.png'), tester.element(find.byType(HomePage)));
+      });
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('home_connection_button')), findsOneWidget);
       expect(tester.takeException(), isNull);

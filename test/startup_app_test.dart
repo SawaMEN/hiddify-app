@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hiddify/features/app/widget/startup_app.dart';
 import 'package:hiddify/features/profile/model/profile_entity.dart';
@@ -35,6 +36,10 @@ void main() {
     addTearDown(tester.platformDispatcher.clearLocaleTestValue);
     final startup = Completer<Widget>();
     final boundary = GlobalKey();
+    await tester.runAsync(() async {
+      final loader = FontLoader('Manrope')..addFont(rootBundle.load('assets/fonts/Manrope.ttf'));
+      await loader.load();
+    });
     await tester.pumpWidget(RepaintBoundary(key: boundary, child: StartupApp(initialization: startup.future)));
     await tester.pump(const Duration(seconds: 2));
     expect(find.text('Запуск'), findsOneWidget);

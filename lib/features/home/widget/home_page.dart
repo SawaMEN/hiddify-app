@@ -31,9 +31,7 @@ class HomePage extends ConsumerWidget {
       appBar: AppBar(
         title: Row(
           children: [
-            Assets.images.logo.image(
-              height: 28,
-            ),
+            ClipOval(child: Assets.images.logo.image(width: 28, height: 28)),
             const Gap(12),
             Flexible(child: Text(t.common.appTitle, overflow: TextOverflow.ellipsis)),
             const Gap(8),
