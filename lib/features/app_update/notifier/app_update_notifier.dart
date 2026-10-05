@@ -44,26 +44,31 @@ class AppUpdateNotifier extends _$AppUpdateNotifier with AppLogger {
   );
 
   Future<AppUpdateState> check() async {
+    if (state is AppUpdateStateChecking) return state;
     loggy.debug("checking for update");
     state = const AppUpdateState.checking();
-    final appInfo = ref.watch(appInfoProvider).requireValue;
+    final appInfo = ref.read(appInfoProvider).requireValue;
     if (!appInfo.release.allowCustomUpdateChecker) {
       loggy.debug("custom update checkers are not allowed for [${appInfo.release.name}] release");
       return state = const AppUpdateState.disabled();
     }
     return ref
-        .watch(appUpdateRepositoryProvider)
+        .read(appUpdateRepositoryProvider)
         .getLatestVersion()
         .match(
           (err) {
+            if (!ref.mounted) return AppUpdateState.error(err);
             loggy.warning("failed to get latest version", err);
             return state = AppUpdateState.error(err);
           },
           (remote) {
+            if (!ref.mounted) return const AppUpdateState.initial();
             try {
               final latestVersion = Version.parse(remote.version);
               final currentVersion = Version.parse(appInfo.version);
-              if (latestVersion > currentVersion) {
+              if (latestVersion > currentVersion ||
+                  latestVersion == currentVersion &&
+                      (int.tryParse(remote.buildNumber) ?? 0) > (int.tryParse(appInfo.buildNumber) ?? 0)) {
                 if (remote.version == _ignoreReleasePref.read()) {
                   loggy.debug("ignored release [${remote.version}]");
                   return state = AppUpdateStateIgnored(remote);

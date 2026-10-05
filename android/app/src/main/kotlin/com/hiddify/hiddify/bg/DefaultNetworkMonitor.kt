@@ -6,6 +6,14 @@ import android.util.Log
 import com.hiddify.core.libbox.InterfaceUpdateListener
 import com.hiddify.hiddify.Application
 import java.net.NetworkInterface
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.isActive
+import com.hiddify.core.mobile.Mobile
 
 object DefaultNetworkMonitor {
     private const val TAG = "DefaultNetworkMonitor"
@@ -16,6 +24,11 @@ object DefaultNetworkMonitor {
 
     private val listenerLock = Any()
     private var listener: InterfaceUpdateListener? = null
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var updateJob: Job? = null
+    private var generation = 0
+    private var lastInterface: Pair<String, Int>? = null
+    private var lastNetwork: Network? = null
 
     suspend fun start() {
         DefaultNetworkListener.start(this) {
@@ -34,6 +47,11 @@ object DefaultNetworkMonitor {
     fun detachCoreListener() {
         synchronized(listenerLock) {
             listener = null
+            generation++
+            updateJob?.cancel()
+            updateJob = null
+            lastInterface = null
+            lastNetwork = null
         }
     }
 
@@ -60,42 +78,45 @@ object DefaultNetworkMonitor {
     }
 
     private fun checkDefaultInterfaceUpdate(newNetwork: Network?) {
-        if (newNetwork == null) {
-            notifyListener("", -1)
-            return
-        }
-
-        val interfaceName = runCatching {
-            Application.connectivity.getLinkProperties(newNetwork)?.interfaceName
-        }.getOrNull() ?: return
-
-        repeat(10) {
-            val interfaceIndex = try {
-                NetworkInterface.getByName(interfaceName)?.index ?: -1
-            } catch (_: Exception) {
-                -1
-            }
-
-            if (interfaceIndex >= 0) {
-                notifyListener(interfaceName, interfaceIndex)
-                return
-            }
-            try {
-                Thread.sleep(100)
-            } catch (_: InterruptedException) {
-                Thread.currentThread().interrupt()
-                return
+        synchronized(listenerLock) {
+            generation++
+            val expectedGeneration = generation
+            updateJob?.cancel()
+            if (listener == null) return
+            updateJob = scope.launch {
+                delay(150)
+                if (newNetwork == null) {
+                    notifyListener("", -1, newNetwork, expectedGeneration)
+                    return@launch
+                }
+                for (wait in listOf(100L, 200L, 400L, 800L, 1000L, 1000L)) {
+                    if (!isActive) return@launch
+                    val name = runCatching { Application.connectivity.getLinkProperties(newNetwork)?.interfaceName }.getOrNull()
+                    val index = if (name == null) -1 else runCatching { NetworkInterface.getByName(name)?.index ?: -1 }.getOrDefault(-1)
+                    if (name != null && index >= 0) {
+                        notifyListener(name, index, newNetwork, expectedGeneration)
+                        return@launch
+                    }
+                    delay(wait)
+                }
+                notifyListener("", -1, newNetwork, expectedGeneration)
             }
         }
     }
 
-    private fun notifyListener(interfaceName: String, interfaceIndex: Int) {
+    private fun notifyListener(interfaceName: String, interfaceIndex: Int, network: Network?, expectedGeneration: Int) {
         synchronized(listenerLock) {
+            if (expectedGeneration != generation) return
             val currentListener = listener ?: return
+            val next = Pair(interfaceName, interfaceIndex)
+            if (next == lastInterface && network == lastNetwork) return
+            val recovering = lastInterface != null && interfaceIndex >= 0
             runCatching {
                 currentListener.updateDefaultInterface(interfaceName, interfaceIndex, false, false)
+                if (recovering) Mobile.wake()
+                lastInterface = next
+                lastNetwork = network
             }.onFailure {
-                // This callback crosses the gomobile boundary and must never unwind into Android.
                 Log.e(TAG, "failed to notify core about default interface", it)
             }
         }

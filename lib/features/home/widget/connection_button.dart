@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:hiddify/features/connection/health/android_vpn_settings.dart';
 import 'package:gap/gap.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/core/router/bottom_sheets/bottom_sheets_notifier.dart';
@@ -56,6 +57,13 @@ class ConnectionButton extends HookConsumerWidget {
           }
         },
         AsyncData(value: Connected()) => () async {
+          try {
+            final protection = await AndroidVpnSettings.protection();
+            if (protection['alwaysOn'] == true) {
+              await AndroidVpnSettings.open();
+              return;
+            }
+          } catch (_) {}
           if (requiresReconnect == true &&
               await ref.read(dialogNotifierProvider.notifier).showExperimentalFeatureNotice()) {
             return await ref

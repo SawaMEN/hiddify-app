@@ -1,9 +1,12 @@
 import 'package:fpdart/fpdart.dart';
+
+import 'dart:io';
+
+import 'package:hiddify/features/app_update/data/release_selector.dart';
 import 'package:hiddify/core/http_client/dio_http_client.dart';
 import 'package:hiddify/core/model/constants.dart';
 import 'package:hiddify/core/model/environment.dart';
 import 'package:hiddify/core/utils/exception_handler.dart';
-import 'package:hiddify/features/app_update/data/github_release_parser.dart';
 import 'package:hiddify/features/app_update/model/app_update_failure.dart';
 import 'package:hiddify/features/app_update/model/remote_version_entity.dart';
 import 'package:hiddify/utils/utils.dart';
@@ -35,13 +38,12 @@ class AppUpdateRepositoryImpl with ExceptionHandler, InfraLogger implements AppU
         return left(const AppUpdateFailure());
       }
 
-      final releases = response.data!.map((e) => GithubReleaseParser.parse(e as Map<String, dynamic>));
-      late RemoteVersionEntity latest;
-      if (includePreReleases) {
-        latest = releases.first;
-      } else {
-        latest = releases.firstWhere((e) => e.preRelease == false);
-      }
+      final latest = ReleaseSelector.latest(
+        response.data!,
+        Platform.operatingSystem,
+        includePreReleases: includePreReleases,
+      );
+      if (latest == null) return left(const AppUpdateFailure());
       return right(latest);
     }, AppUpdateFailure.new);
   }

@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:hiddify/core/router/go_router/go_router_notifier.dart';
+import 'package:hiddify/features/profile/import/import_summary.dart';
+import 'package:hiddify/features/profile/import/import_preview.dart';
+
 import 'package:dio/dio.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:hiddify/core/haptic/haptic_service.dart';
@@ -61,6 +65,11 @@ class AddProfileNotifier extends _$AddProfileNotifier with AppLogger {
 
   ProfileRepository get _profilesRepo => ref.read(profileRepositoryProvider).requireValue;
   CancelToken? _cancelToken;
+  Future<bool> _preview(ImportSummary summary, bool insecure) async {
+    final context = rootNavKey.currentContext;
+    if (!ref.mounted || context == null) return false;
+    return showImportPreview(context, ref.read(translationsProvider).requireValue, summary, insecure);
+  }
 
   Future<void> addClipboard(String rawInput) async {
     if (state.isLoading) return;
@@ -70,15 +79,16 @@ class AddProfileNotifier extends _$AddProfileNotifier with AppLogger {
       // final markAsActive = activeProfile == null || ref.read(Preferences.markNewProfileActive);
       final TaskEither<ProfileFailure, Unit> task;
       if (LinkParser.parse(rawInput) case (final rs)?) {
-        loggy.debug("adding profile, url: [${rs.url}]");
+        loggy.debug("adding remote profile");
         task = _profilesRepo.upsertRemote(
           rs.url,
           userOverride: rs.name.isNotEmpty ? UserOverride(name: rs.name) : null,
           cancelToken: _cancelToken = CancelToken(),
+          preview: _preview,
         );
       } else {
         loggy.debug("adding profile, content");
-        task = _profilesRepo.addLocal(safeDecodeBase64(rawInput));
+        task = _profilesRepo.addLocal(safeDecodeBase64(rawInput), preview: _preview);
       }
       return await task
           .match(
@@ -104,6 +114,7 @@ class AddProfileNotifier extends _$AddProfileNotifier with AppLogger {
         url,
         userOverride: userOverride,
         cancelToken: _cancelToken = CancelToken(),
+        preview: _preview,
       );
       return await task
           .match(

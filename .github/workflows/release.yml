@@ -18,5 +18,7 @@ jobs:
     permissions: write-all
     with:
       upload-artifact: true
+      run-checks: true
+      run-tests: true
       tag-name: "${{ github.ref_type == 'tag' && github.ref_name || 'dev-latest' }}"
       channel: "${{ github.ref_type == 'tag' && !endsWith(github.ref_name, 'dev') && 'prod' || 'dev' }}"

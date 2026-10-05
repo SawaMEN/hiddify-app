@@ -76,8 +76,16 @@ class BoxService(
 
         fun currentPlatformInterface(): PlatformInterface? = coreOwner?.platformInterface
 
+        fun vpnProtection(): Map<String, Boolean?> {
+            val vpn = coreOwner?.service as? VPNService
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && vpn != null) {
+                mapOf("alwaysOn" to vpn.isAlwaysOn, "lockdown" to vpn.isLockdownEnabled)
+            } else mapOf("alwaysOn" to null, "lockdown" to null)
+        }
+
         fun start() {
-            val intent = Intent(Application.application, Settings.serviceClass())
+            val intent = Intent(Application.application, Settings.serviceClass()).putExtra("started_by_app", true)
+            Settings.connectionDesired = true
             ContextCompat.startForegroundService(Application.application, intent)
         }
 
@@ -100,7 +108,7 @@ class BoxService(
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
-                Action.SERVICE_CLOSE -> stopService()
+                Action.SERVICE_CLOSE -> { Settings.connectionDesired = false; stopService() }
                 PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED -> {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                         serviceUpdateIdleMode()

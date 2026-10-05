@@ -1,4 +1,9 @@
 import 'dart:io';
+import 'dart:async';
+
+import 'package:fpdart/fpdart.dart';
+import 'package:hiddify/features/connection/health/recovery_policy.dart';
+import 'package:hiddify/features/connection/health/android_vpn_settings.dart';
 
 import 'package:hiddify/core/haptic/haptic_service.dart';
 import 'package:hiddify/core/utils/single_call.dart';
@@ -30,7 +35,21 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       result.match((error) => throw error, (_) {});
     }
 
+    ref.onDispose(_cancelRecovery);
+    ref.listen(Preferences.autoReconnect, (_, enabled) {
+      if (!enabled) _cancelRecovery();
+    });
     listenSelf((previous, next) async {
+      if (next case AsyncData(value: Disconnected(connectionFailure: final failure?))) _scheduleRecovery(failure);
+      if (next case AsyncData(value: Connected())) {
+        _retryTimer?.cancel();
+        _retryTimer = null;
+        ref.read(recoveryStatusProvider.notifier).set(0);
+        _stableTimer?.cancel();
+        _stableTimer = Timer(const Duration(minutes: 1), _policy.reset);
+      } else {
+        _stableTimer?.cancel();
+      }
       if (previous == next) return;
       if (previous case AsyncData(:final value) when !value.isConnected) {
         if (next case AsyncData(value: final Connected _)) {
@@ -57,11 +76,6 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     ref.watch(coreRestartSignalProvider);
 
     yield* _connectionRepo.watchConnectionStatus().doOnData((event) {
-      if (event case Disconnected(connectionFailure: final _?) when PlatformUtils.isDesktop) {
-        Future.microtask(() {
-          if (ref.mounted) ref.read(Preferences.startedByUser.notifier).update(false);
-        });
-      }
       loggy.info("connection status: ${event.format()}");
     });
   }
@@ -75,6 +89,14 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   }
 
   Future<void> toggleConnection() async {
+    if (_retryTimer != null || _retrying) {
+      _cancelRecovery();
+      await ref.read(Preferences.startedByUser.notifier).update(false);
+      await _disconnect();
+      return;
+    }
+    _cancelRecovery();
+    _policy.reset();
     final haptic = ref.read(hapticServiceProvider.notifier);
     if (state case AsyncError()) {
       await haptic.lightImpact();
@@ -98,16 +120,19 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   }
 
   Future<void> reconnect(ProfileEntity? profile) async {
+    final epoch = _epoch;
     if (state case AsyncData(:final value) when value == const Connected()) {
       if (profile == null) {
         loggy.info("no active profile, disconnecting");
         return _disconnect();
       }
       loggy.info("active profile changed, reconnecting");
-      await ref.read(Preferences.startedByUser.notifier).update(true);
-      final result = await _serializeCoreOperation(
-        () => _connectionRepo.reconnect(profile, ref.read(Preferences.disableMemoryLimit)).run(),
-      );
+      final result = await _serializeCoreOperation(() async {
+        if (!ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser))
+          return right<ConnectionFailure, Unit>(unit);
+        return _connectionRepo.reconnect(profile, ref.read(Preferences.disableMemoryLimit)).run();
+      });
+      if (!ref.mounted || epoch != _epoch) return;
       await result.match<Future<void>>((error) => _handleFailure(error, resetStartedByUser: true), (_) async {});
     }
   }
@@ -115,17 +140,26 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   // Recreate the Android service explicitly when switching VPN/proxy mode.
   // Toggling twice depends on status stream timing and can leave it disconnected.
   Future<void> reconnectService(ProfileEntity? profile) async {
+    final epoch = _epoch;
     if (profile == null) return _disconnect();
     final repository = _connectionRepo;
     final disableMemoryLimit = ref.read(Preferences.disableMemoryLimit);
-    final result = await _serializeCoreOperation(() async {
+    final result = await _serializeCoreOperation<Either<ConnectionFailure, Unit>>(() async {
+      if (!ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser)) return right(unit);
       final stopped = await repository.disconnect().run();
-      return stopped.match((error) async => stopped, (_) => repository.connect(profile, disableMemoryLimit).run());
+      return stopped.match((error) async => stopped, (_) async {
+        if (!ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser))
+          return right<ConnectionFailure, Unit>(unit);
+        return repository.connect(profile, disableMemoryLimit).run();
+      });
     });
+    if (!ref.mounted || epoch != _epoch) return;
     await result.match<Future<void>>((error) => _handleFailure(error, resetStartedByUser: true), (_) async {});
   }
 
   Future<void> abortConnection() async {
+    _cancelRecovery();
+    await ref.read(Preferences.startedByUser.notifier).update(false);
     if (state case AsyncData(:final value)) {
       switch (value) {
         case Connected() || Connecting():
@@ -134,6 +168,99 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
         default:
       }
     }
+  }
+
+  final _policy = RecoveryPolicy();
+  Timer? _retryTimer, _stableTimer;
+  bool _retrying = false;
+  int _epoch = 0;
+  DateTime? _lastHealthRecovery;
+  void _cancelRecovery() {
+    _epoch++;
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _stableTimer?.cancel();
+    if (ref.mounted) ref.read(recoveryStatusProvider.notifier).set(0);
+  }
+
+  bool _scheduleRecovery(ConnectionFailure failure) {
+    if (!ref.mounted || !ref.read(Preferences.autoReconnect) || !ref.read(Preferences.startedByUser)) return false;
+    if (failure is! UnexpectedConnectionFailure && failure is! BackgroundCoreNotAvailable) return false;
+    if (_retryTimer != null) return true;
+    final delay = _policy.nextDelay();
+    if (delay == null) {
+      ref.read(recoveryStatusProvider.notifier).set(0);
+      return false;
+    }
+    final epoch = _epoch;
+    ref.read(recoveryStatusProvider.notifier).set(_policy.attempts);
+    _retryTimer = Timer(delay, () {
+      _retryTimer = null;
+      unawaited(_retry(epoch));
+    });
+    return true;
+  }
+
+  Future<void> _retry(int epoch) async {
+    _retrying = true;
+    try {
+      if (!ref.mounted ||
+          epoch != _epoch ||
+          !ref.read(Preferences.startedByUser) ||
+          !ref.read(Preferences.autoReconnect))
+        return;
+      if (!await AndroidVpnSettings.wantsConnection()) {
+        if (ref.mounted && epoch == _epoch) {
+          _cancelRecovery();
+          await ref.read(Preferences.startedByUser.notifier).update(false);
+        }
+        return;
+      }
+      final profile = await ref.read(activeProfileProvider.future);
+      if (!ref.mounted || epoch != _epoch || profile == null) return;
+      if (state.value?.isConnected ?? false) return;
+      final result = await _serializeCoreOperation(() async {
+        if (!ref.mounted ||
+            epoch != _epoch ||
+            !ref.read(Preferences.startedByUser) ||
+            !ref.read(Preferences.autoReconnect))
+          return right<ConnectionFailure, Unit>(unit);
+        return _connectionRepo.connect(profile, ref.read(Preferences.disableMemoryLimit)).run();
+      });
+      if (!ref.mounted || epoch != _epoch) return;
+      result.match((failure) {
+        state = AsyncError(failure, StackTrace.current);
+        _scheduleRecovery(failure);
+      }, (_) {});
+    } catch (error, stack) {
+      if (ref.mounted && epoch == _epoch) {
+        state = AsyncError(error, stack);
+        _scheduleRecovery(ConnectionFailure.unexpected(error, stack));
+      }
+    } finally {
+      _retrying = false;
+    }
+  }
+
+  Future<void> recoverUnhealthyConnection() async {
+    if (!ref.mounted ||
+        !ref.read(Preferences.autoReconnect) ||
+        !ref.read(Preferences.startedByUser) ||
+        !(state.value?.isConnected ?? false))
+      return;
+    final now = DateTime.now();
+    if (_lastHealthRecovery != null && now.difference(_lastHealthRecovery!) < const Duration(minutes: 2)) return;
+    _lastHealthRecovery = now;
+    final epoch = _epoch;
+    final profile = await ref.read(activeProfileProvider.future);
+    if (!ref.mounted || epoch != _epoch || profile == null) return;
+    final result = await _serializeCoreOperation(() async {
+      if (!ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser))
+        return right<ConnectionFailure, Unit>(unit);
+      return _connectionRepo.reconnect(profile, ref.read(Preferences.disableMemoryLimit)).run();
+    });
+    if (ref.mounted && epoch == _epoch)
+      await result.match<Future<void>>((e) => _handleFailure(e, resetStartedByUser: true), (_) async {});
   }
 
   final _singleStart = SingleCall();
@@ -152,20 +279,25 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   }
 
   Future<void> _connectThrottled() async {
+    final epoch = _epoch;
     final activeProfile = await ref.read(activeProfileProvider.future);
-    if (!ref.mounted) return;
+    if (!ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser)) return;
     if (activeProfile == null) {
       loggy.info("no active profile, not connecting");
       await ref.read(Preferences.startedByUser.notifier).update(false);
       return;
     }
     final result = await _serializeCoreOperation(
-      () => _connectionRepo.connect(activeProfile, ref.read(Preferences.disableMemoryLimit)).run(),
+      () async => !ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser)
+          ? right<ConnectionFailure, Unit>(unit)
+          : await _connectionRepo.connect(activeProfile, ref.read(Preferences.disableMemoryLimit)).run(),
     );
+    if (!ref.mounted || epoch != _epoch) return;
     await result.match<Future<void>>((error) => _handleFailure(error, resetStartedByUser: true), (_) async {});
   }
 
   Future<void> _disconnect() async {
+    _cancelRecovery();
     final result = await _serializeCoreOperation(() => _connectionRepo.disconnect().run());
     await result.match<Future<void>>((error) => _handleFailure(error), (_) async {});
   }
@@ -174,6 +306,7 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     loggy.warning("connection operation failed", error);
     if (!ref.mounted) return;
     state = AsyncError(error, StackTrace.current);
+    if (resetStartedByUser && _scheduleRecovery(error)) return;
     if (resetStartedByUser) {
       await ref.read(Preferences.startedByUser.notifier).update(false);
     }
@@ -191,4 +324,12 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
 bool serviceRunning(Ref ref) {
   // ref.watch(coreRestartSignalProvider);
   return ref.watch(connectionNotifierProvider).value?.isConnected ?? false;
+}
+
+final recoveryStatusProvider = NotifierProvider<RecoveryStatusNotifier, int>(RecoveryStatusNotifier.new);
+
+class RecoveryStatusNotifier extends Notifier<int> {
+  @override
+  int build() => 0;
+  void set(int value) => state = value;
 }
