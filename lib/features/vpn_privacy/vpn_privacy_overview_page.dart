@@ -53,11 +53,7 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
       return;
     }
     try {
-      final policy =
-          await _channel.invokeMapMethod<dynamic, dynamic>('get_regional_routing', {
-            'region': ref.read(ConfigOptions.region).name,
-          }) ??
-          const <dynamic, dynamic>{};
+      final policy = await _channel.invokeMapMethod<dynamic, dynamic>('get_regional_routing') ?? const <dynamic, dynamic>{};
       if (!mounted) return;
       final direct = policy['privacy-direct-packages'];
       final proxy = policy['privacy-proxy-packages'];
@@ -106,8 +102,8 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
         throw StateError(
           _privacyText(
             context,
-            'Настройки сохранены, но Android не подтвердил активную политику РФ.',
-            'Settings were saved, but Android did not confirm the Russia policy.',
+            'Настройки сохранены, но Android не подтвердил активную политику маршрутизации.',
+            'Settings were saved, but Android did not confirm the routing policy.',
           ),
         );
       }
@@ -175,6 +171,9 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
     final configured = VpnPrivacyActions.isConfigured(ref);
     final canRestore = ref.watch(VpnPrivacyPreferences.automaticSetupBackup).isNotEmpty;
     final android = Platform.isAndroid;
+    final russianNetwork = ref.watch(VpnPrivacyPreferences.russianNetworkBypass);
+    final russianApps = ref.watch(VpnPrivacyPreferences.russianAppsBypass);
+    final restrictedServices = ref.watch(VpnPrivacyPreferences.restrictedServicesProxy);
 
     final statusText = configured
         ? _privacyText(context, 'Автоматическая защита включена', 'Automatic protection is enabled')
@@ -183,11 +182,11 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
         ? _privacyText(
             context,
             _routingReady == false
-                ? 'Настройки сохранены, но политика приложений требует повторного применения.'
-                : 'Российские приложения и заблокированные сервисы используют единый синхронизированный список правил.',
+                ? 'Настройки сохранены, но политика маршрутизации требует повторного применения.'
+                : 'Российский сетевой обход, приложения и заблокированные сервисы управляются независимыми правилами.',
             _routingReady == false
-                ? 'Settings are saved, but application policy needs to be applied again.'
-                : 'Russian apps and restricted services now use one synchronized application policy.',
+                ? 'Settings are saved, but routing needs to be applied again.'
+                : 'Russian network bypass, apps, and restricted services are controlled independently.',
           )
         : _privacyText(
             context,
@@ -237,7 +236,7 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
                       ),
                     ],
                   ),
-                  if (configured && android && _routingReady != null) ...[
+                  if (android && _routingReady != null) ...[
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
@@ -259,7 +258,11 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
                                       'Политика активна · напрямую: $_directApps · через VPN: $_proxyApps',
                                       'Policy active · direct: $_directApps · through VPN: $_proxyApps',
                                     )
-                                  : _privacyText(context, 'Политика РФ сейчас не активна', 'Russia policy is not active'),
+                                  : _privacyText(
+                                      context,
+                                      'Политика маршрутизации сейчас отключена',
+                                      'Routing policy is currently disabled',
+                                    ),
                             ),
                           ),
                         ],
@@ -322,8 +325,12 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
                   title: _privacyText(context, 'Российские приложения', 'Russian apps'),
                   subtitle: _privacyText(
                     context,
-                    '$_directApps приложений идут напрямую, вне VPN. Нажмите, чтобы изменить список.',
-                    '$_directApps apps go directly, outside the VPN. Tap to edit the list.',
+                    russianApps
+                        ? '$_directApps приложений идут напрямую, вне VPN. Нажмите, чтобы изменить список.'
+                        : 'Обход для приложений выключен. Сохранённый список не удалён.',
+                    russianApps
+                        ? '$_directApps apps go directly outside the VPN. Tap to edit the list.'
+                        : 'App bypass is disabled. The saved list is preserved.',
                   ),
                   onTap: android && !_busy ? () => _openSelection(PrivacyAppSelectionKind.direct) : null,
                 ),
@@ -333,10 +340,28 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
                   title: _privacyText(context, 'Заблокированные сервисы', 'Restricted services'),
                   subtitle: _privacyText(
                     context,
-                    '$_proxyApps приложений принудительно идут через VPN. Нажмите, чтобы изменить список.',
-                    '$_proxyApps apps are forced through the VPN. Tap to edit the list.',
+                    restrictedServices
+                        ? '$_proxyApps приложений принудительно идут через VPN. Нажмите, чтобы изменить список.'
+                        : 'Принудительный обход блокировок выключен. Сохранённый список не удалён.',
+                    restrictedServices
+                        ? '$_proxyApps apps are forced through the VPN. Tap to edit the list.'
+                        : 'Forced VPN routing is disabled. The saved list is preserved.',
                   ),
                   onTap: android && !_busy ? () => _openSelection(PrivacyAppSelectionKind.proxy) : null,
+                ),
+                const Divider(height: 1, indent: 56),
+                _FeatureRow(
+                  icon: Icons.language_outlined,
+                  title: _privacyText(context, 'Российская сеть', 'Russian network'),
+                  subtitle: _privacyText(
+                    context,
+                    russianNetwork
+                        ? '.ru, .рф, .su, российские geosite и IP идут напрямую.'
+                        : 'Российские домены и IP идут по обычным правилам VPN.',
+                    russianNetwork
+                        ? '.ru, .рф, .su, Russian geosite and IP ranges go direct.'
+                        : 'Russian domains and IP ranges follow normal VPN rules.',
+                  ),
                 ),
                 const Divider(height: 1, indent: 56),
                 _FeatureRow(
@@ -346,16 +371,6 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
                     context,
                     'Включается зашифрованный DNS, скрывается системный HTTP-прокси и локальные служебные порты.',
                     'Encrypted DNS is enabled while the system HTTP proxy and local control ports are hidden.',
-                  ),
-                ),
-                const Divider(height: 1, indent: 56),
-                _FeatureRow(
-                  icon: Icons.sync_rounded,
-                  title: _privacyText(context, 'Стабильное восстановление', 'Reliable recovery'),
-                  subtitle: _privacyText(
-                    context,
-                    'Включается автоматическое переподключение и безопасный IPv4-режим.',
-                    'Automatic reconnection and a conservative IPv4 mode are enabled.',
                   ),
                 ),
               ],
@@ -369,11 +384,87 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
               subtitle: Text(
                 _privacyText(
                   context,
-                  'Только дополнительные параметры скрытия VPN',
-                  'Only additional VPN privacy options',
+                  'Маршрутизация, Root, DNS и сетевые параметры',
+                  'Routing, Root, DNS and network options',
                 ),
               ),
               children: [
+                SwitchListTile.adaptive(
+                  value: russianNetwork,
+                  onChanged: _busy
+                      ? null
+                      : (value) => _setPrivacyBool(
+                            () => ref.read(VpnPrivacyPreferences.russianNetworkBypass.notifier).update(value),
+                            successRu: value
+                                ? 'Прямой доступ к российским доменам и IP включён.'
+                                : 'Российские домены и IP теперь идут по обычным правилам VPN.',
+                            successEn: value
+                                ? 'Direct routing for Russian domains and IP ranges enabled.'
+                                : 'Russian domains and IP ranges now follow normal VPN rules.',
+                          ),
+                  secondary: const Icon(Icons.language_outlined),
+                  title: Text(
+                    _privacyText(context, 'Российские домены и IP напрямую', 'Russian domains and IPs direct'),
+                  ),
+                  subtitle: Text(
+                    _privacyText(
+                      context,
+                      'Старое поведение региона «Россия»: .ru, .рф, .su, geosite-ru и geoip-ru. Выключение соответствует прежнему режиму «Другой».',
+                      'Old Russia-region behavior: .ru, .рф, .su, geosite-ru and geoip-ru. Turning it off matches the old Other mode.',
+                    ),
+                  ),
+                ),
+                SwitchListTile.adaptive(
+                  value: russianApps,
+                  onChanged: _busy
+                      ? null
+                      : (value) => _setPrivacyBool(
+                            () => ref.read(VpnPrivacyPreferences.russianAppsBypass.notifier).update(value),
+                            successRu: value
+                                ? 'Прямой доступ для российских приложений включён.'
+                                : 'Прямой доступ для российских приложений отключён.',
+                            successEn: value
+                                ? 'Direct routing for Russian apps enabled.'
+                                : 'Direct routing for Russian apps disabled.',
+                          ),
+                  secondary: const Icon(Icons.apps_outlined),
+                  title: Text(
+                    _privacyText(context, 'Российские приложения напрямую', 'Russian apps direct'),
+                  ),
+                  subtitle: Text(
+                    _privacyText(
+                      context,
+                      'Применяет список «Российские приложения». При отключении выбранные галочки сохраняются.',
+                      'Applies the Russian apps list. Saved selections are preserved while disabled.',
+                    ),
+                  ),
+                ),
+                SwitchListTile.adaptive(
+                  value: restrictedServices,
+                  onChanged: _busy
+                      ? null
+                      : (value) => _setPrivacyBool(
+                            () => ref.read(VpnPrivacyPreferences.restrictedServicesProxy.notifier).update(value),
+                            successRu: value
+                                ? 'Маршрутизация заблокированных сервисов через VPN включена.'
+                                : 'Маршрутизация заблокированных сервисов через VPN отключена.',
+                            successEn: value
+                                ? 'VPN routing for restricted services enabled.'
+                                : 'VPN routing for restricted services disabled.',
+                          ),
+                  secondary: const Icon(Icons.route_outlined),
+                  title: Text(
+                    _privacyText(context, 'Заблокированные сервисы через VPN', 'Restricted services through VPN'),
+                  ),
+                  subtitle: Text(
+                    _privacyText(
+                      context,
+                      'Применяет список «Заблокированные сервисы». При отключении выбранные галочки сохраняются.',
+                      'Applies the Restricted services list. Saved selections are preserved while disabled.',
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
                 if (android)
                   SwitchListTile.adaptive(
                     value: ref.watch(VpnPrivacyPreferences.useRoot),
@@ -416,8 +507,8 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
                   subtitle: Text(
                     _privacyText(
                       context,
-                      'Отправляет весь пользовательский трафик через VPN и временно игнорирует прямые исключения приложений.',
-                      'Routes all user traffic through the VPN and temporarily ignores direct application exceptions.',
+                      'Отправляет весь пользовательский трафик через VPN и временно имеет приоритет над прямыми российскими исключениями.',
+                      'Routes all user traffic through the VPN and temporarily takes priority over direct Russian bypass rules.',
                     ),
                   ),
                 ),
