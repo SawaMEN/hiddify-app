@@ -15,4 +15,8 @@ abstract class VpnPrivacyPreferences {
   static final disableSystemProxy = PreferencesNotifier.create<bool, bool>('privacy-disable-system-proxy', true);
   static final publicDns = PreferencesNotifier.create<bool, bool>('privacy-public-dns', false);
   static final encryptedDns = PreferencesNotifier.create<bool, bool>('privacy-encrypted-dns', true);
+
+  /// Snapshot captured before the first one-tap automatic setup. It lets the user
+  /// restore the exact previous state instead of guessing which defaults they used.
+  static final automaticSetupBackup = PreferencesNotifier.create<String, String>('privacy-auto-setup-backup', '');
 }
