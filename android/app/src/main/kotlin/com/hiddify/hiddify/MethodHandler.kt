@@ -57,6 +57,7 @@ class MethodHandler(
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "get_connection_intent" -> result.success(Settings.connectionDesired)
+            "get_service_running" -> result.success(BoxService.isRunning())
             "get_network_status" -> launchResult(result, "android_network_state_failed") {
                 com.hiddify.hiddify.Application.connectivity.allNetworks.any { network ->
                     val caps = com.hiddify.hiddify.Application.connectivity.getNetworkCapabilities(network)

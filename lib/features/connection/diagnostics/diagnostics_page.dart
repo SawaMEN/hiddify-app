@@ -57,7 +57,7 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
         final available =
             native ??
             (await NetworkInterface.list(includeLoopback: false).timeout(const Duration(seconds: 4))).isNotEmpty;
-        add(t.client.network, available ? t.client.passed : t.client.failed, 'Underlying network interface');
+        add(t.client.network, available ? t.client.passed : t.client.failed, t.client.networkHint);
       } catch (e) {
         add(t.client.network, t.client.failed, e.runtimeType.toString());
       }
@@ -65,11 +65,7 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
       try {
         if (probe == null || probe.host.isEmpty) throw const FormatException('Invalid test URL');
         final addresses = await InternetAddress.lookup(probe.host).timeout(const Duration(seconds: 5));
-        add(
-          t.client.dns,
-          addresses.isNotEmpty ? t.client.passed : t.client.failed,
-          'System DNS only; tunneled DNS is included in the VPN HTTP check',
-        );
+        add(t.client.dns, addresses.isNotEmpty ? t.client.passed : t.client.failed, t.client.dnsHint);
       } catch (e) {
         add(t.client.dns, t.client.failed, e.runtimeType.toString());
       }
@@ -102,11 +98,7 @@ class _DiagnosticsPageState extends ConsumerState<DiagnosticsPage> {
         } else {
           final socket = await Socket.connect(endpoint.host, endpoint.port, timeout: const Duration(seconds: 5));
           socket.destroy();
-          add(
-            t.client.server,
-            t.client.passed,
-            'TCP reachability only; this does not validate authentication or the VPN protocol',
-          );
+          add(t.client.server, t.client.passed, t.client.tcpHint);
         }
       } catch (e) {
         add(t.client.server, t.client.failed, e.runtimeType.toString());

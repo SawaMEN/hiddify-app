@@ -785,6 +785,10 @@
     "transportSkipped": "Direct TCP reachability cannot validate UDP or a chained connection.",
     "noEndpoint": "Server endpoint is unavailable in this profile format.",
     "reportTitle": "Connection report",
-    "details": "Details"
+    "details": "Details",
+    "networkHint": "Underlying network interface",
+    "dnsHint": "System DNS only; tunneled DNS is included in the VPN HTTP check",
+    "tcpHint": "TCP reachability only; this does not validate authentication or the VPN protocol",
+    "tunnelHint": "HTTP check through the local VPN proxy without direct fallback"
   }
 }

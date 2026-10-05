@@ -182,8 +182,11 @@ class RoutingConfigNotifier extends _$RoutingConfigNotifier {
                 GoRoute(
                   name: 'proxies',
                   path: '/home/proxies',
-                  pageBuilder: (_, state) =>
-                      customTransition(TransitionType.fade, state.pageKey, const ProxiesOverviewPage()),
+                  pageBuilder: (_, state) => customTransition(
+                    TransitionType.fade,
+                    state.pageKey,
+                    FocusScope(node: branchesScope['proxies'], child: const ProxiesOverviewPage()),
+                  ),
                 ),
               ],
             ),
@@ -195,7 +198,10 @@ class RoutingConfigNotifier extends _$RoutingConfigNotifier {
                   pageBuilder: (_, state) => customTransition(
                     TransitionType.slide,
                     state.pageKey,
-                    RoutingOptionsPage(routeRule: state.uri.queryParameters['routeRule']),
+                    FocusScope(
+                      node: branchesScope['routingOptions'],
+                      child: RoutingOptionsPage(routeRule: state.uri.queryParameters['routeRule']),
+                    ),
                   ),
                   routes: <GoRoute>[
                     GoRoute(

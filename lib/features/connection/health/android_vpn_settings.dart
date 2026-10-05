@@ -12,6 +12,8 @@ abstract class AndroidVpnSettings {
 
   static Future<bool> wantsConnection() async =>
       !Platform.isAndroid || (await _channel.invokeMethod<bool>('get_connection_intent') ?? false);
+  static Future<bool> serviceRunning() async =>
+      Platform.isAndroid && (await _channel.invokeMethod<bool>('get_service_running') ?? false);
   static Future<bool?> networkAvailable() async =>
       Platform.isAndroid ? _channel.invokeMethod<bool>('get_network_status') : null;
 }

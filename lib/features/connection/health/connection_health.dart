@@ -23,6 +23,7 @@ final connectionHealthProvider = NotifierProvider<ConnectionHealthNotifier, Inte
 
 class ConnectionHealthNotifier extends Notifier<InternetHealth> {
   Timer? _timer;
+  Future<void>? _pending;
   CancelToken? _token;
   int _generation = 0, _failures = 0;
   @override
@@ -52,7 +53,17 @@ class ConnectionHealthNotifier extends Notifier<InternetHealth> {
     }
   }
 
-  Future<void> check() async {
+  Future<void> check() {
+    if (_pending != null) return _pending!;
+    final future = _check();
+    _pending = future;
+    return future.whenComplete(() {
+      if (identical(_pending, future)) _pending = null;
+    });
+  }
+
+  Future<void> _check() async {
+    if (!ref.mounted) return;
     if (_token != null && !_token!.isCancelled || !ref.read(serviceRunningProvider) || !ref.read(appForegroundProvider))
       return;
     final generation = _generation;

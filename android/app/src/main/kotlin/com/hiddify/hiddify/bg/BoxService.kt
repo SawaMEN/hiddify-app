@@ -76,6 +76,8 @@ class BoxService(
 
         fun currentPlatformInterface(): PlatformInterface? = coreOwner?.platformInterface
 
+        fun isRunning(): Boolean = coreOwner?.status?.value in listOf(Status.Started, Status.Starting)
+
         fun vpnProtection(): Map<String, Boolean?> {
             val vpn = coreOwner?.service as? VPNService
             return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && vpn != null) {

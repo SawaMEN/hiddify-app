@@ -45,47 +45,57 @@ class _Repository implements ConnectionRepository {
 }
 
 void main() {
-  for (final cancel in [true, false]) {
-    testWidgets(cancel ? 'Manual abort cancels pending recovery' : 'Recovery stops after five failed attempts', (
-      tester,
-    ) async {
-      SharedPreferences.setMockInitialValues({'started_by_user': true});
-      final preferences = await SharedPreferences.getInstance();
-      final repo = _Repository();
-      final container = ProviderContainer(
-        overrides: [
-          sharedPreferencesProvider.overrideWith((ref) async => preferences),
-          connectionRepositoryProvider.overrideWithValue(repo),
-          activeProfileProvider.overrideWith(_Profile.new),
-        ],
-      );
-      await container.read(sharedPreferencesProvider.future);
-      final subscription = container.listen(connectionNotifierProvider, (_, __) {});
-      await tester.pump();
-      await tester.pump();
-      repo.events.add(const Disconnected(ConnectionFailure.backgroundCoreNotAvailable()));
-      await tester.pump();
-      await tester.pump();
-      expect(container.read(recoveryStatusProvider), 1);
-      if (cancel) {
-        await container.read(connectionNotifierProvider.notifier).abortConnection();
-        expect(container.read(Preferences.startedByUser), false);
-        await tester.pump(const Duration(seconds: 60));
-        expect(repo.connections, 0);
-      } else {
-        for (final seconds in [2, 4, 8, 16, 30]) {
-          await tester.pump(Duration(seconds: seconds));
+  for (final (cancel, plainStop) in [(true, false), (false, false), (false, true)]) {
+    testWidgets(
+      cancel
+          ? 'Manual abort cancels pending recovery'
+          : 'Recovery stops after five failed attempts (plainStop=$plainStop)',
+      (tester) async {
+        SharedPreferences.setMockInitialValues({'started_by_user': true, 'haptic_feedback': false});
+        final preferences = await SharedPreferences.getInstance();
+        final repo = _Repository();
+        final container = ProviderContainer(
+          overrides: [
+            sharedPreferencesProvider.overrideWith((ref) async => preferences),
+            connectionRepositoryProvider.overrideWithValue(repo),
+            activeProfileProvider.overrideWith(_Profile.new),
+          ],
+        );
+        await container.read(sharedPreferencesProvider.future);
+        final subscription = container.listen(connectionNotifierProvider, (_, __) {});
+        await tester.pump();
+        await tester.pump();
+        if (plainStop) {
+          repo.events.add(const Connected());
+          await tester.pump();
           await tester.pump();
         }
-        expect(repo.connections, 5);
-        expect(container.read(recoveryStatusProvider), 0);
-        await tester.pump(const Duration(minutes: 2));
-        expect(repo.connections, 5);
-      }
-      subscription.close();
-      container.dispose();
-      await repo.events.close();
-      await tester.pump();
-    });
+        repo.events.add(
+          plainStop ? const Disconnected() : const Disconnected(ConnectionFailure.backgroundCoreNotAvailable()),
+        );
+        await tester.pump();
+        await tester.pump();
+        expect(container.read(recoveryStatusProvider), 1);
+        if (cancel) {
+          await container.read(connectionNotifierProvider.notifier).abortConnection();
+          expect(container.read(Preferences.startedByUser), false);
+          await tester.pump(const Duration(seconds: 60));
+          expect(repo.connections, 0);
+        } else {
+          for (final seconds in [2, 4, 8, 16, 30]) {
+            await tester.pump(Duration(seconds: seconds));
+            await tester.pump();
+          }
+          expect(repo.connections, 5);
+          expect(container.read(recoveryStatusProvider), 0);
+          await tester.pump(const Duration(minutes: 2));
+          expect(repo.connections, 5);
+        }
+        subscription.close();
+        container.dispose();
+        await repo.events.close();
+        await tester.pump();
+      },
+    );
   }
 }

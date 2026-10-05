@@ -132,6 +132,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Initialize pinned native source
+        run: |
+          git submodule update --init hiddify-core
+          git -C hiddify-core config submodule.ray2sing.url https://github.com/hiddify/ray2sing.git
+          git -C hiddify-core submodule update --init --recursive
+
+      - name: Setup Go for native core
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: hiddify-core/go.mod
+          cache-dependency-path: |
+            hiddify-core/go.sum
+            hiddify-core/hiddify-sing-box/go.sum
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2.23.0
         env:

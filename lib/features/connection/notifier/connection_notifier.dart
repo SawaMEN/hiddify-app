@@ -41,6 +41,11 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     });
     listenSelf((previous, next) async {
       if (next case AsyncData(value: Disconnected(connectionFailure: final failure?))) _scheduleRecovery(failure);
+      if (previous?.value is Connected) {
+        if (next case AsyncData(value: Disconnected(connectionFailure: null))) {
+          _scheduleRecovery(const ConnectionFailure.backgroundCoreNotAvailable());
+        }
+      }
       if (next case AsyncData(value: Connected())) {
         _retryTimer?.cancel();
         _retryTimer = null;
@@ -214,6 +219,10 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
           _cancelRecovery();
           await ref.read(Preferences.startedByUser.notifier).update(false);
         }
+        return;
+      }
+      if (await AndroidVpnSettings.serviceRunning()) {
+        if (ref.mounted && epoch == _epoch) ref.read(recoveryStatusProvider.notifier).set(0);
         return;
       }
       final profile = await ref.read(activeProfileProvider.future);

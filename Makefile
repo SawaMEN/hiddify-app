@@ -30,15 +30,7 @@ android-install-deps:
 android-apk-install-deps: android-install-deps
 
 android-libs:
-	$(MKDIR) $(ANDROID_OUT)
-	@set -eu; \
-	  archive=$$(mktemp); \
-	  trap 'rm -f "$$archive"' EXIT; \
-	  curl --fail --location --retry 3 --connect-timeout 30 \
-	    --header 'Accept: application/octet-stream' \
-	    --output "$$archive" "https://api.github.com/repos/hiddify/hiddify-core/releases/assets/$(core.android.asset_id)"; \
-	  printf '%s  %s\n' "$(core.android.sha256)" "$$archive" | sha256sum --check --status; \
-	  tar --no-same-owner -xzf "$$archive" -C $(ANDROID_OUT)/
+	bash tool/build_android_core.sh
 
 android-apk-libs: android-libs
 
