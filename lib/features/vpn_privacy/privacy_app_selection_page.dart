@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hiddify/core/model/region.dart';
 import 'package:hiddify/features/per_app_proxy/model/app_package_info.dart';
-import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/features/settings/notifier/config_option/config_option_notifier.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_preferences.dart';
 import 'package:hiddify/utils/utils.dart';
@@ -56,16 +54,12 @@ class _PrivacyAppSelectionPageState extends ConsumerState<PrivacyAppSelectionPag
     }
     try {
       final installed = await InstalledApps.getInstalledApps(false, true);
-      final policy =
-          await _channel.invokeMapMethod<dynamic, dynamic>('get_regional_routing', {
-            'region': ref.read(ConfigOptions.region).name,
-          }) ??
-          const <dynamic, dynamic>{};
-      final effectiveKey = _direct ? 'privacy-direct-packages' : 'privacy-proxy-packages';
+      final policy = await _channel.invokeMapMethod<dynamic, dynamic>('get_regional_routing') ?? const <dynamic, dynamic>{};
+      final configuredKey = _direct ? 'privacy-configured-direct-packages' : 'privacy-configured-proxy-packages';
       final automaticKey = _direct ? 'privacy-default-direct-packages' : 'privacy-default-proxy-packages';
       final manualKey = _direct ? 'privacy-direct-packages-manual' : 'privacy-proxy-packages-manual';
       if (!mounted) return;
-      final selected = (policy[effectiveKey] as List? ?? const []).whereType<String>().toSet();
+      final selected = (policy[configuredKey] as List? ?? const []).whereType<String>().toSet();
       final automatic = (policy[automaticKey] as List? ?? const []).whereType<String>().toSet();
       final apps = installed
           .map((app) => AppPackageInfo(packageName: app.packageName, name: app.name, icon: app.icon))
@@ -97,7 +91,6 @@ class _PrivacyAppSelectionPageState extends ConsumerState<PrivacyAppSelectionPag
       final encoded = VpnPrivacyPreferences.encodeManualPackages(_selected);
       await ref.read(configOptionNotifierProvider.notifier).updateTogether(
         () async {
-          await ref.read(ConfigOptions.region.notifier).update(Region.ru);
           await ref.read(VpnPrivacyPreferences.routingMode.notifier).update('ru-bypass');
           if (_direct) {
             await ref.read(VpnPrivacyPreferences.customDirectPackages.notifier).update(encoded);
@@ -147,7 +140,6 @@ class _PrivacyAppSelectionPageState extends ConsumerState<PrivacyAppSelectionPag
     try {
       await ref.read(configOptionNotifierProvider.notifier).updateTogether(
         () async {
-          await ref.read(ConfigOptions.region.notifier).update(Region.ru);
           await ref.read(VpnPrivacyPreferences.routingMode.notifier).update('ru-bypass');
           if (_direct) {
             await ref.read(VpnPrivacyPreferences.customDirectPackages.notifier).update('');
@@ -188,13 +180,13 @@ class _PrivacyAppSelectionPageState extends ConsumerState<PrivacyAppSelectionPag
     final hint = _direct
         ? _selectionText(
             context,
-            'Отмеченные приложения идут напрямую, вне VPN. Сохранение ручного списка отключает автовыбор до сброса.',
-            'Checked apps go directly, outside the VPN. Saving a manual list disables automatic selection until reset.',
+            'Отмеченные приложения идут напрямую, вне VPN, когда включён соответствующий переключатель. Ручной список хранится даже при его отключении.',
+            'Checked apps go directly outside the VPN when the related switch is enabled. The manual list is kept while disabled.',
           )
         : _selectionText(
             context,
-            'Отмеченные приложения принудительно идут через VPN для обхода блокировок. Сохранение ручного списка отключает автовыбор до сброса.',
-            'Checked apps are forced through the VPN to bypass blocking. Saving a manual list disables automatic selection until reset.',
+            'Отмеченные приложения принудительно идут через VPN, когда включён соответствующий переключатель. Ручной список хранится даже при его отключении.',
+            'Checked apps are forced through the VPN when the related switch is enabled. The manual list is kept while disabled.',
           );
     final query = _query.trim().toLowerCase();
     final visible = _apps.where((app) {
