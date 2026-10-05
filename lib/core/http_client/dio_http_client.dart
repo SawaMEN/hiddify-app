@@ -121,6 +121,7 @@ class DioHttpClient with InfraLogger {
     Map<String, dynamic>? headers,
     bool acceptNotModified = false,
     int maxBytes = 8 * 1024 * 1024,
+    bool followRedirects = true,
   }) async {
     final mode = proxyOnly
         ? "proxy"
@@ -130,15 +131,33 @@ class DioHttpClient with InfraLogger {
     final token = CancelToken();
     var finished = false;
     var exceeded = false;
+    var timedOut = false;
+    var cancelledByCaller = false;
     cancelToken?.whenCancel.then((error) {
-      if (!finished) token.cancel(error);
+      if (!finished) {
+        cancelledByCaller = true;
+        token.cancel(error);
+      }
     });
-    if (cancelToken?.isCancelled ?? false) token.cancel('Cancelled');
-    final deadline = Timer(const Duration(seconds: 60), () => token.cancel('Download deadline exceeded'));
-    final options = _options(url, userAgent: userAgent, credentials: credentials);
+    if (cancelToken?.isCancelled ?? false) {
+      cancelledByCaller = true;
+      token.cancel('Cancelled');
+    }
+    final deadline = Timer(const Duration(seconds: 60), () {
+      if (finished) return;
+      timedOut = true;
+      token.cancel('Download deadline exceeded');
+    });
+    final options = _options(
+      url,
+      userAgent: userAgent,
+      credentials: credentials,
+      followRedirects: followRedirects,
+    );
     options.headers = {...?options.headers, ...?headers};
-    if (acceptNotModified)
+    if (acceptNotModified) {
       options.validateStatus = (code) => code != null && (code == 304 || code >= 200 && code < 300);
+    }
     try {
       return await _dio[mode]!.download(
         url,
@@ -152,8 +171,11 @@ class DioHttpClient with InfraLogger {
           }
         },
       );
-    } catch (_) {
+    } catch (error) {
       if (exceeded) throw const FormatException('Subscription exceeds 8 MiB limit');
+      if (timedOut && !cancelledByCaller) {
+        throw TimeoutException('Subscription download exceeded 60 seconds');
+      }
       rethrow;
     } finally {
       finished = true;
@@ -161,7 +183,12 @@ class DioHttpClient with InfraLogger {
     }
   }
 
-  Options _options(String url, {String? userAgent, ({String username, String password})? credentials}) {
+  Options _options(
+    String url, {
+    String? userAgent,
+    ({String username, String password})? credentials,
+    bool followRedirects = true,
+  }) {
     final uri = Uri.parse(url);
 
     String? userInfo;
@@ -183,6 +210,8 @@ class DioHttpClient with InfraLogger {
         // "Accept": "application/json",
         // "Content-Type": "application/json",
       },
+      followRedirects: followRedirects,
+      maxRedirects: followRedirects ? 5 : 0,
     );
   }
 }
