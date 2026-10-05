@@ -41,10 +41,14 @@ void main() {
       await loader.load();
     });
     await tester.pumpWidget(RepaintBoundary(key: boundary, child: StartupApp(initialization: startup.future)));
+    await tester.runAsync(() async {
+      await precacheImage(const AssetImage('assets/images/logo.png'), tester.element(find.byType(StartupApp)));
+    });
     await tester.pump(const Duration(seconds: 2));
     expect(find.text('Запуск'), findsOneWidget);
     expect(find.text('VetrOFF Client'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    await expectLater(find.byKey(boundary), matchesGoldenFile('goldens/startup-russian.png'));
     if (Platform.environment['IS_GITHUB_ACTIONS'] == '1') {
       await tester.runAsync(() async {
       final render = boundary.currentContext!.findRenderObject()! as RenderRepaintBoundary;
