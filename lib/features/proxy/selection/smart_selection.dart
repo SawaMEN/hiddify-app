@@ -14,11 +14,14 @@ import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore.pb.dart';
 final smartSelectionProvider = NotifierProvider<SmartSelectionNotifier, String?>(SmartSelectionNotifier.new);
 
 class SmartSelectionNotifier extends Notifier<String?> {
+  static const _coreSmartBalancerTag = 'lowest';
+
   ServerRanker _ranker = ServerRanker();
   String? _profile;
   Timer? _save;
   bool _selecting = false;
   int _generation = 0;
+
   @override
   String? build() {
     ref.onDispose(() {
@@ -29,9 +32,13 @@ class SmartSelectionNotifier extends Notifier<String?> {
       _load(next);
       state = null;
     });
-    ref.listen(Preferences.smartServerSelection, (_, __) {
+    ref.listen(Preferences.smartServerSelection, (_, next) {
       _generation++;
       state = null;
+      if (!next) {
+        final group = ref.read(proxiesOverviewNotifierProvider).value;
+        if (group != null) _leaveCoreSmartBalancer(group);
+      }
     });
     ref.listen(proxiesOverviewNotifierProvider, (_, next) {
       final group = next.value;
@@ -53,14 +60,33 @@ class SmartSelectionNotifier extends Notifier<String?> {
       final now = DateTime.now().millisecondsSinceEpoch;
       for (final entry in data.entries.take(128)) {
         final sample = ServerSample.fromJson(Map<String, dynamic>.from(entry.value as Map));
-        if (now - sample.updated >= 0 && now - sample.updated < 86400000)
+        if (now - sample.updated >= 0 && now - sample.updated < 86400000) {
           _ranker.samples[entry.key.toString()] = sample;
+        }
       }
     } catch (_) {}
   }
 
+  OutboundInfo? _coreSmartBalancer(OutboundGroup group) {
+    for (final item in group.items) {
+      if (item.isGroup && item.tag == _coreSmartBalancerTag) return item;
+    }
+    return null;
+  }
+
   void _observe(OutboundGroup group) {
-    if (_profile == null || !ref.read(Preferences.smartServerSelection) || !ref.read(appForegroundProvider)) return;
+    if (_profile == null || !ref.read(Preferences.smartServerSelection)) return;
+
+    final coreBalancer = _coreSmartBalancer(group);
+    if (coreBalancer != null) {
+      _useCoreSmartBalancer(group, coreBalancer);
+      return;
+    }
+
+    // Legacy/raw configurations may not expose the core-side `lowest`
+    // balancer. Keep the existing foreground ranker as a fallback.
+    if (!ref.read(appForegroundProvider)) return;
+
     final now = DateTime.now().millisecondsSinceEpoch;
     final eligible = <String>{};
     for (final item in group.items.where((i) => !i.isGroup).take(128)) {
@@ -103,8 +129,9 @@ class SmartSelectionNotifier extends Notifier<String?> {
           if (!ref.mounted ||
               generation != _generation ||
               !ref.read(Preferences.smartServerSelection) ||
-              !ref.read(appForegroundProvider))
+              !ref.read(appForegroundProvider)) {
             return;
+          }
           final result = await ref.read(proxyRepositoryProvider).selectProxy(group.tag, recommended).run();
           if (!ref.mounted || generation != _generation) return;
           result.match((_) {}, (_) {
@@ -114,6 +141,48 @@ class SmartSelectionNotifier extends Notifier<String?> {
         } finally {
           _selecting = false;
         }
+      }),
+    );
+  }
+
+  void _useCoreSmartBalancer(OutboundGroup group, OutboundInfo balancer) {
+    if (group.selected == _coreSmartBalancerTag) {
+      state = balancer.groupSelectedTag.isEmpty ? _coreSmartBalancerTag : balancer.groupSelectedTag;
+      return;
+    }
+    if (_selecting) return;
+
+    _selecting = true;
+    final generation = _generation;
+    unawaited(
+      serializedProxySelection(() async {
+        try {
+          if (!ref.mounted || generation != _generation || !ref.read(Preferences.smartServerSelection)) return;
+          final result = await ref.read(proxyRepositoryProvider).selectProxy(group.tag, _coreSmartBalancerTag).run();
+          if (!ref.mounted || generation != _generation) return;
+          result.match((_) {}, (_) {
+            state = balancer.groupSelectedTag.isEmpty ? _coreSmartBalancerTag : balancer.groupSelectedTag;
+          });
+        } finally {
+          _selecting = false;
+        }
+      }),
+    );
+  }
+
+  void _leaveCoreSmartBalancer(OutboundGroup group) {
+    if (group.selected != _coreSmartBalancerTag) return;
+    final balancer = _coreSmartBalancer(group);
+    final target = balancer?.groupSelectedTag ?? '';
+    if (target.isEmpty || target == _coreSmartBalancerTag) return;
+
+    final generation = _generation;
+    unawaited(
+      serializedProxySelection(() async {
+        if (!ref.mounted || generation != _generation || ref.read(Preferences.smartServerSelection)) return;
+        final result = await ref.read(proxyRepositoryProvider).selectProxy(group.tag, target).run();
+        if (!ref.mounted || generation != _generation) return;
+        result.match((_) {}, (_) => state = target);
       }),
     );
   }
