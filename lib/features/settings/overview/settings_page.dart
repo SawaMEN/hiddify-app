@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
+
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hiddify/core/localization/translations.dart';
@@ -9,7 +10,6 @@ import 'package:hiddify/core/router/go_router/helper/active_breakpoint_notifier.
 import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
 import 'package:hiddify/features/settings/notifier/config_option/config_option_notifier.dart';
 import 'package:hiddify/features/settings/notifier/reset_tunnel/reset_tunnel_notifier.dart';
-import 'package:hiddify/features/vpn_privacy/network_anonymization_page.dart';
 import 'package:hiddify/utils/utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -35,7 +35,6 @@ class SettingsPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).requireValue;
-    final isRussian = Localizations.localeOf(context).languageCode == 'ru';
     // final scrollController = useScrollController();
 
     // useMemoized(
@@ -184,26 +183,6 @@ class SettingsPage extends HookConsumerWidget {
             icon: Icons.content_cut_rounded,
             namedLocation: context.namedLocation('tlsTricks'),
           ),
-          if (PlatformUtils.isAndroid)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: GlassSurface(
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                  leading: Icon(Icons.privacy_tip_outlined, color: Theme.of(context).colorScheme.primary),
-                  title: Text(isRussian ? 'Анонимизация в сети' : 'Network anonymization'),
-                  subtitle: Text(
-                    isRussian
-                        ? 'Экспериментально · не рекомендуется к применению'
-                        : 'Experimental · not recommended for normal use',
-                  ),
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(builder: (_) => const NetworkAnonymizationPage()),
-                  ),
-                ),
-              ),
-            ),
           if (PlatformUtils.isIOS)
             Material(
               child: ListTile(

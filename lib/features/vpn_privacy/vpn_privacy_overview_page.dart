@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
+import 'package:hiddify/features/vpn_privacy/network_anonymization_page.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_actions.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_page.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_preferences.dart';
@@ -294,6 +295,28 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
               ],
             ),
           ),
+          if (android) ...[
+            const SizedBox(height: 16),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.privacy_tip_outlined),
+                title: Text(_privacyText(context, 'Анонимизация в сети', 'Network anonymization')),
+                subtitle: Text(
+                  _privacyText(
+                    context,
+                    'Экспериментально · не рекомендуется к применению',
+                    'Experimental · not recommended for normal use',
+                  ),
+                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: _busy
+                    ? null
+                    : () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const NetworkAnonymizationPage()),
+                      ),
+              ),
+            ),
+          ],
           const SizedBox(height: 16),
           Card(
             child: ExpansionTile(
