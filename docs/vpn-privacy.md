@@ -56,3 +56,11 @@ The root daemon has its own private working directory and a per-install route ta
 Root mode requires a supported `su`, kernel TUN and working netlink policy routing. Android Always-on/lockdown cannot protect a root connection. It is not a persistent kill switch, and a force-killed daemon/kernel/OEM failure can leave routing state requiring reconnect/reboot. Root traffic and this application's traffic intentionally remain outside the kernel capture policy. A kernel TUN/process/IP/server fingerprint remains detectable. Root mode has not been acceptance-tested on a physical Magisk/KernelSU device.
 
 Build `make android-libs` to produce the AAR and root companion together. The APK extracts native libraries so `su` can execute the companion; private-copy repacking preserves it. Root state/cache and launch credentials are excluded from migration.
+
+## Root availability and lifecycle
+
+Opening the privacy tab or resuming it discovers an executable `su` without running it or displaying a root permission dialog. The toggle is disabled during discovery, when `su` is unavailable, or when the APK has no executable companion. A saved root selection is cleared when either component is absent; Check root again refreshes the state. Enabling requests authorization from the root manager and verifies UID 0. Missing su, denial, execution failure and a 30-second authorization timeout are handled as availability results.
+
+The root daemon supports the existing authenticated control RPC for profile start/stop, reconnection, options, outbounds, logs and traffic statistics. Native background restart passes the selected profile name, logging mode and memory-limit preference. Kernel TUN and policy routing remain owned by sing-box; stop requests graceful cleanup over the parent pipe. A live daemon's nonzero shutdown is reported rather than accepted as confirmed cleanup. SELinux/kernel restrictions can still prevent TUN or netlink access despite an available su; startup reports those failures. Physical root-device acceptance remains required.
+
+Discovery regression fixture: compile `RootAccess.kt` with `tool/tests/RootAccessTest.kt` and run the resulting jar. It checks executable detection, rejection of nonexecutable files/directories, and absence of command execution during discovery.

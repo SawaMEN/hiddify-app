@@ -33,6 +33,8 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
   bool _busy = false;
   Map<dynamic, dynamic> _root = {};
   Map<dynamic, dynamic> _routing = {};
+  bool _rootChecking = true;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -53,8 +55,20 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
   }
 
   Future<void> _refreshIdentity() async {
-    if (!Platform.isAndroid) return;
+    if (!Platform.isAndroid || _refreshing) return;
+    _refreshing = true;
+    var checkedRoot = false;
     try {
+      final root = await _channel.invokeMapMethod<dynamic, dynamic>('detect_root') ?? {};
+      if (!mounted) return;
+      checkedRoot = true;
+      setState(() {
+        _root = root;
+        _rootChecking = false;
+      });
+      if (root['detected'] == false || root['helper'] == false) {
+        await ref.read(VpnPrivacyPreferences.useRoot.notifier).update(false);
+      }
       final identity = await _channel.invokeMapMethod<dynamic, dynamic>('get_package_identity') ?? {};
       final routing =
           await _channel.invokeMapMethod<dynamic, dynamic>('get_regional_routing', {
@@ -65,9 +79,19 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
         setState(() {
           _identity = identity;
           _routing = routing;
+          _root = root;
+          _rootChecking = false;
         });
     } catch (error) {
-      if (mounted) _error(error);
+      if (mounted) {
+        setState(() {
+          if (!checkedRoot) _root = {};
+          _rootChecking = false;
+        });
+        _error(error);
+      }
+    } finally {
+      _refreshing = false;
     }
   }
 
@@ -219,8 +243,10 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
       if (status['helper'] != true)
         throw StateError(_text(context, 'В этом APK отсутствует root-ядро', 'This APK has no root companion'));
     }
-    if (enabled) await ref.read(ConfigOptions.serviceMode.notifier).update(ServiceMode.tun);
-    await ref.read(VpnPrivacyPreferences.useRoot.notifier).update(enabled);
+    await ref.read(configOptionNotifierProvider.notifier).updateTogether(() async {
+      if (enabled) await ref.read(ConfigOptions.serviceMode.notifier).update(ServiceMode.tun);
+      await ref.read(VpnPrivacyPreferences.useRoot.notifier).update(enabled);
+    });
   });
 
   Widget _listSetting(
@@ -288,23 +314,47 @@ class _VpnPrivacyPageState extends ConsumerState<VpnPrivacyPage> with WidgetsBin
             ),
             SwitchListTile.adaptive(
               value: ref.watch(VpnPrivacyPreferences.useRoot),
-              onChanged: _busy ? null : _setRoot,
+              onChanged: _busy || _rootChecking || _root['detected'] != true || _root['helper'] != true
+                  ? null
+                  : _setRoot,
               title: Text(_text(context, 'Подключение через root', 'Connect using root')),
               subtitle: Text(
                 _text(
                   context,
-                  'Запускает ядро с правами root без Android VpnService. Доступ подтверждается в вашем root-менеджере. Требуется поддержка TUN ядром устройства.',
-                  'Runs the core as root without Android VpnService. Grant access in your root manager. Requires kernel TUN support.',
+                  _rootChecking
+                      ? 'Проверяется наличие root…'
+                      : _root['detected'] != true
+                      ? 'Root на устройстве не обнаружен.'
+                      : _root['helper'] != true
+                      ? 'В этом APK нет исполняемого root-ядра.'
+                      : 'Запускает ядро с правами root без Android VpnService. Доступ подтверждается в вашем root-менеджере. Требуется поддержка TUN ядром устройства.',
+                  _rootChecking
+                      ? 'Checking root availability…'
+                      : _root['detected'] != true
+                      ? 'Root was not detected on this device.'
+                      : _root['helper'] != true
+                      ? 'This APK has no executable root companion.'
+                      : 'Runs the core as root without Android VpnService. Grant access in your root manager. Requires kernel TUN support.',
                 ),
               ),
+            ),
+            TextButton.icon(
+              onPressed: _busy || _rootChecking || _refreshing
+                  ? null
+                  : () async {
+                      setState(() => _rootChecking = true);
+                      await _refreshIdentity();
+                    },
+              icon: const Icon(Icons.refresh),
+              label: Text(_text(context, 'Проверить root снова', 'Check root again')),
             ),
             if (_root.isNotEmpty)
               ListTile(
                 subtitle: Text(
                   _text(
                     context,
-                    'Root: ${_root['granted'] == true ? "доступен" : "нет доступа"}; ядро в APK: ${_root['helper'] == true ? "есть" : "нет"}',
-                    'Root granted: ${_root['granted']}; bundled companion: ${_root['helper']}',
+                    'Root: ${_root['detected'] == true ? "обнаружен" : "не обнаружен"}; ядро в APK: ${_root['helper'] == true ? "есть" : "нет"}',
+                    'Root detected: ${_root['detected']}; bundled companion: ${_root['helper']}',
                   ),
                 ),
               ),

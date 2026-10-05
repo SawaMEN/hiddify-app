@@ -73,6 +73,9 @@ class MethodHandler(
             "save_privacy_core_options" -> launchResult(result, "privacy_options_failed") {
                 Settings.configOptions = call.argument<String>("json") ?: "{}"; null
             }
+            "detect_root" -> launchResult(result, "root_detection_failed") {
+                com.hiddify.hiddify.privacy.RootCore.detect(mainActivity)
+            }
             "check_root" -> launchResult(result, "root_check_failed") {
                 com.hiddify.hiddify.privacy.RootCore.check(mainActivity)
             }
