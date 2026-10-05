@@ -40,6 +40,7 @@ class HiddifyCoreService with InfraLogger {
   Future<void> _subscriptionTail = Future<void>.value();
   final Map<String, Object> _subscriptionTokens = {};
   final Map<String, Timer> _reconnectTimers = {};
+  final Map<String, int> _reconnectAttempts = {};
   final Map<String, StreamSubscription?> subscriptions = {};
   List<OutboundGroup> latest = [];
   List<LogMessage> logBuffer = [];
@@ -488,6 +489,7 @@ class HiddifyCoreService with InfraLogger {
     for (final key in keys) {
       _subscriptionTokens.remove(key); // invalidate callbacks before awaiting cancellation
       _reconnectTimers.remove(key)?.cancel();
+      _reconnectAttempts.remove(key);
       await subscriptions.remove(key)?.cancel();
     }
   });
@@ -515,7 +517,9 @@ class HiddifyCoreService with InfraLogger {
       if (old != null) unawaited(old.cancel());
       onError?.call(error);
       if (reconnect) {
-        _reconnectTimers[key] = Timer(const Duration(seconds: 2), () {
+        final attempts = (_reconnectAttempts[key] ?? 0).clamp(0, 4);
+        _reconnectAttempts[key] = attempts + 1;
+        _reconnectTimers[key] = Timer(Duration(seconds: const [2, 4, 8, 16, 30][attempts]), () {
           _reconnectTimers.remove(key);
           if (isCurrent()) {
             unawaited(
@@ -537,7 +541,10 @@ class HiddifyCoreService with InfraLogger {
     try {
       final subscription = stream().listen(
         (event) {
-          if (isCurrent() && !terminated) onData?.call(event);
+          if (isCurrent() && !terminated) {
+            _reconnectAttempts.remove(key);
+            onData?.call(event);
+          }
         },
         cancelOnError: true,
         onError: (Object error, StackTrace st) => ended(error),

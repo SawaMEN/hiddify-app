@@ -119,7 +119,9 @@ jobs:
           dart run build_runner build
 
       - name: Run tests
-        run: flutter test
+        run: |
+          flutter test
+          python3 tool/test_appcast.py
 
   build-android-arm64:
     runs-on: ubuntu-latest
@@ -129,6 +131,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Initialize pinned native source
+        run: |
+          git submodule update --init hiddify-core
+          git -C hiddify-core config submodule.ray2sing.url https://github.com/hiddify/ray2sing.git
+          git -C hiddify-core submodule update --init --recursive
+
+      - name: Setup Go for native core
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: hiddify-core/go.mod
+          cache-dependency-path: |
+            hiddify-core/go.sum
+            hiddify-core/hiddify-sing-box/go.sum
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2.23.0
@@ -224,32 +240,18 @@ jobs:
             -storepass "$ANDROID_SIGNING_STORE_PASSWORD" \
             -alias "$ANDROID_SIGNING_KEY_ALIAS" >/dev/null
 
-      - name: Prepare Android and toolchain in parallel
+      - name: Prepare Android and toolchain
         shell: bash
         run: |
           set -euo pipefail
-
           SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           if [ ! -x "$SDKMANAGER" ]; then
             SDKMANAGER="$(command -v sdkmanager)"
           fi
-
-          "$SDKMANAGER" "ndk;30.0.16248370" "cmake;3.22.1" > /tmp/android-sdk-install.log 2>&1 &
-          sdk_pid=$!
-
-          prepare_status=0
-          make android-apk-prepare || prepare_status=$?
-
-          sdk_status=0
-          wait "$sdk_pid" || sdk_status=$?
-
-          if [ "$sdk_status" -ne 0 ]; then
-            cat /tmp/android-sdk-install.log
-            exit "$sdk_status"
-          fi
-          if [ "$prepare_status" -ne 0 ]; then
-            exit "$prepare_status"
-          fi
+          "$SDKMANAGER" "ndk;30.0.16248370" "cmake;3.22.1"
+          export ANDROID_NDK_HOME="${ANDROID_HOME}/ndk/30.0.16248370"
+          export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
+          make android-apk-prepare
 
       - name: Build Android ARM64 APK
         env:
@@ -385,14 +387,20 @@ jobs:
         run: |
           sed 's|RELEASE_TAG|${{ inputs.tag-name }}|g' ./.github/release_message.md > release.md
 
+      - name: Generate fork update manifest
+        env:
+          RELEASE_TAG: ${{ inputs.tag-name }}
+          RELEASE_CHANNEL: ${{ inputs.channel }}
+        run: python3 tool/generate_appcast.py --directory out --repository "$GITHUB_REPOSITORY" --tag "$RELEASE_TAG" --channel "$RELEASE_CHANNEL"
+
       - name: Upload release
         uses: softprops/action-gh-release@v3.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          prerelease: true
-          make_latest: false
+          prerelease: ${{ inputs.channel != 'prod' }}
+          make_latest: ${{ inputs.channel == 'prod' }}
           name: ${{ inputs.channel == 'dev' && 'Hiddify Dev' || inputs.tag-name }}
           tag_name: ${{ inputs.tag-name }}
           body_path: ./release.md
-          files: ./out/${{ env.APK_NAME }}
+          files: ./out/*

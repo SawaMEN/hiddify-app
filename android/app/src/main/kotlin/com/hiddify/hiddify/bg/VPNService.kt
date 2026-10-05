@@ -21,7 +21,14 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
 
     private val service = BoxService(this, this)
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int) = service.onStartCommand()
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // A system Always-on start can happen before the Flutter engine exists.
+        if (intent?.getBooleanExtra("started_by_app", false) != true) {
+            Settings.connectionDesired = true
+            Settings.startCoreAfterStartingService = true
+        }
+        return service.onStartCommand()
+    }
 
     override fun onBind(intent: Intent): IBinder = super.onBind(intent) ?: service.onBind(intent)
 
@@ -31,6 +38,7 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
     }
 
     override fun onRevoke() {
+        Settings.connectionDesired = false
         service.onRevoke()
         super.onRevoke()
     }

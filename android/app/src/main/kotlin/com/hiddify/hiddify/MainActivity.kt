@@ -167,7 +167,7 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
     private fun issueServiceStart(generation: Long) {
         if (!isCurrentStart(generation)) return
         try {
-            val intent = Intent(Application.application, Settings.serviceClass())
+            val intent = Intent(Application.application, Settings.serviceClass()).putExtra("started_by_app", true)
             serviceStartIssued = true
             ContextCompat.startForegroundService(this, intent)
             Settings.startedByUser = true

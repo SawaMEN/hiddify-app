@@ -1,4 +1,7 @@
 import 'package:flutter/services.dart';
+import 'package:hiddify/features/stats/notifier/stats_notifier.dart';
+import 'package:hiddify/features/connection/health/connection_health.dart';
+import 'package:hiddify/features/proxy/selection/smart_selection.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hiddify/core/app_info/app_info_provider.dart';
 import 'package:hiddify/core/localization/translations.dart';
@@ -54,6 +57,21 @@ class _Info extends AppInfo {
   );
 }
 
+class _Stats extends StatsNotifier {
+  @override
+  Stream<SystemInfo> build() => Stream.value(SystemInfo.create());
+}
+
+class _Health extends ConnectionHealthNotifier {
+  @override
+  InternetHealth build() => InternetHealth.unchecked;
+}
+
+class _Smart extends SmartSelectionNotifier {
+  @override
+  String? build() => null;
+}
+
 void main() {
   for (final scenario in [
     (size: const Size(390, 844), scale: 1.0, rtl: false, dark: true),
@@ -74,6 +92,9 @@ void main() {
       });
       final container = ProviderContainer(
         overrides: [
+          connectionHealthProvider.overrideWith(_Health.new),
+          statsNotifierProvider.overrideWith(_Stats.new),
+          smartSelectionProvider.overrideWith(_Smart.new),
           translationsProvider.overrideWith((ref) async => TranslationsEn()),
           activeProfileProvider.overrideWith(_Profile.new),
           hasAnyProfileProvider.overrideWith((ref) => Stream.value(true)),
@@ -128,6 +149,9 @@ void main() {
           ? "large-text"
           : "dark";
       await expectLater(find.byKey(const ValueKey("home_preview")), matchesGoldenFile("goldens/home-$name.png"));
+      await tester.pumpWidget(const SizedBox());
+      container.dispose();
+      await tester.pump();
     });
   }
 }

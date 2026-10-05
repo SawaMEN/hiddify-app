@@ -37,6 +37,8 @@ final branchesScope = <String, FocusScopeNode>{
   'home': FocusScopeNode(),
   'profiles': FocusScopeNode(),
   'settings': FocusScopeNode(),
+  'proxies': FocusScopeNode(),
+  'routingOptions': FocusScopeNode(),
   'logs': FocusScopeNode(),
   'about': FocusScopeNode(),
 };
@@ -52,12 +54,20 @@ final loadingConfig = RoutingConfig(
 );
 
 String getNameOfBranch(bool isMobileBreakpoint, bool showProfilesAction, int index) => isMobileBreakpoint
-    ? ['home', 'settings'][index]
-    : ['home', if (showProfilesAction) 'profiles', 'settings', 'logs', 'about'][index];
+    ? ['home', 'proxies', 'routingOptions', 'settings'][index]
+    : ['home', if (showProfilesAction) 'profiles', 'proxies', 'routingOptions', 'settings', 'logs', 'about'][index];
 
 int getIndexOfBranch(bool isMobileBreakpoint, bool showProfilesAction, String name) => isMobileBreakpoint
-    ? ['home', 'settings'].indexOf(name)
-    : ['home', if (showProfilesAction) 'profiles', 'settings', 'logs', 'about'].indexOf(name);
+    ? ['home', 'proxies', 'routingOptions', 'settings'].indexOf(name)
+    : [
+        'home',
+        if (showProfilesAction) 'profiles',
+        'proxies',
+        'routingOptions',
+        'settings',
+        'logs',
+        'about',
+      ].indexOf(name);
 
 @Riverpod(keepAlive: true)
 class RoutingConfigNotifier extends _$RoutingConfigNotifier {
@@ -68,7 +78,7 @@ class RoutingConfigNotifier extends _$RoutingConfigNotifier {
     if (isMobileBreakpoint == true) {
       showProfilesAction = false;
     } else {
-      showProfilesAction = ref.watch(hasAnyProfileProvider).value ?? false;
+      showProfilesAction = true;
     }
     if (isMobileBreakpoint == null) return loadingConfig;
     return RoutingConfig(
@@ -132,12 +142,6 @@ class RoutingConfigNotifier extends _$RoutingConfigNotifier {
                   path: '/home',
                   builder: (_, _) => FocusScope(node: branchesScope['home'], child: const HomePage()),
                   routes: <GoRoute>[
-                    GoRoute(
-                      name: 'proxies',
-                      path: 'proxies',
-                      pageBuilder: (_, state) =>
-                          customTransition(TransitionType.fade, state.pageKey, const ProxiesOverviewPage()),
-                    ),
                     if (isMobileBreakpoint)
                       GoRoute(
                         name: 'profileDetails',
@@ -176,6 +180,80 @@ class RoutingConfigNotifier extends _$RoutingConfigNotifier {
             StatefulShellBranch(
               routes: <GoRoute>[
                 GoRoute(
+                  name: 'proxies',
+                  path: '/home/proxies',
+                  pageBuilder: (_, state) => customTransition(
+                    TransitionType.fade,
+                    state.pageKey,
+                    FocusScope(node: branchesScope['proxies'], child: const ProxiesOverviewPage()),
+                  ),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: <GoRoute>[
+                GoRoute(
+                  name: 'routingOptions',
+                  path: '/settings/routing-options',
+                  pageBuilder: (_, state) => customTransition(
+                    TransitionType.slide,
+                    state.pageKey,
+                    FocusScope(
+                      node: branchesScope['routingOptions'],
+                      child: RoutingOptionsPage(routeRule: state.uri.queryParameters['routeRule']),
+                    ),
+                  ),
+                  routes: <GoRoute>[
+                    GoRoute(
+                      name: 'rule',
+                      path: 'rule/:orderId',
+                      pageBuilder: (_, state) {
+                        final orderIdString = state.pathParameters['orderId']!;
+                        return customTransition(
+                          TransitionType.slide,
+                          state.pageKey,
+                          RulePage(ruleListOrder: orderIdString != 'new' ? int.tryParse(orderIdString) : null),
+                        );
+                      },
+                      onExit: (context, state) async {
+                        final t = ref.read(translationsProvider).requireValue;
+                        final orderId = int.tryParse(state.pathParameters['orderId']!);
+                        final isRuleEdited = ref.read(isRuleEditedProvider(orderId));
+                        if (orderId != null && isRuleEdited) {
+                          await ref.read(ruleNotifierProvider(orderId).notifier).save();
+                          ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.autoSave.success);
+                        }
+                        return true;
+                      },
+                      routes: <GoRoute>[
+                        GoRoute(
+                          name: 'genericList',
+                          path: 'generic-list/:ruleEnum',
+                          pageBuilder: (_, state) {
+                            final orderId = int.tryParse(state.pathParameters['orderId']!);
+                            final ruleEnum = RuleEnum.values.byName(state.pathParameters['ruleEnum']!);
+                            return customTransition(
+                              TransitionType.slide,
+                              state.pageKey,
+                              GenericListPage(ruleListOrder: orderId, ruleEnum: ruleEnum),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                    GoRoute(
+                      name: 'perAppProxy',
+                      path: 'per-app-proxy',
+                      pageBuilder: (_, state) =>
+                          customTransition(TransitionType.slide, state.pageKey, const PerAppProxyPage()),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: <GoRoute>[
+                GoRoute(
                   name: 'settings',
                   path: '/settings',
                   builder: (context, _) => FocusScope(
@@ -187,68 +265,15 @@ class RoutingConfigNotifier extends _$RoutingConfigNotifier {
                     ),
                   ),
                   routes: <GoRoute>[
+                    if (isMobileBreakpoint)
+                      GoRoute(name: 'profiles', path: 'profiles', builder: (_, _) => const ProfilesPage()),
                     GoRoute(
                       name: 'general',
                       path: 'general',
                       pageBuilder: (_, state) =>
                           customTransition(TransitionType.slide, state.pageKey, const GeneralPage()),
                     ),
-                    GoRoute(
-                      name: 'routingOptions',
-                      path: 'routing-options',
-                      pageBuilder: (_, state) => customTransition(
-                        TransitionType.slide,
-                        state.pageKey,
-                        RoutingOptionsPage(routeRule: state.uri.queryParameters['routeRule']),
-                      ),
-                      routes: <GoRoute>[
-                        GoRoute(
-                          name: 'rule',
-                          path: 'rule/:orderId',
-                          pageBuilder: (_, state) {
-                            final orderIdString = state.pathParameters['orderId']!;
-                            return customTransition(
-                              TransitionType.slide,
-                              state.pageKey,
-                              RulePage(ruleListOrder: orderIdString != 'new' ? int.tryParse(orderIdString) : null),
-                            );
-                          },
-                          onExit: (context, state) async {
-                            final t = ref.read(translationsProvider).requireValue;
-                            final orderId = int.tryParse(state.pathParameters['orderId']!);
-                            final isRuleEdited = ref.read(isRuleEditedProvider(orderId));
-                            if (orderId != null && isRuleEdited) {
-                              await ref.read(ruleNotifierProvider(orderId).notifier).save();
-                              ref
-                                  .read(inAppNotificationControllerProvider)
-                                  .showSuccessToast(t.common.msg.autoSave.success);
-                            }
-                            return true;
-                          },
-                          routes: <GoRoute>[
-                            GoRoute(
-                              name: 'genericList',
-                              path: 'generic-list/:ruleEnum',
-                              pageBuilder: (_, state) {
-                                final orderId = int.tryParse(state.pathParameters['orderId']!);
-                                final ruleEnum = RuleEnum.values.byName(state.pathParameters['ruleEnum']!);
-                                return customTransition(
-                                  TransitionType.slide,
-                                  state.pageKey,
-                                  GenericListPage(ruleListOrder: orderId, ruleEnum: ruleEnum),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                        GoRoute(
-                          name: 'perAppProxy',
-                          path: 'per-app-proxy',
-                          pageBuilder: (_, state) =>
-                              customTransition(TransitionType.slide, state.pageKey, const PerAppProxyPage()),
-                        ),
-                      ],
-                    ),
+
                     GoRoute(
                       name: 'dnsOptions',
                       path: 'dns-options',

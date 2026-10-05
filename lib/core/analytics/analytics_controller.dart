@@ -20,7 +20,7 @@ bool _testCrashReport = false;
 class AnalyticsController extends _$AnalyticsController with AppLogger {
   @override
   Future<bool> build() async {
-    return _preferences.getBool(enableAnalyticsPrefKey) ?? true;
+    return _preferences.getBool(enableAnalyticsPrefKey) ?? false;
   }
 
   SharedPreferences get _preferences => ref.read(sharedPreferencesProvider).requireValue;
@@ -50,8 +50,9 @@ class AnalyticsController extends _$AnalyticsController with AppLogger {
         // options.attachScreenshot = true;
         options.serverName = "";
         options.attachThreads = true;
-        options.tracesSampleRate = 0.20;
-        options.enableUserInteractionTracing = true;
+        options.tracesSampleRate = 0;
+        options.sendDefaultPii = false;
+        options.enableUserInteractionTracing = false;
         options.addIntegration(sentryLogger);
         options.beforeSend = sentryBeforeSend;
       });

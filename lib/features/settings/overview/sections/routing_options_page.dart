@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:hiddify/features/route_rules/inspection/route_inspector_page.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
@@ -81,6 +82,12 @@ class RoutingOptionsPage extends HookConsumerWidget {
       appBar: AppBar(
         title: Text(t.pages.settings.routing.title),
         actions: [
+          IconButton(
+            tooltip: t.client.inspectRoute,
+            icon: const Icon(Icons.search_rounded),
+            onPressed: () =>
+                Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const RouteInspectorPage())),
+          ),
           PopupMenuButton(
             icon: const Icon(Icons.more_vert_rounded),
             itemBuilder: (_) => rules.isEmpty ? menuItems.getRange(0, 2).toList() : menuItems,

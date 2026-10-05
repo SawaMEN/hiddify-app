@@ -13,6 +13,10 @@ import java.io.ObjectInputStream
 
 object Settings {
 
+    var connectionDesired: Boolean
+        get() = getBoolean("flutter.connection_desired", getBoolean("flutter.started_by_user", false))
+        set(value) = preferences.edit().putBoolean("flutter.connection_desired", value).apply()
+
     private const val TAG = "A/Settings"
 
     private val preferences by lazy {

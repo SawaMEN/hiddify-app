@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:hiddify/features/connection/health/connection_health.dart';
+import 'package:hiddify/features/proxy/selection/smart_selection.dart';
+
 import 'package:accessibility_tools/accessibility_tools.dart';
 import 'package:dynamic_color/dynamic_color.dart';
 import 'package:flutter/foundation.dart';
@@ -38,6 +41,7 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
 
   void onPause(WidgetRef ref) {
     isOnPauseCalled = true;
+    ref.read(appForegroundProvider.notifier).set(false);
     final connection = ref.read(connectionNotifierProvider).value;
     // Permission activities can pause Flutter while the service is starting.
     if (connection is Connecting || connection is Disconnecting) return;
@@ -50,6 +54,7 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
   }
 
   void onResume(WidgetRef ref) {
+    ref.read(appForegroundProvider.notifier).set(true);
     if (_coreNeedsResume) {
       _coreNeedsResume = false;
       unawaited(
@@ -69,6 +74,8 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     setupStateListener(ref);
+    ref.watch(connectionHealthProvider);
+    ref.watch(smartSelectionProvider);
     final router = ref.watch(goRouterNotiferProvider);
     final locale = ref.watch(localePreferencesProvider);
     final themeMode = ref.watch(themePreferencesProvider);
@@ -126,7 +133,10 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
                     ),
                     child: VisualEffectsHost(
                       // Third-party widgets still use Flutter's legacy Material types.
-                      child: MaterialUiCompatibilityBridge(child: CyberBackground(child: child)),
+                      child: TickerMode(
+                        enabled: ref.watch(appForegroundProvider),
+                        child: MaterialUiCompatibilityBridge(child: CyberBackground(child: child)),
+                      ),
                     ),
                   );
                 },

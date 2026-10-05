@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:hiddify/core/preferences/general_preferences.dart';
+import 'package:hiddify/features/proxy/selection/server_ranker.dart';
+
 import 'package:dartx/dartx.dart';
 import 'package:protobuf/protobuf.dart';
 
@@ -203,15 +206,19 @@ class ProxiesOverviewNotifier extends _$ProxiesOverviewNotifier with AppLogger {
   // }
 
   Future<void> changeProxy(String groupTag, String outboundTag) async {
+    await ref.read(Preferences.smartServerSelection.notifier).update(false);
+    if (!ref.mounted) return;
     loggy.debug("changing proxy, group: [$groupTag] - outbound: [$outboundTag]");
     if (!state.hasValue) return;
     if (state.value == null) return;
     await ref.read(hapticServiceProvider.notifier).lightImpact();
     if (!ref.mounted) return;
-    await ref.read(proxyRepositoryProvider).selectProxy(groupTag, outboundTag).getOrElse((err) {
-      loggy.warning("error selecting outbound", err);
-      throw err;
-    }).run();
+    await serializedProxySelection(
+      () => ref.read(proxyRepositoryProvider).selectProxy(groupTag, outboundTag).getOrElse((err) {
+        loggy.warning("error selecting outbound", err);
+        throw err;
+      }).run(),
+    );
     if (!ref.mounted) return;
     final outbounds = state.value?.deepCopy();
     if (outbounds == null || outbounds.tag != groupTag) return;
