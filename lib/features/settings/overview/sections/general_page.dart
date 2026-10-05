@@ -10,6 +10,7 @@ import 'package:hiddify/features/common/general_pref_tiles.dart';
 import 'package:hiddify/features/log/model/log_level.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/features/settings/widget/preference_tile.dart';
+import 'package:hiddify/features/vpn_privacy/network_anonymization_page.dart';
 import 'package:hiddify/utils/utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:humanizer/humanizer.dart';
@@ -20,6 +21,7 @@ class GeneralPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).requireValue;
+    final isRussian = Localizations.localeOf(context).languageCode == 'ru';
 
     return Scaffold(
       appBar: AppBar(title: Text(t.pages.settings.general.title)),
@@ -85,6 +87,20 @@ class GeneralPage extends HookConsumerWidget {
             onChanged: ref.read(hapticServiceProvider.notifier).updatePreference,
           ),
           const BatteryOptimizationWidget(),
+          if (PlatformUtils.isAndroid)
+            ListTile(
+              leading: const Icon(Icons.privacy_tip_outlined),
+              title: Text(isRussian ? 'Анонимизация в сети' : 'Network anonymization'),
+              subtitle: Text(
+                isRussian
+                    ? 'Экспериментально · не рекомендуется к применению'
+                    : 'Experimental · not recommended for normal use',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const NetworkAnonymizationPage()),
+              ),
+            ),
           SwitchListTile.adaptive(
             title: Text(t.pages.settings.general.memoryLimit),
             subtitle: Text(t.pages.settings.general.memoryLimitMsg),
