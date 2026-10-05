@@ -27,6 +27,56 @@ void main() {
     }
   });
 
+  test('Every background service start receives a fresh control client', () async {
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final foreground = Server.create(services: [_Hello()]);
+    Server? background;
+    final core = CoreInterfaceMobile();
+    addTearDown(() async {
+      await core.dispose();
+      await foreground.shutdown();
+      await background?.shutdown();
+      messenger.setMockMethodCallHandler(CoreInterfaceMobile.methodChannel, null);
+      for (final channel in [CoreInterfaceMobile.statusChannel, CoreInterfaceMobile.alertsChannel]) {
+        messenger.setMockMethodCallHandler(MethodChannel(channel.name, const JSONMethodCodec()), null);
+      }
+    });
+    for (final channel in [CoreInterfaceMobile.statusChannel, CoreInterfaceMobile.alertsChannel]) {
+      messenger.setMockMethodCallHandler(MethodChannel(channel.name, const JSONMethodCodec()), (_) async => null);
+    }
+    messenger.setMockMethodCallHandler(CoreInterfaceMobile.methodChannel, (call) async {
+      switch (call.method) {
+        case 'setup':
+          await foreground.serve(address: '127.0.0.1', port: CoreInterfaceMobile.portFront);
+          return '';
+        case 'stop':
+          await background?.shutdown();
+          background = null;
+          return true;
+        case 'start':
+          background = Server.create(services: [_Hello()]);
+          await background!.serve(address: '127.0.0.1', port: CoreInterfaceMobile.portBack);
+          messenger.handlePlatformMessage(
+            CoreInterfaceMobile.statusChannel.name,
+            const JSONMethodCodec().encodeSuccessEnvelope({'status': 'Started'}),
+            (_) {},
+          );
+          return true;
+        default:
+          return null;
+      }
+    });
+    final directory = Directory.systemTemp;
+    await core.setup((baseDir: directory, workingDir: directory, tempDir: directory), false, 3);
+    final initialClient = core.bgClient;
+    expect(await core.setupBackground('/config.json', 'test'), const CoreStarted());
+    final firstClient = core.bgClient;
+    expect(firstClient, isNot(same(initialClient)));
+    expect(await core.setupBackground('/config.json', 'test'), const CoreStarted());
+    expect(core.bgClient, isNot(same(firstClient)));
+    expect(await core.isBgClientAvailable(), isTrue);
+  });
+
   for (final alert in [
     'StartService',
     'RequestVPNPermission',

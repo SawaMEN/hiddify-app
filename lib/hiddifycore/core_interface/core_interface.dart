@@ -6,6 +6,10 @@ class CoreInterface {
   late CoreClient fgClient;
   late CoreClient bgClient;
 
+  // Native service events supplement the core RPC status. A native Started
+  // event only means the control server is ready, not that the tunnel is up.
+  Stream<CoreStatus> get serviceEvents => const Stream.empty();
+
   Future<String> setup(Directories directories, bool debug, int mode) async {
     return "";
   }

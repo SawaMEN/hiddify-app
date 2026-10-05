@@ -14,6 +14,7 @@ import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/profile/model/profile_entity.dart';
 import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
 import 'package:hiddify/singbox/model/singbox_config_option.dart';
+import 'package:hiddify/hiddifycore/init_signal.dart';
 
 class _Profile extends ActiveProfile {
   @override
@@ -31,6 +32,7 @@ class _Repository implements ConnectionRepository {
   final events = StreamController<ConnectionStatus>.broadcast();
   int connections = 0, disconnections = 0;
   bool fail = true;
+  void Function()? onConnect;
   @override
   SingboxConfigOption? get configOptionsSnapshot => null;
   @override
@@ -39,13 +41,13 @@ class _Repository implements ConnectionRepository {
   TaskEither<ConnectionFailure, Unit> setup() => TaskEither.of(unit);
   @override
   TaskEither<ConnectionFailure, Unit> connect(ProfileEntity p, bool disabled) =>
-      TaskEither(
-        () => Future.value(
-          (++connections > 0 && fail)
-              ? left(const ConnectionFailure.backgroundCoreNotAvailable())
-              : right(unit),
-        ),
-      );
+      TaskEither(() async {
+        connections++;
+        onConnect?.call();
+        return fail
+            ? left(const ConnectionFailure.backgroundCoreNotAvailable())
+            : right(unit);
+      });
   @override
   TaskEither<ConnectionFailure, Unit> disconnect() => TaskEither(
     () => Future.value((++disconnections > 0) ? right(unit) : right(unit)),
@@ -79,6 +81,8 @@ void main() {
             activeProfileProvider.overrideWith(_Profile.new),
           ],
         );
+        repo.onConnect = () =>
+            container.read(coreRestartSignalProvider.notifier).restart();
         await container.read(sharedPreferencesProvider.future);
         final subscription = container.listen(
           connectionNotifierProvider,
@@ -115,6 +119,15 @@ void main() {
           }
           expect(repo.connections, 5);
           expect(container.read(recoveryStatusProvider), 0);
+          expect(container.read(Preferences.startedByUser), false);
+          for (var i = 0; i < 3; i++) {
+            repo.events.add(
+              const Disconnected(
+                ConnectionFailure.backgroundCoreNotAvailable(),
+              ),
+            );
+            await tester.pump();
+          }
           await tester.pump(const Duration(minutes: 2));
           expect(repo.connections, 5);
         }

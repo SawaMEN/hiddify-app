@@ -29,6 +29,11 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
 
   bool _isBgClientAvailable = false;
   bool _debug = false;
+  ChannelCredentials _channelCredentials = const ChannelCredentials.insecure();
+  Stream<CoreStatus> _serviceEvents = const Stream.empty();
+
+  @override
+  Stream<CoreStatus> get serviceEvents => _serviceEvents;
 
   LastStream<CoreStatus>? _status;
   ClientChannel? _fgChannel;
@@ -39,6 +44,7 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
         ? MTLSChannelCredentials(serverPublicKey: serverPublicKey, clientKey: cert)
         : const ChannelCredentials.insecure();
     _debug = debug;
+    _channelCredentials = channelOption;
     final status = statusChannel.receiveBroadcastStream().map(CoreStatus.fromEvent).map((value) {
       _isBgClientAvailable = value is CoreStarted;
       return value;
@@ -46,7 +52,8 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
     final alerts = alertsChannel.receiveBroadcastStream().map(CoreStatus.fromEvent);
 
     await _status?.close();
-    _status = LastStream(Rx.merge([status, alerts]));
+    _serviceEvents = Rx.merge([status, alerts]).share();
+    _status = LastStream(_serviceEvents);
 
     Future<void> hello() async {
       final channel = ClientChannel(
@@ -182,6 +189,15 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
         message: "background core did not open its local control port",
       );
     }
+    // Discard the channel that probed a stopped/previous service. Its connection
+    // can still be in gRPC backoff or refer to the server we just shut down.
+    await _bgChannel?.shutdown();
+    _bgChannel = ClientChannel(
+      '127.0.0.1',
+      port: portBack,
+      options: ChannelOptions(credentials: _channelCredentials),
+    );
+    bgClient = CoreClient(_bgChannel!);
     _isBgClientAvailable = true;
     return const CoreStarted();
   }
