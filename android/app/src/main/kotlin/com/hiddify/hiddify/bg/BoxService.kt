@@ -43,7 +43,7 @@ class BoxService(
         private const val TAG = "A/BoxService"
 
         private val lifecycleMutex = Mutex()
-        private var coreOwner: BoxService? = null
+        @Volatile private var coreOwner: BoxService? = null
         private var initializeOnce = false
         private lateinit var workingDir: File
 
@@ -78,6 +78,10 @@ class BoxService(
 
         fun isRunning(): Boolean = coreOwner?.status?.value in listOf(Status.Started, Status.Starting)
 
+        // Unlike Activity/AIDL state, ownership is set before Mobile.setup() and cleared only
+        // after Mobile.close() finishes. Use it as the native lifecycle barrier.
+        fun hasActiveCore(): Boolean = coreOwner != null
+
         fun vpnProtection(): Map<String, Boolean?> {
             val vpn = coreOwner?.service as? VPNService
             return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && vpn != null) {
@@ -92,6 +96,9 @@ class BoxService(
         }
 
         fun stop() {
+            // Publish intent before the broadcast. A pending start that is holding the native
+            // lifecycle mutex must see cancellation even if the receiver runs later.
+            Settings.connectionDesired = false
             Application.application.sendBroadcast(
                 Intent(Action.SERVICE_CLOSE).setPackage(Application.application.packageName),
             )
@@ -122,10 +129,37 @@ class BoxService(
 
     private var activeProfileName = ""
 
+    private suspend fun finishCancelledStart(reason: String) {
+        Settings.startedByUser = false
+        val closeError = runCatching { releaseNative(reason) }.exceptionOrNull()
+        if (closeError != null) {
+            Log.e(TAG, "failed to close cancelled native start", closeError)
+            status.postValue(Status.Started)
+            withContext(Dispatchers.Main) {
+                if (destroyed) return@withContext
+                notification.show(activeProfileName, R.string.status_started)
+                binder.broadcast { it.onServiceAlert(Alert.StartService.ordinal, closeError.message) }
+            }
+            return
+        }
+        closeTun(reason)
+        withContext(Dispatchers.Main) {
+            if (destroyed) return@withContext
+            unregisterReceiver()
+            notification.close()
+            status.value = Status.Stopped
+            service.stopSelf()
+        }
+    }
+
     private suspend fun startService() {
         try {
             if (destroyed) return
             coreOwner?.takeIf { it !== this }?.releaseNative("replacement")
+            if (!Settings.connectionDesired) {
+                finishCancelledStart("cancelled before setup")
+                return
+            }
             initialize()
             status.postValue(Status.Starting)
             Log.d(TAG, "starting service")
@@ -149,6 +183,10 @@ class BoxService(
                 binder.broadcast { it.onServiceResetLogs(listOf()) }
             }
 
+            if (!Settings.connectionDesired) {
+                finishCancelledStart("cancelled before native setup")
+                return
+            }
             coreOwner = this
             DefaultNetworkMonitor.start()
             Libbox.setMemoryLimit(!Settings.disableMemoryLimit)
@@ -175,8 +213,16 @@ class BoxService(
                 return
             }
 
+            if (!Settings.connectionDesired) {
+                finishCancelledStart("cancelled during native setup")
+                return
+            }
             if (Settings.startCoreAfterStartingService) {
                 Mobile.start(selectedConfigPath, "")
+                if (!Settings.connectionDesired) {
+                    finishCancelledStart("cancelled during native start")
+                    return
+                }
             }
 
             if (destroyed) return
@@ -216,7 +262,7 @@ class BoxService(
                 status.postValue(Status.Started)
                 withContext(Dispatchers.Main) {
                     if (destroyed) return@withContext
-                notification.show(activeProfileName, R.string.status_started)
+                    notification.show(activeProfileName, R.string.status_started)
                     binder.broadcast { it.onServiceAlert(Alert.StartService.ordinal, closeError.message) }
                 }
                 return
@@ -252,7 +298,8 @@ class BoxService(
     }
 
     private fun stopService() {
-        if (destroyed || status.value == Status.Stopped || status.value == Status.Stopping) return
+        if (destroyed || status.value == Status.Stopping) return
+        if (status.value == Status.Stopped && coreOwner !== this) return
 
         status.value = Status.Stopping
         serviceScope.launch {
@@ -261,7 +308,13 @@ class BoxService(
 
                 // Keep Android network discovery alive until gomobile has actually stopped using it.
                 if (coreOwner !== this@BoxService) {
-                    withContext(Dispatchers.Main) { status.value = Status.Stopped; service.stopSelf() }
+                    Settings.startedByUser = false
+                    withContext(Dispatchers.Main) {
+                        status.value = Status.Stopped
+                        unregisterReceiver()
+                        notification.close()
+                        service.stopSelf()
+                    }
                     return@withLock
                 }
                 DefaultNetworkMonitor.detachCoreListener()
@@ -272,7 +325,7 @@ class BoxService(
                         // Allow a subsequent stop request to retry instead of reporting a false Stopped state.
                         status.value = Status.Started
                         if (destroyed) return@withContext
-                notification.show(activeProfileName, R.string.status_started)
+                        notification.show(activeProfileName, R.string.status_started)
                         binder.broadcast { it.onServiceAlert(Alert.StartService.ordinal, closeError.message) }
                     }
                     return@withLock
@@ -346,6 +399,10 @@ class BoxService(
             lifecycleMutex.withLock {
                 if (destroyed) return@withLock
                 try {
+                    if (!Settings.connectionDesired) {
+                        finishCancelledStart("cancelled before lifecycle start")
+                        return@withLock
+                    }
                     Settings.startedByUser = true
                     startService()
                 } catch (e: Exception) {
@@ -392,6 +449,7 @@ class BoxService(
     }
 
     fun onRevoke() {
+        Settings.connectionDesired = false
         stopService()
     }
 

@@ -117,22 +117,27 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     _policy.reset();
     final haptic = ref.read(hapticServiceProvider.notifier);
     if (state case AsyncError()) {
-      await haptic.lightImpact();
-      await ref.read(Preferences.startedByUser.notifier).update(true);
-      await _connect();
+      if (await _androidServiceRunningSafely()) {
+        await haptic.mediumImpact();
+        await ref.read(Preferences.startedByUser.notifier).update(false);
+        await _disconnect();
+      } else {
+        await haptic.lightImpact();
+        await ref.read(Preferences.startedByUser.notifier).update(true);
+        await _connect();
+      }
     } else if (state case AsyncData(:final value)) {
       switch (value) {
         case Disconnected():
           await haptic.lightImpact();
           await ref.read(Preferences.startedByUser.notifier).update(true);
           await _connect();
-        case Connected():
-          // default:
+        case Connected() || Connecting():
           await haptic.mediumImpact();
           await ref.read(Preferences.startedByUser.notifier).update(false);
           await _disconnect();
-        default:
-          loggy.warning("switching status, debounce");
+        case Disconnecting():
+          loggy.debug("disconnect is already in progress");
       }
     }
   }
@@ -378,8 +383,32 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     );
   }
 
+  Future<bool> _androidServiceRunningSafely() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      return await AndroidVpnSettings.serviceRunning();
+    } catch (error, stackTrace) {
+      loggy.warning('failed to query Android service state', error, stackTrace);
+      return false;
+    }
+  }
+
+  Future<void> _requestNativeStop() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final stopped = await AndroidVpnSettings.stopService();
+      if (!stopped) loggy.warning('Android service did not confirm the preemptive stop');
+    } catch (error, stackTrace) {
+      loggy.warning('failed to preempt Android service stop', error, stackTrace);
+    }
+  }
+
   Future<void> _disconnect() async {
     _cancelRecovery();
+    // A connect operation can legitimately spend tens of seconds in Android permission/setup
+    // while the serialized core queue is occupied. Ask the native service to stop immediately;
+    // the regular queued disconnect below still performs the authoritative core cleanup.
+    if (Platform.isAndroid) unawaited(_requestNativeStop());
     final result = await _serializeCoreOperation(
       () => _connectionRepo.disconnect().run(),
     );
