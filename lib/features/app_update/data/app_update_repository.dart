@@ -4,6 +4,7 @@ import 'package:fpdart/fpdart.dart';
 import 'dart:io';
 
 import 'package:hiddify/features/app_update/data/release_selector.dart';
+import 'package:hiddify/features/app_update/data/github_release_parser.dart';
 import 'package:hiddify/core/http_client/dio_http_client.dart';
 import 'package:hiddify/core/model/constants.dart';
 import 'package:hiddify/core/model/environment.dart';
