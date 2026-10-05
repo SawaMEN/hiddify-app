@@ -226,7 +226,7 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
     // Validate every supplied value before writing any of them.
     for (final option in ConfigOptions.preferences.entries) {
       final query = option.key.split('.').map((e) => '["$e"]').join();
-      final res = JsonPath('\$$query').read(map).firstOrNull;
+      final res = JsonPath('\$$query').read(decoded).firstOrNull;
       if (res == null) continue;
       final notifier = ref.read(option.value.notifier);
       notifier.entry.parseRaw(res.value);
