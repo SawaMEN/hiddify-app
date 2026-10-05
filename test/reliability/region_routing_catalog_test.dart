@@ -12,10 +12,10 @@ void main() {
 
   final token = RegExp(r'^[a-z0-9_-]+(?:\.[a-z0-9_-]+)+$');
 
-  test('Russia VPN-aware catalogue contains the researched application set', () {
-    expect(catalogue['version'], 2);
+  test('Russia VPN-aware catalogue contains the April 16 researched set', () {
+    expect(catalogue['version'], 3);
     final vpnAware = entries('ruVpnAwarePackages');
-    expect(vpnAware, hasLength(22));
+    expect(vpnAware, hasLength(30));
     expect(vpnAware.toSet(), hasLength(vpnAware.length));
     expect(
       vpnAware,
@@ -27,6 +27,14 @@ void main() {
         'ru.sbcs.store',
         'ru.oneme.app',
         'ru.rutube.app',
+        'ru.beru.android',
+        'ru.foodfox.client',
+        'ru.mail.mailapp',
+        'ru.megafon.mlk',
+        'ru.nspk.mirpay',
+        'ru.rostel',
+        'ru.yandex.taxi',
+        'ru.zen.android',
       ]),
     );
   });
@@ -38,9 +46,8 @@ void main() {
     expect(
       compatibility,
       containsAll(const {
-        'ru.rostel',
-        'ru.nspk.mirpay',
-        'ru.yandex.taxi',
+        'ru.mts.money',
+        'ru.yandex.searchplugin',
       }),
     );
   });
