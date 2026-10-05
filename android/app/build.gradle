@@ -37,13 +37,19 @@ if (keystorePropertiesFile.exists()) {
     hasKeyStore = true
 } else {
     println "+++"
-    println "No keystore defined. The app will not be signed."
+    println "No release keystore defined. Non-production release builds will use debug signing."
     println "Create a android/key.properties file with the following properties:"
     println "storePassword"
     println "keyPassword"
     println "keyAlias"
     println "storeFile"
     println "+++"
+}
+
+// Production artifacts must never silently fall back to the debug certificate. The CI build
+// exports CHANNEL=prod for stable releases; local/dev release builds keep their existing fallback.
+if (System.getenv('CHANNEL') == 'prod' && !hasKeyStore) {
+    throw new GradleException('Production Android release requires android/key.properties and a valid release keystore.')
 }
 
 def flutterVersionCode = localProperties.getProperty('flutter.versionCode')?: '1'
