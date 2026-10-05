@@ -732,6 +732,8 @@
     }
   },
   "client": {
+    "vpnNotification": "Уведомление VPN",
+    "vpnNotificationHint": "Разрешите уведомления и включите канал VPN-службы в настройках Android.",
     "diagnostics": "Диагностика соединения",
     "runDiagnostics": "Запустить проверки",
     "network": "Сеть",

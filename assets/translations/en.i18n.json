@@ -728,6 +728,8 @@
     }
   },
   "client": {
+    "vpnNotification": "VPN notification",
+    "vpnNotificationHint": "Allow notifications and enable the VPN service channel in Android settings.",
     "diagnostics": "Connection diagnostics",
     "runDiagnostics": "Run checks",
     "network": "Network",

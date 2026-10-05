@@ -14,9 +14,6 @@ import com.hiddify.hiddify.Settings
 import com.hiddify.hiddify.constant.Action
 import com.hiddify.hiddify.constant.Alert
 import com.hiddify.hiddify.constant.Status
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 
 class ServiceConnection(
     private val context: Context,
@@ -46,12 +43,7 @@ class ServiceConnection(
         }
 
     fun connect() {
-        val intent =
-            runBlocking {
-                withContext(Dispatchers.IO) {
-                    Intent(context, Settings.serviceClass()).setAction(Action.SERVICE)
-                }
-            }
+        val intent = Intent(context, Settings.serviceClass()).setAction(Action.SERVICE)
         runCatching {
             context.bindService(intent, this, AppCompatActivity.BIND_AUTO_CREATE)
         }.onFailure {
@@ -76,12 +68,7 @@ class ServiceConnection(
             context.unbindService(this)
         } catch (_: IllegalArgumentException) {
         }
-        val intent =
-            runBlocking {
-                withContext(Dispatchers.IO) {
-                    Intent(context, Settings.serviceClass()).setAction(Action.SERVICE)
-                }
-            }
+        val intent = Intent(context, Settings.serviceClass()).setAction(Action.SERVICE)
         runCatching {
             context.bindService(intent, this, AppCompatActivity.BIND_AUTO_CREATE)
         }.onFailure {

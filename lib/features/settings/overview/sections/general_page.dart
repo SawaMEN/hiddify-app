@@ -1,4 +1,6 @@
 import 'package:dartx/dartx.dart';
+import 'package:flutter/services.dart';
+import 'package:hiddify/hiddifycore/core_interface/core_interface_mobile.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:hiddify/core/haptic/haptic_service.dart';
 import 'package:hiddify/core/localization/translations.dart';
@@ -44,11 +46,38 @@ class GeneralPage extends HookConsumerWidget {
             secondary: const Icon(Icons.flag_rounded),
             onChanged: ref.read(Preferences.autoCheckIp.notifier).update,
           ),
+          if (PlatformUtils.isAndroid)
+            ListTile(
+              title: Text(t.client.vpnNotification),
+              subtitle: Text(t.client.vpnNotificationHint),
+              leading: const Icon(Icons.notifications_rounded),
+              trailing: const Icon(Icons.open_in_new_rounded),
+              onTap: () async {
+                try {
+                  await CoreInterfaceMobile.methodChannel.invokeMethod<void>('open_notification_settings');
+                } on PlatformException catch (error) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message ?? error.code)));
+                  }
+                }
+              },
+            ),
           SwitchListTile.adaptive(
             title: Text(t.pages.settings.general.dynamicNotification),
             secondary: const Icon(Icons.speed_rounded),
             value: ref.watch(Preferences.dynamicNotification),
-            onChanged: ref.read(Preferences.dynamicNotification.notifier).update,
+            onChanged: (value) async {
+              await ref.read(Preferences.dynamicNotification.notifier).update(value);
+              if (PlatformUtils.isAndroid) {
+                try {
+                  await CoreInterfaceMobile.methodChannel.invokeMethod<void>('refresh_notification');
+                } on PlatformException catch (error) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message ?? error.code)));
+                  }
+                }
+              }
+            },
           ),
           SwitchListTile.adaptive(
             title: Text(t.pages.settings.general.hapticFeedback),

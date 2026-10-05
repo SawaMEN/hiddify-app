@@ -111,7 +111,7 @@ class BoxService(
     @Volatile private var destroyed = false
     private val status = MutableLiveData(Status.Stopped)
     private val binder = ServiceBinder(status)
-    private val notification = ServiceNotification(status, service)
+    private val notification = ServiceNotification(service)
     private var receiverRegistered = false
 
     private val receiver = object : BroadcastReceiver() {

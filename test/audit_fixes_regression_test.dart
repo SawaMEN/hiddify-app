@@ -31,9 +31,19 @@ void main() {
   test('Android service start does not depend on notification permission', () {
     final activity = source('android/app/src/main/kotlin/com/hiddify/hiddify/MainActivity.kt');
     final boot = source('android/app/src/main/kotlin/com/hiddify/hiddify/bg/BootReceiver.kt');
-    expect(activity, isNot(contains('POST_NOTIFICATIONS')));
-    expect(activity, isNot(contains('notificationPermissionLauncher')));
+    final beginStart = activity.substring(activity.indexOf('private fun beginStart'), activity.indexOf('private fun continueStart'));
+    expect(beginStart, contains('continueStart(generation)'));
+    expect(beginStart, isNot(contains('notificationPermissionLauncher')));
+    final permissionCallback = activity.substring(
+      activity.indexOf('private val notificationPermissionLauncher'),
+      activity.indexOf('private fun requestNotificationPermissionIfNeeded'),
+    );
+    expect(permissionCallback, contains('ServiceNotification.refreshActive()'));
+    expect(permissionCallback, isNot(contains('failPendingStart')));
+    expect(permissionCallback, isNot(contains('reportStartFailure')));
     expect(boot, isNot(contains('ServiceNotification.checkPermission()')));
+    final shortcut = source('android/app/src/main/kotlin/com/hiddify/hiddify/ShortcutActivity.kt');
+    expect(shortcut, isNot(contains('ServiceNotification.checkPermission()')));
   });
 
   test('Android native close always executes resource cleanup', () {
