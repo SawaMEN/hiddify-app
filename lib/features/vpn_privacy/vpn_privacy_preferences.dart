@@ -5,6 +5,21 @@ abstract class VpnPrivacyPreferences {
   static const manualPackagePrefix = 'manual:';
 
   static final routingMode = PreferencesNotifier.create<String, String>('privacy-routing-mode', 'ru-bypass');
+
+  /// Replaces the old region selector. Defaults preserve the previous Russia-region behavior.
+  static final russianNetworkBypass = PreferencesNotifier.create<bool, bool>(
+    'privacy-russian-network-bypass',
+    true,
+  );
+  static final russianAppsBypass = PreferencesNotifier.create<bool, bool>(
+    'privacy-russian-apps-bypass',
+    true,
+  );
+  static final restrictedServicesProxy = PreferencesNotifier.create<bool, bool>(
+    'privacy-restricted-services-proxy',
+    true,
+  );
+
   static final customDirectPackages = PreferencesNotifier.create<String, String>('privacy-direct-packages', '');
   static final customProxyPackages = PreferencesNotifier.create<String, String>('privacy-proxy-packages', '');
   static final customDirectDomains = PreferencesNotifier.create<String, String>('privacy-direct-domains', '');

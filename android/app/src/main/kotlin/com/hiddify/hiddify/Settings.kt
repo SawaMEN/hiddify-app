@@ -16,6 +16,9 @@ object Settings {
 
     val privacyUseRoot get() = getBoolean("flutter.privacy-use-root", false) && serviceMode == ServiceMode.VPN
     val privacyRoutingMode get() = getString("flutter.privacy-routing-mode", "ru-bypass")
+    val privacyRussianNetworkBypass get() = getBoolean("flutter.privacy-russian-network-bypass", true)
+    val privacyRussianAppsBypass get() = getBoolean("flutter.privacy-russian-apps-bypass", true)
+    val privacyRestrictedServicesProxy get() = getBoolean("flutter.privacy-restricted-services-proxy", true)
     val privacyDirectPackages get() = getString("flutter.privacy-direct-packages", "")
     val privacyProxyPackages get() = getString("flutter.privacy-proxy-packages", "")
     val privacyDirectDomains get() = getString("flutter.privacy-direct-domains", "")

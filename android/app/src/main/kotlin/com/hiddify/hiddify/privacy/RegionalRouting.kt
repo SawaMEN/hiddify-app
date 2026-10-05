@@ -45,8 +45,8 @@ object RegionalRouting {
         return PackageSelection(false, merged(automatic, stored, false))
     }
 
-    fun policy(context: Context, region: String): Map<String, Any> {
-        val mode = Settings.privacyRoutingMode.takeIf { region == "ru" && !Settings.privacyFullTunnel } ?: "off"
+    fun policy(context: Context, @Suppress("UNUSED_PARAMETER") legacyRegion: String = "other"): Map<String, Any> {
+        val mode = Settings.privacyRoutingMode.takeIf { !Settings.privacyFullTunnel } ?: "off"
         val catalogue = JSONObject(context.assets.open("region_routing.json").bufferedReader().use { it.readText() })
         val version = catalogue.optInt("version", 1)
 
@@ -77,29 +77,48 @@ object RegionalRouting {
         val defaultDirect = installed(automaticDirect)
         val defaultProxy = installed(automaticProxy)
 
-        // An explicit restricted-service choice must be able to override an automatic direct
-        // suggestion. When both sides are manually edited the direct side still wins on shared UIDs.
+        // A manually selected restricted service can override an automatic Russian-app suggestion.
+        // If both sides are manual, direct routing wins while both switches are enabled.
         val directCandidates = if (proxySelection.manual && !directSelection.manual) {
             directSelection.values.filterNot { it in proxySelection.values }
         } else directSelection.values
+        val configuredDirect = installed(directCandidates)
+        val configuredProxy = installed(proxySelection.values)
 
-        val installedDirectWithUid = directCandidates.mapNotNull { packageName ->
+        val effectiveDirect = if (Settings.privacyRussianAppsBypass) configuredDirect else emptyList()
+        val effectiveDirectWithUid = effectiveDirect.mapNotNull { packageName ->
             installedUid(packageName)?.let { uid -> packageName to uid }
         }
-        val installedDirect = installedDirectWithUid.map { it.first }
-        val directUids = installedDirectWithUid.map { it.second }.toSet()
-        val installedProxy = proxySelection.values.filter { packageName ->
-            installedUid(packageName)?.let { it !in directUids } == true
-        }.distinct()
+        val directUids = effectiveDirectWithUid.map { it.second }.toSet()
+        val installedDirect = effectiveDirectWithUid.map { it.first }
 
-        val directDomains = merged((vpnAwareDomains + compatibilityDomains).distinct(), Settings.privacyDirectDomains, true)
-        val proxyDomains = merged(catalogueTokens(catalogue, listOf("proxyDomains"), true), Settings.privacyProxyDomains, true)
+        val installedProxy = if (Settings.privacyRestrictedServicesProxy) {
+            configuredProxy.filter { packageName ->
+                installedUid(packageName)?.let { it !in directUids } == true
+            }.distinct()
+        } else emptyList()
+
+        val builtInDirectDomains = if (Settings.privacyRussianNetworkBypass) {
+            (vpnAwareDomains + compatibilityDomains).distinct()
+        } else emptyList()
+        val directDomains = merged(builtInDirectDomains, Settings.privacyDirectDomains, true)
+        val proxyDomains = if (Settings.privacyRestrictedServicesProxy) {
+            merged(catalogueTokens(catalogue, listOf("proxyDomains"), true), Settings.privacyProxyDomains, true)
+        } else emptyList()
 
         val regionalPolicy = mapOf<String, Any>(
+            // Force the generic core region internally. The old user-facing region selector is gone.
+            // ru enables the existing geoip/geosite + .ru path; other disables it.
+            "region" to if (Settings.privacyRussianNetworkBypass) "ru" else "other",
             "privacy-routing-mode" to mode,
             "privacy-catalogue-version" to version,
+            "privacy-russian-network-bypass" to Settings.privacyRussianNetworkBypass,
+            "privacy-russian-apps-bypass" to Settings.privacyRussianAppsBypass,
+            "privacy-restricted-services-proxy" to Settings.privacyRestrictedServicesProxy,
             "privacy-direct-packages" to installedDirect,
             "privacy-proxy-packages" to installedProxy,
+            "privacy-configured-direct-packages" to configuredDirect,
+            "privacy-configured-proxy-packages" to configuredProxy,
             "privacy-default-direct-packages" to defaultDirect,
             "privacy-default-proxy-packages" to defaultProxy,
             "privacy-direct-packages-manual" to directSelection.manual,
