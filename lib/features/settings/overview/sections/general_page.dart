@@ -11,6 +11,7 @@ import 'package:hiddify/features/log/model/log_level.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/features/settings/widget/preference_tile.dart';
 import 'package:hiddify/features/vpn_privacy/network_anonymization_page.dart';
+import 'package:hiddify/singbox/model/singbox_config_enum.dart';
 import 'package:hiddify/utils/utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:humanizer/humanizer.dart';
@@ -40,6 +41,20 @@ class GeneralPage extends HookConsumerWidget {
             subtitle: Text(t.client.smartSelectionHint),
             value: ref.watch(Preferences.smartServerSelection),
             onChanged: ref.read(Preferences.smartServerSelection.notifier).update,
+          ),
+          ChoicePreferenceWidget(
+            title: t.pages.settings.routing.generalOptions.balancerStrategy.title,
+            icon: Icons.balance_rounded,
+            selected: ref.watch(ConfigOptions.balancerStrategy),
+            preferences: ref.watch(ConfigOptions.balancerStrategy.notifier),
+            choices: BalancerStrategy.values,
+            presentChoice: (value) => value.present(t),
+          ),
+          SwitchListTile.adaptive(
+            title: Text(t.pages.settings.routing.generalOptions.resolveDestination),
+            secondary: const Icon(Icons.find_replace_rounded),
+            value: ref.watch(ConfigOptions.resolveDestination),
+            onChanged: ref.read(ConfigOptions.resolveDestination.notifier).update,
           ),
           SwitchListTile.adaptive(
             title: Text(t.pages.settings.general.autoIpCheck),
