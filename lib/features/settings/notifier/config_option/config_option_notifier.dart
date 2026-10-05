@@ -268,7 +268,7 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
       return true;
     } catch (e, st) {
       loggy.warning("error importing config options from clipboard", e, st);
-      ref.read(inAppNotificationControllerProvider).showErrorToast(t.common.msg.import.clipboard.failure);
+      ref.read(inAppNotificationControllerProvider).showErrorToast(t.common.msg.import.failure);
       return false;
     }
   }
