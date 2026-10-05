@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:hiddify/core/model/region.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_actions.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_page.dart';
