@@ -80,13 +80,20 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
       () => singbox.runExclusive(
         () => setup()
             .flatMap(
-              (_) => applyConfigOption(activeProfile).flatMap(
-                (_) => singbox.start(
+              (_) => applyConfigOption(activeProfile).flatMap((_) {
+                // Applying/generating a profile can take long enough for the user to cancel.
+                // Re-check intent immediately before crossing into the native start path so an
+                // old queued connect cannot revive a VPN after Stop was already requested.
+                if (!ref.read(Preferences.startedByUser)) {
+                  loggy.debug('connect cancelled before core start');
+                  return TaskEither.of(unit);
+                }
+                return singbox.start(
                   profilePathResolver.file(activeProfile.id).path,
                   activeProfile.name,
                   disableMemoryLimit,
-                ),
-              ),
+                );
+              }),
             )
             .run(),
       ),
@@ -101,11 +108,15 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
     return TaskEither(
       () => singbox.runExclusive(
         () => applyConfigOption(activeProfile)
-            .flatMap(
-              (_) => singbox
+            .flatMap((_) {
+              if (!ref.read(Preferences.startedByUser)) {
+                loggy.debug('reconnect cancelled before core restart');
+                return TaskEither.of(unit);
+              }
+              return singbox
                   .restart(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit)
-                  .mapLeft(UnexpectedConnectionFailure.new),
-            )
+                  .mapLeft(UnexpectedConnectionFailure.new);
+            })
             .run(),
       ),
     );
