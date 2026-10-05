@@ -44,7 +44,21 @@ abstract class VpnPrivacyActions {
       ref.watch(VpnPrivacyPreferences.publicDns) &&
       ref.watch(VpnPrivacyPreferences.encryptedDns) &&
       !ref.watch(VpnPrivacyPreferences.fullTunnel) &&
-      ref.watch(ConfigOptions.ipv6Mode) == IPv6Mode.disable;
+      ref.watch(ConfigOptions.ipv6Mode) == IPv6Mode.disable &&
+      ref.watch(ConfigOptions.mtu) == 1400 &&
+      ref.watch(Preferences.autoReconnect);
+
+  static Future<void> _setRoutingMode(WidgetRef ref, String target, {required bool forceRevision}) async {
+    final current = ref.read(VpnPrivacyPreferences.routingMode);
+    if (forceRevision && current == target) {
+      // updateTogether suppresses intermediate reconnects, so a temporary alternate value
+      // is safe and guarantees a native-policy revision for "apply again"/restore.
+      await ref
+          .read(VpnPrivacyPreferences.routingMode.notifier)
+          .update(target == 'off' ? 'ru-bypass' : 'off');
+    }
+    await ref.read(VpnPrivacyPreferences.routingMode.notifier).update(target);
+  }
 
   static Future<void> configureAutomatically(WidgetRef ref) async {
     final backup = ref.read(VpnPrivacyPreferences.automaticSetupBackup);
@@ -65,7 +79,7 @@ abstract class VpnPrivacyActions {
         await ref.read(VpnPrivacyPreferences.publicDns.notifier).update(true);
         await ref.read(VpnPrivacyPreferences.encryptedDns.notifier).update(true);
         await ref.read(VpnPrivacyPreferences.fullTunnel.notifier).update(false);
-        await ref.read(VpnPrivacyPreferences.routingMode.notifier).update('ru-bypass');
+        await _setRoutingMode(ref, 'ru-bypass', forceRevision: true);
         await ref.read(ConfigOptions.ipv6Mode.notifier).update(IPv6Mode.disable);
         await ref.read(ConfigOptions.mtu.notifier).update(1400);
         await ref.read(Preferences.autoReconnect.notifier).update(true);
@@ -117,6 +131,7 @@ abstract class VpnPrivacyActions {
       return candidate is T ? candidate : fallback;
     }
 
+    final routingMode = value<String>('routingMode', 'ru-bypass');
     await ref.read(configOptionNotifierProvider.notifier).updateTogether(
       () async {
         await ref.read(ConfigOptions.serviceMode.notifier).update(serviceMode);
@@ -124,9 +139,7 @@ abstract class VpnPrivacyActions {
         await ref.read(ConfigOptions.ipv6Mode.notifier).update(ipv6Mode);
         await ref.read(ConfigOptions.mtu.notifier).update(value<int>('mtu', 9000));
         await ref.read(Preferences.autoReconnect.notifier).update(value<bool>('autoReconnect', true));
-        await ref
-            .read(VpnPrivacyPreferences.routingMode.notifier)
-            .update(value<String>('routingMode', 'ru-bypass'));
+        await _setRoutingMode(ref, routingMode, forceRevision: true);
         await ref
             .read(VpnPrivacyPreferences.customDirectPackages.notifier)
             .update(value<String>('customDirectPackages', ''));
