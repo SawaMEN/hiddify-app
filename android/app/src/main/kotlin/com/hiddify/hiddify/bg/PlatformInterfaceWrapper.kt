@@ -1,6 +1,9 @@
 package com.hiddify.hiddify.bg
 
 import android.net.NetworkCapabilities
+import android.net.wifi.WifiInfo
+import android.net.wifi.WifiManager
+import androidx.core.content.getSystemService
 import android.os.Build
 import android.os.Process
 import android.system.OsConstants
@@ -150,8 +153,10 @@ interface PlatformInterfaceWrapper : PlatformInterface {
 
     override fun readWIFIState(): WIFIState? {
         return try {
+            val active = DefaultNetworkMonitor.defaultNetwork ?: Application.connectivity.activeNetwork
+            val modern = active?.let { Application.connectivity.getNetworkCapabilities(it)?.transportInfo } as? WifiInfo
             @Suppress("DEPRECATION")
-            val wifiInfo = Application.wifiManager.connectionInfo ?: return null
+            val wifiInfo = modern ?: Application.application.getSystemService<WifiManager>()?.connectionInfo ?: return null
             var ssid = wifiInfo.ssid ?: return null
             if (ssid == "<unknown ssid>") return WIFIState("", "")
             if (ssid.startsWith("\"") && ssid.endsWith("\"") && ssid.length >= 2) {
@@ -193,7 +198,9 @@ interface PlatformInterfaceWrapper : PlatformInterface {
     override fun readSystemSSHHostKey(): StringBox =
         error("system SSH host key is not supported on Android")
 
-    override fun tailscaleHostname(): String = "${Build.MANUFACTURER} ${Build.MODEL}".trim()
+    override fun tailscaleHostname(): String = runCatching {
+        android.provider.Settings.Global.getString(Application.application.contentResolver, android.provider.Settings.Global.DEVICE_NAME)
+    }.getOrNull()?.takeIf { it.isNotBlank() } ?: "${Build.MANUFACTURER} ${Build.MODEL}".trim()
 
     override fun usePlatformBridge(): Boolean = false
 
@@ -251,64 +258,6 @@ interface PlatformInterfaceWrapper : PlatformInterface {
             Log.w(PLATFORM_TAG, "failed to load Android system certificates", e)
         }
         return StringArray(certificates.iterator())
-    }
-
-    // Neighbor monitor, platform shell, bridge and auto-redirect need root helpers
-    // (RootClient in sing-box-for-android) which Hiddify does not ship; keep them disabled.
-    override fun startNeighborMonitor(listener: NeighborUpdateListener?) {
-    }
-
-    override fun closeNeighborMonitor(listener: NeighborUpdateListener?) {
-    }
-
-    override fun registerMyInterface(name: String?) {
-    }
-
-    override fun usePlatformShell(): Boolean = false
-
-    override fun checkPlatformShell() {
-        error("platform shell not supported")
-    }
-
-    override fun openShellSession(
-        user: PlatformUser?,
-        command: String?,
-        environ: StringIterator?,
-        term: String?,
-        rows: Int,
-        cols: Int,
-    ): ShellSession {
-        error("platform shell not supported")
-    }
-
-    override fun lookupUser(username: String?): PlatformUser {
-        error("platform shell not supported")
-    }
-
-    override fun lookupSFTPServer(): StringBox {
-        error("not supported")
-    }
-
-    override fun readSystemSSHHostKey(): StringBox {
-        error("not supported")
-    }
-
-    override fun tailscaleHostname(): String = android.provider.Settings.Global.getString(
-        Application.application.contentResolver,
-        android.provider.Settings.Global.DEVICE_NAME,
-    )?.takeIf { it.isNotBlank() }
-        ?: "${Build.MANUFACTURER} ${Build.MODEL}"
-
-    override fun usePlatformBridge(): Boolean = false
-
-    override fun createBridge(options: BridgeOptions?): BridgeSession {
-        error("platform bridge not supported")
-    }
-
-    override fun usePlatformAutoRedirect(): Boolean = false
-
-    override fun createAutoRedirect(options: ByteArray?, handler: AutoRedirectHandler?): AutoRedirectSession {
-        error("platform auto redirect not supported")
     }
 
     private class InterfaceArray(private val iterator: Iterator<LibboxNetworkInterface>) : NetworkInterfaceIterator {

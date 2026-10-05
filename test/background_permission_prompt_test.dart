@@ -25,12 +25,13 @@ void main() {
       });
       final boundary = GlobalKey();
       await tester.pumpWidget(RepaintBoundary(key: boundary, child: MaterialApp(
+        debugShowCheckedModeBanner: false,
         theme: AppTheme(AppThemeMode.dark, 'Manrope').darkTheme(null),
         home: Scaffold(body: Builder(builder: (context) => TextButton(
         onPressed: () async { choice = await showBackgroundPermissionExplanation(context, 'ru'); },
-        child: const Text('Open'),
+        child: const Text('VetrOFF Client'),
       ))))));
-      await tester.tap(find.text('Open'));
+      await tester.tap(find.text('VetrOFF Client'));
       await tester.pumpAndSettle();
       expect(find.text('Стабильная работа в фоне'), findsOneWidget);
       expect(find.textContaining('системный запрос Android'), findsOneWidget);
