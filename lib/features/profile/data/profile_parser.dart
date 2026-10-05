@@ -244,6 +244,7 @@ class ProfileParser {
     (err, st) =>
         err is ProfileFailure ? err : ProfileFailure.unexpected(err, st),
   );
+
   Future<void> expandRemoteLinesInParallel({
     required String tempFilePath,
     required DioHttpClient httpClient,
@@ -263,14 +264,15 @@ class ProfileParser {
                   l.trim().startsWith('https://'),
             )
             .length >
-        128)
+        128) {
       throw const FormatException('Too many nested subscriptions');
+    }
     var bytes = utf8.encode(content).length;
-    if (bytes > 8 * 1024 * 1024)
+    if (bytes > 8 * 1024 * 1024) {
       throw const FormatException('Subscription too large');
+    }
 
     final results = List<String?>.filled(lines.length, null);
-
     int index = 0;
 
     Future<void> worker() async {
@@ -280,13 +282,22 @@ class ProfileParser {
         final currentIndex = index++;
         if (currentIndex >= lines.length) return;
 
-        final line = lines[currentIndex].trim();
+        final rawLine = lines[currentIndex];
+        final line = rawLine.trim();
 
-        // Non-URL
+        // Preserve non-URL lines exactly. Trimming them corrupts indentation-sensitive
+        // formats such as Clash/YAML subscriptions.
         if (!line.startsWith('http://') && !line.startsWith('https://')) {
-          results[currentIndex] = line.trim();
+          results[currentIndex] = rawLine;
           continue;
         }
+
+        final uri = Uri.tryParse(line);
+        if (uri == null || !uri.isAbsolute || (uri.scheme != 'http' && uri.scheme != 'https')) {
+          results[currentIndex] = rawLine;
+          continue;
+        }
+        await _validateNestedSubscriptionUri(uri);
 
         final tempFile = File('$tempFilePath.$currentIndex');
         try {
@@ -295,19 +306,21 @@ class ProfileParser {
             tempFile.path,
             cancelToken: cancelToken,
             userAgent: userAgent,
+            // Nested subscriptions are untrusted content. Do not allow a public URL to
+            // redirect the client into localhost/private networks.
+            followRedirects: false,
           );
 
           final downloaded = await tempFile.readAsString();
           bytes += utf8.encode(downloaded).length;
           if (bytes > 8 * 1024 * 1024) {
-            cancelToken.cancel('Aggregate size limit');
             throw const FormatException(
               'Nested subscriptions exceed size limit',
             );
           }
           results[currentIndex] = downloaded.trim();
         } catch (err) {
-          if (err is DioException && CancelToken.isCancel(err)) {
+          if (err is DioException && CancelToken.isCancel(err) && cancelToken.isCancelled) {
             return;
           }
           rethrow;
@@ -327,10 +340,58 @@ class ProfileParser {
 
     if (results.any((e) => e != null)) {
       final newContent = results.join("\n");
-      if (utf8.encode(newContent).length > 8 * 1024 * 1024)
+      if (utf8.encode(newContent).length > 8 * 1024 * 1024) {
         throw const FormatException("Subscription too large");
+      }
       await File(tempFilePath).writeAsString(newContent);
     }
+  }
+
+  Future<void> _validateNestedSubscriptionUri(Uri uri) async {
+    final host = uri.host.toLowerCase();
+    if (host.isEmpty || host == 'localhost' || host.endsWith('.localhost')) {
+      throw const FormatException('Nested subscription target is not public');
+    }
+
+    final literal = InternetAddress.tryParse(host);
+    final addresses = literal == null ? await InternetAddress.lookup(host) : <InternetAddress>[literal];
+    if (addresses.isEmpty || addresses.any(_isBlockedNestedAddress)) {
+      throw const FormatException('Nested subscription target is not public');
+    }
+  }
+
+  static bool _isBlockedNestedAddress(InternetAddress address) {
+    final bytes = address.rawAddress;
+    if (bytes.length == 4) return _isBlockedIpv4(bytes);
+    if (bytes.length != 16) return true;
+
+    // IPv4-mapped IPv6 (::ffff:a.b.c.d).
+    final mapped = bytes.take(10).every((byte) => byte == 0) && bytes[10] == 0xff && bytes[11] == 0xff;
+    if (mapped) return _isBlockedIpv4(bytes.sublist(12));
+
+    final unspecified = bytes.every((byte) => byte == 0);
+    final loopback = bytes.take(15).every((byte) => byte == 0) && bytes[15] == 1;
+    final uniqueLocal = (bytes[0] & 0xfe) == 0xfc;
+    final linkLocal = bytes[0] == 0xfe && (bytes[1] & 0xc0) == 0x80;
+    final multicast = bytes[0] == 0xff;
+    final documentation = bytes[0] == 0x20 && bytes[1] == 0x01 && bytes[2] == 0x0d && bytes[3] == 0xb8;
+    return unspecified || loopback || uniqueLocal || linkLocal || multicast || documentation;
+  }
+
+  static bool _isBlockedIpv4(List<int> bytes) {
+    final a = bytes[0];
+    final b = bytes[1];
+    final c = bytes[2];
+    if (a == 0 || a == 10 || a == 127 || a >= 224) return true;
+    if (a == 100 && b >= 64 && b <= 127) return true;
+    if (a == 169 && b == 254) return true;
+    if (a == 172 && b >= 16 && b <= 31) return true;
+    if (a == 192 && b == 168) return true;
+    if (a == 198 && (b == 18 || b == 19)) return true;
+    if (a == 192 && b == 0 && (c == 0 || c == 2)) return true;
+    if (a == 198 && b == 51 && c == 100) return true;
+    if (a == 203 && b == 0 && c == 113) return true;
+    return false;
   }
 
   static TaskEither<ProfileFailure, Map<String, dynamic>> _readHeaders(
@@ -537,7 +598,6 @@ class ProfileParser {
     required ProfileEntriesCompanion profile,
   }) {
     final populatedHeaders = profile.populatedHeaders.value;
-
     Map<String, dynamic>? mPopulatedHeaders;
     if (populatedHeaders != null) {
       final m = jsonDecode(populatedHeaders) as Map;
