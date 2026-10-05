@@ -1,6 +1,8 @@
 package com.hiddify.hiddify.bg
 
 import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.ConnectivityManager
 import android.os.Build
 import android.util.Log
 import com.hiddify.core.libbox.InterfaceUpdateListener
@@ -112,7 +114,11 @@ object DefaultNetworkMonitor {
             if (next == lastInterface && network == lastNetwork) return
             val recovering = lastInterface != null && interfaceIndex >= 0
             runCatching {
-                currentListener.updateDefaultInterface(interfaceName, interfaceIndex, false, false)
+                                val capabilities = network?.let { Application.connectivity.getNetworkCapabilities(it) }
+                val expensive = capabilities != null && !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+                val constrained = expensive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
+                    Application.connectivity.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
+                currentListener.updateDefaultInterface(interfaceName, interfaceIndex, expensive, constrained)
                 if (recovering) Mobile.wake()
                 lastInterface = next
                 lastNetwork = network

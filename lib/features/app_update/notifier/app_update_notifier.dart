@@ -54,7 +54,7 @@ class AppUpdateNotifier extends _$AppUpdateNotifier with AppLogger {
     }
     return ref
         .read(appUpdateRepositoryProvider)
-        .getLatestVersion()
+        .getLatestVersion(flavor: appInfo.environment, release: appInfo.release)
         .match(
           (err) {
             if (!ref.mounted) return AppUpdateState.error(err);

@@ -27,9 +27,9 @@ class SettingTextDialog extends HookConsumerWidget {
             decoration: InputDecoration(label: Text(lable)),
             controller: tController,
             validator: (value) {
-              if (value == null || value.isEmpty) return t.pages.settings.routing.routeRule.rule.canNotBeEmpty;
+              if (value == null || value.trim().isEmpty) return t.pages.settings.routing.routeRule.rule.canNotBeEmpty;
               if (validator == null) return null;
-              return validator!.call(value);
+              return validator!.call(value.trim());
             },
             autofocus: true,
           ),

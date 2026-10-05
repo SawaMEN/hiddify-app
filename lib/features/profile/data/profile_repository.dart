@@ -292,6 +292,7 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
         final entry = _profileParser
             .offlineUpdate(
               profile: existing.copyWith(userOverride: profile.userOverride),
+              previousContent: await file.readAsString(),
               tempFilePath: temp.path,
               content: nContent,
             )

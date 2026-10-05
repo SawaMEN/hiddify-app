@@ -9,6 +9,8 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import com.hiddify.core.libbox.ExchangeContext
 import com.hiddify.core.libbox.LocalDNSTransport
+import java.net.Inet4Address
+import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.UnknownHostException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -114,7 +116,14 @@ object LocalResolver : LocalDNSTransport {
                     }
                 }
             }
-            ({ ctx.success(answer.mapNotNull { it.hostAddress }.joinToString("\n")) })
+            val filtered = answer.filter { address ->
+                when {
+                    network.endsWith("4") -> address is Inet4Address
+                    network.endsWith("6") -> address is Inet6Address
+                    else -> true
+                }
+            }
+            ({ ctx.success(filtered.mapNotNull { it.hostAddress }.joinToString("\n")) })
         }
     }
 

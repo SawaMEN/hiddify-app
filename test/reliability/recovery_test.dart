@@ -98,4 +98,45 @@ void main() {
       },
     );
   }
+  testWidgets('Stable duplicate status events reset recovery without postponing the timer', (tester) async {
+    SharedPreferences.setMockInitialValues({'started_by_user': true, 'haptic_feedback': false});
+    final preferences = await SharedPreferences.getInstance();
+    final repo = _Repository();
+    final container = ProviderContainer(overrides: [
+      sharedPreferencesProvider.overrideWith((ref) async => preferences),
+      connectionRepositoryProvider.overrideWithValue(repo),
+      activeProfileProvider.overrideWith(_Profile.new),
+    ]);
+    await container.read(sharedPreferencesProvider.future);
+    final subscription = container.listen(connectionNotifierProvider, (_, __) {});
+    await tester.pump();
+    await tester.pump();
+    repo.events.add(const Disconnected(ConnectionFailure.backgroundCoreNotAvailable()));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pump();
+    expect(repo.connections, 2);
+    repo.events.add(const Connected());
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 30));
+    repo.events.add(const Connected());
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 31));
+    repo.events.add(const Disconnected(ConnectionFailure.backgroundCoreNotAvailable()));
+    await tester.pump();
+    await tester.pump();
+    expect(container.read(recoveryStatusProvider), 1);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+    expect(repo.connections, 3);
+    subscription.close();
+    container.dispose();
+    await repo.events.close();
+    await tester.pump();
+  });
+
 }

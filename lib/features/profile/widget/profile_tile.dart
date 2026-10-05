@@ -100,7 +100,7 @@ class ProfileTile extends HookConsumerWidget {
                   borderRadius: showActionButton
                       ? ProfileTileConst.endBorderRadius(Directionality.of(context))
                       : ProfileTileConst.cardBorderRadius,
-                  onTap: () {
+                  onTap: () async {
                     if (isMain) {
                       if (Breakpoint(context).isMobile()) {
                         ref.read(bottomSheetsNotifierProvider.notifier).showProfilesOverview();
@@ -110,9 +110,14 @@ class ProfileTile extends HookConsumerWidget {
                     } else {
                       if (selectActiveMutation.state.isInProgress) return;
                       // if (profile.active) return;
-                      selectActiveMutation.setFuture(
-                        ref.read(profilesNotifierProvider.notifier).selectActiveProfile(profile.id),
-                      );
+                      final operation = ref.read(profilesNotifierProvider.notifier).selectActiveProfile(profile.id);
+                      selectActiveMutation.setFuture(operation);
+                      try {
+                        await operation;
+                      } catch (_) {
+                        return;
+                      }
+                      if (!context.mounted) return;
                       if (context.canPop()) {
                         context.pop();
                       } else {

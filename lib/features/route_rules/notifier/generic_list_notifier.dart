@@ -25,6 +25,8 @@ class GenericListNotifier extends _$GenericListNotifier {
   }
 
   void update(int index, dynamic value) {
+    if (index < 0 || index >= state.length) return;
+    if (state[index] == value) return;
     if (!_isValid(value)) return;
     state = List.from(state)..[index] = value;
     _save();

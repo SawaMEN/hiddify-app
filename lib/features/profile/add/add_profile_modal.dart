@@ -59,6 +59,7 @@ class AddProfileOptions extends HookConsumerWidget {
     final itemCount = isDesktop ? AddProfileModalConst.fixBtnsItemCountDesktop : AddProfileModalConst.fixBtnsItemCount;
     return LayoutBuilder(
       builder: (context, constraints) {
+        if (!constraints.maxHeight.isFinite || constraints.maxHeight <= 0) return const SizedBox.shrink();
         final fixBtnsHeight = (constraints.maxWidth - AddProfileModalConst.fixBtnsGap * gapCount) / itemCount;
         final fullHeight = fixBtnsHeight + AddProfileModalConst.navBarHeight + 32;
         final initial = !freeSwitch ? fullHeight : fullHeight + 180;
@@ -68,10 +69,13 @@ class AddProfileOptions extends HookConsumerWidget {
           min = initial;
           max = initial / constraints.maxHeight;
         }
+        final maxSize = max.clamp(0.1, 1.0);
+        final initialSize = (initial / constraints.maxHeight).clamp(0.0, maxSize);
+        final minSize = (min / constraints.maxHeight).clamp(0.0, initialSize);
         return DraggableScrollableSheet(
-          initialChildSize: initial / constraints.maxHeight,
-          minChildSize: min / constraints.maxHeight,
-          maxChildSize: max,
+          initialChildSize: initialSize,
+          minChildSize: minSize,
+          maxChildSize: maxSize,
           expand: false,
           builder: (context, scrollController) => Column(
             children: [

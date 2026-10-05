@@ -15,15 +15,7 @@ abstract class LinkParser {
   }
 
   // Deep-link wrappers accepted by Hiddify for subscription imports.
-  static const Set<String> protocols = {
-    'hiddify',
-    'v2ray',
-    'v2rayn',
-    'v2rayng',
-    'clash',
-    'clashmeta',
-    'sing-box',
-  };
+  static const Set<String> protocols = {'hiddify', 'v2ray', 'v2rayn', 'v2rayng', 'clash', 'clashmeta', 'sing-box'};
 
   static ProfileLink? parse(String link) {
     final normalized = link.trim();
@@ -45,16 +37,22 @@ abstract class LinkParser {
     final scheme = uri.scheme.toLowerCase();
     if (!protocols.contains(scheme)) return null;
 
+    if (uri.host.toLowerCase() != 'import') return null;
     final queryParams = uri.queryParameters;
     if (scheme == 'hiddify') {
       if (queryParams.containsKey('url')) {
-        return (url: queryParams['url']!, name: queryParams['name'] ?? '');
+        return _validated(queryParams['url']!, queryParams['name'] ?? '');
       }
       if (uri.path.length <= 1) return null;
-      return (url: uri.path.substring(1) + (uri.hasQuery ? '?${uri.query}' : ''), name: uri.fragment);
+      return _validated(uri.path.substring(1) + (uri.hasQuery ? '?${uri.query}' : ''), uri.fragment);
     }
 
-    return queryParams.containsKey('url') ? (url: queryParams['url']!, name: queryParams['name'] ?? '') : null;
+    return queryParams.containsKey('url') ? _validated(queryParams['url']!, queryParams['name'] ?? '') : null;
+  }
+
+  static ProfileLink? _validated(String url, String name) {
+    final normalized = url.trim();
+    return isUrl(normalized) ? (url: normalized, name: name) : null;
   }
 }
 

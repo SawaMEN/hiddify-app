@@ -240,32 +240,18 @@ jobs:
             -storepass "$ANDROID_SIGNING_STORE_PASSWORD" \
             -alias "$ANDROID_SIGNING_KEY_ALIAS" >/dev/null
 
-      - name: Prepare Android and toolchain in parallel
+      - name: Prepare Android and toolchain
         shell: bash
         run: |
           set -euo pipefail
-
           SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
           if [ ! -x "$SDKMANAGER" ]; then
             SDKMANAGER="$(command -v sdkmanager)"
           fi
-
-          "$SDKMANAGER" "ndk;30.0.16248370" "cmake;3.22.1" > /tmp/android-sdk-install.log 2>&1 &
-          sdk_pid=$!
-
-          prepare_status=0
-          make android-apk-prepare || prepare_status=$?
-
-          sdk_status=0
-          wait "$sdk_pid" || sdk_status=$?
-
-          if [ "$sdk_status" -ne 0 ]; then
-            cat /tmp/android-sdk-install.log
-            exit "$sdk_status"
-          fi
-          if [ "$prepare_status" -ne 0 ]; then
-            exit "$prepare_status"
-          fi
+          "$SDKMANAGER" "ndk;30.0.16248370" "cmake;3.22.1"
+          export ANDROID_NDK_HOME="${ANDROID_HOME}/ndk/30.0.16248370"
+          export ANDROID_NDK_ROOT="$ANDROID_NDK_HOME"
+          make android-apk-prepare
 
       - name: Build Android ARM64 APK
         env:

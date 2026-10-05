@@ -29,3 +29,36 @@ Duration? parseProfileUpdateInterval(String value) {
   if (hours == null || hours <= 0 || hours > 2562047788) return null;
   return Duration(hours: hours);
 }
+
+/// Prefer RFC 5987 UTF-8 filename*, then quoted or token filename.
+String? parseContentDispositionFilename(String value) {
+  final extended = RegExp(r"(?:^|;)\s*filename\*\s*=\s*([^;]+)", caseSensitive: false).firstMatch(value);
+  if (extended != null) {
+    final token = extended.group(1)!.trim().replaceAll('"', '');
+    final parts = token.split("'");
+    if (parts.length >= 3 && parts.first.toLowerCase() == 'utf-8') {
+      try {
+        final name = Uri.decodeComponent(parts.skip(2).join("'"));
+        if (name.trim().isNotEmpty) return name;
+      } on FormatException {
+        /* fall back to filename */
+      }
+    }
+  }
+  final match = RegExp(
+    r'(?:^|;)\s*filename\s*=\s*(?:"((?:\\.|[^"\\])*)"|([^;]+))',
+    caseSensitive: false,
+  ).firstMatch(value);
+  final name = match?.group(1)?.replaceAllMapped(RegExp(r'\\(.)'), (m) => m.group(1)!) ?? match?.group(2)?.trim();
+  return name == null || name.trim().isEmpty ? null : name;
+}
+
+/// Drift stores profile timestamps in seconds. Each update must change the
+/// persisted value so observers apply even successive edits within one second.
+DateTime nextProfileUpdateTime(DateTime previous, DateTime now) {
+  final previousSeconds = previous.millisecondsSinceEpoch ~/ 1000;
+  final nowSeconds = now.millisecondsSinceEpoch ~/ 1000;
+  return nowSeconds > previousSeconds
+      ? now
+      : DateTime.fromMillisecondsSinceEpoch((previousSeconds + 1) * 1000, isUtc: previous.isUtc);
+}

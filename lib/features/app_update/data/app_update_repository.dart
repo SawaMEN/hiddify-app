@@ -1,3 +1,4 @@
+import 'package:version/version.dart';
 import 'package:fpdart/fpdart.dart';
 
 import 'dart:io';
@@ -15,6 +16,7 @@ abstract interface class AppUpdateRepository {
   TaskEither<AppUpdateFailure, RemoteVersionEntity> getLatestVersion({
     bool includePreReleases = false,
     Release release = Release.general,
+    Environment flavor = Environment.prod,
   });
 }
 
@@ -27,6 +29,7 @@ class AppUpdateRepositoryImpl with ExceptionHandler, InfraLogger implements AppU
   TaskEither<AppUpdateFailure, RemoteVersionEntity> getLatestVersion({
     bool includePreReleases = false,
     Release release = Release.general,
+    Environment flavor = Environment.prod,
   }) {
     return exceptionHandler(() async {
       if (!release.allowCustomUpdateChecker) {
@@ -42,9 +45,37 @@ class AppUpdateRepositoryImpl with ExceptionHandler, InfraLogger implements AppU
         response.data!,
         Platform.operatingSystem,
         includePreReleases: includePreReleases,
+        flavor: flavor,
       );
       if (latest == null) return left(const AppUpdateFailure());
       return right(latest);
     }, AppUpdateFailure.new);
   }
+}
+
+/// Ignore draft, incompatible and malformed releases without hiding valid updates.
+RemoteVersionEntity selectLatestCompatibleRelease(
+  List<dynamic> data, {
+  Environment flavor = Environment.prod,
+  bool includePreReleases = false,
+}) {
+  final releases = <RemoteVersionEntity>[];
+  for (final item in data) {
+    if (item is! Map<String, dynamic> || item['draft'] == true) continue;
+    try {
+      final release = GithubReleaseParser.parse(item);
+      Version.parse(release.version);
+      if (release.flavor == flavor && (includePreReleases || !release.preRelease)) releases.add(release);
+    } catch (_) {
+      continue;
+    }
+  }
+  if (releases.isEmpty) throw const FormatException('No compatible releases');
+  releases.sort((a, b) {
+    final version = Version.parse(b.version).compareTo(Version.parse(a.version));
+    if (version != 0) return version;
+    final build = (int.tryParse(b.buildNumber) ?? 0).compareTo(int.tryParse(a.buildNumber) ?? 0);
+    return build != 0 ? build : b.publishedAt.compareTo(a.publishedAt);
+  });
+  return releases.first;
 }

@@ -92,66 +92,67 @@ class ProfileTileMain extends HookConsumerWidget {
               ),
             ),
           ),
-          if (subInfo != null)
+          if (subInfo != null || profile.webPageUrl != null || profile.supportUrl != null)
             Container(
               width: 350,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  IntrinsicHeight(
-                    // Add this to ensure equal height
-                    child: Row(
-                      children: [
-                        if (subInfo.total > 0) _BandwithUsageRow(subInfo),
+                  if (subInfo != null)
+                    IntrinsicHeight(
+                      // Add this to ensure equal height
+                      child: Row(
+                        children: [
+                          if (subInfo.total > 0) _BandwithUsageRow(subInfo),
 
-                        // if (subInfo.total > 0 && subInfo.remaining.inDays > 0)
-                        //   const VerticalDivider(
-                        //     // Add divider between items
-                        //     width: 1,
-                        //     thickness: 1,
-                        //     indent: 12,
-                        //     endIndent: 12,
-                        //   ),
-                        if (subInfo.remaining.inDays > 0)
-                          // Add Expanded
-                          _UsageRow(
-                            icon: null, //FluentIcons.timer_24_regular,
-                            title: subInfo.remaining.inDays > 365
-                                ? "∞ days remaining"
-                                : "${subInfo.remaining.inDays}/30 days remaining",
-                            progress: subInfo.remaining.inDays > 365 ? 0 : subInfo.remaining.inDays / 30,
-                            color: _getProgressColor(1 - (subInfo.remaining.inDays / 30)),
-                          ),
-                      ],
+                          // if (subInfo.total > 0 && subInfo.remaining.inDays > 0)
+                          //   const VerticalDivider(
+                          //     // Add divider between items
+                          //     width: 1,
+                          //     thickness: 1,
+                          //     indent: 12,
+                          //     endIndent: 12,
+                          //   ),
+                          if (subInfo.remaining.inDays > 0)
+                            // Add Expanded
+                            _UsageRow(
+                              icon: null, //FluentIcons.timer_24_regular,
+                              title: subInfo.remaining.inDays > 365
+                                  ? "∞ days remaining"
+                                  : "${subInfo.remaining.inDays}/30 days remaining",
+                              progress: subInfo.remaining.inDays > 365 ? 0 : subInfo.remaining.inDays / 30,
+                              color: _getProgressColor(1 - (subInfo.remaining.inDays / 30)),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  if ((subInfo.webPageUrl != null || subInfo.supportUrl != null))
+                  if ((profile.webPageUrl != null || profile.supportUrl != null))
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       child: Row(
                         children: [
-                          if (subInfo.webPageUrl != null)
+                          if (profile.webPageUrl != null)
                             Expanded(
                               child: InkWell(
-                                onTap: () => _launchUrlWithCheck(context, ref, subInfo.webPageUrl!),
+                                onTap: () => _launchUrlWithCheck(context, ref, profile.webPageUrl!),
                                 borderRadius: BorderRadius.circular(8),
                                 child: _InfoItem(
-                                  icon: _getLinkIcon(subInfo.webPageUrl!, FluentIcons.building_shop_24_regular),
+                                  icon: _getLinkIcon(profile.webPageUrl!, FluentIcons.building_shop_24_regular),
                                   label: t.components.subscriptionInfo.profileSite,
-                                  value: _formatSupportLink(subInfo.webPageUrl!),
+                                  value: _formatSupportLink(profile.webPageUrl!),
                                 ),
                               ),
                             ),
-                          if (subInfo.supportUrl != null) ...[
+                          if (profile.supportUrl != null) ...[
                             const Gap(12),
                             Expanded(
                               child: InkWell(
-                                onTap: () => _launchUrlWithCheck(context, ref, subInfo.supportUrl!),
+                                onTap: () => _launchUrlWithCheck(context, ref, profile.supportUrl!),
                                 borderRadius: BorderRadius.circular(8),
                                 child: _InfoItem(
-                                  icon: _getLinkIcon(subInfo.supportUrl!, FontAwesomeIcons.headset.data),
+                                  icon: _getLinkIcon(profile.supportUrl!, FontAwesomeIcons.headset.data),
                                   label: t.components.subscriptionInfo.profileSupport,
-                                  value: _formatSupportLink(subInfo.supportUrl!),
+                                  value: _formatSupportLink(profile.supportUrl!),
                                 ),
                               ),
                             ),
@@ -194,13 +195,13 @@ class ProfileTileMain extends HookConsumerWidget {
     final host = uri.host.toLowerCase();
 
     if (host.endsWith('telegram.me') || host.endsWith('t.me')) {
-      return "@${uri.pathSegments.last}";
+      return uri.pathSegments.isEmpty ? uri.host : "@${uri.pathSegments.last}";
     }
     if (host.endsWith('instagram.com')) {
-      return "@${uri.pathSegments.first}";
+      return uri.pathSegments.isEmpty ? uri.host : "@${uri.pathSegments.first}";
     }
     if (host.endsWith('twitter.com')) {
-      return "@${uri.pathSegments.first}";
+      return uri.pathSegments.isEmpty ? uri.host : "@${uri.pathSegments.first}";
     }
     if (host.endsWith('facebook.com')) {
       return uri.pathSegments.lastWhere((e) => e.isNotEmpty, orElse: () => '');

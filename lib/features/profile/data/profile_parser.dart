@@ -79,7 +79,7 @@ class ProfileParser {
             ref: _ref,
           );
         }, (_, _) => const ProfileFailure.unexpected())
-        .flatMap((_) => TaskEither.fromEither(populateHeaders(content: content)))
+        .flatMap((_) => _readHeaders(tempFilePath, {}))
         .flatMap(
           (populatedHeaders) => TaskEither.fromEither(
             parse(
@@ -133,7 +133,7 @@ class ProfileParser {
         parse(
           tempFilePath: tempFilePath,
           profile: rp.copyWith(populatedHeaders: populatedHeaders),
-        ).flatMap((profEntity) => Either.tryCatch(() => profEntity.toUpdateEntry(), ProfileFailure.unexpected)),
+        ).flatMap((profEntity) => Either.tryCatch(() => profEntity.copyWith(lastUpdate: nextProfileUpdateTime(rp.lastUpdate, profEntity.lastUpdate)).toUpdateEntry(), ProfileFailure.unexpected)),
       ),
     ),
   );
@@ -141,13 +141,30 @@ class ProfileParser {
   Either<ProfileFailure, ProfileEntriesCompanion> offlineUpdate({
     required ProfileEntity profile,
     required String tempFilePath,
+    String? previousContent,
     String? content,
-  }) => profile
-      .map(
-        remote: (rp) => parse(profile: rp, tempFilePath: tempFilePath),
-        local: (lp) => parse(tempFilePath: tempFilePath, profile: lp, content: content),
-      )
-      .flatMap((profEntity) => Either.tryCatch(() => profEntity.toUpdateEntry(), ProfileFailure.unexpected));
+  }) => populateHeaders(content: content ?? "").flatMap((headers) {
+    // Preserve HTTP-only metadata; document headers explicitly replace old values.
+    final merged = {...?profile.populatedHeaders};
+    if (previousContent != null) {
+      populateHeaders(content: previousContent).match((_) {}, (oldHeaders) {
+        for (final key in oldHeaders.keys) {
+          merged.remove(key);
+        }
+      });
+    }
+    merged.addAll(headers);
+    return parse(
+      profile: profile.copyWith(populatedHeaders: merged),
+      tempFilePath: tempFilePath,
+      content: content,
+    ).flatMap(
+      (entity) => Either.tryCatch(
+        () => entity.copyWith(lastUpdate: nextProfileUpdateTime(profile.lastUpdate, entity.lastUpdate)).toUpdateEntry(),
+        ProfileFailure.unexpected,
+      ),
+    );
+  });
 
   TaskEither<ProfileFailure, Map<String, dynamic>> _downloadProfile(
     String url,
@@ -339,17 +356,13 @@ class ProfileParser {
       name = parseProfileTitle(titleHeader) ?? '';
     }
     if (headers['content-disposition'] case final String contentDispositionHeader when name.isEmpty) {
-      final regExp = RegExp('filename="([^"]*)"');
-      final match = regExp.firstMatch(contentDispositionHeader);
-      if (match != null && match.groupCount >= 1) {
-        name = match.group(1) ?? '';
-      }
+      name = parseContentDispositionFilename(contentDispositionHeader) ?? '';
     }
     if (profile case RemoteProfileEntity(:final url)) {
       if (Uri.parse(url).fragment case final fragment when name.isEmpty) {
         name = fragment;
       }
-      if (url.split("/").lastOrNull case final part? when name.isEmpty) {
+      if (Uri.parse(url).pathSegments.lastOrNull case final part? when name.isEmpty) {
         final pattern = RegExp(r"\.(json|yaml|yml|txt)[\s\S]*");
         name = part.replaceFirst(pattern, "");
       }
@@ -449,18 +462,20 @@ class ProfileParser {
   }) {
     final headers = Map<String, dynamic>.from(populatedHeaders ?? {});
 
-    if (headers['enable-warp'].toString() == 'true' || userOverride?.enableWarp == true) {
+    if (userOverride?.enableWarp ?? (headers['enable-warp'].toString() == 'true')) {
       headers['chain-status'] = 'extra_security';
       headers['extra-security'] = {'mode': 'warp'};
     }
 
-    if (headers['enable-psiphon'].toString() == 'true' || userOverride?.enablePsiphon == true) {
+    if (userOverride?.enablePsiphon ?? (headers['enable-psiphon'].toString() == 'true')) {
       headers['chain-status'] = 'extra_security';
       headers['extra-security'] = {'mode': 'psiphon'};
     }
 
-    if (headers['enable-fragment'].toString() == 'true' || userOverride?.enableFragment == true) {
+    if (userOverride?.enableFragment ?? (headers['enable-fragment'].toString() == 'true')) {
       headers['tls-tricks'] = {'enable-fragment': true};
+    } else if (userOverride?.enableFragment == false) {
+      headers['tls-tricks'] = {'enable-fragment': false};
     }
 
     headers.removeWhere(

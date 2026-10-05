@@ -10,6 +10,8 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Base64
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
@@ -30,7 +32,18 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
     PluginRegistry.ActivityResultListener {
     private var channel: MethodChannel? = null
     private var activity: Activity? = null
-    private lateinit var ignoreRequestResult: MethodChannel.Result
+    private var ignoreRequestResult: MethodChannel.Result? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    private fun MethodChannel.Result.safely(block: MethodChannel.Result.() -> Unit) {
+        try { block() } catch (exception: Exception) { error("platform_error", exception.message, null) }
+    }
+
+    private fun finishBatteryRequest(error: String) {
+        val pending = ignoreRequestResult ?: return
+        ignoreRequestResult = null
+        pending.error("activity_unavailable", error, null)
+    }
 
     companion object {
         const val channelName = "com.hiddify.app/platform"
@@ -59,6 +72,7 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel?.setMethodCallHandler(null)
+        mainHandler.post { finishBatteryRequest("Plugin detached") }
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
@@ -77,11 +91,17 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
 
     override fun onDetachedFromActivity() {
         activity = null
+        finishBatteryRequest("Activity detached")
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?): Boolean {
         if (requestCode == REQUEST_IGNORE_BATTERY_OPTIMIZATIONS) {
-            ignoreRequestResult.success(resultCode == Activity.RESULT_OK)
+            val pending = ignoreRequestResult ?: return false
+            ignoreRequestResult = null
+            pending.safely {
+                success(Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
+                    Application.powerManager.isIgnoringBatteryOptimizations(Application.application.packageName))
+            }
             return true
         }
         return false
@@ -97,7 +117,7 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             Trigger.IsIgnoringBatteryOptimizations.method -> {
-                result.runCatching {
+                result.safely {
                     success(
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                             Application.powerManager.isIgnoringBatteryOptimizations(Application.application.packageName)
@@ -112,17 +132,31 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
                 if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
                     return result.success(true)
                 }
-                val intent = Intent(
-                    android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                    Uri.parse("package:${Application.application.packageName}")
-                )
-                ignoreRequestResult = result
-                activity?.startActivityForResult(intent, REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                mainHandler.post {
+                    val currentActivity = activity
+                    if (currentActivity == null) {
+                        result.error("activity_unavailable", "Activity is required", null)
+                    } else if (ignoreRequestResult != null) {
+                        result.error("request_pending", "Battery optimization request already pending", null)
+                    } else {
+                        ignoreRequestResult = result
+                        try {
+                            val intent = Intent(
+                                android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                                Uri.parse("package:${Application.application.packageName}")
+                            )
+                            currentActivity.startActivityForResult(intent, REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                        } catch (error: Exception) {
+                            ignoreRequestResult = null
+                            result.error("platform_error", error.message, null)
+                        }
+                    }
+                }
             }
 
             Trigger.GetInstalledPackages.method -> {
                 GlobalScope.launch {
-                    result.runCatching {
+                    result.safely {
                         val flag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
                             PackageManager.GET_PERMISSIONS or PackageManager.MATCH_UNINSTALLED_PACKAGES
                         } else {
@@ -162,14 +196,14 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
             }
 
             Trigger.GetPackagesIcon.method -> {
-                result.runCatching {
+                result.safely {
                     val args = call.arguments as Map<*, *>
                     val packageName =
                         args["packageName"] as String
                     val drawable = packageManager.getApplicationIcon(packageName)
                     val bitmap = Bitmap.createBitmap(
-                        drawable.intrinsicWidth,
-                        drawable.intrinsicHeight,
+                        drawable.intrinsicWidth.coerceAtLeast(1),
+                        drawable.intrinsicHeight.coerceAtLeast(1),
                         Bitmap.Config.ARGB_8888
                     )
                     val canvas = Canvas(bitmap)

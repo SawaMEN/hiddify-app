@@ -4,7 +4,7 @@ import 'package:hiddify/features/app_update/model/remote_version_entity.dart';
 import 'package:version/version.dart';
 
 abstract class ReleaseSelector {
-  static RemoteVersionEntity? latest(List<dynamic> raw, String platform, {bool includePreReleases = false}) {
+  static RemoteVersionEntity? latest(List<dynamic> raw, String platform, {bool includePreReleases = false, Environment flavor = Environment.prod}) {
     final candidates = <RemoteVersionEntity>[];
     for (final release in raw) {
       if (release is! Map<String, dynamic> ||
@@ -14,7 +14,7 @@ abstract class ReleaseSelector {
       try {
         final parsed = GithubReleaseParser.parse(release);
         Version.parse(parsed.version);
-        if (!includePreReleases && parsed.flavor != Environment.prod) continue;
+        if (parsed.flavor != flavor) continue;
         final assets = release['assets'];
         if (assets is! List || !assets.any((a) => a is Map && compatibleAsset(a, platform))) continue;
         final url = Uri.tryParse(parsed.url);

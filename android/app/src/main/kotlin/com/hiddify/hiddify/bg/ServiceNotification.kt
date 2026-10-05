@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
+import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
@@ -152,9 +153,10 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
         receiverRegistered = true
     }
 
-    fun updateStatus(previous:SystemInfo,status: SystemInfo) {
-        val uplink=status.uplink_total - previous.uplink_total
-        val downlink=status.downlink_total - previous.downlink_total
+    fun updateStatus(previous:SystemInfo,status: SystemInfo, elapsedMillis: Long) {
+        val seconds = elapsedMillis.coerceAtLeast(1).toDouble() / 1000
+        val uplink = ((status.uplink_total - previous.uplink_total).coerceAtLeast(0) / seconds).toLong()
+        val downlink = ((status.downlink_total - previous.downlink_total).coerceAtLeast(0) / seconds).toLong()
         val content = "${Libbox.formatBytes(uplink)}/s ↑\t${Libbox.formatBytes(downlink)}/s ↓ \n${status.current_outbound}"
         val title = "${status.current_profile}"
         Application.notificationManager.notify(
@@ -202,24 +204,32 @@ class ServiceNotification(private val status: MutableLiveData<Status>, private v
 
             val coreClient = GrpcClientProvider.grpcClient.create(CoreClient::class)
 
-            try {
-                var previous = coreClient.GetSystemInfo().execute(Empty())
-
-                while (isActive) {
-                    delay(1_000) // ✅ coroutine-friendly
+            var previous: SystemInfo? = null
+            var previousTime = 0L
+            var failures = 0
+            while (isActive && !closed && generation == pollingGeneration) {
+                try {
                     val current = coreClient.GetSystemInfo().execute(Empty())
-                    withContext(Dispatchers.Main) {
-                        if (!closed && generation == pollingGeneration) updateStatus(previous, current)
+                    val now = SystemClock.elapsedRealtime()
+                    val baseline = previous
+                    if (baseline != null) {
+                        val elapsed = now - previousTime
+                        withContext(Dispatchers.Main) {
+                            if (!closed && generation == pollingGeneration) updateStatus(baseline, current, elapsed)
+                        }
                     }
                     previous = current
+                    previousTime = now
+                    failures = 0
+                    delay(1_000)
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    Log.w("notification", "SystemInfo polling failed; retrying", error)
+                    previous = null
+                    failures = (failures + 1).coerceAtMost(5)
+                    delay(1_000L * failures)
                 }
-            } catch (e: CancellationException) {
-                // coroutine cancelled normally
-                Log.d("notification", "SystemInfo polling cancelled")
-
-            } catch (e: Exception) {
-                Log.e("notification", "SystemInfo polling failed", e)
-
             }
         }
     }

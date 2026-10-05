@@ -6,13 +6,14 @@ git submodule update --init hiddify-core
 git -C hiddify-core config submodule.ray2sing.url https://github.com/hiddify/ray2sing.git
 git -C hiddify-core submodule update --init --recursive
 
-ndk="${ANDROID_NDK_HOME:-${ANDROID_HOME:?Android SDK is required}/ndk/30.0.16248370}"
+ndk="${HIDDIFY_ANDROID_NDK:-${ANDROID_HOME:?Android SDK is required}/ndk/30.0.16248370}"
 for attempt in $(seq 1 120); do
   if [ -f "$ndk/source.properties" ]; then break; fi
   if [ "$attempt" -eq 120 ]; then echo "Android NDK not available: $ndk" >&2; exit 1; fi
   sleep 1
 done
 export ANDROID_NDK_HOME="$ndk"
+export ANDROID_NDK_ROOT="$ndk"
 export GOTOOLCHAIN=auto
 export PATH="$(go env GOPATH)/bin:$PATH"
 

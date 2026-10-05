@@ -20,7 +20,7 @@ class StatsNotifier extends _$StatsNotifier with AppLogger {
           .watch(statsRepositoryProvider)
           .watchStats()
           .throttleTime(const Duration(seconds: 1), leading: true, trailing: true)
-          .map((event) => event.getOrElse((_) => SystemInfo.create()));
+          .map((event) => event.getOrElse((failure) => throw failure));
     } else {
       return Stream.value(SystemInfo.create());
     }

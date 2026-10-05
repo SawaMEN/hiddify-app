@@ -1,5 +1,6 @@
 {
   "common": {
+    "invalidInput": "Некорректное значение",
     "appTitle": "Hiddify",
     "start": "Начать",
     "version": "Версия",
@@ -741,7 +742,7 @@
     "runDiagnostics": "Запустить проверки",
     "network": "Сеть",
     "dns": "DNS",
-    "server": "Транспорт сервера",
+    "server": "Доступность сервера по TCP",
     "tunnel": "Интернет через VPN",
     "passed": "Успешно",
     "failed": "Ошибка",
@@ -786,7 +787,7 @@
     "cancel": "Отмена",
     "confirmImport": "Импортировать",
     "searchServers": "Поиск серверов",
-    "transportSkipped": "Прямая проверка TCP не подтверждает UDP или цепочку соединений.",
+    "transportSkipped": "Проверка TCP не подтверждает UDP или цепочку соединений.",
     "noEndpoint": "Адрес сервера недоступен в этом формате профиля.",
     "reportTitle": "Отчёт о соединении",
     "details": "Подробности",

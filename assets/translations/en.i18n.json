@@ -1,5 +1,6 @@
 {
   "common": {
+    "invalidInput": "Invalid value",
     "appTitle": "Hiddify",
     "start": "Start",
     "version": "Version",
@@ -737,7 +738,7 @@
     "runDiagnostics": "Run checks",
     "network": "Network",
     "dns": "DNS",
-    "server": "Server transport",
+    "server": "Server TCP reachability",
     "tunnel": "Internet through VPN",
     "passed": "Passed",
     "failed": "Failed",
@@ -782,7 +783,7 @@
     "cancel": "Cancel",
     "confirmImport": "Import",
     "searchServers": "Search servers",
-    "transportSkipped": "Direct TCP reachability cannot validate UDP or a chained connection.",
+    "transportSkipped": "TCP reachability cannot validate UDP or a chained connection.",
     "noEndpoint": "Server endpoint is unavailable in this profile format.",
     "reportTitle": "Connection report",
     "details": "Details",

@@ -113,7 +113,12 @@ class AppProxyDao extends DatabaseAccessor<Db> with _$AppProxyDaoMixin, InfraLog
   }
 
   @override
-  Future<void> importPkgs({required PerAppProxyBackup backup}) {
+  Future<void> importPkgs({required PerAppProxyBackup backup}) async {
+    for (final mode in [backup.include, backup.exclude]) {
+      if (mode.selected.toSet().intersection(mode.deselected.toSet()).isNotEmpty) {
+        throw const FormatException('Conflicting application selection in backup');
+      }
+    }
     return transaction(() async {
       await (delete(appProxyEntries)..where((tbl) => tbl.flags.equals(0))).go();
 
@@ -123,8 +128,8 @@ class AppProxyDao extends DatabaseAccessor<Db> with _$AppProxyDaoMixin, InfraLog
             appProxyEntries,
             AppProxyEntriesCompanion.custom(
               flags: appProxyEntries.flags
-                ..bitwiseAnd(Constant(~PkgFlag.userSelection.value))
-                ..bitwiseAnd(Constant(~PkgFlag.forceDeselection.value)),
+                  .bitwiseAnd(Constant(~PkgFlag.userSelection.value))
+                  .bitwiseAnd(Constant(~PkgFlag.forceDeselection.value)),
             ),
           )
           ..deleteWhere(appProxyEntries, (tbl) => tbl.flags.equals(0))

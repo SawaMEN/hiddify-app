@@ -25,11 +25,12 @@ class LanSharingPreferenceWidget extends HookConsumerWidget {
       }
       final port = ref.read(ConfigOptions.mixedPort);
       final password = ref.read(ConfigOptions.lanSharingPassword);
-      if (password.isEmpty) {
-        return 'socks://$ip:$port';
-      } else {
-        return 'socks://hiddify:$password@$ip:$port';
-      }
+      return Uri(
+        scheme: 'socks',
+        host: ip,
+        port: port,
+        userInfo: password.isEmpty ? '' : 'hiddify:${Uri.encodeComponent(password)}',
+      ).toString();
     }
 
     return ListTile(
@@ -43,7 +44,7 @@ class LanSharingPreferenceWidget extends HookConsumerWidget {
                 ? t.pages.settings.inbound.lanSharingPasswordNotSet
                 : ref.watch(ConfigOptions.lanSharingPassword),
           ),
-          if (ref.watch(ConfigOptions.allowConnectionFromLan)) ...[
+          if (ref.watch(ConfigOptions.allowConnectionFromLan) && ref.watch(ConfigOptions.enableMixedPort)) ...[
             const Gap(12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,

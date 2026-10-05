@@ -3,7 +3,7 @@ import 'package:fpdart/fpdart.dart';
 import 'package:hiddify/core/db/db.dart';
 import 'package:hiddify/features/profile/model/profile_sort_enum.dart';
 import 'package:hiddify/utils/utils.dart';
-import 'package:loggy/loggy.dart';
+import 'package:hiddify/features/profile/model/profile_failure.dart';
 
 part 'profile_data_source.g.dart';
 
@@ -67,7 +67,7 @@ class ProfileDao extends DatabaseAccessor<Db> with _$ProfileDaoMixin, InfraLogge
           (tbl) => OrderingTerm(expression: tbl.active, mode: OrderingMode.desc),
           (tbl) {
             final trafficRatio = (tbl.download + tbl.upload) / tbl.total;
-            final isExpired = tbl.expire.isSmallerOrEqualValue(DateTime.now());
+            final isExpired = tbl.expire.isSmallerOrEqual(currentDateAndTime);
             return OrderingTerm(
               expression:
                   (trafficRatio.isNull() | trafficRatio.isSmallerThanValue(1)) &
@@ -102,8 +102,7 @@ class ProfileDao extends DatabaseAccessor<Db> with _$ProfileDaoMixin, InfraLogge
     await transaction(() async {
       final profile = await (profileEntries.select()..where((tbl) => tbl.id.equals(id))).getSingleOrNull();
       if (profile == null) {
-        loggy.log(LogLevel.info, 'profile with id : [$id] deleted');
-        return;
+        throw const ProfileFailure.notFound();
       }
       if (entry.active.present && entry.active.value) {
         await update(profileEntries).write(const ProfileEntriesCompanion(active: Value(false)));
@@ -115,11 +114,14 @@ class ProfileDao extends DatabaseAccessor<Db> with _$ProfileDaoMixin, InfraLogge
   @override
   Future<void> deleteById(String id, bool isActive) async {
     await transaction(() async {
+      final current = await getById(id);
+      if (current == null) throw const ProfileFailure.notFound();
       await (delete(profileEntries)..where((tbl) => tbl.id.equals(id))).go();
 
-      if (isActive) {
+      if (current.active) {
         final profiles = await (profileEntries.select()..where((tbl) => tbl.id.equals(id).not())).get();
         if (profiles.isEmpty) return;
+        await update(profileEntries).write(const ProfileEntriesCompanion(active: Value(false)));
         final prof = profiles.first;
         await (update(
           profileEntries,

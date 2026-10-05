@@ -159,9 +159,8 @@ class LogsPage extends HookConsumerWidget with PresLogger {
                                     children: [
                                       Text(
                                         log.level!.name.toUpperCase(),
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.labelMedium?.copyWith(color: log.level!.color),
+                                        style: Theme.of(context).textTheme.labelMedium
+                                            ?.copyWith(color: log.level!.color),
                                       ),
                                       if (log.time != null)
                                         Text(log.time!.toString(), style: Theme.of(context).textTheme.labelSmall),
@@ -189,7 +188,4 @@ class LogsPage extends HookConsumerWidget with PresLogger {
   }
 }
 
-String extractMessage(String message) {
-  final parts = message.split(' ');
-  return parts.length <= 2 ? parts.last : parts.sublist(2).join(' ');
-}
+String extractMessage(String message) => message;

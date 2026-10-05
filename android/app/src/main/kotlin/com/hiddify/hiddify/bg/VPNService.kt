@@ -44,8 +44,7 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
     }
 
     override fun autoDetectInterfaceControl(fd: Int) {
-        runCatching { protect(fd) }
-            .onFailure { Log.w(TAG, "failed to protect socket $fd", it) }
+        check(protect(fd)) { "Failed to protect socket $fd from VPN routing" }
     }
 
     var systemProxyAvailable = false

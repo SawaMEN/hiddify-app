@@ -76,7 +76,7 @@ class ConnectionHealthNotifier extends Notifier<InternetHealth> {
       final response = await ref
           .read(httpClientProvider)
           .get<dynamic>(ref.read(ConfigOptions.connectionTestUrl), cancelToken: token, proxyOnly: true);
-      healthy = response.statusCode == 204 || response.statusCode == 200;
+      healthy = validProbeStatus(ref.read(ConfigOptions.connectionTestUrl), response.statusCode);
     } catch (_) {
     } finally {
       deadline.cancel();
@@ -90,4 +90,11 @@ class ConnectionHealthNotifier extends Notifier<InternetHealth> {
     }
     _timer = Timer(const Duration(seconds: 30), () => unawaited(check()));
   }
+}
+
+/// A captive portal HTML page must not satisfy a generate_204 endpoint.
+bool validProbeStatus(String url, int? status) {
+  final path = Uri.tryParse(url)?.path ?? '';
+  final expectsNoContent = path.contains('generate_204') || path.contains('generate204');
+  return status == 204 || status == 200 && !expectsNoContent;
 }

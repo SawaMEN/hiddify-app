@@ -15,12 +15,16 @@ class OptionalRange with OptionalRangeMappable {
   String format() => [min, max].whereNotNull().join("-");
   String present(TranslationsEn t) => format().isEmpty ? t.common.notSet : format();
 
-  factory OptionalRange.parse(String input, {bool allowEmpty = false}) => switch (input.split("-")) {
-    [final String val] when val.isEmpty && allowEmpty => const OptionalRange(),
-    [final String min] => OptionalRange(min: int.parse(min)),
-    [final String min, final String max] => OptionalRange(min: int.parse(min), max: int.parse(max)),
-    _ => throw Exception("Invalid range: $input"),
-  };
+  factory OptionalRange.parse(String input, {bool allowEmpty = false}) {
+    final value = input.trim();
+    if (value.isEmpty && allowEmpty) return const OptionalRange();
+    if (!RegExp(r'^\d+(?:-\d+)?$').hasMatch(value)) throw FormatException('Invalid range', input);
+    final parts = value.split('-');
+    final min = int.parse(parts.first);
+    final max = parts.length == 2 ? int.parse(parts.last) : null;
+    if (max != null && min > max) throw FormatException('Reversed range', input);
+    return OptionalRange(min: min, max: max);
+  }
 
   static OptionalRange? tryParse(String input, {bool allowEmpty = false}) {
     try {

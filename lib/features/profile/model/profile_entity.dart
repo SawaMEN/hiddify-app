@@ -5,6 +5,7 @@ import 'package:dartx/dartx.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hiddify/core/utils/profile_metadata.dart';
 import 'package:hiddify/features/profile/data/profile_parser.dart';
+import 'package:hiddify/utils/validators.dart';
 
 part 'profile_entity.freezed.dart';
 part 'profile_entity.g.dart';
@@ -35,6 +36,17 @@ sealed class ProfileEntity with _$ProfileEntity {
     Map<String, dynamic>? populatedHeaders,
     UserOverride? userOverride,
   }) = LocalProfileEntity;
+
+  String? get webPageUrl => _metadataLink('profile-web-page-url');
+  String? get supportUrl => _metadataLink('support-url');
+  String? _metadataLink(String key) {
+    final value = populatedHeaders?[key];
+    if (value is String && isUrl(value)) return value;
+    if (this case RemoteProfileEntity(:final subInfo?)) {
+      return key == 'support-url' ? subInfo.supportUrl : subInfo.webPageUrl;
+    }
+    return null;
+  }
 
   String profileOverride() =>
       ProfileParser.profileOverride(populatedHeaders: populatedHeaders, userOverride: userOverride);

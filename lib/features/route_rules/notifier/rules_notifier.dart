@@ -11,6 +11,8 @@ import 'package:hiddify/core/router/dialog/dialog_notifier.dart';
 import 'package:hiddify/hiddifycore/generated/v2/config/route_rule.pb.dart';
 import 'package:hiddify/utils/utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:hiddify/core/utils/keyed_operations.dart';
+import 'package:uuid/uuid.dart';
 
 part 'rules_notifier.g.dart';
 
@@ -23,51 +25,58 @@ class RulesNotifier extends _$RulesNotifier with AppLogger {
     final directories = ref.watch(appDirectoriesProvider).requireValue;
     file = File('${directories.baseDir.path}/route_rule.proto');
     if (file.existsSync()) {
-      return RouteRule.fromBuffer(file.readAsBytesSync()).rules;
+      try {
+        return _updateListOrder(RouteRule.fromBuffer(file.readAsBytesSync()).rules.toList());
+      } catch (error, stack) {
+        // Preserve the corrupt original; saving subsequent edits writes a new file.
+        file.copySync('${file.path}.corrupt-${DateTime.now().microsecondsSinceEpoch}');
+        loggy.error('Unable to read route rules, preserved recovery copy', error, stack);
+        return <Rule>[];
+      }
     } else {
       return <Rule>[];
     }
   }
 
-  Future<void> addRule(Rule rule) async {
-    final current = state;
-    assert(rule.hasName() && rule.hasOutbound());
-    rule
-      ..listOrder = current.length
-      ..enabled = true;
-    state = [...current, rule];
-    await _updateFile();
-  }
+  final _operations = KeyedOperations();
 
-  Future<void> updateRule(Rule rule) async {
-    final current = state;
+  Future<void> _mutate(void Function(List<Rule>) change) => _operations.run('rules', () async {
+    final next = state.map((rule) => rule.deepCopy()).toList();
+    change(next);
+    await _persist(_updateListOrder(next));
+  });
+
+  Future<void> replaceRules(List<Rule> rules) => _operations.run('rules', () async {
+    await _persist(_updateListOrder(rules.map((rule) => rule.deepCopy()).toList()));
+  });
+
+  Future<void> addRule(Rule rule) => _mutate((current) {
+    if (!rule.hasName() || !rule.hasOutbound()) throw const FormatException('Incomplete rule');
+    current.add(rule.deepCopy()..enabled = true);
+  });
+
+  Future<void> updateRule(Rule rule, {Rule? expected}) => _mutate((current) {
     final index = current.indexWhere((element) => element.listOrder == rule.listOrder);
-    if (index == -1) return;
-    current[index] = rule;
-    state = current.toList();
-    await _updateFile();
-  }
+    if (index == -1 || expected != null && current[index] != expected) {
+      throw StateError('Rule changed or was deleted; reopen the editor');
+    }
+    current[index] = rule.deepCopy();
+  });
 
-  Future<void> deleteRule(int listOrder) async {
-    final current = state;
-    state = _updateListOrder(current.where((element) => element.listOrder != listOrder).toList());
-    await _updateFile();
-  }
+  Future<void> deleteRule(int listOrder) => _mutate((current) {
+    current.removeWhere((rule) => rule.listOrder == listOrder);
+  });
 
-  Future<void> reorder(int oldIndex, int newIndex) async {
-    final current = state;
+  Future<void> reorder(int oldIndex, int newIndex) => _mutate((current) {
     final rule = current.removeAt(oldIndex);
     current.insert(oldIndex < newIndex ? newIndex - 1 : newIndex, rule);
-    state = _updateListOrder(current).toList();
-    await _updateFile();
-  }
+  });
 
-  Future<void> updateEnabled(bool enabled, int listOrder) async {
-    final current = state;
-    current.firstWhere((rule) => rule.listOrder == listOrder).enabled = enabled;
-    state = current.toList();
-    await _updateFile();
-  }
+  Future<void> updateEnabled(bool enabled, int listOrder) => _mutate((current) {
+    final index = current.indexWhere((rule) => rule.listOrder == listOrder);
+    if (index == -1) throw StateError('Rule was deleted');
+    current[index].enabled = enabled;
+  });
 
   Future<bool> exportJsonToClipboard() async {
     final t = ref.read(translationsProvider).requireValue;
@@ -128,8 +137,7 @@ class RulesNotifier extends _$RulesNotifier with AppLogger {
     final t = ref.read(translationsProvider).requireValue;
     final base64Content = base64.decode(encodedBase64);
     final routeRules = RouteRule.fromJson(jsonDecode(utf8.decode(base64Content)) as String);
-    state = routeRules.rules;
-    await _updateFile();
+    await replaceRules(routeRules.rules);
     ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.import.success);
     return true;
   }
@@ -161,8 +169,7 @@ class RulesNotifier extends _$RulesNotifier with AppLogger {
       if (selectedFile == null) return false;
       final bytes = await selectedFile.readAsBytes();
       final routeRules = RouteRule.fromJson(utf8.decode(bytes));
-      state = routeRules.rules;
-      await _updateFile();
+      await replaceRules(routeRules.rules);
       ref.read(inAppNotificationControllerProvider).showSuccessToast(t.common.msg.import.success);
       return true;
     } catch (e, st) {
@@ -172,20 +179,18 @@ class RulesNotifier extends _$RulesNotifier with AppLogger {
     }
   }
 
-  Future<void> resetRules() async {
-    if (await file.exists()) {
-      await file.delete(recursive: true);
-      state = <Rule>[];
-    }
-  }
+  Future<void> resetRules() => replaceRules([]);
 
-  Future<void> _updateFile() async {
-    if (!await file.exists()) {
-      await file.parent.create(recursive: true);
+  Future<void> _persist(List<Rule> rules) async {
+    await file.parent.create(recursive: true);
+    final temp = File('${file.path}.${const Uuid().v4()}.tmp');
+    try {
+      await temp.writeAsBytes(RouteRule(rules: rules).writeToBuffer(), flush: true);
+      await temp.rename(file.path);
+      if (ref.mounted) state = rules;
+    } finally {
+      if (await temp.exists()) await temp.delete();
     }
-    final sortedRules = state..sort((a, b) => a.listOrder.compareTo(b.listOrder));
-    final routeRules = RouteRule(rules: sortedRules);
-    await file.writeAsBytes(routeRules.writeToBuffer());
   }
 
   List<Rule> _updateListOrder(List<Rule> rules) {

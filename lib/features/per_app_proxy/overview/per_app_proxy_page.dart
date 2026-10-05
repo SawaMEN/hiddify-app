@@ -64,6 +64,10 @@ class PerAppProxyPage extends HookConsumerWidget with PresLogger {
 
     final displayedApps = useMemoized<AsyncValue<List<AppPackageInfo>>>(
       () {
+        if (selectedApps.hasError)
+          return AsyncValue.error(selectedApps.error!, selectedApps.stackTrace ?? StackTrace.current);
+        if (asyncFilteredApps.hasError)
+          return AsyncValue.error(asyncFilteredApps.error!, asyncFilteredApps.stackTrace ?? StackTrace.current);
         if (!(selectedApps.hasValue &&
             selectedApps is AsyncData &&
             asyncFilteredApps.hasData &&
@@ -87,7 +91,8 @@ class PerAppProxyPage extends HookConsumerWidget with PresLogger {
       [
         asyncFilteredApps.connectionState == ConnectionState.done,
         hideSystemApps.value,
-        selectedApps.hasValue,
+        selectedApps,
+        asyncFilteredApps,
         searchQuery.value,
         sortListener.value,
       ],
@@ -246,6 +251,7 @@ class PerAppProxyPage extends HookConsumerWidget with PresLogger {
                         tooltip: (mode?.toPerAppProxy() ?? PerAppProxyMode.off).present(t).message,
                         initialValue: mode?.toPerAppProxy() ?? PerAppProxyMode.off,
                         onSelected: (e) async {
+                          if (e == (mode?.toPerAppProxy() ?? PerAppProxyMode.off)) return;
                           if (ref.read(Preferences.autoAppsSelectionRegion) != null) {
                             await ref.read(provider.notifier).clearAutoSelected();
                           }

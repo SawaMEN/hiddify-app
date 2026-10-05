@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:gap/gap.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hiddify/core/localization/translations.dart';
+import 'package:hiddify/core/notification/in_app_notification_controller.dart';
 import 'package:hiddify/features/route_rules/notifier/rule_notifier.dart';
 import 'package:hiddify/features/route_rules/widget/setting_checkbox.dart';
 import 'package:hiddify/features/route_rules/widget/setting_divider.dart';
@@ -32,8 +33,13 @@ class RulePage extends HookConsumerWidget {
           IconButton(
             onPressed: isRuleEdited
                 ? () async {
-                    await ref.read(ruleNotifierProvider(ruleListOrder).notifier).save();
-                    if (context.mounted) context.pop();
+                    try {
+                      await ref.read(ruleNotifierProvider(ruleListOrder).notifier).save();
+                      if (context.mounted) context.pop();
+                    } catch (error) {
+                      if (context.mounted)
+                        ref.read(inAppNotificationControllerProvider).showErrorToast(error.toString());
+                    }
                   }
                 : null,
             icon: const Icon(Icons.check),

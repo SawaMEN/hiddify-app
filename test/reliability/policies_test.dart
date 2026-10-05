@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:hiddify/features/connection/health/connection_health.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hiddify/core/privacy/redactor.dart';
@@ -11,6 +12,12 @@ import 'package:hiddify/hiddifycore/generated/v2/config/route_rule.pb.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 void main() {
+  test('A captive portal 200 cannot satisfy a 204 probe', () {
+    expect(validProbeStatus('https://cp.cloudflare.com/generate_204', 200), false);
+    expect(validProbeStatus('https://cp.cloudflare.com/generate_204', 204), true);
+    expect(validProbeStatus('https://example.org/check', 200), true);
+    expect(validProbeStatus('https://example.org/check', 500), false);
+  });
   test('Recovery is bounded and resets only explicitly', () {
     final p = RecoveryPolicy();
     expect(List.generate(5, (_) => p.nextDelay()!.inSeconds), [2, 4, 8, 16, 30]);

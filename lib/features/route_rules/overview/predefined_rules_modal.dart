@@ -48,9 +48,8 @@ class PredefinedRulesModal extends HookConsumerWidget {
                       ),
                       subtitle: Text(
                         description,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.bodyMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        style: Theme.of(context).textTheme.bodyMedium!
+                            .copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                     );
                   },
@@ -70,7 +69,7 @@ class PredefinedRulesModal extends HookConsumerWidget {
       Rule.new(
         enabled: true,
         name: t.pages.settings.routing.predefinedRules.ads.name,
-        outbound: Outbound.direct,
+        outbound: Outbound.block,
         ruleSets: ["geosite-category-ads-all"],
       ),
     ),

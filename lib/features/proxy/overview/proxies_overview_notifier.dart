@@ -210,8 +210,7 @@ class ProxiesOverviewNotifier extends _$ProxiesOverviewNotifier with AppLogger {
     if (!ref.mounted) return;
     loggy.debug("changing proxy, group: [$groupTag] - outbound: [$outboundTag]");
     if (!state.hasValue) return;
-    final outbounds = state.value?.deepCopy();
-    if (outbounds == null) return;
+    if (state.value == null) return;
     await ref.read(hapticServiceProvider.notifier).lightImpact();
     if (!ref.mounted) return;
     await serializedProxySelection(
@@ -221,6 +220,8 @@ class ProxiesOverviewNotifier extends _$ProxiesOverviewNotifier with AppLogger {
       }).run(),
     );
     if (!ref.mounted) return;
+    final outbounds = state.value?.deepCopy();
+    if (outbounds == null || outbounds.tag != groupTag) return;
     for (final item in outbounds.items) {
       item.isSelected = item.tag == outboundTag;
     }

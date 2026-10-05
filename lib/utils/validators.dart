@@ -1,91 +1,71 @@
-/// https://gist.github.com/dperini/729294
-final _urlRegex = RegExp(
-  // r"^(?:(?:(?:https?|ftp):)?\/\/)(?:\S+(?::\S*)?@)?(?:(?!(?:10|127)(?:\.\d{1,3}){3})(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z0-9\u00a1-\uffff][a-z0-9\u00a1-\uffff_-]{0,62})?[a-z0-9\u00a1-\uffff]\.)+(?:[a-z\u00a1-\uffff]{2,}\.?))(?::\d{2,5})?(?:[/?#]\S*)?$",
-  r'^(?:(?:https?|ftp):\/\/)(?:\S+(?::\S*)?@)?(?:(?:[0-9]{1,3}\.){3}[0-9]{1,3}|(?:(?:[a-z\u00a1-\uffff0-9]+-?)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]+-?)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,})))(?::\d{2,5})?(?:\/[^\s]*)?#?.*$',
-);
+import 'dart:io';
 
-/// https://stackoverflow.com/a/12968117
-final _portRegex = RegExp(r"^([1-9][0-9]{0,3}|[1-5][0-9]{4}|6[0-4][0-9]{3}|65[0-4][0-9]{2}|655[0-2][0-9]|6553[0-5])$");
-
-// android package-name
-// RegExp(r'^([A-Za-z]{1}[A-Za-z\d_]*\.)+[A-Za-z][A-Za-z\d_]*$');
-// windows prcess name
-// RegExp(r"^(?!\s)[a-zA-Z\d\s\-\]\^!@#$%&()[+_=~'`.,;]+(?<![\s.]|CON|PRN|AUX|NUL|COM[\d]|COM[¹²³]|LPT[\d]|LPT[¹²³])\.(exe|bat|cmd|com)$", caseSensitive: false);
-// linux process name
-// RegExp(r'''^(?!\s)[a-zA-Z\d\s\-\]\^\\!?@#$%&*()[<>+_=|~'`".,:;]+(?<!\s)$''');
-// mac process name
-// RegExp(r'''^(?!\s)[a-zA-Z\d\s\-\]\^\\!?@#$%&*()[<>+_=|~'`".,;]+(?<!\s)$''');
-// domain
-// RegExp(r'^((?=[a-z0-9-]{1,63}\.)(xn--)?[a-z0-9]+(-[a-z0-9]+)*\.)+([a-z]{2,63}|xn--[a-z0-9-]{1,63})$');
-
-final _processNameWindowsRegex = RegExp(r'^[^<>:"\\/|?*]+(?<![\s.])\.(exe|bat|cmd|com)$', caseSensitive: false);
-
-final _processNameLinuxRegex = RegExp(r'^[^\\]+$');
-
-final _processNameMacOSRegex = RegExp(r'^[^\\:]+$');
-
-final _processPathWindowsRegex = RegExp(
-  r'^[a-zA-Z]:\\([^<>:"\\/|?*]*(?<!\\)\\)*[^<>:"\\/|?*]+(?<![\s.])\.(exe|bat|cmd|com)$',
+final _dnsLabel = RegExp(
+  r'^[a-z\d\u00a1-\uffff](?:[a-z\d\u00a1-\uffff-]*[a-z\d\u00a1-\uffff])?$',
   caseSensitive: false,
 );
+final _digits = RegExp(r'^\d+$');
+final _spaceOrControl = RegExp(r'[\s\x00-\x1f\x7f]');
 
-final _processPathLinuxRegex = RegExp(r'^/([^/]*(?<!/)/)*[^/]+$');
+bool _isHostname(String value) {
+  final host = value.endsWith('.') ? value.substring(0, value.length - 1) : value;
+  if (host.isEmpty || host.length > 253) return false;
+  return host.split('.').every((label) => label.length <= 63 && _dnsLabel.hasMatch(label));
+}
 
-final _processPathMacOSRegex = RegExp(r'^/([^/:]*(?<!/)/)*[^/:]+$');
-
-final _portOrPortRangeRegex = RegExp(
-  r'^(65000|6[0-4]\d{3}|[1-5]\d{4}|[1-9]\d{0,3})(:(65000|6[0-4]\d{3}|[1-5]\d{4}|[1-9]\d{0,3}))?$',
-);
-
-final _ipCidrRegex = RegExp(
-  r'^(25[0-5]|2[0-4]\d|1\d{2}|\d{1,2})\.(25[0-5]|2[0-4]\d|1\d{2}|\d{1,2})\.(25[0-5]|2[0-4]\d|1\d{2}|\d{1,2}).(25[0-5]|2[0-4]\d|1\d{2}|\d{1,2})(/(3[0-2]|[1-2]\d|\d))?$',
-);
-
-final _domainRegex = RegExp(r'^([a-zA-Z\d\-]+\.)+[a-zA-Z\d\-]{2,}$', caseSensitive: false);
-
-final _domainSuffix = RegExp(r'^\.[a-zA-Z\d\-]{2,}$', caseSensitive: false);
-
-/// https://stackoverflow.com/questions/3809401/what-is-a-good-regular-expression-to-match-a-url/3809435#3809435
 bool isUrl(String input) {
-  return _urlRegex.hasMatch(input.trim().toLowerCase());
+  final value = input.trim();
+  if (value.isEmpty || _spaceOrControl.hasMatch(value)) return false;
+  try {
+    final uri = Uri.parse(value);
+    if (!{'http', 'https', 'ftp'}.contains(uri.scheme.toLowerCase()) || !uri.hasAuthority || uri.host.isEmpty) {
+      return false;
+    }
+    final host = uri.host.replaceAll('[', '').replaceAll(']', '');
+    final address = InternetAddress.tryParse(host);
+    if (address == null && (RegExp(r'^[\d.]+$').hasMatch(host) || !_isHostname(host))) return false;
+    if (uri.hasPort && !isPort(uri.port.toString())) return false;
+    return true;
+  } on FormatException {
+    return false;
+  }
 }
 
 bool isPort(String input) {
-  return _portRegex.hasMatch(input);
+  if (!_digits.hasMatch(input)) return false;
+  final value = int.tryParse(input);
+  return value != null && value >= 1 && value <= 65535;
 }
 
-bool isProcessName(String input) {
-  if (_processNameWindowsRegex.hasMatch(input) ||
-      _processNameLinuxRegex.hasMatch(input) ||
-      _processNameMacOSRegex.hasMatch(input)) {
-    return true;
-  } else {
-    return false;
-  }
-}
+bool isProcessName(String input) =>
+    input.trim().isNotEmpty && !input.contains('/') && !input.contains('\\') && !input.contains('\x00');
 
 bool isProcessPath(String input) {
-  if (_processPathWindowsRegex.hasMatch(input) ||
-      _processPathLinuxRegex.hasMatch(input) ||
-      _processPathMacOSRegex.hasMatch(input)) {
-    return true;
-  } else {
-    return false;
-  }
+  if (input.contains('\x00')) return false;
+  // Unix paths, or absolute Windows paths. Platform-specific names may contain
+  // spaces and Unicode; matching names should not accidentally accept paths.
+  return input.startsWith('/') && input.length > 1 || RegExp(r'^[a-zA-Z]:\\.+$').hasMatch(input);
 }
 
 bool isPortOrPortRange(String input) {
-  return _portOrPortRangeRegex.hasMatch(input);
+  final parts = input.split(':');
+  if (parts.length == 1) return isPort(parts.single);
+  if (parts.length != 2 || !parts.every(isPort)) return false;
+  return int.parse(parts.first) <= int.parse(parts.last);
 }
 
 bool isIpCidr(String input) {
-  return _ipCidrRegex.hasMatch(input);
+  final parts = input.split('/');
+  if (parts.isEmpty || parts.length > 2) return false;
+  final address = InternetAddress.tryParse(parts.first);
+  if (address == null) return false;
+  if (parts.length == 1) return true;
+  if (!_digits.hasMatch(parts.last)) return false;
+  final prefix = int.tryParse(parts.last);
+  final max = address.type == InternetAddressType.IPv6 ? 128 : 32;
+  return prefix != null && prefix >= 0 && prefix <= max;
 }
 
-bool isDomain(String input) {
-  return _domainRegex.hasMatch(input);
-}
+bool isDomain(String input) => _isHostname(input) && input.contains('.');
 
-bool isDomainSuffix(String input) {
-  return _domainSuffix.hasMatch(input);
-}
+bool isDomainSuffix(String input) => _isHostname(input.startsWith('.') ? input.substring(1) : input);

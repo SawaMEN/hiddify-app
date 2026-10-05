@@ -7,9 +7,11 @@ class ServerEndpoint {
   bool get udp => const {
     'tuic',
     'hysteria',
+    'hy',
     'hysteria2',
     'hy2',
     'wireguard',
+    'wireguard_legacy',
     'wg',
     'awg',
     'masque',

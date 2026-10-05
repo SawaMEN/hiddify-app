@@ -46,7 +46,10 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
     );
     final helloClient = HelloClient(helloChannel);
     final helloOptions = CallOptions(timeout: const Duration(seconds: 3));
-    final status = statusChannel.receiveBroadcastStream().map(CoreStatus.fromEvent);
+    final status = statusChannel.receiveBroadcastStream().map(CoreStatus.fromEvent).map((value) {
+      _isBgClientAvailable = value is CoreStarted;
+      return value;
+    });
     final alerts = alertsChannel.receiveBroadcastStream().map(CoreStatus.fromEvent);
 
     await _status?.close();
@@ -145,8 +148,8 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
 
   @override
   Future<bool> stop() async {
-    _isBgClientAvailable = false;
-    await stopMethodChannel();
+    final nativeStopped = await stopMethodChannel();
+    if (!nativeStopped) return false;
     if (!await waitUntilPort(portBack, false, null, maxTry: 10)) {
       return false;
     }
@@ -155,8 +158,8 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
     return true;
   }
 
-  Future stopMethodChannel() async {
-    await methodChannel.invokeMethod("stop").timeout(const Duration(seconds: 25));
+  Future<bool> stopMethodChannel() async {
+    return await methodChannel.invokeMethod<bool>('stop').timeout(const Duration(seconds: 25)) == true;
   }
 
   @override

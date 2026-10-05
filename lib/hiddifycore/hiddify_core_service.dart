@@ -4,14 +4,11 @@ import 'dart:convert';
 import 'package:fpdart/fpdart.dart';
 import 'package:grpc/grpc.dart';
 import 'package:hiddify/core/directories/directories_provider.dart';
-import 'package:hiddify/core/model/directories.dart';
 import 'package:hiddify/core/notification/in_app_notification_controller.dart';
 import 'package:hiddify/core/preferences/general_preferences.dart';
-import 'package:hiddify/core/utils/exception_handler.dart';
 import 'package:hiddify/features/connection/model/connection_failure.dart';
 import 'package:hiddify/features/log/model/log_level.dart' as config_log_level;
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
-import 'package:hiddify/hiddifycore/core_interface/core_interface.dart';
 import 'package:hiddify/hiddifycore/core_interface/core_interface_wrapper_stub.dart'
     if (dart.library.io) 'package:hiddify/hiddifycore/core_interface/core_interface_wrapper.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hcommon/common.pb.dart';
@@ -203,6 +200,7 @@ class HiddifyCoreService with InfraLogger {
         final background = await core.setupBackground(path, name);
         if (background != const CoreStatus.started()) {
           currentState = background;
+          await _cleanupFailedStart();
           _publishStatus(currentState);
           return left(background.getCoreAlert() ?? const ConnectionFailure.unexpected('failed to start core'));
         }
@@ -223,6 +221,7 @@ class HiddifyCoreService with InfraLogger {
             alert: alert,
             message: 'failed to start core ${res.messageType} ${res.message}',
           );
+          await _cleanupFailedStart();
           _publishStatus(currentState);
           return left(
             currentState.getCoreAlert() ??
@@ -231,6 +230,7 @@ class HiddifyCoreService with InfraLogger {
         }
         return right(unit);
       } on GrpcError catch (e, stackTrace) {
+        await _cleanupFailedStart();
         _publishStatus(currentState = const CoreStatus.stopped());
         loggy.error('failed to start background core', e, stackTrace);
         if (ref.mounted) ref.read(coreRestartSignalProvider.notifier).restart();
@@ -239,6 +239,7 @@ class HiddifyCoreService with InfraLogger {
         }
         return left(ConnectionFailure.unexpected(e, stackTrace));
       } catch (e, stackTrace) {
+        await _cleanupFailedStart();
         _publishStatus(currentState = const CoreStatus.stopped());
         loggy.error('failed to start core', e, stackTrace);
         return left(ConnectionFailure.unexpected(e, stackTrace));
@@ -246,9 +247,20 @@ class HiddifyCoreService with InfraLogger {
     });
   }
 
+  Future<void> _cleanupFailedStart() async {
+    try {
+      await core.stop();
+    } catch (error, stack) {
+      loggy.warning('Failed-start cleanup failed', error, stack);
+    }
+    await stopListenSingle('bg');
+    latest = [];
+  }
+
   TaskEither<String, Unit> stop() {
     return _serialized(() async {
       loggy.debug('stopping');
+      final beforeStop = currentState;
       _publishStatus(currentState = const CoreStatus.stopping());
 
       String? backgroundStopWarning;
@@ -274,14 +286,17 @@ class HiddifyCoreService with InfraLogger {
       try {
         final stopped = await core.stop();
         if (!stopped) {
+          _publishStatus(currentState = beforeStop);
           return left('native background service did not stop completely');
         }
       } catch (e, stackTrace) {
         loggy.error('failed to stop native background service', e, stackTrace);
+        _publishStatus(currentState = beforeStop);
         return left(e.toString());
       }
 
       await stopListenSingle('bg');
+      latest = [];
       _publishStatus(currentState = const CoreStatus.stopped());
       if (backgroundStopWarning != null) {
         loggy.warning('native shutdown succeeded after background stop warning: $backgroundStopWarning');
@@ -293,6 +308,7 @@ class HiddifyCoreService with InfraLogger {
   TaskEither<String, Unit> restart(String path, String name, bool disableMemoryLimit) {
     return _serialized(() async {
       loggy.debug('restarting');
+      latest = [];
       try {
         final res = await core.bgClient.restart(
           StartRequest(configPath: path, configName: name, disableMemoryLimit: disableMemoryLimit, delayStart: true),
@@ -327,7 +343,8 @@ class HiddifyCoreService with InfraLogger {
     loggy.debug('watching group');
     if (!core.isInitialized()) return;
     try {
-      yield* core.bgClient.outboundsInfo(Empty()).map((event) => event.items.isEmpty ? null : event.items.first);
+      yield* _recoveringStream(() => core.bgClient.outboundsInfo(Empty()))
+          .map((event) => event.items.isEmpty ? null : event.items.first);
     } catch (e, stackTrace) {
       loggy.error('error watching group', e, stackTrace);
       rethrow;
@@ -338,11 +355,27 @@ class HiddifyCoreService with InfraLogger {
     loggy.info('watching active groups');
     if (!core.isInitialized()) return;
     try {
-      yield* core.bgClient.mainOutboundsInfo(Empty()).map((event) => latest = event.items.toList()).startWith(latest);
+      yield* _recoveringStream(() => core.bgClient.mainOutboundsInfo(Empty()))
+          .map((event) => latest = event.items.toList())
+          .startWith(latest);
     } catch (e, stackTrace) {
       loggy.error('error watching active groups', e, stackTrace);
       rethrow;
     }
+  }
+
+  Stream<T> _recoveringStream<T>(Stream<T> Function() factory) {
+    var failures = 0;
+    return Rx.retryWhen<T>(() => factory().doOnData((_) => failures = 0), (error, stackTrace) {
+      if (_disposed ||
+          currentState is CoreStopped ||
+          ++failures > 5 ||
+          error is! GrpcError ||
+          ![StatusCode.unavailable, StatusCode.deadlineExceeded, StatusCode.unknown].contains(error.code)) {
+        return Stream<void>.error(error, stackTrace);
+      }
+      return Stream<void>.fromFuture(Future<void>.delayed(Duration(milliseconds: 250 * failures)));
+    });
   }
 
   ResponseStream<SystemInfo> watchStats() {
@@ -402,6 +435,7 @@ class HiddifyCoreService with InfraLogger {
   }
 
   void _publishStatus(CoreStatus status) {
+    if (status is CoreStopped) latest = [];
     if (!_disposed && !statusController.isClosed) statusController.add(status);
   }
 

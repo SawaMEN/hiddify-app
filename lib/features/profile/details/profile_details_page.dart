@@ -9,7 +9,6 @@ import 'package:go_router/go_router.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/core/model/constants.dart';
 import 'package:hiddify/core/model/failures.dart';
-import 'package:hiddify/core/notification/in_app_notification_controller.dart';
 import 'package:hiddify/features/profile/details/json_editor.dart';
 import 'package:hiddify/features/profile/details/profile_details_notifier.dart';
 import 'package:hiddify/features/profile/model/profile_entity.dart';
@@ -59,6 +58,11 @@ class ProfileDetailsPage extends HookConsumerWidget with PresLogger {
           data: (data) {
             final isLoading = data.loadingState is AsyncLoading;
             final userOverride = data.profile.userOverride ?? const UserOverride();
+            final effectiveHours =
+                userOverride.updateInterval ??
+                data.profile.map(remote: (p) => p.options?.updateInterval.inHours, local: (_) => null) ??
+                0;
+            final sliderMax = effectiveHours > 96 ? effectiveHours.toDouble() : 96.0;
             return Scaffold(
               appBar: AppBar(
                 title: Text(t.pages.profileDetails.title),
@@ -117,7 +121,7 @@ class ProfileDetailsPage extends HookConsumerWidget with PresLogger {
                             ),
                           ),
                         const Divider(indent: 16, endIndent: 16),
-                        if (data.profile case RemoteProfileEntity(:final options)) ...[
+                        if (data.profile case RemoteProfileEntity()) ...[
                           SwitchListTile.adaptive(
                             title: Text(
                               t.pages.profileDetails.form.disableAutoUpdate,
@@ -150,7 +154,7 @@ class ProfileDetailsPage extends HookConsumerWidget with PresLogger {
                                               ),
                                             ),
                                             Text(
-                                              _genSliderText(t, userOverride.updateInterval ?? 0),
+                                              _genSliderText(t, effectiveHours),
                                               style: theme.textTheme.labelSmall!.copyWith(
                                                 color: theme.colorScheme.onSurfaceVariant,
                                               ),
@@ -163,13 +167,10 @@ class ProfileDetailsPage extends HookConsumerWidget with PresLogger {
                                         padding: const EdgeInsets.symmetric(horizontal: 10),
                                         child: Slider(
                                           focusNode: sliderFocusNode,
-                                          value:
-                                              userOverride.updateInterval?.toDouble() ??
-                                              options?.updateInterval.inHours.toDouble() ??
-                                              0.0,
-                                          max: 96,
-                                          divisions: 96,
-                                          label: (userOverride.updateInterval ?? 0).toString(),
+                                          value: effectiveHours.toDouble(),
+                                          max: sliderMax,
+                                          divisions: sliderMax <= 1000 ? sliderMax.toInt() : null,
+                                          label: effectiveHours.toString(),
                                           onChanged: (double value) => ref
                                               .read(provider.notifier)
                                               .setUserOverride(userOverride.copyWith(updateInterval: value.toInt())),
