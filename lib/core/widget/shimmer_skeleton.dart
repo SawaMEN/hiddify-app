@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:hiddify/core/widget/skeleton_widget.dart';
+import 'package:hiddify/core/theme/visual_effects.dart';
 
 class ShimmerSkeleton extends StatelessWidget {
   const ShimmerSkeleton({
@@ -22,7 +23,9 @@ class ShimmerSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Skeleton(width: width, height: height, widthFactor: widthFactor, heightFactor: heightFactor)
+    final skeleton = Skeleton(width: width, height: height, widthFactor: widthFactor, heightFactor: heightFactor);
+    if (!VisualEffects.blurOf(context)) return skeleton;
+    return skeleton
         .animate(onPlay: (controller) => controller.loop())
         .shimmer(duration: duration, angle: 45, color: color ?? Theme.of(context).colorScheme.secondary);
   }

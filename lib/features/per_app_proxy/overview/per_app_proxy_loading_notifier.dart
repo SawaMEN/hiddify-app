@@ -9,8 +9,10 @@ class AppProxyLoading extends _$AppProxyLoading {
 
   Future<T?> doAsync<T>(Future<T> Function() operation) async {
     state = true;
-    final T? result = await operation();
-    state = false;
-    return result;
+    try {
+      return await operation();
+    } finally {
+      if (ref.mounted) state = false;
+    }
   }
 }

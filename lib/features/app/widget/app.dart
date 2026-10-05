@@ -13,6 +13,8 @@ import 'package:hiddify/core/model/constants.dart';
 import 'package:hiddify/core/router/go_router/go_router_notifier.dart';
 import 'package:hiddify/core/router/go_router/helper/active_breakpoint_notifier.dart';
 import 'package:hiddify/core/theme/app_theme.dart';
+import 'package:hiddify/core/theme/visual_effects.dart';
+import 'package:hiddify/core/widget/cyber_background.dart';
 import 'package:hiddify/core/theme/theme_preferences.dart';
 import 'package:hiddify/features/app_update/notifier/app_update_notifier.dart';
 import 'package:hiddify/features/connection/widget/connection_wrapper.dart';
@@ -70,7 +72,10 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
     final router = ref.watch(goRouterNotiferProvider);
     final locale = ref.watch(localePreferencesProvider);
     final themeMode = ref.watch(themePreferencesProvider);
-    final theme = AppTheme(themeMode, locale.preferredFontFamily);
+    final theme = useMemoized(() => AppTheme(themeMode, locale.preferredFontFamily), [
+      themeMode,
+      locale.preferredFontFamily,
+    ]);
     final upgrader = ref.watch(upgraderProvider);
     final activeBreakpoint = Breakpoint(context).activeBreakpoint;
 
@@ -102,24 +107,26 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
                 title: Constants.appName,
                 builder: (context, child) {
                   final theme = Theme.of(context);
-                  child = UpgradeAlert(
+                  Widget appChild = UpgradeAlert(
                     upgrader: upgrader,
                     navigatorKey: router.routerDelegate.navigatorKey,
                     child: child ?? const SizedBox(),
                   );
                   if (kDebugMode && _debugAccessibility) {
-                    child = AccessibilityTools(checkFontOverflows: true, child: child);
+                    appChild = AccessibilityTools(checkFontOverflows: true, child: appChild);
                   }
-                  return MaterialUiCompatibilityBridge(
-                    child: AnnotatedRegion<SystemUiOverlayStyle>(
-                      value: SystemUiOverlayStyle(
-                        statusBarColor: theme.scaffoldBackgroundColor,
-                        systemNavigationBarColor: theme.scaffoldBackgroundColor,
-                        systemNavigationBarIconBrightness: theme.brightness == Brightness.dark
-                            ? Brightness.light
-                            : Brightness.dark,
-                      ),
-                      child: child,
+                  return AnnotatedRegion<SystemUiOverlayStyle>(
+                    value: SystemUiOverlayStyle(
+                      statusBarColor: Colors.transparent,
+                      statusBarIconBrightness: theme.brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+                      systemNavigationBarColor: theme.canvasColor,
+                      systemNavigationBarIconBrightness: theme.brightness == Brightness.dark
+                          ? Brightness.light
+                          : Brightness.dark,
+                    ),
+                    child: VisualEffectsHost(
+                      // Third-party widgets still use Flutter's legacy Material types.
+                      child: MaterialUiCompatibilityBridge(child: CyberBackground(child: appChild)),
                     ),
                   );
                 },

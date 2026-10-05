@@ -61,118 +61,129 @@ class ProfileTile extends HookConsumerWidget {
       // elevation: effectiveElevation,
       margin: margin,
       shape: RoundedRectangleBorder(
-        side: profile.active ? BorderSide(color: theme.colorScheme.outline) : BorderSide.none,
+        side: BorderSide(
+          color: profile.active ? theme.colorScheme.primary.withValues(alpha: .55) : theme.colorScheme.outlineVariant,
+        ),
         borderRadius: ProfileTileConst.cardBorderRadius,
       ),
       // color: color ?? theme.colorScheme.secondaryContainer,
-      elevation: profile.active ? 0 : 1,
+      elevation: 0,
+      color: color ?? theme.colorScheme.surfaceContainerLow,
 
       // shadowColor: Colors.transparent,
-      child: IntrinsicHeight(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: 48),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (showActionButton) ...[
-                SizedBox(
-                  width: 48,
-                  child: Semantics(sortKey: const OrdinalSortKey(1), child: ProfileActionButton(profile, !isMain)),
-                ),
-                if (profile.active) VerticalDivider(width: 1, color: theme.colorScheme.outline) else const Gap(1),
-              ],
-              Expanded(
-                child: Semantics(
-                  button: true,
-                  sortKey: isMain ? const OrdinalSortKey(0) : null,
-                  focused: isMain,
-                  liveRegion: isMain,
-                  namesRoute: isMain,
-                  label: isMain ? t.pages.profiles.viewAllProfiles : null,
-                  child: InkWell(
-                    borderRadius: showActionButton
-                        ? ProfileTileConst.endBorderRadius(Directionality.of(context))
-                        : ProfileTileConst.cardBorderRadius,
-                    onTap: () {
-                      if (isMain) {
-                        if (Breakpoint(context).isMobile()) {
-                          ref.read(bottomSheetsNotifierProvider.notifier).showProfilesOverview();
-                        } else {
-                          context.goNamed('profiles');
-                        }
+      clipBehavior: Clip.antiAlias,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 48),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            if (showActionButton) ...[
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: Semantics(sortKey: const OrdinalSortKey(1), child: ProfileActionButton(profile, !isMain)),
+              ),
+              if (profile.active)
+                SizedBox(height: 48, child: VerticalDivider(width: 1, color: theme.colorScheme.outlineVariant))
+              else
+                const Gap(1),
+            ],
+            Expanded(
+              child: Semantics(
+                button: true,
+                sortKey: isMain ? const OrdinalSortKey(0) : null,
+                focused: isMain,
+                liveRegion: isMain,
+                namesRoute: isMain,
+                label: isMain ? t.pages.profiles.viewAllProfiles : null,
+                child: InkWell(
+                  borderRadius: showActionButton
+                      ? ProfileTileConst.endBorderRadius(Directionality.of(context))
+                      : ProfileTileConst.cardBorderRadius,
+                  onTap: () async {
+                    if (isMain) {
+                      if (Breakpoint(context).isMobile()) {
+                        ref.read(bottomSheetsNotifierProvider.notifier).showProfilesOverview();
                       } else {
-                        if (selectActiveMutation.state.isInProgress) return;
-                        // if (profile.active) return;
-                        selectActiveMutation.setFuture(
-                          ref.read(profilesNotifierProvider.notifier).selectActiveProfile(profile.id),
-                        );
-                        if (context.canPop()) {
-                          context.pop();
-                        } else {
-                          context.goNamed('home');
-                        }
+                        context.goNamed('profiles');
                       }
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      child: Column(
-                        // mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (isMain)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 4),
-                              child: Material(
-                                borderRadius: BorderRadius.circular(8),
-                                color: Colors.transparent,
-                                clipBehavior: Clip.antiAlias,
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Flexible(
-                                      child: Text(
-                                        profile.name,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.titleMedium?.copyWith(
-                                          fontFamily: PlatformUtils.isWindows ? FontFamily.emoji : null,
-                                        ),
-                                        semanticsLabel: t.pages.profiles.activeProfileName(name: profile.name),
+                    } else {
+                      if (selectActiveMutation.state.isInProgress) return;
+                      // if (profile.active) return;
+                      final operation = ref.read(profilesNotifierProvider.notifier).selectActiveProfile(profile.id);
+                      selectActiveMutation.setFuture(operation);
+                      try {
+                        await operation;
+                      } catch (_) {
+                        return;
+                      }
+                      if (!context.mounted) return;
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.goNamed('home');
+                      }
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (isMain)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Material(
+                              borderRadius: BorderRadius.circular(8),
+                              color: Colors.transparent,
+                              clipBehavior: Clip.antiAlias,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      profile.name,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: theme.textTheme.titleMedium?.copyWith(
+                                        fontFamily: PlatformUtils.isWindows ? FontFamily.emoji : null,
                                       ),
+                                      semanticsLabel: t.pages.profiles.activeProfileName(name: profile.name),
                                     ),
-                                    const Icon(Icons.arrow_drop_down_rounded),
-                                  ],
-                                ),
+                                  ),
+                                  const Icon(Icons.arrow_drop_down_rounded),
+                                ],
                               ),
-                            )
-                          else
-                            Text(
-                              profile.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontFamily: PlatformUtils.isWindows ? FontFamily.emoji : null,
-                              ),
-                              semanticsLabel: profile.active
-                                  ? t.pages.profiles.activeProfileName(name: profile.name)
-                                  : t.pages.profiles.nonActiveProfileName(name: profile.name),
                             ),
-                          if (subInfo != null) ...[
-                            const Gap(4),
-                            RemainingTrafficIndicator(subInfo.ratio),
-                            const Gap(4),
-                            ProfileSubscriptionInfo(subInfo),
-                            const Gap(4),
-                          ],
+                          )
+                        else
+                          Text(
+                            profile.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontFamily: PlatformUtils.isWindows ? FontFamily.emoji : null,
+                            ),
+                            semanticsLabel: profile.active
+                                ? t.pages.profiles.activeProfileName(name: profile.name)
+                                : t.pages.profiles.nonActiveProfileName(name: profile.name),
+                          ),
+                        if (subInfo != null) ...[
+                          const Gap(4),
+                          RemainingTrafficIndicator(subInfo.ratio),
+                          const Gap(4),
+                          ProfileSubscriptionInfo(subInfo),
+                          const Gap(4),
                         ],
-                      ),
+                      ],
                     ),
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -572,7 +583,11 @@ class RemainingTrafficIndicator extends StatelessWidget {
     //     : ratio < 0.65
     //         ? const Color.fromRGBO(98, 115, 32, 1.0)
     //         : const Color.fromRGBO(139, 30, 36, 1.0);
-    return LinearProgressIndicator(value: ratio, borderRadius: BorderRadius.circular(16), minHeight: 6);
+    return LinearProgressIndicator(
+      value: ratio.isFinite ? ratio.clamp(0.0, 1.0) : 0,
+      borderRadius: BorderRadius.circular(16),
+      minHeight: 6,
+    );
     // return HorizontalPercentIndicator(
     //   height: 6,
 

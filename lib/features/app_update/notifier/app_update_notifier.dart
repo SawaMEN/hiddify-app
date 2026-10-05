@@ -53,7 +53,7 @@ class AppUpdateNotifier extends _$AppUpdateNotifier with AppLogger {
     }
     return ref
         .watch(appUpdateRepositoryProvider)
-        .getLatestVersion()
+        .getLatestVersion(flavor: appInfo.environment, release: appInfo.release)
         .match(
           (err) {
             loggy.warning("failed to get latest version", err);

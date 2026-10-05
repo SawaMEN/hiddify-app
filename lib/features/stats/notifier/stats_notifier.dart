@@ -17,7 +17,7 @@ class StatsNotifier extends _$StatsNotifier with AppLogger {
       return ref
           .watch(statsRepositoryProvider)
           .watchStats()
-          .map((event) => event.getOrElse((_) => SystemInfo.create()));
+          .map((event) => event.getOrElse((failure) => throw failure));
     } else {
       return Stream.value(SystemInfo.create());
     }

@@ -21,8 +21,8 @@ extension ProfileEntityMapper on ProfileEntity {
       download: Value(rp.subInfo?.download),
       total: Value(rp.subInfo?.total),
       expire: Value(rp.subInfo?.expire),
-      webPageUrl: Value(rp.subInfo?.webPageUrl),
-      supportUrl: Value(rp.subInfo?.supportUrl),
+      webPageUrl: Value(rp.webPageUrl),
+      supportUrl: Value(rp.supportUrl),
     ),
     local: (lp) => ProfileEntriesCompanion.insert(
       id: lp.id,
@@ -46,8 +46,8 @@ extension ProfileEntityMapper on ProfileEntity {
       download: Value(rp.subInfo?.download),
       total: Value(rp.subInfo?.total),
       expire: Value(rp.subInfo?.expire),
-      webPageUrl: Value(rp.subInfo?.webPageUrl),
-      supportUrl: Value(rp.subInfo?.supportUrl),
+      webPageUrl: Value(rp.webPageUrl),
+      supportUrl: Value(rp.supportUrl),
     ),
     local: (lp) => ProfileEntriesCompanion(
       name: Value(lp.name),

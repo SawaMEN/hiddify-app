@@ -25,6 +25,30 @@ class GeneralPage extends HookConsumerWidget {
         children: [
           const LocalePrefTile(),
           const ThemeModePrefTile(),
+          ListTile(
+            leading: const Icon(Icons.auto_awesome_rounded),
+            title: Text(t.pages.settings.general.visualEffects),
+            subtitle: Text(t.pages.settings.general.visualEffectsModes[ref.watch(Preferences.visualEffects)]!),
+            onTap: () async {
+              final selected = await showDialog<String>(
+                context: context,
+                builder: (context) => SimpleDialog(
+                  title: Text(t.pages.settings.general.visualEffects),
+                  children: [
+                    for (final mode in ['automatic', 'quality', 'reduced'])
+                      SimpleDialogOption(
+                        onPressed: () => Navigator.pop(context, mode),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Text(t.pages.settings.general.visualEffectsModes[mode]!),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+              if (selected != null) await ref.read(Preferences.visualEffects.notifier).update(selected);
+            },
+          ),
           const EnableAnalyticsPrefTile(),
           SwitchListTile.adaptive(
             title: Text(t.pages.settings.general.autoIpCheck),

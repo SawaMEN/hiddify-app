@@ -8,6 +8,14 @@ allprojects {
 
 rootProject.buildDir = '../build'
 subprojects {
+    project.plugins.withId('com.android.library') {
+        project.androidComponents.finalizeDsl { androidDsl ->
+            androidDsl.ndkVersion = "30.0.16248370"
+            if (androidDsl.compileSdk == 37 && androidDsl.compileSdkMinor == null) {
+                androidDsl.compileSdkMinor = 0
+            }
+        }
+    }
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 
     // flutter_displaymode 0.7.0 still declares compileSdk 33 internally,

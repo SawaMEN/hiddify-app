@@ -2,6 +2,7 @@ package com.hiddify.hiddify.bg
 
 import android.net.ConnectivityManager
 import android.net.Network
+import android.net.LinkProperties
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
@@ -159,6 +160,10 @@ object DefaultNetworkListener {
         }
 
         override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
+            enqueue(NetworkMessage.Update(network))
+        }
+
+        override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) {
             enqueue(NetworkMessage.Update(network))
         }
 

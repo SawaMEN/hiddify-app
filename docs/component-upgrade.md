@@ -14,8 +14,8 @@ This update preserves SawaMEN's application and networking extensions.
 | gomobile | 0.1.13 |
 | gRPC / Go protobuf | 1.84.0 / 1.36.12 |
 | QUIC / uTLS / DNS | 0.63.0 / 1.8.8 / 1.1.73 |
-| browserify / google-protobuf / grpc-web | 17.0.1 / 4.0.3 / 2.1.1 |
-| protobufjs-cli | 2.7.0 |
+| esbuild / google-protobuf / grpc-web | 0.28.2 / 4.0.3 / 2.1.1 |
+| protoc / JavaScript / grpc-web generators | 36.2 / 4.0.3 / 2.1.1 |
 
 Other direct Dart packages were already current at the time of the audit.
 The application imports standalone Material/Cupertino packages and bridges
@@ -52,13 +52,25 @@ NDK 30 and JDK 17; `make android-libs` copied it and wrote its provenance.
 The tests reject empty/DNS-only/hidden-only proxy profiles and use a local
 HTTP server for profile imports.
 
-`npm ci --ignore-scripts`, JavaScript runtime loading and a protobuf binary
-round trip passed. Rebuilding the existing browser bundle remains blocked
-by missing generated `extension_grpc_web_pb.js` sources in the repository.
-The checked-in bundle is unchanged.
+`make web-rpc` regenerates the checked-in clients from the current Core and
+ExtensionHostService protobuf definitions and rebuilds the embedded browser
+bundle with esbuild. Four Node tests verify bundle initialization, binary
+serialization, service paths and streamed connection state. All pass.
 
-Flutter dependency resolution, analysis, widget tests and APK assembly have
-not been verified: automatic security review blocked SDK bootstrap after a
-request to cloud metadata address 169.254.169.254. That rejected operation was
-not retried. The Dart lockfile was updated from published package metadata;
-it still needs validation with the SDK.
+Flutter 3.47.6 dependency resolution and code generation passed in the previous
+local validation. The interface at main revision 68732765 passed 28 tests;
+analysis found no compilation errors, with 14 warnings and style notices.
+`flutter pub outdated` found no additional resolvable compatible updates:
+11 newer transitive releases remain constrained by the SDK or direct packages.
+Go 1.27.1 remains incompatible with the Psiphon TLS fork, as described above.
+
+The Gradle 9.8 wrapper scripts and JAR are now included in source control.
+Android API 37 declares minor version 0. Android library plugins use NDK 30
+consistently, including the JNI package. This avoids a fallback to Flutter's
+older NDK during configuration.
+
+The final application branch incorporates main revision dc433e00, including
+its newer regression coverage. Its Flutter tests and complete ARM64 APK are
+being verified by the pull-request CI. The previous local APK attempt did not
+produce a confirmed artifact before the temporary environment was reset.
+No device-level VPN, battery or performance validation has been completed.

@@ -44,6 +44,7 @@ class SettingInputDialog<T> extends HookConsumerWidget with PresLogger {
     );
     // focus management
     final okBtnFocusNode = useFocusNode();
+    final invalid = useState(false);
     KeyEventResult handleKeyEvent(FocusNode node, KeyEvent event) {
       if (KeyboardConst.select.contains(event.logicalKey) && event is KeyDownEvent) {
         okBtnFocusNode.requestFocus();
@@ -61,6 +62,7 @@ class SettingInputDialog<T> extends HookConsumerWidget with PresLogger {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (invalid.value) Text(t.common.invalidInput, style: TextStyle(color: Theme.of(context).colorScheme.error)),
           if (possibleValues != null)
             // AutocompleteField(initialValue: initialValue.toString(), options: possibleValues!.map((e) => e.toString()).toList())
             TypeAheadField<String>(
@@ -72,6 +74,7 @@ class SettingInputDialog<T> extends HookConsumerWidget with PresLogger {
                   focusNode: focusNode,
                   textDirection: TextDirection.ltr,
                   autofocus: true,
+                  decoration: InputDecoration(errorText: invalid.value ? t.common.invalidInput : null),
                   // decoration: InputDecoration(
                   //     // border: OutlineInputBorder(),
                   //     // labelText: 'City',
@@ -145,9 +148,15 @@ class SettingInputDialog<T> extends HookConsumerWidget with PresLogger {
           focusNode: okBtnFocusNode,
           onPressed: () {
             if (validator?.call(textController.value.text) == false) {
-              context.pop();
+              invalid.value = true;
+              return;
             } else if (mapTo != null) {
-              context.pop(mapTo!.call(textController.value.text));
+              final value = mapTo!.call(textController.value.text);
+              if (value == null) {
+                invalid.value = true;
+                return;
+              }
+              context.pop(value);
             } else {
               context.pop(T == String ? textController.value.text : null);
             }

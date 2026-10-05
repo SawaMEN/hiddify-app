@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:hiddify/core/model/constants.dart';
+import 'package:hiddify/core/theme/visual_effects.dart';
 
 class AnimatedText extends Text {
   const AnimatedText(
@@ -18,7 +19,7 @@ class AnimatedText extends Text {
   @override
   Widget build(BuildContext context) {
     return AnimatedSwitcher(
-      duration: duration,
+      duration: VisualEffects.durationOf(context) == Duration.zero ? Duration.zero : duration,
       transitionBuilder: (child, animation) {
         child = FadeTransition(opacity: animation, child: child);
         if (size) {

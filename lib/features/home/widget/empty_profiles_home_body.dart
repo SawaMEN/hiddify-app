@@ -16,39 +16,24 @@ class EmptyProfilesHomeBody extends HookConsumerWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(t.dialogs.noActiveProfile.msg),
+          Icon(Icons.add_moderator_outlined, size: 72, color: Theme.of(context).colorScheme.primary),
+          const Gap(24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 28),
+            child: Text(
+              t.dialogs.noActiveProfile.msg,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ),
           const Gap(16),
-          ElevatedButton(
+          FilledButton.icon(
             onPressed: () => ref.read(bottomSheetsNotifierProvider.notifier).showAddProfile(),
-            // icon: const Icon(FluentIcons.add_24_regular),
-            child: Text(t.pages.profiles.add),
+            icon: const Icon(Icons.add_rounded),
+            label: Text(t.pages.profiles.add),
           ),
         ],
       ),
     );
   }
 }
-
-// class EmptyActiveProfileHomeBody extends HookConsumerWidget {
-//   const EmptyActiveProfileHomeBody({super.key});
-
-//   @override
-//   Widget build(BuildContext context, WidgetRef ref) {
-//     final t = ref.watch(translationsProvider).requireValue;
-
-//     return SliverFillRemaining(
-//       hasScrollBody: false,
-//       child: Column(
-//         mainAxisAlignment: MainAxisAlignment.center,
-//         children: [
-//           Text(t.home.noActiveProfileMsg),
-//           const Gap(16),
-//           OutlinedButton(
-//             onPressed: () => const ProfilesOverviewRoute().push(context),
-//             child: Text(t.profile.overviewPageTitle),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }

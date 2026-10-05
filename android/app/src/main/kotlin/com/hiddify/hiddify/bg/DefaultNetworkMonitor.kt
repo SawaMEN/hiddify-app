@@ -1,6 +1,8 @@
 package com.hiddify.hiddify.bg
 
 import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.ConnectivityManager
 import android.os.Build
 import android.util.Log
 import com.hiddify.core.libbox.InterfaceUpdateListener
@@ -93,7 +95,12 @@ object DefaultNetworkMonitor {
         synchronized(listenerLock) {
             val currentListener = listener ?: return
             runCatching {
-                currentListener.updateDefaultInterface(interfaceName, interfaceIndex, false, false)
+                val network = defaultNetwork
+                val capabilities = network?.let { Application.connectivity.getNetworkCapabilities(it) }
+                val expensive = capabilities != null && !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+                val constrained = expensive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
+                    Application.connectivity.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
+                currentListener.updateDefaultInterface(interfaceName, interfaceIndex, expensive, constrained)
             }.onFailure {
                 // This callback crosses the gomobile boundary and must never unwind into Android.
                 Log.e(TAG, "failed to notify core about default interface", it)

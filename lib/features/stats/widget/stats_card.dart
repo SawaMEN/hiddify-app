@@ -1,3 +1,5 @@
+import 'dart:ui' show FontFeature;
+
 import 'package:material_ui/material_ui.dart';
 import 'package:gap/gap.dart';
 import 'package:hiddify/core/widget/spaced_list_widget.dart';
@@ -26,9 +28,11 @@ class StatsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveTitleStyle = titleStyle ?? Theme.of(context).textTheme.bodySmall;
     final effectiveLabelStyle =
-        labelStyle ?? Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w300);
+        labelStyle ?? Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w500);
     final effectiveDataStyle =
-        dataStyle ?? Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w300);
+        dataStyle ??
+        Theme.of(context).textTheme.bodySmall
+            ?.copyWith(fontWeight: FontWeight.w600, fontFeatures: [const FontFeature.tabularFigures()]);
 
     return Card(
       margin: EdgeInsets.zero,
@@ -56,9 +60,15 @@ class StatsCard extends StatelessWidget {
                   return Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      label,
+                      Flexible(child: label),
                       const Gap(2),
-                      DefaultTextStyle(style: effectiveDataStyle!, overflow: TextOverflow.ellipsis, child: stat.data),
+                      Flexible(
+                        child: DefaultTextStyle(
+                          style: effectiveDataStyle!,
+                          overflow: TextOverflow.ellipsis,
+                          child: stat.data,
+                        ),
+                      ),
                     ],
                   );
                 })

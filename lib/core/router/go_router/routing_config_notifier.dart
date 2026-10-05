@@ -89,7 +89,7 @@ class RoutingConfigNotifier extends _$RoutingConfigNotifier {
 
         if (!ref.read(Preferences.introCompleted)) {
           // Intro is not completed
-          return url != null ? '/intro?url=$url' : '/intro';
+          return Uri(path: '/intro', queryParameters: url == null ? null : {'url': url}).toString();
         } else if (state.matchedLocation == '/intro') {
           // Intro is completed
           // Current page in '/intro'
