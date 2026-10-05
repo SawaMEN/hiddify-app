@@ -335,6 +335,7 @@ class BoxService(
             }
         } catch (e: Exception) {
             Log.e(TAG, "foreground registration failed", e)
+            binder.broadcast { it.onServiceAlert(Alert.StartService.ordinal, e.message ?: e.javaClass.simpleName) }
             status.value = Status.Stopped
             unregisterReceiver()
             notification.close()

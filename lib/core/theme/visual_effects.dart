@@ -1,9 +1,6 @@
 import 'package:material_ui/material_ui.dart';
-import 'package:hiddify/core/preferences/general_preferences.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 
-/// A conservative default: mobile devices never pay for backdrop filters unless
-/// the user opts in. System accessibility preferences always override quality.
+/// Platform defaults with system accessibility preferences taking precedence.
 class VisualEffects extends InheritedWidget {
   const VisualEffects({super.key, required this.blur, required this.motion, required super.child});
 
@@ -21,19 +18,18 @@ class VisualEffects extends InheritedWidget {
   bool updateShouldNotify(VisualEffects oldWidget) => blur != oldWidget.blur || motion != oldWidget.motion;
 }
 
-class VisualEffectsHost extends ConsumerWidget {
+class VisualEffectsHost extends StatelessWidget {
   const VisualEffectsHost({super.key, required this.child});
   final Widget child;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final preference = ref.watch(Preferences.visualEffects);
+  Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final reduced = preference == 'reduced' || media.disableAnimations || media.accessibleNavigation;
+    final reduced = media.disableAnimations || media.accessibleNavigation;
     final mobile = switch (Theme.of(context).platform) {
       TargetPlatform.android || TargetPlatform.iOS => true,
       _ => false,
     };
-    return VisualEffects(blur: !reduced && (preference == 'quality' || !mobile), motion: !reduced, child: child);
+    return VisualEffects(blur: !reduced && !mobile, motion: !reduced, child: child);
   }
 }

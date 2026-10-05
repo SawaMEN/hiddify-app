@@ -85,7 +85,9 @@ sealed class CoreStatus with _$CoreStatus {
         CoreAlert.createService ||
         CoreAlert.startService ||
         CoreAlert.alreadyStarted ||
-        CoreAlert.startFailed => ConnectionFailure.unexpected("${alert.name} - $message"),
+        CoreAlert.startFailed => ConnectionFailure.unexpected(
+          message == null || message.trim().isEmpty ? alert.name : "${alert.name} - $message",
+        ),
 
         _ => null,
       },

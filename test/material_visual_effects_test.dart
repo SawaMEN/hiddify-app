@@ -21,8 +21,8 @@ void main() {
   for (final scenario in [
     (platform: TargetPlatform.android, mode: 'automatic', accessible: false, blur: false, motion: true),
     (platform: TargetPlatform.linux, mode: 'automatic', accessible: false, blur: true, motion: true),
-    (platform: TargetPlatform.android, mode: 'quality', accessible: false, blur: true, motion: true),
-    (platform: TargetPlatform.linux, mode: 'reduced', accessible: false, blur: false, motion: false),
+    (platform: TargetPlatform.android, mode: 'quality', accessible: false, blur: false, motion: true),
+    (platform: TargetPlatform.linux, mode: 'reduced', accessible: false, blur: true, motion: true),
     (platform: TargetPlatform.android, mode: 'quality', accessible: true, blur: false, motion: false),
   ]) {
     testWidgets('effect policy: $scenario', (tester) async {
