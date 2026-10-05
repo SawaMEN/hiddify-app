@@ -107,11 +107,13 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
   Future<void> applyPending() async {
     if (!ref.mounted) return;
     _updateTimer?.cancel();
-    _updates = _updates.then((_) => _applyOptions()).catchError((Object error, StackTrace stackTrace) {
+    final pending = _updates.then((_) => _applyOptions());
+    // Keep the serial queue usable after a failed reconnect, while still surfacing
+    // the current failure to the caller that explicitly requested immediate apply.
+    _updates = pending.catchError((Object error, StackTrace stackTrace) {
       loggy.warning('Unable to apply changed options', error, stackTrace);
-      throw error;
     });
-    await _updates;
+    await pending;
   }
 
   bool _importing = false;
@@ -224,7 +226,7 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
     // Validate every supplied value before writing any of them.
     for (final option in ConfigOptions.preferences.entries) {
       final query = option.key.split('.').map((e) => '["$e"]').join();
-      final res = JsonPath('\$$query').read(decoded).firstOrNull;
+      final res = JsonPath('\$$query').read(map).firstOrNull;
       if (res == null) continue;
       final notifier = ref.read(option.value.notifier);
       notifier.entry.parseRaw(res.value);
