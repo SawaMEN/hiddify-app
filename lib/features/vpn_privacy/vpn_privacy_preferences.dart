@@ -2,6 +2,8 @@ import 'package:hiddify/core/utils/preferences_utils.dart';
 
 /// Local device policy. Subscription overrides must never weaken these settings.
 abstract class VpnPrivacyPreferences {
+  static const manualPackagePrefix = 'manual:';
+
   static final routingMode = PreferencesNotifier.create<String, String>('privacy-routing-mode', 'ru-bypass');
   static final customDirectPackages = PreferencesNotifier.create<String, String>('privacy-direct-packages', '');
   static final customProxyPackages = PreferencesNotifier.create<String, String>('privacy-proxy-packages', '');
@@ -34,6 +36,23 @@ abstract class VpnPrivacyPreferences {
     'privacy-anonymization-isolate-lan',
     false,
   );
+
+  static String encodeManualPackages(Iterable<String> packages) {
+    final normalized = packages.map((value) => value.trim()).where((value) => value.isNotEmpty).toSet().toList()..sort();
+    return '$manualPackagePrefix${normalized.join(',')}';
+  }
+
+  static bool hasManualPackages(String value) => value.startsWith(manualPackagePrefix);
+
+  static Set<String> decodeManualPackages(String value) {
+    if (!hasManualPackages(value)) return const <String>{};
+    return value
+        .substring(manualPackagePrefix.length)
+        .split(RegExp(r'[\s,;]+'))
+        .map((entry) => entry.trim())
+        .where((entry) => entry.isNotEmpty)
+        .toSet();
+  }
 
   /// Snapshot captured before the first one-tap automatic setup. It lets the user
   /// restore the exact previous state instead of guessing which defaults they used.
