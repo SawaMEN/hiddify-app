@@ -35,7 +35,9 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
     private var startGeneration = 0L
     private var pendingStartGeneration = 0L
     private var pendingStart: CompletableDeferred<Boolean>? = null
-    private var serviceStartIssued = false
+    private val startTracker = ServiceStartTracker()
+    var lastStartFailure: ServiceEvent? = null
+        private set
     private var notificationRequestGeneration: Long? = null
     private var vpnRequestGeneration: Long? = null
 
@@ -61,11 +63,13 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         if (serviceStatus.value == Status.Started) return@withContext true
 
         cancelPendingStartInternal()
+        lastStartFailure = null
+        serviceAlerts.value = null
         val generation = ++startGeneration
         val deferred = CompletableDeferred<Boolean>()
         pendingStartGeneration = generation
         pendingStart = deferred
-        serviceStartIssued = false
+        startTracker.reset()
 
         try {
             beginStart(generation)
@@ -73,8 +77,7 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             notificationRequestGeneration = null
-            failPendingStart(generation)
-            onServiceAlert(Alert.StartService, e.message)
+            reportStartFailure(generation, Alert.StartService, e.message)
             false
         }
     }
@@ -94,10 +97,10 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
     }
 
     private fun cancelPendingStartInternal(): Boolean {
-        val wasIssued = serviceStartIssued
+        val wasIssued = startTracker.issued
         startGeneration++
         pendingStartGeneration = startGeneration
-        serviceStartIssued = false
+        startTracker.reset()
         pendingStart?.complete(false)
         pendingStart = null
         return wasIssued
@@ -110,8 +113,7 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         if (!isCurrentStart(generation)) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !ServiceNotification.checkPermission()) {
             if (notificationRequestGeneration != null) {
-                failPendingStart(generation)
-                onServiceAlert(Alert.RequestNotificationPermission, "previous permission request is still open")
+                reportStartFailure(generation, Alert.RequestNotificationPermission, "previous permission request is still open")
                 return
             }
             notificationRequestGeneration = generation
@@ -136,14 +138,12 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
                 val permissionIntent = try {
                     VpnService.prepare(this@MainActivity)
                 } catch (e: Exception) {
-                    failPendingStart(generation)
-                    onServiceAlert(Alert.RequestVPNPermission, e.message)
+                    reportStartFailure(generation, Alert.RequestVPNPermission, e.message)
                     return@launch
                 }
                 if (permissionIntent != null) {
                     if (vpnRequestGeneration != null) {
-                        failPendingStart(generation)
-                        onServiceAlert(Alert.RequestVPNPermission, "previous permission request is still open")
+                        reportStartFailure(generation, Alert.RequestVPNPermission, "previous permission request is still open")
                         return@launch
                     }
                     vpnRequestGeneration = generation
@@ -158,8 +158,7 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
             } catch (e: Exception) {
                 Log.e("MainActivity", "permission/start request failed", e)
                 if (vpnRequestGeneration == generation) vpnRequestGeneration = null
-                failPendingStart(generation)
-                onServiceAlert(Alert.StartService, e.message)
+                reportStartFailure(generation, Alert.StartService, e.message)
             }
         }
     }
@@ -168,27 +167,34 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         if (!isCurrentStart(generation)) return
         try {
             val intent = Intent(Application.application, Settings.serviceClass()).putExtra("started_by_app", true)
-            serviceStartIssued = true
+            startTracker.markIssued()
             ContextCompat.startForegroundService(this, intent)
             Settings.startedByUser = true
         } catch (e: Exception) {
-            failPendingStart(generation)
-            onServiceAlert(Alert.StartService, e.message)
+            reportStartFailure(generation, Alert.StartService, e.message)
         }
+    }
+
+    private fun reportStartFailure(generation: Long, type: Alert, message: String?) {
+        if (!isCurrentStart(generation)) return
+        val event = ServiceEvent(Status.Stopped, type, message)
+        lastStartFailure = event
+        serviceAlerts.value = event
+        failPendingStart(generation)
     }
 
     private fun failPendingStart(generation: Long) {
         if (!isCurrentStart(generation)) return
         pendingStart?.complete(false)
         pendingStart = null
-        serviceStartIssued = false
+        startTracker.reset()
     }
 
     private fun completePendingStart(generation: Long, success: Boolean) {
         if (!isCurrentStart(generation)) return
         pendingStart?.complete(success)
         pendingStart = null
-        serviceStartIssued = false
+        startTracker.reset()
     }
 
     private val notificationPermissionLauncher =
@@ -197,8 +203,7 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
             notificationRequestGeneration = null
             if (!isCurrentStart(generation)) return@registerForActivityResult
             if (Settings.dynamicNotification && !isGranted) {
-                failPendingStart(generation)
-                onServiceAlert(Alert.RequestNotificationPermission, null)
+                reportStartFailure(generation, Alert.RequestNotificationPermission, null)
             } else {
                 continueStart(generation)
             }
@@ -212,29 +217,29 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
             if (result.resultCode == RESULT_OK) {
                 issueServiceStart(generation)
             } else {
-                failPendingStart(generation)
-                onServiceAlert(Alert.RequestVPNPermission, null)
+                reportStartFailure(generation, Alert.RequestVPNPermission, null)
             }
         }
 
     override fun onServiceStatusChanged(status: Status) {
-        serviceStatus.postValue(status)
-        val generation = pendingStartGeneration
         lifecycleScope.launch(Dispatchers.Main.immediate) {
+            serviceStatus.value = status
+            val generation = pendingStartGeneration
             if (!isCurrentStart(generation)) return@launch
-            when (status) {
-                Status.Started -> completePendingStart(generation, true)
-                Status.Stopped -> if (serviceStartIssued) completePendingStart(generation, false)
-                else -> Unit
+            val result = startTracker.onStatus(status) ?: return@launch
+            if (!result && lastStartFailure == null) {
+                lastStartFailure = ServiceEvent(Status.Stopped, Alert.StartService, "Android service stopped during startup")
             }
+            completePendingStart(generation, result)
         }
     }
 
     override fun onServiceAlert(type: Alert, message: String?) {
-        serviceAlerts.postValue(ServiceEvent(Status.Stopped, type, message))
-        val generation = pendingStartGeneration
         lifecycleScope.launch(Dispatchers.Main.immediate) {
-            failPendingStart(generation)
+            val event = ServiceEvent(Status.Stopped, type, message)
+            lastStartFailure = event
+            serviceAlerts.value = event
+            failPendingStart(pendingStartGeneration)
         }
     }
 

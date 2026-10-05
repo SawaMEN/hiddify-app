@@ -6,6 +6,7 @@ import com.hiddify.core.mobile.Mobile
 import com.hiddify.core.mobile.SetupOptions
 import com.hiddify.hiddify.bg.BoxService
 import com.hiddify.hiddify.bg.Bugs
+import com.hiddify.hiddify.constant.Alert
 import com.hiddify.hiddify.constant.Status
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
@@ -142,10 +143,15 @@ class MethodHandler(
                         }
                         BoxService.stop()
                     }
-                    false
-                } else {
-                    started
                 }
+                if (started != true) {
+                    val failure = mainActivity.lastStartFailure
+                    throw ServiceStartException(
+                        failure?.alert ?: Alert.StartService,
+                        failure?.message ?: "Android service startup was cancelled or failed",
+                    )
+                }
+                true
             }
 
             Trigger.Stop.method -> launchResult(
@@ -213,7 +219,7 @@ class MethodHandler(
                 Log.e(TAG, errorCode, t)
                 withContext(Dispatchers.Main.immediate) {
                     result.error(
-                        errorCode,
+                        if (t is ServiceStartException) t.alert.name else errorCode,
                         t.message ?: t.javaClass.simpleName,
                         Log.getStackTraceString(t),
                     )
@@ -222,3 +228,5 @@ class MethodHandler(
         }
     }
 }
+
+private class ServiceStartException(val alert: Alert, message: String) : Exception(message)

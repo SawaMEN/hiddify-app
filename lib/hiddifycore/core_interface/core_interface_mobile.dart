@@ -39,13 +39,6 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
         ? MTLSChannelCredentials(serverPublicKey: serverPublicKey, clientKey: cert)
         : const ChannelCredentials.insecure();
     _debug = debug;
-    final helloChannel = ClientChannel(
-      '127.0.0.1',
-      port: portFront,
-      options: ChannelOptions(credentials: channelOption),
-    );
-    final helloClient = HelloClient(helloChannel);
-    final helloOptions = CallOptions(timeout: const Duration(seconds: 3));
     final status = statusChannel.receiveBroadcastStream().map(CoreStatus.fromEvent).map((value) {
       _isBgClientAvailable = value is CoreStarted;
       return value;
@@ -54,12 +47,36 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
 
     await _status?.close();
     _status = LastStream(Rx.merge([status, alerts]));
-    try {
-      await helloClient.sayHello(HelloRequest(name: "test"), options: helloOptions);
-      loggy.info("core is already started!");
-    } catch (e) {
-      //core is not started yet
 
+    Future<void> hello() async {
+      final channel = ClientChannel(
+        '127.0.0.1',
+        port: portFront,
+        options: ChannelOptions(credentials: channelOption),
+      );
+      try {
+        await HelloClient(channel).sayHello(
+          HelloRequest(name: "test"),
+          options: CallOptions(timeout: const Duration(seconds: 3)),
+        );
+      } finally {
+        await channel.shutdown();
+      }
+    }
+
+    var foregroundReady = false;
+    // A refused local TCP connection returns immediately on a cold launch. Avoid
+    // spending the gRPC deadline probing a server that has not been created yet.
+    if (await isPortOpen('127.0.0.1', portFront)) {
+      try {
+        await hello();
+        foregroundReady = true;
+        loggy.info("core is already started!");
+      } catch (e) {
+        loggy.debug("foreground core handshake failed: $e");
+      }
+    }
+    if (!foregroundReady) {
       await methodChannel
           .invokeMethod("setup", {
             "baseDir": directories.baseDir.path,
@@ -70,10 +87,8 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
             "debug": debug,
           })
           .timeout(const Duration(seconds: 10));
-      final res = await helloClient.sayHello(HelloRequest(name: "test"), options: helloOptions);
-      loggy.info(res.toString());
-    } finally {
-      await helloChannel.shutdown();
+      // Use a fresh channel: a failed pre-setup handshake may be in reconnect backoff.
+      await hello();
     }
 
     await _fgChannel?.shutdown();
@@ -102,45 +117,70 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
       return const CoreStatus.stopped(alert: CoreAlert.createService, message: "core is not initialized");
     }
     status.clean();
-    final started = await methodChannel
-        .invokeMethod<bool>("start", {
-          "path": path,
-          "name": name,
-          "grpcPort": portBack,
-          "startBg": true,
-          "debug": _debug,
-        })
-        .timeout(const Duration(seconds: 35));
-    if (started != true) return const CoreStatus.stopped(alert: CoreAlert.startService);
-
-    loggy.info("Waiting for starting core");
-    waitingForService:
-    for (var i = 0; i < 20; i++) {
-      try {
-        final res = await status.get(timeout: const Duration(seconds: 1));
-
-        switch (res) {
-          case CoreStarted():
-            break waitingForService;
-          case CoreStopped():
-            if (res.alert != null) {
-              return res;
-            }
-
-          case CoreStopping():
-          // return res;
-          case CoreStarting():
-        }
-        status.clean();
-      } on TimeoutException {
-        // just retry
+    final bool? started;
+    try {
+      started = await methodChannel
+          .invokeMethod<bool>("start", {
+            "path": path,
+            "name": name,
+            "grpcPort": portBack,
+            "startBg": true,
+            "debug": _debug,
+          })
+          .timeout(const Duration(seconds: 40));
+    } on PlatformException catch (e) {
+      final failure = CoreStatus.fromEvent({
+        "status": "Stopped",
+        "alert": e.code,
+        "message": e.message ?? "native service startup failed",
+      });
+      if (failure case CoreStopped(alert: CoreAlert.unknown)) {
+        return CoreStatus.stopped(
+          alert: CoreAlert.startService,
+          message: "${e.code}: ${e.message ?? 'startup failed'}",
+        );
       }
+      return failure;
     }
-    loggy.info("Waiting for starting core finished");
+    if (started != true) {
+      return const CoreStatus.stopped(alert: CoreAlert.startService, message: "native service did not start");
+    }
+
+    // Android's method result already waits for Started and carries native alerts.
+    // Waiting on the merged event stream again can miss Started and cost 20 seconds.
+    if (!Platform.isAndroid) {
+      loggy.info("Waiting for starting core");
+      waitingForService:
+      for (var i = 0; i < 20; i++) {
+        try {
+          final res = await status.get(timeout: const Duration(seconds: 1));
+
+          switch (res) {
+            case CoreStarted():
+              break waitingForService;
+            case CoreStopped():
+              if (res.alert != null) {
+                return res;
+              }
+
+            case CoreStopping():
+            // return res;
+            case CoreStarting():
+          }
+          status.clean();
+        } on TimeoutException {
+          // just retry
+        }
+      }
+      loggy.info("Waiting for starting core finished");
+    }
 
     if (!await waitUntilPort(portBack, true, null, maxTry: 10)) {
       await stopMethodChannel();
-      return const CoreStatus.stopped(alert: CoreAlert.startService, message: "starting background core...");
+      return const CoreStatus.stopped(
+        alert: CoreAlert.startService,
+        message: "background core did not open its local control port",
+      );
     }
     _isBgClientAvailable = true;
     return const CoreStarted();
