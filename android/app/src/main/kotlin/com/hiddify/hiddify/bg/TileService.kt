@@ -59,7 +59,9 @@ class TileService : TileService(), ServiceConnection.Callback {
             openMainApp()
             return
         }
-        if (Settings.serviceMode == ServiceMode.VPN && VpnService.prepare(this) != null) {
+        // Root mode uses ProxyService + the root companion and must not request Android
+        // VpnService permission. BoxService.start() synchronizes the component visibility.
+        if (Settings.serviceMode == ServiceMode.VPN && !Settings.privacyUseRoot && VpnService.prepare(this) != null) {
             Log.w(TAG, "VPN permission is required; opening the app")
             openMainApp()
             return
