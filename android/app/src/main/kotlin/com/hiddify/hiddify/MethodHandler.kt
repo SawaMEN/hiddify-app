@@ -34,6 +34,7 @@ class MethodHandler(
         private const val START_TIMEOUT_MS = 30_000L
         private const val START_ISSUE_SETTLE_MS = 5_000L
         private const val STOP_TIMEOUT_MS = 15_000L
+        private const val STOP_RETRY_GRACE_MS = 5_000L
 
         enum class Trigger(val method: String) {
             Setup("setup"),
@@ -101,19 +102,19 @@ class MethodHandler(
 
                 Log.d(TAG, "debug mode: ${Settings.debugMode}")
                 BoxService.withNativeLifecycle {
-                Mobile.setup(
-                    SetupOptions().also {
-                        it.basePath = Settings.baseDir
-                        it.workingDir = Settings.workingDir
-                        it.tempDir = Settings.tempDir
-                        it.fixAndroidStack = Bugs.fixAndroidStack
-                        it.mode = mode.toLong()
-                        it.listen = "127.0.0.1:$grpcPort"
-                        it.secret = ""
-                        it.debug = Settings.debugMode
-                    },
-                    BoxService.currentPlatformInterface(),
-                )
+                    Mobile.setup(
+                        SetupOptions().also {
+                            it.basePath = Settings.baseDir
+                            it.workingDir = Settings.workingDir
+                            it.tempDir = Settings.tempDir
+                            it.fixAndroidStack = Bugs.fixAndroidStack
+                            it.mode = mode.toLong()
+                            it.listen = "127.0.0.1:$grpcPort"
+                            it.secret = ""
+                            it.debug = Settings.debugMode
+                        },
+                        BoxService.currentPlatformInterface(),
+                    )
                 }
                 Libbox.redirectStderr(File(Settings.workingDir, "stderr2.log").path)
                 ""
@@ -166,31 +167,40 @@ class MethodHandler(
                 val startAlreadyIssued = mainActivity.cancelPendingStart()
                 if (startAlreadyIssued && mainActivity.serviceStatus.value == Status.Stopped) {
                     withTimeoutOrNull(START_ISSUE_SETTLE_MS) {
-                        while (mainActivity.serviceStatus.value == Status.Stopped) {
+                        while (mainActivity.serviceStatus.value == Status.Stopped && !BoxService.hasActiveCore()) {
                             delay(25L)
                         }
                     }
                 }
 
                 val currentStatus = mainActivity.serviceStatus.value ?: Status.Stopped
-                if (currentStatus == Status.Stopped) {
+                // MainActivity may still expose its initial Stopped snapshot while the service is
+                // already alive but the AIDL binding has not completed. Never trust that snapshot
+                // when the native core has an owner or a service start was already issued.
+                if (currentStatus == Status.Stopped && !startAlreadyIssued && !BoxService.hasActiveCore()) {
                     Log.d(TAG, "service is already stopped")
                     return@launchResult true
                 }
 
                 BoxService.stop()
 
-                // BoxService.stop() only sends a broadcast. The actual Mobile.close(4L)
-                // happens asynchronously in BoxService. Do not report success to Dart until
-                // the native core has fully closed, otherwise the next connect can race
-                // Mobile.setup() against the previous Mobile.close().
-                val stopped = withTimeoutOrNull(STOP_TIMEOUT_MS) {
-                    while (mainActivity.serviceStatus.value != Status.Stopped) {
-                        delay(50L)
-                    }
-                    true
-                } ?: false
+                // The Activity status can be stale during bind/unbind. coreOwner is cleared only
+                // after Mobile.close(4L) and TUN cleanup finish, so it is the authoritative stop
+                // barrier for avoiding setup/close overlap on the next connect.
+                suspend fun waitForNativeStop(timeoutMs: Long): Boolean =
+                    withTimeoutOrNull(timeoutMs) {
+                        while (BoxService.hasActiveCore()) {
+                            delay(50L)
+                        }
+                        true
+                    } ?: false
 
+                var stopped = waitForNativeStop(STOP_TIMEOUT_MS)
+                if (!stopped) {
+                    Log.w(TAG, "native core still active after stop timeout; retrying close broadcast")
+                    BoxService.stop()
+                    stopped = waitForNativeStop(STOP_RETRY_GRACE_MS)
+                }
                 if (!stopped) {
                     throw IllegalStateException("timed out waiting for Android service to stop")
                 }
