@@ -7,15 +7,11 @@ import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/core/model/region.dart';
 import 'package:hiddify/core/preferences/general_preferences.dart';
 import 'package:hiddify/core/router/bottom_sheets/bottom_sheets_notifier.dart';
-import 'package:hiddify/core/router/dialog/dialog_notifier.dart';
-import 'package:hiddify/features/per_app_proxy/model/per_app_proxy_mode.dart';
-import 'package:hiddify/features/per_app_proxy/overview/per_app_proxy_notifier.dart';
 import 'package:hiddify/features/route_rules/notifier/rules_notifier.dart';
 import 'package:hiddify/features/route_rules/widget/rule_tile.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/features/settings/widget/preference_tile.dart';
 import 'package:hiddify/singbox/model/singbox_config_enum.dart';
-import 'package:hiddify/utils/utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 class RoutingOptionsPage extends HookConsumerWidget {
@@ -28,7 +24,6 @@ class RoutingOptionsPage extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).requireValue;
     final theme = Theme.of(context);
-    final perAppProxy = ref.watch(Preferences.perAppProxyMode).enabled;
     final rules = ref.watch(rulesNotifierProvider);
     final showGeneralOptions = ref.watch(Preferences.showRouteGeneralOptions);
 
@@ -191,46 +186,10 @@ class RoutingOptionsPage extends HookConsumerWidget {
                   showFlag: true,
                   icon: Icons.place_rounded,
                   presentChoice: (value) => value.present(t),
-                  onChanged: (val) async {
+                  onChanged: (_) async {
                     await ref.read(ConfigOptions.directDnsAddress.notifier).reset();
-                    final autoRegion = ref.read(Preferences.autoAppsSelectionRegion);
-                    final mode = ref.read(Preferences.perAppProxyMode).toAppProxy();
-                    if (autoRegion != val &&
-                        autoRegion != null &&
-                        val != Region.other &&
-                        mode != null &&
-                        PlatformUtils.isAndroid) {
-                      await ref
-                          .read(dialogNotifierProvider.notifier)
-                          .showOk(
-                            t.pages.settings.routing.generalOptions.perAppProxy.autoSelection.dialog.title,
-                            t.pages.settings.routing.generalOptions.perAppProxy.autoSelection.dialog.msg(
-                              region: val.name,
-                            ),
-                          );
-                      await ref.read(perAppProxyProvider(mode).notifier).clearAutoSelected();
-                    }
                   },
                 ),
-                if (PlatformUtils.isAndroid)
-                  ListTile(
-                    title: Text(t.pages.settings.routing.generalOptions.perAppProxy.title),
-                    leading: const Icon(Icons.apps_rounded),
-                    trailing: Switch(
-                      value: perAppProxy,
-                      onChanged: (value) async {
-                        final newMode = perAppProxy ? PerAppProxyMode.off : PerAppProxyMode.exclude;
-                        await ref.read(Preferences.perAppProxyMode.notifier).update(newMode);
-                        if (!perAppProxy && context.mounted) context.goNamed('perAppProxy');
-                      },
-                    ),
-                    onTap: () async {
-                      if (!perAppProxy) {
-                        await ref.read(Preferences.perAppProxyMode.notifier).update(PerAppProxyMode.exclude);
-                      }
-                      if (context.mounted) context.goNamed('perAppProxy');
-                    },
-                  ),
                 ChoicePreferenceWidget(
                   title: t.pages.settings.routing.generalOptions.balancerStrategy.title,
                   icon: Icons.balance_rounded,
@@ -323,7 +282,6 @@ class _ExpandableFabState extends State<_ExpandableFab> with SingleTickerProvide
         alignment: isRtl ? AlignmentDirectional.bottomStart : AlignmentDirectional.bottomEnd,
         clipBehavior: Clip.none,
         children: [
-          // Scrim
           if (_isOpen)
             Positioned.fill(
               child: GestureDetector(
@@ -335,9 +293,7 @@ class _ExpandableFabState extends State<_ExpandableFab> with SingleTickerProvide
                 ),
               ),
             ),
-          // Mini FABs
           ..._buildMenuItems(theme, isRtl),
-          // Main FAB
           Positioned(
             bottom: 16,
             right: isRtl ? null : 16,

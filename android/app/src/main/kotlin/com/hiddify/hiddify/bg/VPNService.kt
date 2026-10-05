@@ -10,7 +10,6 @@ import android.util.Log
 import com.hiddify.core.libbox.Notification
 import com.hiddify.core.libbox.TunOptions
 import com.hiddify.hiddify.Settings
-import com.hiddify.hiddify.constant.PerAppProxyMode
 import com.hiddify.hiddify.ktx.toIpPrefix
 
 class VPNService : VpnService(), PlatformInterfaceWrapper {
@@ -186,28 +185,14 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
                 }
 
                 val configured = org.json.JSONObject(Settings.configOptions.ifBlank { "{}" })
-                val autoMode = configured.optString("privacy-routing-mode", "off")
-                if (autoMode == "ru-bypass" || autoMode == "proxy-selected") {
-                    val policy = com.hiddify.hiddify.privacy.RegionalRouting.policy(this, configured.optString("region", "other"))
-                    if (policy["privacy-routing-mode"] != "off") {
-                        @Suppress("UNCHECKED_CAST")
-                        (policy["privacy-direct-packages"] as List<String>).forEach { addExcludePackage(builder, it) }
-                        addExcludePackage(builder, packageName)
-                    }
-                } else if (Settings.perAppProxyEnabled) {
-                    val appList = Settings.perAppProxyList
-                    if (Settings.perAppProxyMode == PerAppProxyMode.INCLUDE) {
-                        val effectiveApps = appList.filter { pkg ->
-                            pkg.isNotBlank() && pkg != packageName && runCatching {
-                                packageManager.getApplicationInfo(pkg, 0)
-                            }.isSuccess
-                        }
-                        check(effectiveApps.isNotEmpty()) { "include routing has no installed applications" }
-                        check(effectiveApps.count { addIncludePackage(builder, it) } > 0) { "no applications could be included" }
-                    } else {
-                        appList.forEach { addExcludePackage(builder, it) }
-                        addExcludePackage(builder, packageName)
-                    }
+                val policy = com.hiddify.hiddify.privacy.RegionalRouting.policy(
+                    this,
+                    configured.optString("region", "other"),
+                )
+                if (policy["privacy-routing-mode"] != "off") {
+                    @Suppress("UNCHECKED_CAST")
+                    (policy["privacy-direct-packages"] as List<String>).forEach { addExcludePackage(builder, it) }
+                    addExcludePackage(builder, packageName)
                 } else {
                     val includePackage = options.includePackage
                     if (includePackage.hasNext()) {
