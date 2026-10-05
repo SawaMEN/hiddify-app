@@ -22,6 +22,11 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
     private val service = BoxService(this, this)
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // A sticky restart must not undo an explicit disconnect.
+        if (intent == null && !Settings.connectionDesired) {
+            stopSelf()
+            return START_NOT_STICKY
+        }
         // A system Always-on start can happen before the Flutter engine exists.
         if (intent?.getBooleanExtra("started_by_app", false) != true) {
             Settings.connectionDesired = true
@@ -94,13 +99,13 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
             return -1
         }
 
-        val safeMtu = options.mtu.coerceIn(576, 65_535)
+        val safeMtu = options.mtu.coerceIn(if (Settings.privacyDisableIpv6) 576 else 1280, 65_535)
         if (safeMtu != options.mtu) {
             Log.w(TAG, "clamping invalid MTU ${options.mtu} to $safeMtu")
         }
 
         val builder = Builder()
-            .setSession("hiddify")
+            .setSession(applicationInfo.loadLabel(packageManager).toString())
             .setMtu(safeMtu)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -116,90 +121,113 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
         val inet6Address = options.inet6Address
         while (inet6Address.hasNext()) {
             val address = inet6Address.next()
-            builder.addAddress(address.address(), address.prefix())
+            if (!Settings.privacyDisableIpv6) builder.addAddress(address.address(), address.prefix())
         }
 
-        if (options.autoRoute) {
+        if (options.autoRoute || Settings.privacyFullTunnel) {
             val dnsServerAddress = options.dnsServerAddress
-            while (dnsServerAddress.hasNext()) {
-                builder.addDnsServer(dnsServerAddress.next())
+            if (Settings.privacyPublicDns) {
+                // The core hijacks DNS inside the TUN; the resolver is not contacted directly.
+                builder.addDnsServer("1.1.1.1")
+            } else {
+                while (dnsServerAddress.hasNext()) {
+                    val address = dnsServerAddress.next()
+                    if (!Settings.privacyDisableIpv6 || !address.contains(':')) builder.addDnsServer(address)
+                }
             }
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                val inet4RouteAddress = options.inet4RouteAddress
-                if (inet4RouteAddress.hasNext()) {
+            if (Settings.privacyFullTunnel) {
+                builder.addRoute("0.0.0.0", 0)
+                if (!Settings.privacyDisableIpv6) builder.addRoute("::", 0)
+                addExcludePackage(builder, packageName)
+            } else {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val inet4RouteAddress = options.inet4RouteAddress
+                    if (inet4RouteAddress.hasNext()) {
+                        while (inet4RouteAddress.hasNext()) {
+                            builder.addRoute(inet4RouteAddress.next().toIpPrefix())
+                        }
+                    } else {
+                        builder.addRoute("0.0.0.0", 0)
+                    }
+
+                    val inet6RouteAddress = options.inet6RouteAddress
+                    if (inet6RouteAddress.hasNext()) {
+                        while (inet6RouteAddress.hasNext()) {
+                            val route = inet6RouteAddress.next().toIpPrefix()
+                            if (!Settings.privacyDisableIpv6) builder.addRoute(route)
+                        }
+                    } else {
+                        if (!Settings.privacyDisableIpv6) builder.addRoute("::", 0)
+                    }
+
+                    val inet4RouteExcludeAddress = options.inet4RouteExcludeAddress
+                    while (inet4RouteExcludeAddress.hasNext()) {
+                        builder.excludeRoute(inet4RouteExcludeAddress.next().toIpPrefix())
+                    }
+
+                    val inet6RouteExcludeAddress = options.inet6RouteExcludeAddress
+                    while (inet6RouteExcludeAddress.hasNext()) {
+                        val route = inet6RouteExcludeAddress.next().toIpPrefix()
+                        if (!Settings.privacyDisableIpv6) builder.excludeRoute(route)
+                    }
+                } else {
+                    val inet4RouteAddress = options.inet4RouteRange
                     while (inet4RouteAddress.hasNext()) {
-                        builder.addRoute(inet4RouteAddress.next().toIpPrefix())
+                        val address = inet4RouteAddress.next()
+                        builder.addRoute(address.address(), address.prefix())
                     }
-                } else {
-                    builder.addRoute("0.0.0.0", 0)
-                }
 
-                val inet6RouteAddress = options.inet6RouteAddress
-                if (inet6RouteAddress.hasNext()) {
+                    val inet6RouteAddress = options.inet6RouteRange
                     while (inet6RouteAddress.hasNext()) {
-                        builder.addRoute(inet6RouteAddress.next().toIpPrefix())
+                        val address = inet6RouteAddress.next()
+                        if (!Settings.privacyDisableIpv6) builder.addRoute(address.address(), address.prefix())
+                    }
+                }
+
+                val configured = org.json.JSONObject(Settings.configOptions.ifBlank { "{}" })
+                val autoMode = configured.optString("privacy-routing-mode", "off")
+                if (autoMode == "ru-bypass" || autoMode == "proxy-selected") {
+                    val policy = com.hiddify.hiddify.privacy.RegionalRouting.policy(this, configured.optString("region", "other"))
+                    if (policy["privacy-routing-mode"] != "off") {
+                        @Suppress("UNCHECKED_CAST")
+                        (policy["privacy-direct-packages"] as List<String>).forEach { addExcludePackage(builder, it) }
+                        addExcludePackage(builder, packageName)
+                    }
+                } else if (Settings.perAppProxyEnabled) {
+                    val appList = Settings.perAppProxyList
+                    if (Settings.perAppProxyMode == PerAppProxyMode.INCLUDE) {
+                        val effectiveApps = appList.filter { pkg ->
+                            pkg.isNotBlank() && pkg != packageName && runCatching {
+                                packageManager.getApplicationInfo(pkg, 0)
+                            }.isSuccess
+                        }
+                        check(effectiveApps.isNotEmpty()) { "include routing has no installed applications" }
+                        check(effectiveApps.count { addIncludePackage(builder, it) } > 0) { "no applications could be included" }
+                    } else {
+                        appList.forEach { addExcludePackage(builder, it) }
+                        addExcludePackage(builder, packageName)
                     }
                 } else {
-                    builder.addRoute("::", 0)
-                }
-
-                val inet4RouteExcludeAddress = options.inet4RouteExcludeAddress
-                while (inet4RouteExcludeAddress.hasNext()) {
-                    builder.excludeRoute(inet4RouteExcludeAddress.next().toIpPrefix())
-                }
-
-                val inet6RouteExcludeAddress = options.inet6RouteExcludeAddress
-                while (inet6RouteExcludeAddress.hasNext()) {
-                    builder.excludeRoute(inet6RouteExcludeAddress.next().toIpPrefix())
-                }
-            } else {
-                val inet4RouteAddress = options.inet4RouteRange
-                while (inet4RouteAddress.hasNext()) {
-                    val address = inet4RouteAddress.next()
-                    builder.addRoute(address.address(), address.prefix())
-                }
-
-                val inet6RouteAddress = options.inet6RouteRange
-                while (inet6RouteAddress.hasNext()) {
-                    val address = inet6RouteAddress.next()
-                    builder.addRoute(address.address(), address.prefix())
-                }
-            }
-
-            if (Settings.perAppProxyEnabled) {
-                val appList = Settings.perAppProxyList
-                if (Settings.perAppProxyMode == PerAppProxyMode.INCLUDE) {
-                    val effectiveApps = appList.filter { pkg ->
-                        pkg.isNotBlank() && pkg != packageName && runCatching {
-                            packageManager.getApplicationInfo(pkg, 0)
-                        }.isSuccess
+                    val includePackage = options.includePackage
+                    if (includePackage.hasNext()) {
+                        var included = 0
+                        while (includePackage.hasNext()) {
+                            if (addIncludePackage(builder, includePackage.next())) included++
+                        }
+                        check(included > 0) { "no applications could be included" }
+                    } else {
+                        val excludePackage = options.excludePackage
+                        while (excludePackage.hasNext()) {
+                            addExcludePackage(builder, excludePackage.next())
+                        }
+                        addExcludePackage(builder, packageName)
                     }
-                    check(effectiveApps.isNotEmpty()) { "include routing has no installed applications" }
-                    check(effectiveApps.count { addIncludePackage(builder, it) } > 0) { "no applications could be included" }
-                } else {
-                    appList.forEach { addExcludePackage(builder, it) }
-                    addExcludePackage(builder, packageName)
-                }
-            } else {
-                val includePackage = options.includePackage
-                if (includePackage.hasNext()) {
-                    var included = 0
-                    while (includePackage.hasNext()) {
-                        if (addIncludePackage(builder, includePackage.next())) included++
-                    }
-                    check(included > 0) { "no applications could be included" }
-                } else {
-                    val excludePackage = options.excludePackage
-                    while (excludePackage.hasNext()) {
-                        addExcludePackage(builder, excludePackage.next())
-                    }
-                    addExcludePackage(builder, packageName)
                 }
             }
         }
 
-        if (options.isHTTPProxyEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (!Settings.privacyDisableSystemProxy && options.isHTTPProxyEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             systemProxyAvailable = true
             systemProxyEnabled = Settings.systemProxyEnabled
             if (systemProxyEnabled) {

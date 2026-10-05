@@ -72,6 +72,10 @@ android {
         jvmTarget = '17'
     }
 
+    packagingOptions {
+        jniLibs { useLegacyPackaging = true }
+    }
+
     sourceSets {
         main.java.srcDirs += 'src/main/kotlin'
     }
@@ -138,6 +142,7 @@ flutter {
 }
 
 dependencies {
+    implementation 'com.android.tools.build:apksig:8.13.0'
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
 
     implementation 'com.google.code.gson:gson:2.14.0'

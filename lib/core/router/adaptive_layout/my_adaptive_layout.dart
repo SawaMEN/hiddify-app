@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:hiddify/features/vpn_privacy/vpn_privacy_page.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hiddify/core/localization/translations.dart';
@@ -65,7 +66,7 @@ class MyAdaptiveLayout extends HookConsumerWidget {
                     node: navScopeNode,
                     child: NavigationRail(
                       extended: Breakpoint(context).isDesktop(),
-                      destinations: _navRailDests(_actions(t, showProfilesAction, isMobileBreakpoint)),
+                      destinations: _navRailDests(_actions(context, t, showProfilesAction, isMobileBreakpoint)),
                       selectedIndex: navigationShell.currentIndex,
                       onDestinationSelected: (index) => _onTap(context, index),
                       trailing: Breakpoint(context).isDesktop()
@@ -91,7 +92,7 @@ class MyAdaptiveLayout extends HookConsumerWidget {
                     child: NavigationBar(
                       backgroundColor: Colors.transparent,
                       selectedIndex: navigationShell.currentIndex,
-                      destinations: _navDests(_actions(t, showProfilesAction, isMobileBreakpoint)),
+                      destinations: _navDests(_actions(context, t, showProfilesAction, isMobileBreakpoint)),
                       onDestinationSelected: (index) => _onTap(context, index),
                     ),
                   ),
@@ -107,10 +108,15 @@ class MyAdaptiveLayout extends HookConsumerWidget {
     navigationShell.goBranch(index, initialLocation: index == navigationShell.currentIndex);
   }
 
-  List<ShellRouteAction> _actions(Translations t, bool showProfilesAction, bool isMobileBreakpoint) => [
+  List<ShellRouteAction> _actions(
+    BuildContext context,
+    Translations t,
+    bool showProfilesAction,
+    bool isMobileBreakpoint,
+  ) => [
     ShellRouteAction(Icons.power_settings_new_rounded, t.pages.home.title),
     if (showProfilesAction && !isMobileBreakpoint) ShellRouteAction(Icons.view_list_rounded, t.pages.profiles.title),
-    ShellRouteAction(Icons.dns_rounded, t.pages.proxies.title),
+    ShellRouteAction(Icons.shield_outlined, VpnPrivacyPage.title(context)),
     ShellRouteAction(Icons.route_rounded, t.pages.settings.routing.title),
     ShellRouteAction(Icons.settings_rounded, t.pages.settings.title),
     if (!isMobileBreakpoint) ShellRouteAction(Icons.description_rounded, t.pages.logs.title),

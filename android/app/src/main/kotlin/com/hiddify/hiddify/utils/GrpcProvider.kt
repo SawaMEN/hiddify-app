@@ -42,6 +42,8 @@ import java.util.concurrent.TimeUnit
 
 object GrpcClientProvider {
     private val okHttpClient = OkHttpClient.Builder()
+        .addInterceptor { chain -> chain.proceed(chain.request().newBuilder()
+            .header("authorization", "Bearer ${Settings.grpcAuthToken}").build()) }
         .protocols(listOf(Protocol.H2_PRIOR_KNOWLEDGE))
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)

@@ -16,7 +16,7 @@ import 'package:hiddify/features/per_app_proxy/overview/per_app_proxy_page.dart'
 import 'package:hiddify/features/profile/details/profile_details_page.dart';
 import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
 import 'package:hiddify/features/profile/overview/profiles_page.dart';
-import 'package:hiddify/features/proxy/overview/proxies_overview_page.dart';
+import 'package:hiddify/features/vpn_privacy/vpn_privacy_page.dart';
 import 'package:hiddify/features/route_rules/notifier/rule_notifier.dart';
 import 'package:hiddify/features/route_rules/overview/generic_list_page.dart';
 import 'package:hiddify/features/route_rules/overview/rule_page.dart';
@@ -37,7 +37,7 @@ final branchesScope = <String, FocusScopeNode>{
   'home': FocusScopeNode(),
   'profiles': FocusScopeNode(),
   'settings': FocusScopeNode(),
-  'proxies': FocusScopeNode(),
+  'vpnPrivacy': FocusScopeNode(),
   'routingOptions': FocusScopeNode(),
   'logs': FocusScopeNode(),
   'about': FocusScopeNode(),
@@ -54,15 +54,15 @@ final loadingConfig = RoutingConfig(
 );
 
 String getNameOfBranch(bool isMobileBreakpoint, bool showProfilesAction, int index) => isMobileBreakpoint
-    ? ['home', 'proxies', 'routingOptions', 'settings'][index]
-    : ['home', if (showProfilesAction) 'profiles', 'proxies', 'routingOptions', 'settings', 'logs', 'about'][index];
+    ? ['home', 'vpnPrivacy', 'routingOptions', 'settings'][index]
+    : ['home', if (showProfilesAction) 'profiles', 'vpnPrivacy', 'routingOptions', 'settings', 'logs', 'about'][index];
 
 int getIndexOfBranch(bool isMobileBreakpoint, bool showProfilesAction, String name) => isMobileBreakpoint
-    ? ['home', 'proxies', 'routingOptions', 'settings'].indexOf(name)
+    ? ['home', 'vpnPrivacy', 'routingOptions', 'settings'].indexOf(name)
     : [
         'home',
         if (showProfilesAction) 'profiles',
-        'proxies',
+        'vpnPrivacy',
         'routingOptions',
         'settings',
         'logs',
@@ -180,12 +180,12 @@ class RoutingConfigNotifier extends _$RoutingConfigNotifier {
             StatefulShellBranch(
               routes: <GoRoute>[
                 GoRoute(
-                  name: 'proxies',
-                  path: '/home/proxies',
+                  name: 'vpnPrivacy',
+                  path: '/home/vpn-privacy',
                   pageBuilder: (_, state) => customTransition(
                     TransitionType.fade,
                     state.pageKey,
-                    FocusScope(node: branchesScope['proxies'], child: const ProxiesOverviewPage()),
+                    FocusScope(node: branchesScope['vpnPrivacy'], child: const VpnPrivacyPage()),
                   ),
                 ),
               ],
@@ -338,6 +338,7 @@ class RoutingConfigNotifier extends _$RoutingConfigNotifier {
             ],
           ],
         ),
+        GoRoute(path: '/home/proxies', redirect: (_, _) => '/home'),
         GoRoute(name: 'intro', path: '/intro', builder: (_, _) => const IntroPage()),
       ],
     );

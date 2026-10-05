@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "ruPackages": [
+    "ru.sberbankmobile",
+    "com.idamob.tinkoff.android",
+    "ru.vtb24.mobilebanking",
+    "ru.alfabank.mobile.android",
+    "ru.mts.money",
+    "ru.gosuslugi.gosuslugi",
+    "ru.ozon.app.android",
+    "com.wildberries.ru",
+    "ru.yandex.taxi",
+    "ru.yandex.searchplugin",
+    "ru.yandex.yandexmaps"
+  ],
+  "ruDomains": [
+    "sberbank.ru",
+    "sberbank.com",
+    "sber.ru",
+    "tbank.ru",
+    "tinkoff.ru",
+    "vtb.ru",
+    "alfabank.ru",
+    "gosuslugi.ru",
+    "ozon.ru",
+    "wildberries.ru",
+    "wb.ru",
+    "yandex.ru",
+    "yandex.net",
+    "yandex.com",
+    "xn--p1ai"
+  ],
+  "proxyPackages": [
+    "com.instagram.android",
+    "com.facebook.katana",
+    "com.twitter.android",
+    "com.discord",
+    "com.openai.chatgpt"
+  ],
+  "proxyDomains": [
+    "instagram.com",
+    "cdninstagram.com",
+    "facebook.com",
+    "fbcdn.net",
+    "twitter.com",
+    "x.com",
+    "twimg.com",
+    "discord.com",
+    "discord.gg",
+    "discordapp.com",
+    "discordapp.net",
+    "openai.com",
+    "chatgpt.com",
+    "oaistatic.com",
+    "oaiusercontent.com"
+  ]
+}

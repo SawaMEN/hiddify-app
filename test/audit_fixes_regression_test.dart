@@ -31,7 +31,10 @@ void main() {
   test('Android service start does not depend on notification permission', () {
     final activity = source('android/app/src/main/kotlin/com/hiddify/hiddify/MainActivity.kt');
     final boot = source('android/app/src/main/kotlin/com/hiddify/hiddify/bg/BootReceiver.kt');
-    final beginStart = activity.substring(activity.indexOf('private fun beginStart'), activity.indexOf('private fun continueStart'));
+    final beginStart = activity.substring(
+      activity.indexOf('private fun beginStart'),
+      activity.indexOf('private fun continueStart'),
+    );
     expect(beginStart, contains('continueStart(generation)'));
     expect(beginStart, isNot(contains('notificationPermissionLauncher')));
     final permissionCallback = activity.substring(
@@ -68,9 +71,7 @@ void main() {
 
     final bytes = utf8.encode('{"route":"+/="}');
     final encoded = base64Url.encode(bytes);
-    final link = Uri.parse(
-      'hiddify:///settings/routing-options',
-    ).replace(queryParameters: {'routeRule': encoded});
+    final link = Uri.parse('hiddify:///settings/routing-options').replace(queryParameters: {'routeRule': encoded});
     final roundTrip = Uri.parse(link.toString()).queryParameters['routeRule']!;
     expect(base64.decode(base64.normalize(roundTrip)), bytes);
   });
@@ -82,12 +83,9 @@ void main() {
     expect(repository, contains('recovery backup preserved'));
   });
 
-  test('analytics state is persisted only after Sentry initializes', () {
-    final analytics = source('lib/core/analytics/analytics_controller.dart');
-    final initIndex = analytics.indexOf('await SentryFlutter.init');
-    final persistIndex = analytics.indexOf('_preferences.setBool(enableAnalyticsPrefKey, true)');
-    expect(initIndex, greaterThanOrEqualTo(0));
-    expect(persistIndex, greaterThan(initIndex));
+  test('analytics SDK is absent', () {
+    expect(source('pubspec.yaml'), isNot(contains('sentry_flutter')));
+    expect(source('lib/bootstrap.dart'), isNot(contains('analyticsControllerProvider')));
   });
 
   test('active profile replacement order is deterministic', () {

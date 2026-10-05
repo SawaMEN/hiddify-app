@@ -38,6 +38,9 @@ def main() -> None:
         "go": subprocess.check_output(["go", "version"], text=True).strip(),
         "aar_sha256": checksum,
     }
+    root_binary = root / "android/app/src/main/jniLibs/arm64-v8a/libhiddify-root.so"
+    with root_binary.open("rb") as source:
+        data["root_companion_sha256"] = hashlib.file_digest(source, "sha256").hexdigest()
     output = aar.with_suffix(".provenance.json")
     output.write_text(json.dumps(data, indent=2) + "\n")
     print(f"Core provenance: {output}")

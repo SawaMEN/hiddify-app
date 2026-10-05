@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:async';
 
 import 'package:fpdart/fpdart.dart';
+import 'package:hiddify/hiddifycore/hiddify_core_service_provider.dart';
 import 'package:hiddify/features/connection/health/recovery_policy.dart';
 import 'package:hiddify/features/connection/health/android_vpn_settings.dart';
 
@@ -21,7 +22,6 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:in_app_review/in_app_review.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:rxdart/rxdart.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 part 'connection_notifier.g.dart';
 
@@ -39,15 +39,10 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       if (!enabled) _cancelRecovery();
     });
     listenSelf((previous, next) async {
-      if (next case AsyncData(
-        value: Disconnected(connectionFailure: final failure?),
-      ))
-        _scheduleRecovery(failure);
+      if (next case AsyncData(value: Disconnected(connectionFailure: final failure?))) _scheduleRecovery(failure);
       if (previous?.value is Connected) {
         if (next case AsyncData(value: Disconnected(connectionFailure: null))) {
-          _scheduleRecovery(
-            const ConnectionFailure.backgroundCoreNotAvailable(),
-          );
+          _scheduleRecovery(const ConnectionFailure.backgroundCoreNotAvailable());
         }
       }
       if (next case AsyncData(value: Connected())) {
@@ -66,8 +61,7 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
           await ref.read(hapticServiceProvider.notifier).heavyImpact();
 
           if (!ref.mounted) return;
-          if (Platform.isAndroid &&
-              !ref.read(Preferences.storeReviewedByUser)) {
+          if (Platform.isAndroid && !ref.read(Preferences.storeReviewedByUser)) {
             if (await InAppReview.instance.isAvailable() && ref.mounted) {
               InAppReview.instance.requestReview();
               ref.read(Preferences.storeReviewedByUser.notifier).update(true);
@@ -77,10 +71,7 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       }
     });
 
-    ref.listen(activeProfileProvider.select((value) => value.asData?.value), (
-      previous,
-      next,
-    ) async {
+    ref.listen(activeProfileProvider.select((value) => value.asData?.value), (previous, next) async {
       if (previous == null) return;
       final shouldReconnect =
           next == null ||
@@ -97,13 +88,19 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     });
   }
 
-  ConnectionRepository get _connectionRepo =>
-      ref.read(connectionRepositoryProvider);
+  ConnectionRepository get _connectionRepo => ref.read(connectionRepositoryProvider);
 
   Future<void> mayConnect() async {
     if (state case AsyncData(:final value)) {
       if (value case Disconnected()) return _connect();
     }
+  }
+
+  /// Stop intent and core before snapshotting data for a separate package.
+  Future<void> disconnectForMigration() async {
+    _cancelRecovery();
+    await ref.read(Preferences.startedByUser.notifier).update(false);
+    await _disconnect();
   }
 
   Future<void> toggleConnection() async {
@@ -152,19 +149,12 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       }
       loggy.info("active profile changed, reconnecting");
       final result = await _serializeCoreOperation(() async {
-        if (!ref.mounted ||
-            epoch != _epoch ||
-            !ref.read(Preferences.startedByUser))
+        if (!ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser))
           return right<ConnectionFailure, Unit>(unit);
-        return _connectionRepo
-            .reconnect(profile, ref.read(Preferences.disableMemoryLimit))
-            .run();
+        return _connectionRepo.reconnect(profile, ref.read(Preferences.disableMemoryLimit)).run();
       });
       if (!ref.mounted || epoch != _epoch) return false;
-      await result.match<Future<void>>(
-        (error) => _handleFailure(error, resetStartedByUser: true),
-        (_) async {},
-      );
+      await result.match<Future<void>>((error) => _handleFailure(error, resetStartedByUser: true), (_) async {});
       return result.isRight();
     }
     return false;
@@ -180,28 +170,17 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     }
     final repository = _connectionRepo;
     final disableMemoryLimit = ref.read(Preferences.disableMemoryLimit);
-    final result =
-        await _serializeCoreOperation<Either<ConnectionFailure, Unit>>(
-          () async {
-            if (!ref.mounted ||
-                epoch != _epoch ||
-                !ref.read(Preferences.startedByUser))
-              return right(unit);
-            final stopped = await repository.disconnect().run();
-            return stopped.match((error) async => stopped, (_) async {
-              if (!ref.mounted ||
-                  epoch != _epoch ||
-                  !ref.read(Preferences.startedByUser))
-                return right<ConnectionFailure, Unit>(unit);
-              return repository.connect(profile, disableMemoryLimit).run();
-            });
-          },
-        );
+    final result = await _serializeCoreOperation<Either<ConnectionFailure, Unit>>(() async {
+      if (!ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser)) return right(unit);
+      final stopped = await repository.disconnect().run();
+      return stopped.match((error) async => stopped, (_) async {
+        if (!ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser))
+          return right<ConnectionFailure, Unit>(unit);
+        return repository.connect(profile, disableMemoryLimit).run();
+      });
+    });
     if (!ref.mounted || epoch != _epoch) return false;
-    await result.match<Future<void>>(
-      (error) => _handleFailure(error, resetStartedByUser: true),
-      (_) async {},
-    );
+    await result.match<Future<void>>((error) => _handleFailure(error, resetStartedByUser: true), (_) async {});
     return result.isRight();
   }
 
@@ -234,13 +213,8 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   }
 
   bool _scheduleRecovery(ConnectionFailure failure) {
-    if (!ref.mounted ||
-        !ref.read(Preferences.autoReconnect) ||
-        !ref.read(Preferences.startedByUser))
-      return false;
-    if (failure is! UnexpectedConnectionFailure &&
-        failure is! BackgroundCoreNotAvailable)
-      return false;
+    if (!ref.mounted || !ref.read(Preferences.autoReconnect) || !ref.read(Preferences.startedByUser)) return false;
+    if (failure is! UnexpectedConnectionFailure && failure is! BackgroundCoreNotAvailable) return false;
     if (_retryTimer != null) return true;
     final delay = _policy.nextDelay();
     if (delay == null) {
@@ -255,6 +229,18 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       unawaited(_retry(epoch));
     });
     return true;
+  }
+
+  Future<void> restoreOnResume() async {
+    if (!Platform.isAndroid ||
+        _retrying ||
+        _retryTimer != null ||
+        !ref.read(Preferences.startedByUser) ||
+        !ref.read(Preferences.autoReconnect))
+      return;
+    final status = state.value;
+    if (status is Connecting || status is Disconnecting) return;
+    await _retry(_epoch);
   }
 
   Future<void> _retry(int epoch) async {
@@ -272,23 +258,29 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
         }
         return;
       }
-      if (await AndroidVpnSettings.serviceRunning()) {
-        if (ref.mounted && epoch == _epoch)
-          ref.read(recoveryStatusProvider.notifier).set(0);
+      if (await AndroidVpnSettings.serviceRunning() &&
+          await ref.read(hiddifyCoreServiceProvider).backgroundCoreRunning()) {
+        if (ref.mounted && epoch == _epoch) ref.read(recoveryStatusProvider.notifier).set(0);
         return;
       }
       final profile = await ref.read(activeProfileProvider.future);
       if (!ref.mounted || epoch != _epoch || profile == null) return;
-      if (state.value?.isConnected ?? false) return;
       final result = await _serializeCoreOperation(() async {
         if (!ref.mounted ||
             epoch != _epoch ||
             !ref.read(Preferences.startedByUser) ||
             !ref.read(Preferences.autoReconnect))
           return right<ConnectionFailure, Unit>(unit);
-        return _connectionRepo
-            .connect(profile, ref.read(Preferences.disableMemoryLimit))
-            .run();
+        if (await AndroidVpnSettings.serviceRunning()) {
+          if (!await AndroidVpnSettings.stopService()) {
+            return left<ConnectionFailure, Unit>(
+              ConnectionFailure.unexpected(StateError('Unable to stop stale service'), StackTrace.current),
+            );
+          }
+        }
+        if (!ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser))
+          return right<ConnectionFailure, Unit>(unit);
+        return _connectionRepo.connect(profile, ref.read(Preferences.disableMemoryLimit)).run();
       });
       if (!ref.mounted || epoch != _epoch) return;
       result.match((failure) {
@@ -312,27 +304,18 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
         !(state.value?.isConnected ?? false))
       return;
     final now = DateTime.now();
-    if (_lastHealthRecovery != null &&
-        now.difference(_lastHealthRecovery!) < const Duration(minutes: 2))
-      return;
+    if (_lastHealthRecovery != null && now.difference(_lastHealthRecovery!) < const Duration(minutes: 2)) return;
     _lastHealthRecovery = now;
     final epoch = _epoch;
     final profile = await ref.read(activeProfileProvider.future);
     if (!ref.mounted || epoch != _epoch || profile == null) return;
     final result = await _serializeCoreOperation(() async {
-      if (!ref.mounted ||
-          epoch != _epoch ||
-          !ref.read(Preferences.startedByUser))
+      if (!ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser))
         return right<ConnectionFailure, Unit>(unit);
-      return _connectionRepo
-          .reconnect(profile, ref.read(Preferences.disableMemoryLimit))
-          .run();
+      return _connectionRepo.reconnect(profile, ref.read(Preferences.disableMemoryLimit)).run();
     });
     if (ref.mounted && epoch == _epoch)
-      await result.match<Future<void>>(
-        (e) => _handleFailure(e, resetStartedByUser: true),
-        (_) async {},
-      );
+      await result.match<Future<void>>((e) => _handleFailure(e, resetStartedByUser: true), (_) async {});
   }
 
   final _singleStart = SingleCall();
@@ -340,10 +323,7 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
 
   Future<T> _serializeCoreOperation<T>(Future<T> Function() operation) {
     final next = _coreOperationTail.then((_) => operation());
-    _coreOperationTail = next.then<void>(
-      (_) {},
-      onError: (Object error, StackTrace stackTrace) {},
-    );
+    _coreOperationTail = next.then<void>((_) {}, onError: (Object error, StackTrace stackTrace) {});
     return next;
   }
 
@@ -356,31 +336,19 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   Future<void> _connectThrottled() async {
     final epoch = _epoch;
     final activeProfile = await ref.read(activeProfileProvider.future);
-    if (!ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser))
-      return;
+    if (!ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser)) return;
     if (activeProfile == null) {
       loggy.info("no active profile, not connecting");
       await ref.read(Preferences.startedByUser.notifier).update(false);
       return;
     }
     final result = await _serializeCoreOperation(
-      () async =>
-          !ref.mounted ||
-              epoch != _epoch ||
-              !ref.read(Preferences.startedByUser)
+      () async => !ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser)
           ? right<ConnectionFailure, Unit>(unit)
-          : await _connectionRepo
-                .connect(
-                  activeProfile,
-                  ref.read(Preferences.disableMemoryLimit),
-                )
-                .run(),
+          : await _connectionRepo.connect(activeProfile, ref.read(Preferences.disableMemoryLimit)).run(),
     );
     if (!ref.mounted || epoch != _epoch) return;
-    await result.match<Future<void>>(
-      (error) => _handleFailure(error, resetStartedByUser: true),
-      (_) async {},
-    );
+    await result.match<Future<void>>((error) => _handleFailure(error, resetStartedByUser: true), (_) async {});
   }
 
   Future<bool> _androidServiceRunningSafely() async {
@@ -409,19 +377,11 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     // while the serialized core queue is occupied. Ask the native service to stop immediately;
     // the regular queued disconnect below still performs the authoritative core cleanup.
     if (Platform.isAndroid) unawaited(_requestNativeStop());
-    final result = await _serializeCoreOperation(
-      () => _connectionRepo.disconnect().run(),
-    );
-    await result.match<Future<void>>(
-      (error) => _handleFailure(error),
-      (_) async {},
-    );
+    final result = await _serializeCoreOperation(() => _connectionRepo.disconnect().run());
+    await result.match<Future<void>>((error) => _handleFailure(error), (_) async {});
   }
 
-  Future<void> _handleFailure(
-    ConnectionFailure error, {
-    bool resetStartedByUser = false,
-  }) async {
+  Future<void> _handleFailure(ConnectionFailure error, {bool resetStartedByUser = false}) async {
     loggy.warning("connection operation failed", error);
     if (!ref.mounted) return;
     state = AsyncError(error, StackTrace.current);
@@ -429,15 +389,10 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     if (resetStartedByUser) {
       await ref.read(Preferences.startedByUser.notifier).update(false);
     }
-    if (error.toString().contains("panic")) {
-      await Sentry.captureException(Exception(error.toString()));
-    }
     if (!ref.mounted) return;
     final translations = await ref.read(translationsProvider.future);
     if (!ref.mounted) return;
-    await ref
-        .read(dialogNotifierProvider.notifier)
-        .showCustomAlertFromErr(error.present(translations));
+    await ref.read(dialogNotifierProvider.notifier).showCustomAlertFromErr(error.present(translations));
   }
 }
 
@@ -447,9 +402,7 @@ bool serviceRunning(Ref ref) {
   return ref.watch(connectionNotifierProvider).value?.isConnected ?? false;
 }
 
-final recoveryStatusProvider = NotifierProvider<RecoveryStatusNotifier, int>(
-  RecoveryStatusNotifier.new,
-);
+final recoveryStatusProvider = NotifierProvider<RecoveryStatusNotifier, int>(RecoveryStatusNotifier.new);
 
 class RecoveryStatusNotifier extends Notifier<int> {
   @override

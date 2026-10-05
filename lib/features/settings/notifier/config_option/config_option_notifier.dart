@@ -11,6 +11,8 @@ import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/utils/custom_loggers.dart';
+import 'package:hiddify/utils/platform_utils.dart';
+import 'package:hiddify/features/vpn_privacy/vpn_privacy_preferences.dart';
 import 'package:json_path/json_path.dart';
 import 'package:hiddify/core/utils/preferences_utils.dart';
 import 'package:hiddify/features/route_rules/notifier/rules_notifier.dart';
@@ -32,12 +34,58 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
     ref.listen(serviceRunningProvider, (_, running) {
       if (running && _desiredRevision > _appliedRevision) _scheduleUpdate();
     });
+    for (final preference in [
+      VpnPrivacyPreferences.useRoot,
+      VpnPrivacyPreferences.fullTunnel,
+      VpnPrivacyPreferences.hideLocalProxy,
+      VpnPrivacyPreferences.hideClashApi,
+      VpnPrivacyPreferences.disableSystemProxy,
+      VpnPrivacyPreferences.publicDns,
+      VpnPrivacyPreferences.encryptedDns,
+    ]) {
+      ref.listen(preference, (previous, next) {
+        if (previous == next) return;
+        _nativePolicyChanged = true;
+        _desiredRevision++;
+        _scheduleUpdate();
+      });
+    }
+    for (final preference in [
+      VpnPrivacyPreferences.routingMode,
+      VpnPrivacyPreferences.customDirectPackages,
+      VpnPrivacyPreferences.customProxyPackages,
+      VpnPrivacyPreferences.customDirectDomains,
+      VpnPrivacyPreferences.customProxyDomains,
+    ]) {
+      ref.listen(preference, (previous, next) {
+        if (previous == next) return;
+        _nativePolicyChanged = true;
+        _desiredRevision++;
+        _scheduleUpdate();
+      });
+    }
+    ref.listen(ConfigOptions.region, (previous, next) {
+      if (previous == next) return;
+      _nativePolicyChanged = true;
+    });
     return false;
   }
 
   Timer? _updateTimer;
   int _desiredRevision = 0;
   int _appliedRevision = 0;
+  bool _nativePolicyChanged = false;
+  Future<void> updateTogether(Future<void> Function() operation) async {
+    _importing = true;
+    _updateTimer?.cancel();
+    try {
+      await operation();
+    } finally {
+      _importing = false;
+      if (ref.mounted) _scheduleUpdate();
+    }
+  }
+
   bool _importing = false;
   bool _applying = false;
   Future<void> _updates = Future<void>.value();
@@ -63,10 +111,15 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
     final notifier = ref.read(connectionNotifierProvider.notifier);
     _applying = true;
     try {
-      final success = snapshot?.enableTun != options.enableTun
+      final success =
+          ((PlatformUtils.isAndroid && (_nativePolicyChanged || snapshot?.ipv6Mode != options.ipv6Mode)) ||
+              snapshot?.enableTun != options.enableTun)
           ? await notifier.reconnectService(activeProfile)
           : await notifier.reconnect(activeProfile);
-      if (success) _appliedRevision = revision;
+      if (success) {
+        _appliedRevision = revision;
+        if (_desiredRevision == revision) _nativePolicyChanged = false;
+      }
     } finally {
       _applying = false;
     }

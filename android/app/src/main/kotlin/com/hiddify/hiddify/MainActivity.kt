@@ -43,6 +43,15 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
     private var vpnRequestGeneration: Long? = null
     private var notificationRequestInFlight = false
 
+    override fun onCreate(savedInstanceState: android.os.Bundle?) {
+        val migrationError = runCatching { com.hiddify.hiddify.privacy.PackageIdentity.importMigration(this) }.exceptionOrNull()
+        super.onCreate(savedInstanceState)
+        if (migrationError != null) {
+            android.app.AlertDialog.Builder(this).setMessage(migrationError.message)
+                .setPositiveButton(android.R.string.ok) { _, _ -> finish() }.show()
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         reconnect()
@@ -129,7 +138,7 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
                     connection.reconnect()
                 }
 
-                if (Settings.serviceMode == ServiceMode.VPN) {
+                if (Settings.serviceMode == ServiceMode.VPN && !Settings.privacyUseRoot) {
                     val permissionIntent = try {
                         VpnService.prepare(this@MainActivity)
                     } catch (e: Exception) {
@@ -197,7 +206,28 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ ->
             notificationRequestInFlight = false
             ServiceNotification.refreshActive()
+            requestBatteryExemptionIfNeeded()
         }
+
+    private fun requestBatteryExemptionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M || notificationRequestInFlight ||
+            !lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) ||
+            serviceStatus.value != Status.Started ||
+            Application.powerManager.isIgnoringBatteryOptimizations(packageName)) return
+        val prefs = getSharedPreferences("background_permissions", MODE_PRIVATE)
+        if (prefs.getBoolean("battery_prompt_shown", false)) return
+        prefs.edit().putBoolean("battery_prompt_shown", true).apply()
+        val ru = java.util.Locale.getDefault().language == "ru"
+        android.app.AlertDialog.Builder(this)
+            .setTitle(if (ru) "Работа в фоне" else "Background connection")
+            .setMessage(if (ru) "Разрешите работу без ограничений батареи, чтобы Android не прерывал VPN в фоне." else "Allow unrestricted battery use to keep your VPN running in the background.")
+            .setNegativeButton(if (ru) "Позже" else "Later", null)
+            .setPositiveButton(if (ru) "Разрешить" else "Allow") { _, _ ->
+                runCatching { startActivity(Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    android.net.Uri.parse("package:$packageName"))) }
+                    .onFailure { Log.w("MainActivity", "Battery exemption unavailable", it) }
+            }.show()
+    }
 
     private fun requestNotificationPermissionIfNeeded() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
@@ -221,6 +251,7 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
             lifecycle.withResumed {
                 ServiceNotification.refreshActive()
                 requestNotificationPermissionIfNeeded()
+                requestBatteryExemptionIfNeeded()
             }
         }
     }
@@ -250,7 +281,10 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
                     completePendingStart(generation, result)
                 }
             }
-            if (status == Status.Started) requestNotificationPermissionIfNeeded()
+            if (status == Status.Started) {
+                requestNotificationPermissionIfNeeded()
+                requestBatteryExemptionIfNeeded()
+            }
         }
     }
 
