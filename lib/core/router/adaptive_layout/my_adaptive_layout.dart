@@ -19,7 +19,7 @@ class MyAdaptiveLayout extends HookConsumerWidget {
     required this.isMobileBreakpoint,
     required this.showProfilesAction,
   });
-  // managed by go router(Shell Route)
+
   final StatefulNavigationShell navigationShell;
   final bool isMobileBreakpoint;
   final bool showProfilesAction;
@@ -27,7 +27,6 @@ class MyAdaptiveLayout extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).requireValue;
-    // focus switch management
     final primaryFocusHash = useState<int?>(null);
     final navScopeNode = useFocusScopeNode();
     useEffect(() {
@@ -37,7 +36,6 @@ class MyAdaptiveLayout extends HookConsumerWidget {
         if (event is KeyDownEvent) {
           primaryFocusHash.value = FocusManager.instance.primaryFocus.hashCode;
         } else {
-          // focus node does not change => true.
           if (primaryFocusHash.value == FocusManager.instance.primaryFocus.hashCode) {
             if (branchesScope.values.any((node) => node.hasFocus)) {
               navScopeNode.requestFocus();
@@ -103,7 +101,6 @@ class MyAdaptiveLayout extends HookConsumerWidget {
     );
   }
 
-  // shell route action onTap
   void _onTap(BuildContext context, int index) {
     navigationShell.goBranch(index, initialLocation: index == navigationShell.currentIndex);
   }
@@ -117,7 +114,6 @@ class MyAdaptiveLayout extends HookConsumerWidget {
     ShellRouteAction(Icons.power_settings_new_rounded, t.pages.home.title),
     if (showProfilesAction && !isMobileBreakpoint) ShellRouteAction(Icons.view_list_rounded, t.pages.profiles.title),
     ShellRouteAction(Icons.shield_outlined, VpnPrivacyPage.title(context)),
-    ShellRouteAction(Icons.route_rounded, t.pages.settings.routing.title),
     ShellRouteAction(Icons.settings_rounded, t.pages.settings.title),
     if (!isMobileBreakpoint) ShellRouteAction(Icons.description_rounded, t.pages.logs.title),
     if (!isMobileBreakpoint) ShellRouteAction(Icons.info_rounded, t.pages.about.title),
