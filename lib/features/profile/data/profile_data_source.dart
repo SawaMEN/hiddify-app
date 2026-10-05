@@ -119,7 +119,13 @@ class ProfileDao extends DatabaseAccessor<Db> with _$ProfileDaoMixin, InfraLogge
       await (delete(profileEntries)..where((tbl) => tbl.id.equals(id))).go();
 
       if (current.active) {
-        final profiles = await (profileEntries.select()..where((tbl) => tbl.id.equals(id).not())).get();
+        final profiles = await (profileEntries.select()
+              ..where((tbl) => tbl.id.equals(id).not())
+              ..orderBy([
+                (tbl) => OrderingTerm(expression: tbl.lastUpdate, mode: OrderingMode.desc),
+                (tbl) => OrderingTerm(expression: tbl.id, mode: OrderingMode.asc),
+              ]))
+            .get();
         if (profiles.isEmpty) return;
         await update(profileEntries).write(const ProfileEntriesCompanion(active: Value(false)));
         final prof = profiles.first;
