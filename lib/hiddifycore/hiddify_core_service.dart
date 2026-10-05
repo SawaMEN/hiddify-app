@@ -7,6 +7,7 @@ import 'package:hiddify/core/directories/directories_provider.dart';
 import 'package:hiddify/core/notification/in_app_notification_controller.dart';
 import 'package:hiddify/core/preferences/general_preferences.dart';
 import 'package:hiddify/features/connection/model/connection_failure.dart';
+import 'package:hiddify/features/connection/health/recovery_policy.dart';
 import 'package:hiddify/features/log/model/log_level.dart' as config_log_level;
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/hiddifycore/core_interface/core_interface_wrapper_stub.dart'
@@ -40,7 +41,7 @@ class HiddifyCoreService with InfraLogger {
   Future<void> _subscriptionTail = Future<void>.value();
   final Map<String, Object> _subscriptionTokens = {};
   final Map<String, Timer> _reconnectTimers = {};
-  final Map<String, int> _reconnectAttempts = {};
+  final Map<String, RecoveryPolicy> _reconnectPolicies = {};
   final Map<String, StreamSubscription?> subscriptions = {};
   List<OutboundGroup> latest = [];
   List<LogMessage> logBuffer = [];
@@ -130,6 +131,11 @@ class HiddifyCoreService with InfraLogger {
   }
 
   TaskEither<String, Unit> setup() => TaskEither(() async {
+    // A setup queued by init() may be waiting behind the connection operation
+    // that owns this Zone. Awaiting it here would deadlock the lifecycle queue.
+    if (identical(Zone.current[_lifecycleZoneKey], this)) {
+      return _setupInternal();
+    }
     final pending = _setupPending;
     if (pending != null) return pending;
 
@@ -148,15 +154,28 @@ class HiddifyCoreService with InfraLogger {
       final debug = ref.read(debugModeNotifierProvider);
       await stopListenSingle('fg');
       await stopListenSingle('bg');
+      await stopListenSingle('native');
       final setupResponse = await core.setup(directories, debug, 3);
       if (setupResponse.isNotEmpty) return left(setupResponse);
 
       await startListeningLogs('fg', core.fgClient);
-      if (!core.isSingleChannel()) {
+      await listenSingle<CoreStatus>(
+        'nativeStatusListener',
+        () => core.serviceEvents,
+        onData: (event) {
+          if (event is CoreStopped || event is CoreStopping) {
+            currentState = event;
+            _publishStatus(event);
+          }
+        },
+      );
+      // Mobile creates the background server only when the service starts.
+      // Connecting before then poisons the channel with reconnect backoff.
+      if (core.isSingleChannel() || await core.isBgClientAvailable()) {
         await startListeningLogs('bg', core.bgClient);
+        await startListeningStatus('bg', core.bgClient);
       }
       _publishStatus(currentState);
-      await startListeningStatus('bg', core.bgClient);
       return right(unit);
     } catch (e, stackTrace) {
       loggy.error('core setup failed', e, stackTrace);
@@ -199,9 +218,8 @@ class HiddifyCoreService with InfraLogger {
       try {
         final background = await core.setupBackground(path, name);
         if (background != const CoreStatus.started()) {
-          currentState = background;
           await _cleanupFailedStart();
-          _publishStatus(currentState);
+          _publishStatus(currentState = background);
           return left(background.getCoreAlert() ?? const ConnectionFailure.unexpected('failed to start core'));
         }
 
@@ -214,26 +232,26 @@ class HiddifyCoreService with InfraLogger {
           StartRequest(configPath: path, configName: name, disableMemoryLimit: disableMemoryLimit),
           options: parseOptions,
         );
-        if (ref.mounted) ref.read(coreRestartSignalProvider.notifier).restart();
         if (res.messageType != MessageType.ALREADY_STARTED && res.messageType != MessageType.EMPTY) {
           final alert = res.message.contains('denied') ? CoreAlert.requestVPNPermission : CoreAlert.startFailed;
-          currentState = CoreStatus.stopped(
+          final failureStatus = CoreStatus.stopped(
             alert: alert,
             message: 'failed to start core ${res.messageType} ${res.message}',
           );
           await _cleanupFailedStart();
-          _publishStatus(currentState);
+          _publishStatus(currentState = failureStatus);
           return left(
-            currentState.getCoreAlert() ??
+            failureStatus.getCoreAlert() ??
                 ConnectionFailure.unexpected('failed to start core ${res.messageType} ${res.message}'),
           );
         }
+        _publishStatus(currentState = const CoreStatus.started());
+        if (ref.mounted) ref.read(coreRestartSignalProvider.notifier).restart();
         return right(unit);
       } on GrpcError catch (e, stackTrace) {
         await _cleanupFailedStart();
         _publishStatus(currentState = const CoreStatus.stopped());
         loggy.error('failed to start background core', e, stackTrace);
-        if (ref.mounted) ref.read(coreRestartSignalProvider.notifier).restart();
         if (e.code == StatusCode.unavailable) {
           return left(const ConnectionFailure.unexpected('background core is not started yet!'));
         }
@@ -430,7 +448,9 @@ class HiddifyCoreService with InfraLogger {
   }
 
   Stream<CoreStatus> watchStatus() async* {
-    await startListeningStatus('bg', core.bgClient);
+    if (core.isInitialized() && (core.isSingleChannel() || await core.isBgClientAvailable())) {
+      await startListeningStatus('bg', core.bgClient);
+    }
     yield* statusController.stream;
   }
 
@@ -448,9 +468,13 @@ class HiddifyCoreService with InfraLogger {
         _publishStatus(event);
       },
       onError: (error) {
-        currentState = const CoreStatus.stopped();
-        _publishStatus(currentState);
         loggy.warning('Status connection lost: $error');
+        // Android's native status channel reports actual service shutdowns.
+        // A broken UI control stream must not tear down a running VPN.
+        if (!PlatformUtils.isAndroid) {
+          currentState = const CoreStatus.stopped();
+          _publishStatus(currentState);
+        }
       },
       reconnect: true,
     );
@@ -489,7 +513,7 @@ class HiddifyCoreService with InfraLogger {
     for (final key in keys) {
       _subscriptionTokens.remove(key); // invalidate callbacks before awaiting cancellation
       _reconnectTimers.remove(key)?.cancel();
-      _reconnectAttempts.remove(key);
+      _reconnectPolicies.remove(key);
       await subscriptions.remove(key)?.cancel();
     }
   });
@@ -510,6 +534,7 @@ class HiddifyCoreService with InfraLogger {
     _subscriptionTokens[key] = token;
     bool isCurrent() => !_disposed && identical(_subscriptionTokens[key], token);
     var terminated = false;
+    final subscribedAt = DateTime.now();
     void ended(Object error) {
       if (!isCurrent() || terminated) return;
       terminated = true;
@@ -517,9 +542,17 @@ class HiddifyCoreService with InfraLogger {
       if (old != null) unawaited(old.cancel());
       onError?.call(error);
       if (reconnect) {
-        final attempts = (_reconnectAttempts[key] ?? 0).clamp(0, 4);
-        _reconnectAttempts[key] = attempts + 1;
-        _reconnectTimers[key] = Timer(Duration(seconds: const [2, 4, 8, 16, 30][attempts]), () {
+        final policy = _reconnectPolicies.putIfAbsent(key, RecoveryPolicy.new);
+        if (DateTime.now().difference(subscribedAt) >= const Duration(minutes: 1)) {
+          policy.reset();
+        }
+        final delay = policy.nextDelay();
+        if (delay == null) {
+          _subscriptionTokens.remove(key);
+          loggy.warning('Unable to restore $key after five retries: $error');
+          return;
+        }
+        _reconnectTimers[key] = Timer(delay, () {
           _reconnectTimers.remove(key);
           if (isCurrent()) {
             unawaited(
@@ -542,7 +575,6 @@ class HiddifyCoreService with InfraLogger {
       final subscription = stream().listen(
         (event) {
           if (isCurrent() && !terminated) {
-            _reconnectAttempts.remove(key);
             onData?.call(event);
           }
         },

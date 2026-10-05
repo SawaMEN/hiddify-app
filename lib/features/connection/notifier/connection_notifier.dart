@@ -16,7 +16,6 @@ import 'package:hiddify/features/connection/model/connection_failure.dart';
 import 'package:hiddify/features/connection/model/connection_status.dart';
 import 'package:hiddify/features/profile/model/profile_entity.dart';
 import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
-import 'package:hiddify/hiddifycore/init_signal.dart';
 import 'package:hiddify/utils/utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:in_app_review/in_app_review.dart';
@@ -92,7 +91,6 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
         await reconnect(next);
       }
     });
-    ref.watch(coreRestartSignalProvider);
 
     yield* _connectionRepo.watchConnectionStatus().doOnData((event) {
       loggy.info("connection status: ${event.format()}");
@@ -226,6 +224,7 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     _retryTimer?.cancel();
     _retryTimer = null;
     _stableTimer?.cancel();
+    _stableTimer = null;
     if (ref.mounted) ref.read(recoveryStatusProvider.notifier).set(0);
   }
 
@@ -240,7 +239,8 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     if (_retryTimer != null) return true;
     final delay = _policy.nextDelay();
     if (delay == null) {
-      ref.read(recoveryStatusProvider.notifier).set(0);
+      _cancelRecovery();
+      unawaited(ref.read(Preferences.startedByUser.notifier).update(false));
       return false;
     }
     final epoch = _epoch;
