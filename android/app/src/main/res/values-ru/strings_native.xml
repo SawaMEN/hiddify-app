@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VetrOFF Client</string>
+    <string name="native_status_stopped">Отключено</string>
+    <string name="native_status_starting">Подключение…</string>
+    <string name="native_status_started">Подключено</string>
+    <string name="native_status_stopping">Отключение…</string>
+    <string name="native_connect">Подключить</string>
+    <string name="native_disconnect">Отключить</string>
+    <string name="native_connecting">Подключение…</string>
+    <string name="native_disconnecting">Отключение…</string>
+    <string name="native_active_profile_unnamed">Активный профиль</string>
+    <string name="native_no_profile_selected">Профиль не выбран</string>
+    <string name="native_current_mode">Режим подключения</string>
+    <string name="native_mode_root">Root-режим</string>
+    <string name="native_mode_android_vpn">Режим Android VPN</string>
+    <string name="native_wifi_sharing_on">Раздача VPN включена</string>
+    <string name="native_wifi_sharing_off">Раздача VPN выключена</string>
+    <string name="native_profiles">Профили</string>
+    <string name="native_settings">Настройки</string>
+    <string name="native_migration_note">Профили и расширенные настройки временно открываются в интерфейсе совместимости, пока их перенос на Kotlin не завершён.</string>
+    <string name="native_error_title">Не удалось выполнить действие</string>
+    <string name="native_no_active_profile">Перед подключением выберите или импортируйте профиль.</string>
+    <string name="native_vpn_permission_denied">Разрешение Android на создание VPN не предоставлено.</string>
+    <string name="native_service_error">Ошибка VPN-сервиса: %1$s</string>
+    <string name="native_background_title">Разрешить работу VPN в фоне</string>
+    <string name="native_background_message">Оптимизация батареи может останавливать VPN в фоне. Разрешите VetrOFF Client работать без оптимизации батареи для более стабильного соединения.</string>
+    <string name="native_background_allow">Открыть настройки</string>
+</resources>
