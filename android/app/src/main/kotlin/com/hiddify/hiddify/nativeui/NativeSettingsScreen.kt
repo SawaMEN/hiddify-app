@@ -22,8 +22,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
+import com.hiddify.hiddify.constant.ServiceMode
 
 data class NativeSettingsState(
+    val serviceMode: String,
     val rootRequested: Boolean,
     val wifiSharing: Boolean,
     val fullTunnel: Boolean,
@@ -36,6 +38,9 @@ data class NativeSettingsState(
     val handbookDirect: Boolean,
     val handbookProxySites: String,
     val handbookDirectSites: String,
+    val dynamicNotification: Boolean,
+    val debugMode: Boolean,
+    val disableMemoryLimit: Boolean,
 )
 
 @Composable
@@ -44,6 +49,7 @@ fun NativeSettingsScreen(
     canChangeServiceMode: Boolean,
     onBack: () -> Unit,
     onOpenPerAppRouting: () -> Unit,
+    onProxyOnlyChanged: (Boolean) -> Unit,
     onRootModeChanged: (Boolean) -> Unit,
     onWifiSharingChanged: (Boolean) -> Unit,
     onFullTunnelChanged: (Boolean) -> Unit,
@@ -56,6 +62,9 @@ fun NativeSettingsScreen(
     onHandbookDirectChanged: (Boolean) -> Unit,
     onHandbookProxySitesChanged: (String) -> Unit,
     onHandbookDirectSitesChanged: (String) -> Unit,
+    onDynamicNotificationChanged: (Boolean) -> Unit,
+    onDebugModeChanged: (Boolean) -> Unit,
+    onDisableMemoryLimitChanged: (Boolean) -> Unit,
 ) {
     Column(
         modifier =
@@ -81,10 +90,17 @@ fun NativeSettingsScreen(
 
         SettingsSection(title = stringResource(R.string.native_settings_vpn)) {
             SettingSwitch(
+                title = stringResource(R.string.native_setting_proxy_only),
+                summary = stringResource(R.string.native_setting_proxy_only_summary),
+                checked = state.serviceMode != ServiceMode.VPN,
+                enabled = canChangeServiceMode,
+                onCheckedChange = onProxyOnlyChanged,
+            )
+            SettingSwitch(
                 title = stringResource(R.string.native_setting_root),
                 summary = stringResource(R.string.native_setting_root_summary),
                 checked = state.rootRequested,
-                enabled = canChangeServiceMode,
+                enabled = canChangeServiceMode && state.serviceMode == ServiceMode.VPN,
                 onCheckedChange = onRootModeChanged,
             )
             SettingSwitch(
@@ -173,6 +189,27 @@ fun NativeSettingsScreen(
                 label = { Text(stringResource(R.string.native_setting_direct_domains)) },
                 supportingText = { Text(stringResource(R.string.native_domains_hint)) },
                 minLines = 3,
+            )
+        }
+
+        SettingsSection(title = stringResource(R.string.native_settings_app)) {
+            SettingSwitch(
+                title = stringResource(R.string.native_setting_dynamic_notification),
+                summary = stringResource(R.string.native_setting_dynamic_notification_summary),
+                checked = state.dynamicNotification,
+                onCheckedChange = onDynamicNotificationChanged,
+            )
+            SettingSwitch(
+                title = stringResource(R.string.native_setting_disable_memory_limit),
+                summary = stringResource(R.string.native_setting_disable_memory_limit_summary),
+                checked = state.disableMemoryLimit,
+                onCheckedChange = onDisableMemoryLimitChanged,
+            )
+            SettingSwitch(
+                title = stringResource(R.string.native_setting_debug),
+                summary = stringResource(R.string.native_setting_debug_summary),
+                checked = state.debugMode,
+                onCheckedChange = onDebugModeChanged,
             )
         }
 
