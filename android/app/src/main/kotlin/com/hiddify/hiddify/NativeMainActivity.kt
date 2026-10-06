@@ -14,28 +14,42 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
 import com.hiddify.hiddify.bg.BoxService
 import com.hiddify.hiddify.bg.ServiceConnection
 import com.hiddify.hiddify.constant.Alert
 import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
+import com.hiddify.hiddify.nativeprofile.NativeProfile
+import com.hiddify.hiddify.nativeprofile.NativeProfileRepository
 import com.hiddify.hiddify.nativeui.NativeApp
 import com.hiddify.hiddify.nativeui.NativeSettingsState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Native Android entry point used during the Dart -> Kotlin migration.
  *
- * The existing [MainActivity] remains available as a temporary Flutter fallback for screens that
- * have not been migrated yet. VPN lifecycle control is native here, so the normal app launch no
- * longer needs a Flutter engine just to connect or disconnect an already configured profile.
+ * The normal Android launcher, VPN lifecycle, profiles and core network settings are native.
+ * [MainActivity] remains available only as a temporary compatibility surface for advanced screens
+ * that have not been migrated yet.
  */
 class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
+
+    companion object {
+        private const val IMPORT_BUSY_ID = "__import__"
+    }
 
     private val serviceStatus = mutableStateOf(Status.Stopped)
     private val activeProfileName = mutableStateOf("")
     private val activeProfilePath = mutableStateOf("")
+    private val profiles = mutableStateOf<List<NativeProfile>>(emptyList())
+    private val busyProfileId = mutableStateOf<String?>(null)
     private val errorMessage = mutableStateOf<String?>(null)
     private val nativeSettings = mutableStateOf(readNativeSettings())
+
+    private val profileRepository by lazy { NativeProfileRepository(applicationContext) }
     private val connection = ServiceConnection(this, this)
 
     private var pendingStartAfterVpnPermission = false
@@ -77,6 +91,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         enableEdgeToEdge()
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
+        refreshProfiles(syncActive = true)
 
         setContent {
             NativeApp(
@@ -85,12 +100,31 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 hasActiveProfile = activeProfilePath.value.isNotBlank(),
                 rootMode = Settings.privacyUseRoot,
                 settingsState = nativeSettings.value,
+                profiles = profiles.value,
+                busyProfileId = busyProfileId.value,
                 errorMessage = errorMessage.value,
                 onDismissError = { errorMessage.value = null },
                 onToggleConnection = ::toggleConnection,
-                onOpenProfiles = ::openLegacyUi,
-                onRootModeChanged = { value -> updateSettings { Settings.setPrivacyUseRoot(value) } },
-                onWifiSharingChanged = { value -> updateSettings { Settings.setWifiVpnSharing(value) } },
+                onSelectProfile = ::selectProfile,
+                onDeleteProfile = ::deleteProfile,
+                onRefreshProfile = ::refreshRemoteProfile,
+                onImportProfile = ::importProfile,
+                onOpenLegacy = ::openLegacyUi,
+                onRootModeChanged = { value ->
+                    if (serviceStatus.value != Status.Stopped) {
+                        errorMessage.value = getString(R.string.native_profile_disconnect_required)
+                    } else {
+                        updateSettings { Settings.setPrivacyUseRoot(value) }
+                        connection.reconnect()
+                    }
+                },
+                onWifiSharingChanged = { value ->
+                    if (serviceStatus.value != Status.Stopped) {
+                        errorMessage.value = getString(R.string.native_profile_disconnect_required)
+                    } else {
+                        updateSettings { Settings.setWifiVpnSharing(value) }
+                    }
+                },
                 onFullTunnelChanged = { value -> updateSettings { Settings.setPrivacyFullTunnel(value) } },
                 onEncryptedDnsChanged = { value -> updateSettings { Settings.setPrivacyEncryptedDns(value) } },
                 onPublicDnsChanged = { value -> updateSettings { Settings.setPrivacyPublicDns(value) } },
@@ -103,12 +137,15 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onHandbookDirectSitesChanged = { value -> updateSettings { Settings.setHandbookDirectSites(value) } },
             )
         }
+
+        handleIncomingIntent(intent)
     }
 
     override fun onStart() {
         super.onStart()
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
+        refreshProfiles()
         connection.connect()
     }
 
@@ -116,10 +153,17 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         super.onResume()
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
+        refreshProfiles()
         if (serviceStatus.value == Status.Started) {
             maybeRequestNotificationPermission()
             maybePromptBatteryOptimization()
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIncomingIntent(intent)
     }
 
     override fun onStop() {
@@ -132,6 +176,101 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         activeProfilePath.value = Settings.activeConfigPath
     }
 
+    private fun refreshProfiles(syncActive: Boolean = false) {
+        lifecycleScope.launch {
+            try {
+                val loaded =
+                    withContext(Dispatchers.IO) {
+                        if (syncActive) profileRepository.synchronizeActiveProfile()
+                        profileRepository.listProfiles()
+                    }
+                profiles.value = loaded
+                refreshProfileSnapshot()
+            } catch (error: Exception) {
+                if (syncActive) {
+                    errorMessage.value = error.message ?: error.javaClass.simpleName
+                }
+            }
+        }
+    }
+
+    private fun selectProfile(profile: NativeProfile) {
+        runProfileOperation(profile.id, requireDisconnected = true) {
+            profileRepository.setActive(profile.id)
+        }
+    }
+
+    private fun deleteProfile(profile: NativeProfile) {
+        runProfileOperation(profile.id, requireDisconnected = true) {
+            profileRepository.delete(profile.id)
+        }
+    }
+
+    private fun refreshRemoteProfile(profile: NativeProfile) {
+        if (!profile.isRemote) return
+        runProfileOperation(profile.id, requireDisconnected = false) {
+            profileRepository.refreshRemote(profile.id)
+        }
+    }
+
+    private fun importProfile(
+        raw: String,
+        name: String?,
+        intervalHours: Int?,
+        disableAutoUpdate: Boolean,
+    ) {
+        runProfileOperation(IMPORT_BUSY_ID, requireDisconnected = true) {
+            profileRepository.importInput(
+                rawInput = raw,
+                name = name,
+                updateIntervalHours = intervalHours,
+                disableAutoUpdate = disableAutoUpdate,
+            )
+        }
+    }
+
+    private fun runProfileOperation(
+        operationId: String,
+        requireDisconnected: Boolean,
+        operation: () -> Unit,
+    ) {
+        if (busyProfileId.value != null) return
+        if (requireDisconnected && serviceStatus.value != Status.Stopped) {
+            errorMessage.value = getString(R.string.native_profile_disconnect_required)
+            return
+        }
+
+        busyProfileId.value = operationId
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) { operation() }
+                val loaded =
+                    withContext(Dispatchers.IO) {
+                        profileRepository.synchronizeActiveProfile()
+                        profileRepository.listProfiles()
+                    }
+                profiles.value = loaded
+                refreshProfileSnapshot()
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                busyProfileId.value = null
+            }
+        }
+    }
+
+    private fun handleIncomingIntent(incoming: Intent?) {
+        val payload =
+            when (incoming?.action) {
+                Intent.ACTION_VIEW -> incoming.dataString
+                Intent.ACTION_SEND -> incoming.getStringExtra(Intent.EXTRA_TEXT)
+                else -> null
+            }?.trim()?.takeIf { it.isNotEmpty() } ?: return
+
+        // Avoid re-importing the launch intent after Activity recreation/resume.
+        incoming.action = null
+        importProfile(payload, null, null, false)
+    }
 
     private fun readNativeSettings() =
         NativeSettingsState(
@@ -176,13 +315,11 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
         if (Settings.activeConfigPath.isBlank()) {
             errorMessage.value = getString(R.string.native_no_active_profile)
-            openLegacyUi()
             return
         }
 
         Settings.connectionDesired = true
-        // The native path owns core startup. Flutter used false here because it started the core
-        // through its foreground gRPC client; Kotlin starts the configured core inside BoxService.
+        // Kotlin owns startup. The background service loads the selected raw profile directly.
         Settings.startCoreAfterStartingService = true
 
         if (Settings.serviceMode == ServiceMode.VPN && !Settings.privacyUseRoot) {
