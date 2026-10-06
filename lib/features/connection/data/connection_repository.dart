@@ -146,7 +146,7 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
           }
           return singbox
               .restart(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit)
-              .mapLeft(UnexpectedConnectionFailure.new)
+              .mapLeft<ConnectionFailure>(UnexpectedConnectionFailure.new)
               .flatMap((_) => _recordSuccessfulStart());
         }).run(),
       ),
