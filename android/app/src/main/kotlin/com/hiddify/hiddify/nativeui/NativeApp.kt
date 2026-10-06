@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
+import com.hiddify.hiddify.nativelog.NativeLogSnapshot
 import com.hiddify.hiddify.nativeprofile.NativeProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
@@ -42,6 +43,7 @@ private const val PAGE_PROFILES = "profiles"
 private const val PAGE_SETTINGS = "settings"
 private const val PAGE_PER_APP = "per_app"
 private const val PAGE_PROFILE_DETAILS = "profile_details"
+private const val PAGE_LOGS = "logs"
 
 @Composable
 fun NativeApp(
@@ -56,6 +58,8 @@ fun NativeApp(
     profileEditorBusy: Boolean,
     perAppSnapshot: NativePerAppSnapshot,
     perAppBusy: Boolean,
+    logSnapshot: NativeLogSnapshot,
+    logBusy: Boolean,
     errorMessage: String?,
     onDismissError: () -> Unit,
     onToggleConnection: () -> Unit,
@@ -68,6 +72,8 @@ fun NativeApp(
     onPerAppModeChanged: (String) -> Unit,
     onTogglePerAppPackage: (String) -> Unit,
     onClearPerApp: () -> Unit,
+    onRefreshLogs: () -> Unit,
+    onClearLogs: () -> Unit,
     onOpenLegacy: () -> Unit,
     onProxyOnlyChanged: (Boolean) -> Unit,
     onRootModeChanged: (Boolean) -> Unit,
@@ -142,6 +148,15 @@ fun NativeApp(
                             onClear = onClearPerApp,
                         )
 
+                    PAGE_LOGS ->
+                        NativeLogsScreen(
+                            snapshot = logSnapshot,
+                            busy = logBusy,
+                            onBack = { page = PAGE_HOME },
+                            onRefresh = onRefreshLogs,
+                            onClear = onClearLogs,
+                        )
+
                     PAGE_SETTINGS ->
                         NativeSettingsScreen(
                             state = settingsState,
@@ -177,6 +192,7 @@ fun NativeApp(
                             onToggleConnection = onToggleConnection,
                             onOpenProfiles = { page = PAGE_PROFILES },
                             onOpenSettings = { page = PAGE_SETTINGS },
+                            onOpenLogs = { page = PAGE_LOGS },
                             onOpenLegacy = onOpenLegacy,
                         )
                 }
@@ -209,6 +225,7 @@ private fun HomeScreen(
     onToggleConnection: () -> Unit,
     onOpenProfiles: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenLogs: () -> Unit,
     onOpenLegacy: () -> Unit,
 ) {
     Column(
@@ -278,6 +295,13 @@ private fun HomeScreen(
             ) {
                 Text(stringResource(R.string.native_settings))
             }
+        }
+
+        OutlinedButton(
+            onClick = onOpenLogs,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.native_logs_title))
         }
 
         Spacer(modifier = Modifier.weight(1f))
