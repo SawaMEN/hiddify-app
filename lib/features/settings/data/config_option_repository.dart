@@ -29,12 +29,9 @@ abstract class ConfigOptions {
     mapTo: (value) => value.key,
   );
 
-  static final region = PreferencesNotifier.create<Region, String>(
-    "region",
-    Region.other,
-    mapFrom: Region.values.byName,
-    mapTo: (value) => value.name,
-  );
+  // Compatibility value for the core protocol and retired per-app filtering.
+  // Stored region preferences no longer change routing or DNS.
+  static final region = Provider<Region>((ref) => Region.other);
   static final useXrayCoreWhenPossible = PreferencesNotifier.create<bool, bool>("use-xray-core-when-possible", false);
   static final logLevel = PreferencesNotifier.create<LogLevel, String>(
     "log-level",
@@ -87,7 +84,6 @@ abstract class ConfigOptions {
       "4.4.2.2",
       "8.8.8.8",
     ]),
-    defaultValueFunction: (ref) => ref.read(region) == Region.cn ? "223.5.5.5" : "1.1.1.1",
     validator: (value) => value.isNotBlank,
   );
 
@@ -336,7 +332,6 @@ abstract class ConfigOptions {
   };
 
   static final Map<String, StateNotifierProvider<PreferencesNotifier, dynamic>> preferences = {
-    "region": region,
     "balancer-strategy": balancerStrategy,
     "use-xray-core-when-possible": useXrayCoreWhenPossible,
     "service-mode": serviceMode,

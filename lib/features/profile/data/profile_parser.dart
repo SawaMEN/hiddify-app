@@ -460,7 +460,7 @@ class ProfileParser {
 
   static SubscriptionInfo? _parseSubscriptionInfo(String subInfoStr) {
     final map = parseSubscriptionUserInfo(subInfoStr);
-    if (map case {"upload": final upload?, "download": final download?}) {
+    if (map case {"upload": final upload, "download": final download}) {
       final total = map['total'];
       var expire = map['expire'];
       final total1 = (total == null || total == 0)

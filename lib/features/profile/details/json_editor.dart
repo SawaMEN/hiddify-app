@@ -8,6 +8,7 @@ import 'dart:ui';
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 const _space = 18.0;
@@ -407,6 +408,7 @@ class _JsonEditorState extends State<JsonEditor> {
   late final _themeColor = widget.themeColor ?? Theme.of(context).primaryColor;
   late Editors _editor = widget.editors.first;
   bool _onError = false;
+  bool _parsePending = false;
   bool? allExpanded;
   late final _controller = TextEditingController()..text = _stringifyData(_data, 0, true);
   late final _scrollController = ScrollController();
@@ -436,26 +438,45 @@ class _JsonEditorState extends State<JsonEditor> {
   }
 
   void callOnChanged() {
+    _parseTimer?.cancel();
+    _parseGeneration++;
     // Publish before Save can be pressed; delayed publication loses the last edit.
-    widget.onChanged(jsonDecode(jsonEncode(_data)));
+    widget.onChanged(_cloneEditorValue(_data));
     widget.onValidationChanged?.call(true);
   }
 
+  Timer? _parseTimer;
+  int _parseGeneration = 0;
+
   void parseData(String value) {
-    try {
-      final data = jsonDecode(value);
-      _data = data;
-      widget.onChanged(data);
-      widget.onValidationChanged?.call(true);
-      setState(() => _onError = false);
-    } catch (_) {
-      widget.onValidationChanged?.call(false);
-      setState(() => _onError = true);
-    }
+    _parseTimer?.cancel();
+    _parsePending = true;
+    widget.onValidationChanged?.call(false);
+    final generation = ++_parseGeneration;
+    _parseTimer = Timer(const Duration(milliseconds: 200), () async {
+      try {
+        final data = await compute(_decodeEditorJson, value);
+        if (!mounted || generation != _parseGeneration) return;
+        _parsePending = false;
+        _data = data;
+        widget.onChanged(data);
+        widget.onValidationChanged?.call(true);
+        setState(() => _onError = false);
+      } catch (_) {
+        if (mounted && generation == _parseGeneration) {
+          _parsePending = false;
+          setState(() => _onError = true);
+        }
+      }
+    });
   }
 
   void copyData() async {
-    await Clipboard.setData(ClipboardData(text: const JsonEncoder.withIndent(' ').convert(_data)));
+    await Clipboard.setData(
+      ClipboardData(
+        text: _editor == Editors.text ? _controller.text : const JsonEncoder.withIndent(' ').convert(_data),
+      ),
+    );
   }
 
   bool updateParentObjects(List newExpandList) {
@@ -620,6 +641,8 @@ class _JsonEditorState extends State<JsonEditor> {
   void dispose() {
     _timer?.cancel();
     _searchTimer?.cancel();
+    _parseTimer?.cancel();
+    _parseGeneration++;
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -653,7 +676,7 @@ class _JsonEditorState extends State<JsonEditor> {
                           tooltip: 'Change editor',
                           padding: EdgeInsets.zero,
                           onSelected: (value) {
-                            if (_onError) return;
+                            if (_onError || _parsePending) return;
                             if (value == _editor) return;
                             if (value == Editors.text) _controller.text = _stringifyData(_data, 0, true);
                             setState(() => _editor = value);
@@ -690,7 +713,7 @@ class _JsonEditorState extends State<JsonEditor> {
                         const SizedBox(width: 20),
                         InkWell(
                           onTap: () {
-                            if (!_onError) _controller.text = _stringifyData(_data, 0, true);
+                            if (!_onError && !_parsePending) _controller.text = _stringifyData(_data, 0, true);
                           },
                           child: const Tooltip(message: 'Format', child: Icon(Icons.format_align_left, size: 20)),
                         ),
@@ -1465,3 +1488,11 @@ class _SearchField extends StatelessWidget {
 
 String _stringifyData(dynamic data, int spacing, [bool isLast = false]) =>
     const JsonEncoder.withIndent('  ').convert(data);
+
+dynamic _decodeEditorJson(String value) => jsonDecode(value);
+
+dynamic _cloneEditorValue(dynamic value) {
+  if (value is Map) return value.map((key, item) => MapEntry(key, _cloneEditorValue(item)));
+  if (value is List) return value.map(_cloneEditorValue).toList();
+  return value;
+}

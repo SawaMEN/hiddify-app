@@ -4,6 +4,7 @@ import 'package:hiddify/utils/utils.dart';
 
 abstract class Constants {
   static const appName = "VetrOFF Client";
+  static const upstreamGithubUrl = "https://github.com/hiddify/hiddify-app";
   static const githubUrl = "https://github.com/SawaMEN/hiddify-app";
   static const licenseUrl = "https://github.com/SawaMEN/hiddify-app?tab=License-1-ov-file#readme";
   static const githubReleasesApiUrl = "https://api.github.com/repos/SawaMEN/hiddify-app/releases";

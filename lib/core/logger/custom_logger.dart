@@ -63,6 +63,7 @@ class FileLogPrinter extends LoggyPrinter {
   int _pendingWrites = 0;
   bool _closed = false;
   IOSink? _sink;
+  Timer? _flushTimer;
   Future<void> _writes = Future<void>.value();
 
   void _open() {
@@ -100,7 +101,17 @@ class FileLogPrinter extends LoggyPrinter {
           }
           _sink?.write(text);
           _bytes += bytes;
-          await _sink?.flush();
+          if (record.level.priority >= LogLevel.error.priority) await _sink?.flush();
+          _flushTimer ??= Timer(const Duration(milliseconds: 250), () {
+            _flushTimer = null;
+            _writes = _writes
+                .then((_) async {
+                  if (!_closed) await _sink?.flush();
+                })
+                .catchError((Object error, StackTrace stack) {
+                  _closed = true;
+                });
+          });
         })
         .catchError((Object error, StackTrace stack) {
           _closed = true;
@@ -111,6 +122,7 @@ class FileLogPrinter extends LoggyPrinter {
   }
 
   void dispose() {
+    _flushTimer?.cancel();
     unawaited(
       _writes
           .then((_) async {

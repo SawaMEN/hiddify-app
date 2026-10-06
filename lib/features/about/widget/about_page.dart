@@ -21,6 +21,7 @@ class AboutPage extends HookConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).requireValue;
+    final isRussian = Localizations.localeOf(context).languageCode == 'ru';
     final appInfo = ref.watch(appInfoProvider).requireValue;
     final appUpdate = ref.watch(appUpdateNotifierProvider);
 
@@ -91,15 +92,37 @@ class AboutPage extends HookConsumerWidget {
                 children: [
                   Assets.images.logo.image(width: 64, height: 64),
                   const Gap(16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(t.common.appTitle, style: Theme.of(context).textTheme.titleLarge),
-                      const Gap(4),
-                      Text("${t.common.version} ${appInfo.presentVersion}"),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(t.common.appTitle, style: Theme.of(context).textTheme.titleLarge),
+                        const Gap(4),
+                        Text("${t.common.version} ${appInfo.presentVersion}"),
+                      ],
+                    ),
                   ),
                 ],
+              ),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Card(
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(isRussian ? 'Форк Hiddify' : 'Hiddify fork', style: Theme.of(context).textTheme.titleMedium),
+                    const Gap(8),
+                    Text(
+                      isRussian
+                          ? 'VetrOFF Client — независимый форк Hiddify с изменёнными настройками и логикой работы VPN.'
+                          : 'VetrOFF Client is an independent fork of Hiddify with modified settings and VPN behavior.',
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -108,11 +131,18 @@ class AboutPage extends HookConsumerWidget {
               ...conditionalTiles,
               if (conditionalTiles.isNotEmpty) const Divider(),
               ListTile(
-                title: Text(t.pages.about.sourceCode),
+                title: Text(isRussian ? 'Исходный код этого форка' : 'Source code of this fork'),
+                subtitle: const Text('SawaMEN/hiddify-app'),
                 trailing: const Icon(FluentIcons.open_24_regular),
                 onTap: () async {
                   await UriUtils.tryLaunch(Uri.parse(Constants.githubUrl));
                 },
+              ),
+              ListTile(
+                title: Text(isRussian ? 'Оригинальный Hiddify' : 'Original Hiddify'),
+                subtitle: const Text('hiddify/hiddify-app'),
+                trailing: const Icon(FluentIcons.open_24_regular),
+                onTap: () async => await UriUtils.tryLaunch(Uri.parse(Constants.upstreamGithubUrl)),
               ),
               ListTile(
                 title: Text(t.pages.about.termsAndConditions),

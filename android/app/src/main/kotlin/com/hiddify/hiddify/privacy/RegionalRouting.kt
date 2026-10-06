@@ -45,9 +45,14 @@ object RegionalRouting {
         return PackageSelection(false, merged(automatic, stored, false))
     }
 
+    @Volatile private var cachedCatalogue: JSONObject? = null
+    private fun catalogue(context: Context): JSONObject = cachedCatalogue ?: synchronized(this) {
+        cachedCatalogue ?: JSONObject(context.assets.open("region_routing.json").bufferedReader().use { it.readText() }).also { cachedCatalogue = it }
+    }
+
     fun policy(context: Context, @Suppress("UNUSED_PARAMETER") legacyRegion: String = "other"): Map<String, Any> {
         val mode = Settings.privacyRoutingMode.takeIf { !Settings.privacyFullTunnel } ?: "off"
-        val catalogue = JSONObject(context.assets.open("region_routing.json").bufferedReader().use { it.readText() })
+        val catalogue = catalogue(context)
         val version = catalogue.optInt("version", 1)
 
         val vpnAwarePackages = if (catalogue.has("ruVpnAwarePackages")) {
@@ -68,9 +73,10 @@ object RegionalRouting {
         val directSelection = packageSelection(Settings.privacyDirectPackages, automaticDirect)
         val proxySelection = packageSelection(Settings.privacyProxyPackages, automaticProxy)
 
+        val uidCache = mutableMapOf<String, Int?>()
         fun installedUid(packageName: String): Int? {
             if (packageName == context.packageName) return null
-            return runCatching { context.packageManager.getApplicationInfo(packageName, 0).uid }.getOrNull()
+            return uidCache.getOrPut(packageName) { runCatching { context.packageManager.getApplicationInfo(packageName, 0).uid }.getOrNull() }
         }
         fun installed(packages: List<String>): List<String> = packages.filter { installedUid(it) != null }.distinct()
 

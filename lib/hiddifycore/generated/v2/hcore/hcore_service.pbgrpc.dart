@@ -104,7 +104,13 @@ class CoreClient extends $grpc.Client {
     return $createUnaryCall(_$changeHiddifySettings, request, options: options);
   }
 
-  /// rpc GenerateConfig (GenerateConfigRequest) returns (GenerateConfigResponse);
+  $grpc.ResponseFuture<$0.GenerateConfigResponse> generateConfig(
+    $0.GenerateConfigRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$generateConfig, request, options: options);
+  }
+
   $grpc.ResponseFuture<$0.CoreInfoResponse> startService(
     $0.StartRequest request, {
     $grpc.CallOptions? options,
@@ -184,6 +190,20 @@ class CoreClient extends $grpc.Client {
     return $createUnaryCall(_$close, request, options: options);
   }
 
+  $grpc.ResponseFuture<$0.NetworkProbeResponse> probeConnection(
+    $0.NetworkProbeRequest request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$probeConnection, request, options: options);
+  }
+
+  $grpc.ResponseFuture<$0.IpInfo> getCurrentIpInfo(
+    $1.Empty request, {
+    $grpc.CallOptions? options,
+  }) {
+    return $createUnaryCall(_$getCurrentIpInfo, request, options: options);
+  }
+
   $grpc.ResponseFuture<$0.LANIPResponse> getLANIP(
     $1.Empty request, {
     $grpc.CallOptions? options,
@@ -235,6 +255,11 @@ class CoreClient extends $grpc.Client {
           '/hcore.Core/ChangeHiddifySettings',
           ($0.ChangeHiddifySettingsRequest value) => value.writeToBuffer(),
           $0.CoreInfoResponse.fromBuffer);
+  static final _$generateConfig =
+      $grpc.ClientMethod<$0.GenerateConfigRequest, $0.GenerateConfigResponse>(
+          '/hcore.Core/GenerateConfig',
+          ($0.GenerateConfigRequest value) => value.writeToBuffer(),
+          $0.GenerateConfigResponse.fromBuffer);
   static final _$startService =
       $grpc.ClientMethod<$0.StartRequest, $0.CoreInfoResponse>(
           '/hcore.Core/StartService',
@@ -285,6 +310,15 @@ class CoreClient extends $grpc.Client {
       '/hcore.Core/Close',
       ($0.CloseRequest value) => value.writeToBuffer(),
       $1.Empty.fromBuffer);
+  static final _$probeConnection =
+      $grpc.ClientMethod<$0.NetworkProbeRequest, $0.NetworkProbeResponse>(
+          '/hcore.Core/ProbeConnection',
+          ($0.NetworkProbeRequest value) => value.writeToBuffer(),
+          $0.NetworkProbeResponse.fromBuffer);
+  static final _$getCurrentIpInfo = $grpc.ClientMethod<$1.Empty, $0.IpInfo>(
+      '/hcore.Core/GetCurrentIpInfo',
+      ($1.Empty value) => value.writeToBuffer(),
+      $0.IpInfo.fromBuffer);
   static final _$getLANIP = $grpc.ClientMethod<$1.Empty, $0.LANIPResponse>(
       '/hcore.Core/GetLANIP',
       ($1.Empty value) => value.writeToBuffer(),
@@ -361,6 +395,15 @@ abstract class CoreServiceBase extends $grpc.Service {
         ($core.List<$core.int> value) =>
             $0.ChangeHiddifySettingsRequest.fromBuffer(value),
         ($0.CoreInfoResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$0.GenerateConfigRequest,
+            $0.GenerateConfigResponse>(
+        'GenerateConfig',
+        generateConfig_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) =>
+            $0.GenerateConfigRequest.fromBuffer(value),
+        ($0.GenerateConfigResponse value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$0.StartRequest, $0.CoreInfoResponse>(
         'StartService',
         startService_Pre,
@@ -443,6 +486,22 @@ abstract class CoreServiceBase extends $grpc.Service {
         false,
         ($core.List<$core.int> value) => $0.CloseRequest.fromBuffer(value),
         ($1.Empty value) => value.writeToBuffer()));
+    $addMethod(
+        $grpc.ServiceMethod<$0.NetworkProbeRequest, $0.NetworkProbeResponse>(
+            'ProbeConnection',
+            probeConnection_Pre,
+            false,
+            false,
+            ($core.List<$core.int> value) =>
+                $0.NetworkProbeRequest.fromBuffer(value),
+            ($0.NetworkProbeResponse value) => value.writeToBuffer()));
+    $addMethod($grpc.ServiceMethod<$1.Empty, $0.IpInfo>(
+        'GetCurrentIpInfo',
+        getCurrentIpInfo_Pre,
+        false,
+        false,
+        ($core.List<$core.int> value) => $1.Empty.fromBuffer(value),
+        ($0.IpInfo value) => value.writeToBuffer()));
     $addMethod($grpc.ServiceMethod<$1.Empty, $0.LANIPResponse>(
         'GetLANIP',
         getLANIP_Pre,
@@ -524,6 +583,15 @@ abstract class CoreServiceBase extends $grpc.Service {
 
   $async.Future<$0.CoreInfoResponse> changeHiddifySettings(
       $grpc.ServiceCall call, $0.ChangeHiddifySettingsRequest request);
+
+  $async.Future<$0.GenerateConfigResponse> generateConfig_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.GenerateConfigRequest> $request) async {
+    return generateConfig($call, await $request);
+  }
+
+  $async.Future<$0.GenerateConfigResponse> generateConfig(
+      $grpc.ServiceCall call, $0.GenerateConfigRequest request);
 
   $async.Future<$0.CoreInfoResponse> startService_Pre(
       $grpc.ServiceCall $call, $async.Future<$0.StartRequest> $request) async {
@@ -613,6 +681,23 @@ abstract class CoreServiceBase extends $grpc.Service {
 
   $async.Future<$1.Empty> close(
       $grpc.ServiceCall call, $0.CloseRequest request);
+
+  $async.Future<$0.NetworkProbeResponse> probeConnection_Pre(
+      $grpc.ServiceCall $call,
+      $async.Future<$0.NetworkProbeRequest> $request) async {
+    return probeConnection($call, await $request);
+  }
+
+  $async.Future<$0.NetworkProbeResponse> probeConnection(
+      $grpc.ServiceCall call, $0.NetworkProbeRequest request);
+
+  $async.Future<$0.IpInfo> getCurrentIpInfo_Pre(
+      $grpc.ServiceCall $call, $async.Future<$1.Empty> $request) async {
+    return getCurrentIpInfo($call, await $request);
+  }
+
+  $async.Future<$0.IpInfo> getCurrentIpInfo(
+      $grpc.ServiceCall call, $1.Empty request);
 
   $async.Future<$0.LANIPResponse> getLANIP_Pre(
       $grpc.ServiceCall $call, $async.Future<$1.Empty> $request) async {

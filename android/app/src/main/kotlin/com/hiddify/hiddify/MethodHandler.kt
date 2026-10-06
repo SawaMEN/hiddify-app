@@ -208,7 +208,8 @@ class MethodHandler(
                 // Invalidate an outstanding permission request before inspecting service state.
                 // If startForegroundService was already issued, give Android time to deliver
                 // onStartCommand so the close broadcast cannot be lost in the Stopped->Starting gap.
-                Settings.connectionDesired = false
+                val preserveIntent = call.argument<Boolean>("preserveIntent") == true
+                if (!preserveIntent) Settings.connectionDesired = false
                 val startAlreadyIssued = mainActivity.cancelPendingStart()
                 if (startAlreadyIssued && mainActivity.serviceStatus.value == Status.Stopped) {
                     withTimeoutOrNull(START_ISSUE_SETTLE_MS) {
@@ -227,7 +228,7 @@ class MethodHandler(
                     return@launchResult true
                 }
 
-                BoxService.stop()
+                BoxService.stop(preserveIntent)
 
                 // The Activity status can be stale during bind/unbind. coreOwner is cleared only
                 // after Mobile.close(4L) and TUN cleanup finish, so it is the authoritative stop
@@ -243,7 +244,7 @@ class MethodHandler(
                 var stopped = waitForNativeStop(STOP_TIMEOUT_MS)
                 if (!stopped) {
                     Log.w(TAG, "native core still active after stop timeout; retrying close broadcast")
-                    BoxService.stop()
+                    BoxService.stop(preserveIntent)
                     stopped = waitForNativeStop(STOP_RETRY_GRACE_MS)
                 }
                 if (!stopped) {

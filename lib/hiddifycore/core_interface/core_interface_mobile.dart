@@ -135,7 +135,7 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
   @override
   Future<CoreStatus> setupBackground(String path, String name) async {
     // if (!await waitUntilPort(_portBack, false, stop)) return const CoreStatus.stopped(alert: CoreAlert.createService);
-    if (!await stop()) return const CoreStatus.stopped(alert: CoreAlert.createService);
+    if (!await stop(preserveIntent: true)) return const CoreStatus.stopped(alert: CoreAlert.createService);
     final status = _status;
     if (status == null) {
       return const CoreStatus.stopped(alert: CoreAlert.createService, message: "core is not initialized");
@@ -200,7 +200,7 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
     }
 
     if (!await waitUntilPort(_portBack, true, null, maxTry: 10)) {
-      await stopMethodChannel();
+      await stopMethodChannel(preserveIntent: true);
       return const CoreStatus.stopped(
         alert: CoreAlert.startService,
         message: "background core did not open its local control port",
@@ -220,8 +220,8 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
   }
 
   @override
-  Future<bool> stop() async {
-    final nativeStopped = await stopMethodChannel();
+  Future<bool> stop({bool preserveIntent = false}) async {
+    final nativeStopped = await stopMethodChannel(preserveIntent: preserveIntent);
     if (!nativeStopped) return false;
     if (!await waitUntilPort(_portBack, false, null, maxTry: 10)) {
       return false;
@@ -231,8 +231,11 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
     return true;
   }
 
-  Future<bool> stopMethodChannel() async {
-    return await methodChannel.invokeMethod<bool>('stop').timeout(const Duration(seconds: 25)) == true;
+  Future<bool> stopMethodChannel({bool preserveIntent = false}) async {
+    return await methodChannel
+            .invokeMethod<bool>('stop', {'preserveIntent': preserveIntent})
+            .timeout(const Duration(seconds: 25)) ==
+        true;
   }
 
   @override

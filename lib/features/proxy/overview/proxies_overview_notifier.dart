@@ -1,3 +1,7 @@
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:hiddify/features/connection/health/connection_health.dart';
+import 'package:hiddify/hiddifycore/init_signal.dart';
+
 import 'dart:async';
 
 import 'package:hiddify/core/preferences/general_preferences.dart';
@@ -58,43 +62,31 @@ class ProxiesSortNotifier extends _$ProxiesSortNotifier with AppLogger {
   }
 }
 
+// Share the unsorted native stream with server selection. Sorting is UI work.
+final proxyGroupStreamProvider = StreamProvider.autoDispose<OutboundGroup?>((ref) {
+  ref.watch(coreRestartSignalProvider);
+  if (!ref.watch(serviceRunningProvider)) return Stream.error(const ServiceNotRunning());
+  return ref.watch(proxyRepositoryProvider).watchProxies().map((event) => event.getOrElse((error) => throw error));
+});
+
 @riverpod
 class ProxiesOverviewNotifier extends _$ProxiesOverviewNotifier with AppLogger {
   @override
   Stream<OutboundGroup?> build() {
+    ref.watch(coreRestartSignalProvider);
     ref.disposeDelay(const Duration(seconds: 15));
     final serviceRunning = ref.watch(serviceRunningProvider);
     if (!serviceRunning) {
       return Stream.error(const ServiceNotRunning());
     }
+    if (!ref.watch(appForegroundProvider)) return const Stream.empty();
     final sortBy = ref.watch(proxiesSortNotifierProvider);
-    // yield* ref
-    //     .watch(proxyRepositoryProvider)
-    //     .watchProxies()
-    //     .throttleTime(
-    //       const Duration(milliseconds: 100),
-    //       leading: false,
-    //       trailing: true,
-    //     )
-    //     .map(
-    //       (event) => event.getOrElse(
-    //         (err) {
-    //           loggy.warning("error receiving proxies", err);
-    //           throw err;
-    //         },
-    //       ),
-    //     )
-    //     .asyncMap((proxies) async => _sortOutbounds(proxies, sortBy));
-    return ref
-        .watch(proxyRepositoryProvider)
-        .watchProxies()
-        .map(
-          (event) => event.getOrElse((err) {
-            loggy.warning("error receiving proxies", err);
-            throw err;
-          }),
-        )
-        .asyncMap((proxies) async => await _sortOutbounds(proxies, sortBy));
+    final group = ref.watch(proxyGroupStreamProvider);
+    return group.when(
+      data: (value) => Stream.fromFuture(_sortOutbounds(value, sortBy)),
+      error: (error, stack) => Stream.error(error, stack),
+      loading: () => const Stream.empty(),
+    );
   }
 
   // Future<List<OutboundGroup>> _sortOutbounds(
@@ -142,7 +134,7 @@ class ProxiesOverviewNotifier extends _$ProxiesOverviewNotifier with AppLogger {
 
   Future<OutboundGroup?> _sortOutbounds(OutboundGroup? proxies, ProxiesSort sortBy) async {
     if (proxies == null) return null;
-    proxies = proxies.deepCopy();
+    if (sortBy == ProxiesSort.unsorted) return proxies;
 
     final sortedItems = switch (sortBy) {
       ProxiesSort.name => proxies.items.sortedWith((a, b) {
@@ -176,9 +168,14 @@ class ProxiesOverviewNotifier extends _$ProxiesOverviewNotifier with AppLogger {
       items.add(item);
       // }
     }
-    proxies.items.clear();
-    proxies.items.addAll(items);
-    return proxies;
+    return OutboundGroup(
+      tag: proxies.tag,
+      type: proxies.type,
+      selected: proxies.selected,
+      selectable: proxies.selectable,
+      isExpand: proxies.isExpand,
+      items: items,
+    );
   }
 
   // Future<void> changeProxy(String groupTag, String outboundTag) async {

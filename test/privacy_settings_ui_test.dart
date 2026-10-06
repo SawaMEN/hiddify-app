@@ -1,0 +1,134 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart' as legacy;
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hiddify/core/app_info/app_info_provider.dart';
+import 'package:hiddify/core/localization/translations.dart';
+import 'package:hiddify/core/model/app_info_entity.dart';
+import 'package:hiddify/core/model/environment.dart';
+import 'package:hiddify/core/model/region.dart';
+import 'package:hiddify/core/preferences/preferences_provider.dart';
+import 'package:hiddify/features/about/widget/about_page.dart';
+import 'package:hiddify/features/intro/widget/intro_page.dart';
+import 'package:hiddify/features/settings/data/config_option_repository.dart';
+import 'package:hiddify/features/settings/notifier/config_option/config_option_notifier.dart';
+import 'package:hiddify/features/vpn_privacy/vpn_privacy_overview_page.dart';
+import 'package:hiddify/features/vpn_privacy/vpn_privacy_preferences.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:material_ui/material_ui.dart' as ui;
+import 'package:shared_preferences/shared_preferences.dart';
+
+class _Options extends ConfigOptionNotifier {
+  final pending = Completer<void>();
+  bool called = false;
+  @override
+  Future<bool> build() async => false;
+  @override
+  Future<void> updateTogether(Future<void> Function() operation, {bool applyImmediately = false}) async {
+    called = true;
+    await operation();
+    await pending.future;
+  }
+}
+
+class _Info extends AppInfo {
+  @override
+  Future<AppInfoEntity> build() async => const AppInfoEntity(
+    name: 'VetrOFF Client',
+    version: '1.0.0',
+    buildNumber: '1',
+    release: Release.general,
+    operatingSystem: 'android',
+    operatingSystemVersion: 'test',
+    environment: Environment.prod,
+  );
+}
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  Future<ProviderContainer> setup(WidgetTester tester, ui.Widget page, {bool russian = false, double scale = 1}) async {
+    SharedPreferences.setMockInitialValues({'region': 'ru'});
+    final preferences = (await tester.runAsync(SharedPreferences.getInstance))!;
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWith((_) async => preferences),
+        translationsProvider.overrideWith((_) => (russian ? AppLocale.ru : AppLocale.en).build()),
+        configOptionNotifierProvider.overrideWith(_Options.new),
+        appInfoProvider.overrideWith(_Info.new),
+      ],
+    );
+    addTearDown(container.dispose);
+    await tester.runAsync(() async {
+      await container.read(sharedPreferencesProvider.future);
+      await container.read(translationsProvider.future);
+      await container.read(appInfoProvider.future);
+      await container.read(configOptionNotifierProvider.future);
+    });
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: ui.MaterialApp(
+          locale: ui.Locale(russian ? 'ru' : 'en'),
+          supportedLocales: const [ui.Locale('ru'), ui.Locale('en')],
+          localizationsDelegates: ui.GlobalMaterialLocalizations.delegates,
+          builder: (context, child) => ui.MaterialUiCompatibilityBridge(
+            child: ui.MediaQuery(
+              data: ui.MediaQuery.of(context).copyWith(textScaler: ui.TextScaler.linear(scale)),
+              child: child!,
+            ),
+          ),
+          home: page,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    return container;
+  }
+
+  testWidgets('Expanded routing category survives preference changes and busy indicator insertion', (tester) async {
+    final container = await setup(tester, const VpnPrivacyOverviewPage());
+    final category = find.byKey(const ui.ValueKey('privacy-routing'));
+    await tester.scrollUntilVisible(category, 300);
+    await tester.tap(find.text('Routing'));
+    await tester.pumpAndSettle();
+    final setting = find.text('Russian domains and IPs direct');
+    await tester.ensureVisible(setting);
+    await tester.tap(setting);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final options = container.read(configOptionNotifierProvider.notifier) as _Options;
+    expect(options.called, isTrue);
+    final tile = find.ancestor(of: setting, matching: find.byType(legacy.SwitchListTile));
+    expect(tester.widget<legacy.SwitchListTile>(tile).onChanged, isNull);
+    expect(setting, findsOneWidget);
+    expect(container.read(VpnPrivacyPreferences.russianNetworkBypass), isFalse);
+    options.pending.complete();
+    await tester.pumpAndSettle();
+    expect(setting, findsOneWidget);
+    expect(find.textContaining('Old Russia-region'), findsNothing);
+    await tester.pumpWidget(const ui.SizedBox());
+  });
+
+  testWidgets('First launch has no region selector and stored region cannot affect defaults', (tester) async {
+    final container = await setup(tester, const IntroPage());
+    expect(find.text('Region'), findsNothing);
+    expect(container.read(ConfigOptions.region), Region.other);
+    expect(ConfigOptions.preferences.containsKey('region'), isFalse);
+    expect(container.read(ConfigOptions.directDnsAddress), 'udp://1.1.1.1');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const ui.SizedBox());
+  });
+
+  testWidgets('About labels the fork and original project on a narrow screen with large text', (tester) async {
+    await tester.binding.setSurfaceSize(const ui.Size(320, 640));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await setup(tester, const AboutPage(), russian: true, scale: 1.5);
+    expect(find.text('Форк Hiddify'), findsOneWidget);
+    expect(find.textContaining('независимый форк Hiddify'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Оригинальный Hiddify'), 200);
+    expect(find.text('hiddify/hiddify-app'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const ui.SizedBox());
+  });
+}

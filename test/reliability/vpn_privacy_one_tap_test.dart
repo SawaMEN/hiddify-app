@@ -5,12 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   final actions = File('lib/features/vpn_privacy/vpn_privacy_actions.dart').readAsStringSync();
   final overview = File('lib/features/vpn_privacy/vpn_privacy_overview_page.dart').readAsStringSync();
-  final notifier = File(
-    'lib/features/settings/notifier/config_option/config_option_notifier.dart',
-  ).readAsStringSync();
-  final router = File(
-    'lib/core/router/go_router/routing_config_notifier.dart',
-  ).readAsStringSync();
+  final notifier = File('lib/features/settings/notifier/config_option/config_option_notifier.dart').readAsStringSync();
+  final router = File('lib/core/router/go_router/routing_config_notifier.dart').readAsStringSync();
 
   test('one-tap setup enables independent regional switches without changing the core region', () {
     for (final preference in ['russianNetworkBypass', 'russianAppsBypass', 'restrictedServicesProxy']) {
@@ -29,11 +25,8 @@ void main() {
     expect(actions, contains("automaticSetupBackup.notifier).update('')"));
   });
 
-  test('region changes schedule native policy application', () {
-    final regionListener = RegExp(
-      r'ref\.listen\(ConfigOptions\.region,[\s\S]*?_nativePolicyChanged = true;[\s\S]*?_desiredRevision\+\+;[\s\S]*?_scheduleUpdate\(\);',
-    );
-    expect(regionListener.hasMatch(notifier), isTrue);
+  test('retired region preference has no native policy listener', () {
+    expect(notifier, isNot(contains('ref.listen(ConfigOptions.region')));
     expect(notifier, contains('Future<void> applyPending()'));
   });
 
@@ -44,7 +37,8 @@ void main() {
     expect(overview, isNot(contains('Пакеты напрямую')));
     expect(overview, isNot(contains('Домены напрямую')));
     expect(overview, isNot(contains('Пакеты через VPN')));
-    expect(overview, contains('Для опытных пользователей'));
+    expect(overview, contains('Дополнительные настройки'));
+    expect(overview, isNot(contains('Старое поведение')));
     expect(overview, contains('Вернуть всё как было'));
   });
 

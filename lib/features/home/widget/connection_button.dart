@@ -68,10 +68,14 @@ class ConnectionButton extends HookConsumerWidget {
           }
           return await ref.read(connectionNotifierProvider.notifier).toggleConnection();
         },
+        AsyncData(value: Connecting()) => () => ref.read(connectionNotifierProvider.notifier).toggleConnection(),
         _ => null,
       },
       enabled: switch (connectionStatus) {
-        AsyncData(value: Connected()) || AsyncData(value: Disconnected()) || AsyncError() => true,
+        AsyncData(value: Connected()) ||
+        AsyncData(value: Connecting()) ||
+        AsyncData(value: Disconnected()) ||
+        AsyncError() => true,
         _ => false,
       },
       label: switch (connectionStatus) {
@@ -85,12 +89,7 @@ class ConnectionButton extends HookConsumerWidget {
 }
 
 class _ConnectionButton extends StatelessWidget {
-  const _ConnectionButton({
-    required this.onTap,
-    required this.enabled,
-    required this.label,
-    required this.buttonColor,
-  });
+  const _ConnectionButton({required this.onTap, required this.enabled, required this.label, required this.buttonColor});
 
   final VoidCallback? onTap;
   final bool enabled;
@@ -140,9 +139,7 @@ class _ConnectionButton extends StatelessWidget {
                         key: const ValueKey('home_connection_button'),
                         customBorder: const CircleBorder(),
                         onTap: enabled ? onTap : null,
-                        child: Center(
-                          child: Icon(Icons.power_settings_new_rounded, size: 64, color: buttonColor),
-                        ),
+                        child: Center(child: Icon(Icons.power_settings_new_rounded, size: 64, color: buttonColor)),
                       ),
                     ),
                   ),

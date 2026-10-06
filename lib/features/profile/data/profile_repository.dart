@@ -106,7 +106,11 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
       } catch (error, stackTrace) {
         final restored = await _restoreBackup(backup, file);
         if (!restored && await backup.exists()) {
-          loggy.error('Unable to restore profile file after database delete failed; recovery backup preserved', error, stackTrace);
+          loggy.error(
+            'Unable to restore profile file after database delete failed; recovery backup preserved',
+            error,
+            stackTrace,
+          );
         }
         Error.throwWithStackTrace(error, stackTrace);
       }
@@ -174,7 +178,15 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
 
   // Native parse writes only to a staging destination. The old source stays intact
   // until validation and metadata parsing have both succeeded.
+  static const maxConfigBytes = 8 * 1024 * 1024;
+  void _checkContentSize(String content) {
+    if (content.length > maxConfigBytes || utf8.encode(content).length > maxConfigBytes) {
+      throw const FormatException('Configuration exceeds 8 MiB');
+    }
+  }
+
   Future<void> _validate(File source, String? overrides) async {
+    if (await source.length() > maxConfigBytes) throw const FormatException('Configuration exceeds 8 MiB');
     final output = File('${source.path}.validated');
     try {
       final result = await validateConfig(output.path, source.path, overrides, false).run();
@@ -280,6 +292,7 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
           final file = _profilePathResolver.file(id);
           final temp = _profilePathResolver.tempFile('$id-${const Uuid().v4()}');
           try {
+            _checkContentSize(content);
             await temp.writeAsString(content);
             final profile =
                 (await _profileParser
@@ -309,6 +322,7 @@ class ProfileRepositoryImpl with ExceptionHandler, InfraLogger implements Profil
       final file = _profilePathResolver.file(profile.id);
       final temp = _profilePathResolver.tempFile('${profile.id}-${const Uuid().v4()}');
       try {
+        _checkContentSize(nContent);
         await temp.writeAsString(nContent);
         final entry = _profileParser
             .offlineUpdate(

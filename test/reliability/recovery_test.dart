@@ -37,6 +37,8 @@ class _Repository implements ConnectionRepository {
   @override
   SingboxConfigOption? get configOptionsSnapshot => null;
   @override
+  Future<bool> profileRequiresReconnect(ProfileEntity profile) async => true;
+  @override
   Stream<ConnectionStatus> watchConnectionStatus() => events.stream;
   @override
   TaskEither<ConnectionFailure, Unit> setup() => TaskEither.of(unit);

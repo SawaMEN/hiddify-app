@@ -1,3 +1,5 @@
+import 'package:hiddify/hiddifycore/init_signal.dart';
+
 import 'dart:async';
 
 import 'package:dio/dio.dart';
@@ -21,6 +23,7 @@ part 'active_proxy_notifier.g.dart';
 class IpInfoNotifier extends _$IpInfoNotifier with AppLogger {
   @override
   Future<oldipinfo.IpInfo> build() async {
+    ref.watch(coreRestartSignalProvider);
     ref.disposeDelay(const Duration(seconds: 20));
     final cancelToken = CancelToken();
     Timer? timer;
@@ -78,7 +81,8 @@ class IpInfoNotifier extends _$IpInfoNotifier with AppLogger {
 class ActiveProxyNotifier extends _$ActiveProxyNotifier with AppLogger {
   @override
   Stream<OutboundInfo> build() {
-    // ref.disposeDelay(const Duration(seconds: 20));
+    // ref.watch(coreRestartSignalProvider);
+    ref.disposeDelay(const Duration(seconds: 20));
     final serviceRunning = ref.watch(serviceRunningProvider);
     if (!serviceRunning) {
       return Stream.error(const ServiceNotRunning());

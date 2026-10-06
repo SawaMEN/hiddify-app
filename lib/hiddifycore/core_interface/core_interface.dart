@@ -22,7 +22,7 @@ class CoreInterface {
     return false;
   }
 
-  Future<bool> stop() async {
+  Future<bool> stop({bool preserveIntent = false}) async {
     return false;
   }
 
