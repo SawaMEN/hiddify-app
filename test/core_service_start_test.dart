@@ -1,19 +1,19 @@
+import 'dart:async';
 import 'dart:io';
-
-import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:hiddify/hiddifycore/hiddify_core_service.dart';
-import 'package:hiddify/hiddifycore/generated/v2/hcommon/common.pb.dart';
-import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore_service.pbgrpc.dart';
-import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore.pb.dart';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:grpc/grpc.dart';
 import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/hiddifycore/core_interface/core_interface_mobile.dart';
+import 'package:hiddify/hiddifycore/generated/v2/hcommon/common.pb.dart';
+import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore.pb.dart';
+import 'package:hiddify/hiddifycore/generated/v2/hcore/hcore_service.pbgrpc.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hello/hello.pb.dart';
 import 'package:hiddify/hiddifycore/generated/v2/hello/hello_service.pbgrpc.dart';
+import 'package:hiddify/hiddifycore/hiddify_core_service.dart';
 import 'package:hiddify/singbox/model/core_status.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 class _Hello extends HelloServiceBase {
   @override
@@ -34,6 +34,20 @@ class _Daemon extends CoreServiceBase {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _StreamingDaemon extends _Daemon {
+  final opened = Completer<void>();
+
+  @override
+  Stream<CoreInfoResponse> coreInfoListener(ServiceCall call, Empty request) async* {
+    yield CoreInfoResponse(coreState: CoreStates.STOPPED);
+    if (!opened.isCompleted) opened.complete();
+    // Keep the RPC alive until the client closes its transport.
+    while (!call.isCanceled) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+  }
+}
+
 final _provider = Provider<HiddifyCoreService>(HiddifyCoreService.new);
 
 void main() {
@@ -46,7 +60,40 @@ void main() {
     }
   });
 
-  test('Every background service start receives a fresh control client', () async {
+  test('Replacing and disposing control channels cancels open event RPCs', () async {
+    final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    final daemon = _StreamingDaemon();
+    final server = Server.create(services: [_Hello(), daemon]);
+    final core = CoreInterfaceMobile();
+    for (final channel in [CoreInterfaceMobile.statusChannel, CoreInterfaceMobile.alertsChannel]) {
+      messenger.setMockMethodCallHandler(MethodChannel(channel.name, const JSONMethodCodec()), (_) async => null);
+    }
+    await server.serve(address: '127.0.0.1', port: CoreInterfaceMobile.portFront);
+    final directory = Directory.systemTemp;
+    final directories = (baseDir: directory, workingDir: directory, tempDir: directory);
+    await core.setup(directories, false, 3);
+    final errors = <Object>[];
+    final subscription = core.fgClient.coreInfoListener(Empty()).listen((_) {}, onError: errors.add);
+    await daemon.opened.future.timeout(const Duration(seconds: 2));
+    try {
+      await core.setup(directories, false, 3).timeout(const Duration(seconds: 2));
+      expect(errors, isNotEmpty, reason: 'Replacing a channel must cancel its ongoing RPCs');
+      await subscription.cancel();
+      final active = core.fgClient.coreInfoListener(Empty()).listen((_) {}, onError: (_) {});
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await core.dispose().timeout(const Duration(seconds: 2));
+      await active.cancel();
+    } finally {
+      await subscription.cancel();
+      await core.dispose();
+      await server.shutdown();
+      for (final channel in [CoreInterfaceMobile.statusChannel, CoreInterfaceMobile.alertsChannel]) {
+        messenger.setMockMethodCallHandler(MethodChannel(channel.name, const JSONMethodCodec()), null);
+      }
+    }
+  });
+
+  test('Background startup replaces a client even when a status RPC opens during native startup', () async {
     final messenger = TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
     final foreground = Server.create(services: [_Hello()]);
     Server? background;
@@ -73,13 +120,16 @@ void main() {
           background = null;
           return true;
         case 'start':
-          background = Server.create(services: [_Hello()]);
+          final daemon = _StreamingDaemon();
+          background = Server.create(services: [_Hello(), daemon]);
           await background!.serve(address: '127.0.0.1', port: CoreInterfaceMobile.portBack);
           messenger.handlePlatformMessage(
             CoreInterfaceMobile.statusChannel.name,
             const JSONMethodCodec().encodeSuccessEnvelope({'status': 'Started'}),
             (_) {},
           );
+          core.bgClient.coreInfoListener(Empty()).listen((_) {}, onError: (_) {});
+          await daemon.opened.future.timeout(const Duration(seconds: 2));
           return true;
         default:
           return null;
@@ -88,10 +138,10 @@ void main() {
     final directory = Directory.systemTemp;
     await core.setup((baseDir: directory, workingDir: directory, tempDir: directory), false, 3);
     final initialClient = core.bgClient;
-    expect(await core.setupBackground('/config.json', 'test'), const CoreStarted());
+    expect(await core.setupBackground('/config.json', 'test').timeout(const Duration(seconds: 3)), const CoreStarted());
     final firstClient = core.bgClient;
     expect(firstClient, isNot(same(initialClient)));
-    expect(await core.setupBackground('/config.json', 'test'), const CoreStarted());
+    expect(await core.setupBackground('/config.json', 'test').timeout(const Duration(seconds: 3)), const CoreStarted());
     expect(core.bgClient, isNot(same(firstClient)));
     expect(await core.isBgClientAvailable(), isTrue);
   });
