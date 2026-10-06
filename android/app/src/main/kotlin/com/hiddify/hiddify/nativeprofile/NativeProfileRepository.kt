@@ -132,6 +132,19 @@ class NativeProfileRepository(private val context: Context) {
             """.trimIndent(),
         )
 
+        // Drift schema v6 contains both tables. Create app_proxy_entries here too before bumping
+        // user_version so a clean native install can still be opened by the Flutter fallback.
+        db.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS app_proxy_entries (
+                mode TEXT NOT NULL,
+                pkg_name TEXT NOT NULL,
+                flags INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (mode, pkg_name)
+            )
+            """.trimIndent(),
+        )
+
         val columns = mutableSetOf<String>()
         db.rawQuery("PRAGMA table_info(profile_entries)", null).use { cursor ->
             while (cursor.moveToNext()) columns += cursor.getString(cursor.getColumnIndexOrThrow("name"))
