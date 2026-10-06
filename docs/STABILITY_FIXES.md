@@ -18,6 +18,8 @@ coordinated changes in the app, hiddify-core and hiddify-sing-box submodules.
 - Synchronize core state and settings publication. Validate settings before saving;
   failed settings updates retain the previous configuration. Use immutable settings
   snapshots for builders and atomic log/debug flags.
+- Serialize restart across stop, Android delay and start under one lifecycle lock.
+  A later stop invalidates its generation and cancels it without waiting for the lock.
 - Cancel pending startup before waiting for the lifecycle lock. Observe request
   cancellation during delays and native startup; detach successful service lifetime
   from the request. Reject a queued start invalidated by a subsequent stop.
@@ -75,12 +77,18 @@ Setup success, cancelled startup, RPC panic recovery, saturated monitoring queue
 close-worker panic recovery and extension cleanup. The real-service lifetime test
 requires netlink sockets; it skips only when the runtime prohibits them (EPERM).
 
-Dart async runtime checks and six Python tooling tests pass. Flutter 3.47.6 and
-Dart 3.13.5 were obtained for checking. The initial Flutter bootstrap attempted
-cloud metadata detection; setting CI=true avoids that request, as verified in
-Flutter's BotDetector source. SDK cache initialization subsequently failed to
-extract the Gradle wrapper download. Full Flutter analysis, widget tests and APK
-assembly must be checked by CI when dependencies and Android artifacts are ready.
+Flutter 3.47.6 / Dart 3.13.5: all 130 Flutter tests pass locally. The three
+focused editor/recovery suites also pass (13 tests). GitHub CI confirms all 130
+tests and Dart analysis. Dart async runtime checks and six Python tooling tests
+pass. Go race tests pass for the core packages listed above and for sing-box's
+root, monitoring and daemon packages. The pinned Android native core builds in
+CI; final ARM64 APK validation is tracked in the application pull request.
+
+The editor tests cover preservation of unvalidated text during format/mode
+changes and disabling Save until isolated parsing completes. The recovery tests
+cover continued thirty-second retries after the initial budget and cancellation
+on listener disposal. A core regression test covers invalidation of a queued
+restart by a later stop.
 
 ## Remaining evidence required
 
