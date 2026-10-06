@@ -10,7 +10,9 @@ import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.SettingsKey
 import com.hiddify.hiddify.privacy.VpnServiceVisibility
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.ObjectInputStream
+import java.io.ObjectOutputStream
 
 object Settings {
 
@@ -145,9 +147,13 @@ object Settings {
             PerAppProxyMode.EXCLUDE -> SettingsKey.PER_APP_PROXY_EXCLUDE_LIST
             else -> return
         }
-        // Settings.perAppProxyList supports this legacy semicolon representation in addition
-        // to Flutter's serialized List<String>, so Kotlin can update the VPN path directly.
-        preferences.edit().putString(key, packages.filter { it.isNotBlank() }.distinct().joinToString(";")).apply()
+        val normalized = ArrayList(packages.filter { it.isNotBlank() }.distinct())
+        val encoded = ByteArrayOutputStream().use { bytes ->
+            ObjectOutputStream(bytes).use { it.writeObject(normalized) }
+            LIST_IDENTIFIER + Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
+        }
+        // This is the same legacy shared_preferences encoding that Dart getStringList() expects.
+        preferences.edit().putString(key, encoded).apply()
     }
 
     val perAppProxyEnabled: Boolean
