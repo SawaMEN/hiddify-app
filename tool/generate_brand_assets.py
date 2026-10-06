@@ -21,7 +21,17 @@ def icon_mark(size, color=None):
         alpha = image.getchannel("A")
         image = Image.new("RGBA", image.size, color)
         image.putalpha(alpha)
-    return image.resize((size, size), Image.Resampling.LANCZOS)
+    # Center the visible emblem, rather than the source canvas. Short breeze
+    # accents stay inside the circular footprint of the dedicated launcher mark.
+    bounds = image.getchannel("A").point(lambda value: 255 if value > 8 else 0).getbbox()
+    if bounds is None:
+        raise ValueError("Launcher mark is empty")
+    image = image.crop(bounds)
+    scale = size * .88 / max(image.size)
+    image = image.resize((round(image.width * scale), round(image.height * scale)), Image.Resampling.LANCZOS)
+    canvas = Image.new("RGBA", (size, size))
+    canvas.alpha_composite(image, ((size - image.width) // 2, (size - image.height) // 2))
+    return canvas
 
 
 def icon_background(size):

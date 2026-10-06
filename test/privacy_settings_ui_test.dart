@@ -137,7 +137,22 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     }
-    expect(find.textContaining('does not give this app a way'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('iOS → Wi-Fi → ⓘ → Configure Proxy'), 500, maxScrolls: 80);
+    expect(find.text('Illustration • use your own details'), findsWidgets);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const ui.SizedBox());
+  });
+
+  testWidgets('Russian sharing diagrams fit a narrow screen with enlarged text', (tester) async {
+    await tester.binding.setSurfaceSize(const ui.Size(360, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await setup(tester, const WifiSharingInstructionsPage(), russian: true, scale: 1.5);
+    await tester.scrollUntilVisible(find.text('Android → Изменить сеть → Прокси'), 400, maxScrolls: 100);
+    expect(find.text('Имя хоста прокси'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.scrollUntilVisible(find.text('Раздатчик с root → Клиент без прокси'), 400, maxScrolls: 100);
+    expect(find.text('Нет / Выкл.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const ui.SizedBox());
   });
 
