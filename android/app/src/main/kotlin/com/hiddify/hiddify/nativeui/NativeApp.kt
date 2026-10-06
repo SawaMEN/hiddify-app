@@ -31,6 +31,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
+import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativeprofile.NativeProfile
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
@@ -45,6 +46,7 @@ fun NativeApp(
     status: Status,
     activeProfileName: String,
     hasActiveProfile: Boolean,
+    serviceMode: String,
     rootMode: Boolean,
     settingsState: NativeSettingsState,
     profiles: List<NativeProfile>,
@@ -62,6 +64,7 @@ fun NativeApp(
     onTogglePerAppPackage: (String) -> Unit,
     onClearPerApp: () -> Unit,
     onOpenLegacy: () -> Unit,
+    onProxyOnlyChanged: (Boolean) -> Unit,
     onRootModeChanged: (Boolean) -> Unit,
     onWifiSharingChanged: (Boolean) -> Unit,
     onFullTunnelChanged: (Boolean) -> Unit,
@@ -74,6 +77,9 @@ fun NativeApp(
     onHandbookDirectChanged: (Boolean) -> Unit,
     onHandbookProxySitesChanged: (String) -> Unit,
     onHandbookDirectSitesChanged: (String) -> Unit,
+    onDynamicNotificationChanged: (Boolean) -> Unit,
+    onDebugModeChanged: (Boolean) -> Unit,
+    onDisableMemoryLimitChanged: (Boolean) -> Unit,
 ) {
     var page by rememberSaveable { mutableStateOf(PAGE_HOME) }
 
@@ -120,6 +126,7 @@ fun NativeApp(
                             canChangeServiceMode = status == Status.Stopped,
                             onBack = { page = PAGE_HOME },
                             onOpenPerAppRouting = { page = PAGE_PER_APP },
+                            onProxyOnlyChanged = onProxyOnlyChanged,
                             onRootModeChanged = onRootModeChanged,
                             onWifiSharingChanged = onWifiSharingChanged,
                             onFullTunnelChanged = onFullTunnelChanged,
@@ -132,6 +139,9 @@ fun NativeApp(
                             onHandbookDirectChanged = onHandbookDirectChanged,
                             onHandbookProxySitesChanged = onHandbookProxySitesChanged,
                             onHandbookDirectSitesChanged = onHandbookDirectSitesChanged,
+                            onDynamicNotificationChanged = onDynamicNotificationChanged,
+                            onDebugModeChanged = onDebugModeChanged,
+                            onDisableMemoryLimitChanged = onDisableMemoryLimitChanged,
                         )
 
                     else ->
@@ -139,6 +149,7 @@ fun NativeApp(
                             status = status,
                             activeProfileName = activeProfileName,
                             hasActiveProfile = hasActiveProfile,
+                            serviceMode = settingsState.serviceMode,
                             rootMode = rootMode,
                             wifiSharing = settingsState.wifiSharing,
                             onToggleConnection = onToggleConnection,
@@ -206,10 +217,13 @@ private fun HomeScreen(
                 )
                 Text(
                     text =
-                        if (rootMode) {
-                            stringResource(R.string.native_mode_root)
-                        } else {
-                            stringResource(R.string.native_mode_android_vpn)
+                        when {
+                            serviceMode != ServiceMode.VPN ->
+                                stringResource(R.string.native_mode_proxy)
+                            rootMode ->
+                                stringResource(R.string.native_mode_root)
+                            else ->
+                                stringResource(R.string.native_mode_android_vpn)
                         },
                     style = MaterialTheme.typography.bodyLarge,
                 )
