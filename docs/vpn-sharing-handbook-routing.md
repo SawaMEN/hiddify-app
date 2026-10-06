@@ -18,3 +18,27 @@ Both deployed services currently return HTTP 404 for `format=singbox`. The core 
 The APK launcher icon uses a separate caption-free fan/shield foreground on an iridescent cyan/blue/violet background. Android 13+ themed icons use a monochrome version of that foreground; Android supplies the theme colors. In-app, splash and TV logos retain the full VetrOFF caption. `tool/generate_brand_assets.py` keeps these sources separate and regenerates all density/adaptive resources.
 
 Core validation: configuration and hcore tests pass, including fixtures for source parsing, query encoding, cache reuse/failure, alternative routing, full tunnel priority, root auto-redirect and authenticated LAN listeners. Live catalogues were also parsed successfully. A physical root-device smoke test remains necessary for hotspot/kernel/OEM compatibility.
+
+## Illustrated sharing guides
+
+The five OS tabs now include numbered host/client instructions, illustrated settings
+frames, authentication steps, gateway lookup, connection checks, troubleshooting
+and cleanup. Frames are drawn with Flutter widgets, adapt to dark mode and text
+scaling, and use the actual proxy port. They are labeled as illustrations rather
+than real OS screenshots. Android root instructions are separate from the normal
+authenticated proxy workflow. Windows/Linux/macOS forwarding is described as a
+manual, platform-dependent option, and iOS hosting limitations are explicit.
+
+OS settings references:
+- https://support.google.com/android/answer/9059108
+- https://support.microsoft.com/en-us/windows/experience/connectivity-networking/use-a-proxy-server-in-windows
+- https://support.microsoft.com/en-us/windows/experience/connectivity-networking/use-your-windows-device-as-a-mobile-hotspot
+- https://help.gnome.org/users/gnome-help/stable/net-wireless-adhoc.html.en
+- https://support.apple.com/guide/mac-help/mchlp2591/mac
+- https://support.apple.com/guide/mac-help/mchlp1540/mac
+- https://support.apple.com/guide/iphone/iphw5gjwl8k2/ios
+
+Launcher alignment: the dedicated mark uses a centered fan ring with short wind
+accents. Asset packaging centers its visible alpha bounds on a square canvas and
+scales in both directions consistently for launcher densities. Branded in-app,
+splash and TV sources are unchanged.
