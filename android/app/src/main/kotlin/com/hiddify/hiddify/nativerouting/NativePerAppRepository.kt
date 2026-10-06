@@ -179,8 +179,9 @@ class NativePerAppRepository(private val context: Context) {
 
     private fun installedApps(): List<NativeInstalledApp> {
         val pm = context.packageManager
-        val flags = PackageManager.ApplicationInfoFlags.of(PackageManager.MATCH_ALL.toLong())
-        return pm.getInstalledApplications(flags)
+        @Suppress("DEPRECATION")
+        val applications = pm.getInstalledApplications(PackageManager.MATCH_ALL)
+        return applications
             .asSequence()
             .filter { it.packageName != context.packageName && it.enabled }
             .map { info ->
