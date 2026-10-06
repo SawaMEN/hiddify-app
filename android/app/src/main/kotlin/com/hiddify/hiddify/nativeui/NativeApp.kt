@@ -34,6 +34,7 @@ import com.hiddify.hiddify.R
 import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
+import com.hiddify.hiddify.nativecore.NativeCoreOptions
 import com.hiddify.hiddify.nativeprofile.NativeProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
@@ -44,6 +45,7 @@ private const val PAGE_SETTINGS = "settings"
 private const val PAGE_PER_APP = "per_app"
 private const val PAGE_PROFILE_DETAILS = "profile_details"
 private const val PAGE_LOGS = "logs"
+private const val PAGE_CORE_OPTIONS = "core_options"
 
 @Composable
 fun NativeApp(
@@ -60,6 +62,8 @@ fun NativeApp(
     perAppBusy: Boolean,
     logSnapshot: NativeLogSnapshot,
     logBusy: Boolean,
+    coreOptions: NativeCoreOptions,
+    coreOptionsBusy: Boolean,
     errorMessage: String?,
     onDismissError: () -> Unit,
     onToggleConnection: () -> Unit,
@@ -74,6 +78,7 @@ fun NativeApp(
     onClearPerApp: () -> Unit,
     onRefreshLogs: () -> Unit,
     onClearLogs: () -> Unit,
+    onSaveCoreOptions: (NativeCoreOptions) -> Unit,
     onOpenLegacy: () -> Unit,
     onProxyOnlyChanged: (Boolean) -> Unit,
     onRootModeChanged: (Boolean) -> Unit,
@@ -99,6 +104,7 @@ fun NativeApp(
             when (page) {
                 PAGE_PER_APP -> PAGE_SETTINGS
                 PAGE_PROFILE_DETAILS -> PAGE_PROFILES
+                PAGE_CORE_OPTIONS -> PAGE_SETTINGS
                 else -> PAGE_HOME
             }
     }
@@ -163,6 +169,7 @@ fun NativeApp(
                             canChangeServiceMode = status == Status.Stopped,
                             onBack = { page = PAGE_HOME },
                             onOpenPerAppRouting = { page = PAGE_PER_APP },
+                            onOpenCoreOptions = { page = PAGE_CORE_OPTIONS },
                             onProxyOnlyChanged = onProxyOnlyChanged,
                             onRootModeChanged = onRootModeChanged,
                             onWifiSharingChanged = onWifiSharingChanged,
