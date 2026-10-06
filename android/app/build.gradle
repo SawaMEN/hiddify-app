@@ -1,6 +1,7 @@
 plugins { 
     id "com.android.application" 
-    id "org.jetbrains.kotlin.android" 
+    id "org.jetbrains.kotlin.android"
+    id "org.jetbrains.kotlin.plugin.compose"
     id "dev.flutter.flutter-gradle-plugin" 
     id "com.google.protobuf" version "0.10.0" 
     id "com.squareup.wire" version "7.1.0"
@@ -142,6 +143,7 @@ android {
         viewBinding true
         aidl true
         buildConfig true
+        compose true
     }
 }
 
@@ -163,4 +165,15 @@ dependencies {
     implementation 'io.grpc:grpc-okhttp:1.84.0'
     implementation 'io.grpc:grpc-protobuf-lite:1.84.0'
     implementation 'io.grpc:grpc-stub:1.84.0'
+
+    // Native Kotlin/Compose UI. Flutter remains temporarily available as a fallback
+    // while profiles, subscriptions, routing and advanced settings are migrated screen-by-screen.
+    def composeBom = platform('androidx.compose:compose-bom:2026.09.00')
+    implementation composeBom
+    androidTestImplementation composeBom
+    implementation 'androidx.activity:activity-compose:1.13.0'
+    implementation 'androidx.compose.ui:ui'
+    implementation 'androidx.compose.ui:ui-tooling-preview'
+    implementation 'androidx.compose.material3:material3'
+    debugImplementation 'androidx.compose.ui:ui-tooling'
 }
