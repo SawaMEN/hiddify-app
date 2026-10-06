@@ -43,6 +43,14 @@ data class NativeProfile(
     val consumed: Long? get() = if (upload != null && download != null) upload + download else null
 }
 
+data class NativeProfileEditor(
+    val profile: NativeProfile,
+    val content: String,
+    val name: String,
+    val disableAutoUpdate: Boolean,
+    val updateIntervalHours: Int?,
+)
+
 /**
  * Kotlin owner for the legacy Drift profile database.
  *
@@ -294,6 +302,98 @@ class NativeProfileRepository(private val context: Context) {
         check(profile.isRemote && !profile.url.isNullOrBlank()) { "Profile is not a remote subscription" }
         return importRemote(profile.url, existingId = profile.id, existingOverride = profile.userOverride)
     }
+
+    fun loadEditor(id: String): NativeProfileEditor {
+        val profile = openDatabase().use { db -> getById(db, id) ?: error("Profile not found") }
+        val file = profileFile(id)
+        check(file.isFile) { "Profile configuration file not found" }
+        val content = file.readText()
+        check(content.toByteArray(Charsets.UTF_8).size <= MAX_CONFIG_BYTES) {
+            "Configuration exceeds 8 MiB"
+        }
+        return NativeProfileEditor(
+            profile = profile,
+            content = content,
+            name = userOverrideName(profile.userOverride) ?: profile.name,
+            disableAutoUpdate = userOverrideAutoUpdateDisabled(profile.userOverride),
+            updateIntervalHours =
+                userOverrideIntervalHours(profile.userOverride)?.toInt()
+                    ?: profile.updateIntervalSeconds?.div(3600L)?.toInt()?.takeIf { it > 0 },
+        )
+    }
+
+    fun saveEditedProfile(
+        id: String,
+        content: String,
+        name: String,
+        disableAutoUpdate: Boolean,
+        updateIntervalHours: Int?,
+    ): NativeProfile {
+        val existing = openDatabase().use { db -> getById(db, id) ?: error("Profile not found") }
+        val cleanName = name.trim()
+        require(cleanName.isNotEmpty()) { "Profile name cannot be empty" }
+        require(content.isNotBlank()) { "Configuration cannot be empty" }
+        require(content.toByteArray(Charsets.UTF_8).size <= MAX_CONFIG_BYTES) {
+            "Configuration exceeds 8 MiB"
+        }
+        if (content.trimStart().startsWith("{")) {
+            runCatching { JSONObject(content) }
+                .getOrElse { throw IllegalArgumentException("Invalid JSON configuration", it) }
+        }
+
+        val oldContent = runCatching { profileFile(id).readText() }.getOrDefault("")
+        val storedHeaders = parseStoredHeaders(existing.populatedHeaders).toMutableMap()
+        mergeHeaders(emptyMap(), oldContent).keys.forEach(storedHeaders::remove)
+        storedHeaders.putAll(mergeHeaders(emptyMap(), content))
+
+        val userOverride =
+            editUserOverride(
+                previous = existing.userOverride,
+                name = cleanName,
+                updateIntervalHours = updateIntervalHours,
+                disableAutoUpdate = disableAutoUpdate,
+            )
+
+        val subscription = parseSubscriptionInfo(storedHeaders["subscription-userinfo"])
+        val intervalSeconds =
+            if (!existing.isRemote || disableAutoUpdate) {
+                null
+            } else {
+                updateIntervalHours?.takeIf { it > 0 }?.toLong()?.times(3600L)
+                    ?: storedHeaders["profile-update-interval"]?.trim()?.toLongOrNull()?.times(3600L)
+            }
+
+        val updated =
+            existing.copy(
+                name = cleanName,
+                lastUpdate = nowIso(),
+                updateIntervalSeconds = intervalSeconds,
+                upload = if (existing.isRemote) subscription?.upload else null,
+                download = if (existing.isRemote) subscription?.download else null,
+                total = if (existing.isRemote) subscription?.total else null,
+                expire = if (existing.isRemote) subscription?.expire else null,
+                webPageUrl = storedHeaders["profile-web-page-url"]?.takeIf(::isHttpUrl),
+                supportUrl = storedHeaders["support-url"]?.takeIf(::isHttpUrl),
+                populatedHeaders = JSONObject(storedHeaders).toString(),
+                userOverride = userOverride,
+            )
+        commit(updated, content, isNew = false)
+        return updated
+    }
+
+    fun dueRemoteProfileIds(now: java.time.LocalDateTime = java.time.LocalDateTime.now()): List<String> =
+        listProfiles()
+            .asSequence()
+            .filter { it.isRemote && !userOverrideAutoUpdateDisabled(it.userOverride) }
+            .filter { profile ->
+                val interval = profile.updateIntervalSeconds ?: return@filter false
+                val last =
+                    runCatching { java.time.LocalDateTime.parse(profile.lastUpdate) }
+                        .getOrNull() ?: return@filter true
+                !last.plusSeconds(interval).isAfter(now)
+            }
+            .map { it.id }
+            .toList()
 
     fun importInput(
         rawInput: String,
@@ -703,6 +803,41 @@ class NativeProfileRepository(private val context: Context) {
             val text = String(decoded, Charsets.UTF_8)
             if (text.any { it == '\uFFFD' }) value else text
         }.getOrDefault(value)
+    }
+
+    private fun editUserOverride(
+        previous: String?,
+        name: String,
+        updateIntervalHours: Int?,
+        disableAutoUpdate: Boolean,
+    ): String {
+        val json =
+            runCatching { previous?.let(::JSONObject) }.getOrNull()
+                ?: JSONObject().put("version", 1)
+        json.put("version", 1)
+        json.put("name", name)
+        json.put("isAutoUpdateDisable", disableAutoUpdate)
+        if (updateIntervalHours != null && updateIntervalHours > 0) {
+            json.put("updateInterval", updateIntervalHours)
+        } else {
+            json.remove("updateInterval")
+        }
+        return json.toString()
+    }
+
+    private fun parseStoredHeaders(value: String?): Map<String, String> {
+        if (value.isNullOrBlank()) return emptyMap()
+        return runCatching {
+            val json = JSONObject(value)
+            buildMap {
+                val keys = json.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val item = json.opt(key)
+                    if (item != null && item != JSONObject.NULL) put(key, item.toString())
+                }
+            }
+        }.getOrDefault(emptyMap())
     }
 
     private fun buildUserOverride(
