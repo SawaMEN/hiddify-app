@@ -137,3 +137,25 @@ regressions exercise an event RPC opened during native startup, foreground
 replacement and disposal with an active RPC. The regression fails by timeout with
 graceful shutdown and completes with termination. Device confirmation of the
 reported connection failure still requires the updated APK.
+
+## Relaunch recovery: reuse a live connection
+
+Recovery now probes the native service and daemon inside the connection-operation
+queue, immediately before any stale-service stop. A connect that completed while
+resume was waiting is reused. Concurrent resume/timer recovery attempts are
+coalesced. Manual start also checks for an existing Android core before starting.
+A missing control-channel reply is represented as unknown, separately from a
+confirmed Stopped response; unknown/Stopping cores are observed again without
+stopping their service.
+
+The successful profile signature is retained in preferences across UI process
+restarts. A metadata-only subscription refresh no longer restarts a profile whose
+bytes and override are unchanged. Failed starts do not overwrite the persisted
+successful signature. Queued automatic profile refreshes recheck the signature
+before restarting so a burst of identical refreshes produces one restart.
+
+Regression tests cover live/starting/stopping/unreachable cores on resume,
+concurrent resume requests, a queued resume behind an in-flight connect, confirmed
+stale-service recovery, duplicate queued profile refreshes, and signature retention
+across repository recreation and failed startup. Device confirmation remains
+necessary for the reported intermittent relaunch behavior.

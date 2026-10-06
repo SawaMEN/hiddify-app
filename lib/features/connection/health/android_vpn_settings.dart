@@ -1,6 +1,19 @@
 import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+
+final androidVpnRuntimeProvider = Provider<AndroidVpnRuntime>((ref) => const AndroidVpnRuntime());
+
+/// Native lifecycle queries used by the connection coordinator.
+class AndroidVpnRuntime {
+  const AndroidVpnRuntime();
+
+  bool get isAndroid => Platform.isAndroid;
+  Future<bool> wantsConnection() => AndroidVpnSettings.wantsConnection();
+  Future<bool> serviceRunning() => AndroidVpnSettings.serviceRunning();
+  Future<bool> stopService() => AndroidVpnSettings.stopService();
+}
 
 abstract class AndroidVpnSettings {
   static const _channel = MethodChannel('com.hiddify.app/method');
@@ -15,8 +28,7 @@ abstract class AndroidVpnSettings {
   static Future<bool> serviceRunning() async =>
       Platform.isAndroid && (await _channel.invokeMethod<bool>('get_service_running') ?? false);
   static Future<bool> stopService() async =>
-      !Platform.isAndroid ||
-      (await _channel.invokeMethod<bool>('stop').timeout(const Duration(seconds: 24)) ?? false);
+      !Platform.isAndroid || (await _channel.invokeMethod<bool>('stop').timeout(const Duration(seconds: 24)) ?? false);
   static Future<bool?> networkAvailable() async =>
       Platform.isAndroid ? _channel.invokeMethod<bool>('get_network_status') : null;
 }
