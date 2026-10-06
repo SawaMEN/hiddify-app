@@ -34,12 +34,14 @@ import com.hiddify.hiddify.R
 import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativeprofile.NativeProfile
+import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
 
 private const val PAGE_HOME = "home"
 private const val PAGE_PROFILES = "profiles"
 private const val PAGE_SETTINGS = "settings"
 private const val PAGE_PER_APP = "per_app"
+private const val PAGE_PROFILE_DETAILS = "profile_details"
 
 @Composable
 fun NativeApp(
@@ -51,6 +53,8 @@ fun NativeApp(
     settingsState: NativeSettingsState,
     profiles: List<NativeProfile>,
     busyProfileId: String?,
+    profileEditor: NativeProfileEditor?,
+    profileEditorBusy: Boolean,
     perAppSnapshot: NativePerAppSnapshot,
     perAppBusy: Boolean,
     errorMessage: String?,
@@ -59,6 +63,8 @@ fun NativeApp(
     onSelectProfile: (NativeProfile) -> Unit,
     onDeleteProfile: (NativeProfile) -> Unit,
     onRefreshProfile: (NativeProfile) -> Unit,
+    onOpenProfileEditor: (NativeProfile) -> Unit,
+    onSaveProfileEditor: (String, Boolean, Int?, String) -> Unit,
     onImportProfile: (String, String?, Int?, Boolean) -> Unit,
     onPerAppModeChanged: (String) -> Unit,
     onTogglePerAppPackage: (String) -> Unit,
@@ -84,7 +90,12 @@ fun NativeApp(
     var page by rememberSaveable { mutableStateOf(PAGE_HOME) }
 
     BackHandler(enabled = page != PAGE_HOME) {
-        page = if (page == PAGE_PER_APP) PAGE_SETTINGS else PAGE_HOME
+        page =
+            when (page) {
+                PAGE_PER_APP -> PAGE_SETTINGS
+                PAGE_PROFILE_DETAILS -> PAGE_PROFILES
+                else -> PAGE_HOME
+            }
     }
 
     MaterialTheme {
@@ -106,7 +117,19 @@ fun NativeApp(
                             onSelect = onSelectProfile,
                             onDelete = onDeleteProfile,
                             onRefresh = onRefreshProfile,
+                            onEdit = { profile ->
+                                onOpenProfileEditor(profile)
+                                page = PAGE_PROFILE_DETAILS
+                            },
                             onImport = onImportProfile,
+                        )
+
+                    PAGE_PROFILE_DETAILS ->
+                        NativeProfileDetailsScreen(
+                            editor = profileEditor,
+                            busy = profileEditorBusy,
+                            onBack = { page = PAGE_PROFILES },
+                            onSave = onSaveProfileEditor,
                         )
 
                     PAGE_PER_APP ->
