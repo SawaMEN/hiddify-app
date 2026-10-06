@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VetrOFF Client</string>
+    <string name="native_status_stopped">Disconnected</string>
+    <string name="native_status_starting">Connecting…</string>
+    <string name="native_status_started">Connected</string>
+    <string name="native_status_stopping">Disconnecting…</string>
+    <string name="native_connect">Connect</string>
+    <string name="native_disconnect">Disconnect</string>
+    <string name="native_connecting">Connecting…</string>
+    <string name="native_disconnecting">Disconnecting…</string>
+    <string name="native_active_profile_unnamed">Active profile</string>
+    <string name="native_no_profile_selected">No profile selected</string>
+    <string name="native_current_mode">Connection mode</string>
+    <string name="native_mode_root">Root mode</string>
+    <string name="native_mode_android_vpn">Android VPN mode</string>
+    <string name="native_wifi_sharing_on">VPN sharing is enabled</string>
+    <string name="native_wifi_sharing_off">VPN sharing is disabled</string>
+    <string name="native_profiles">Profiles</string>
+    <string name="native_settings">Settings</string>
+    <string name="native_migration_note">Profiles and advanced settings still open the compatibility interface while they are being migrated to Kotlin.</string>
+    <string name="native_error_title">Unable to continue</string>
+    <string name="native_no_active_profile">Select or import a profile before connecting.</string>
+    <string name="native_vpn_permission_denied">Android VPN permission was not granted.</string>
+    <string name="native_service_error">VPN service error: %1$s</string>
+    <string name="native_background_title">Allow background VPN operation</string>
+    <string name="native_background_message">Battery optimization can stop the VPN in the background. Allow VetrOFF Client to run without battery optimization for more reliable connections.</string>
+    <string name="native_background_allow">Open settings</string>
+</resources>
