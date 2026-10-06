@@ -39,6 +39,21 @@ coordinated changes in the app, hiddify-core and hiddify-sing-box submodules.
 - Await asynchronous platform results inside error handlers so native URL launch
   failures return false instead of escaping as unhandled errors.
 
+## Settings usability and attribution
+
+- Remove the routing region selector from onboarding and the legacy privacy page.
+  Do not read the saved region or import/export it as an editable preference;
+  keep a neutral value only for protocol compatibility. Language selection uses
+  the existing device-locale preference instead of country/IP detection.
+- Replace historical Russia/Other terminology with a direct explanation of which
+  domains and IP addresses use the VPN.
+- Organize additional privacy settings into Routing, Connection mode, DNS and
+  Proxy/control categories. Each category has a stable key and independent
+  expansion state, preserving the open section while preferences are applied
+  and the progress indicator appears.
+- Identify VetrOFF Client as an independent Hiddify fork in About, with separate
+  links to the fork and upstream source. Keep the header flexible on narrow screens.
+
 ## Resource use
 
 - Apply a finite Android Go soft-memory budget based on memoryClass, clamped to
@@ -79,9 +94,10 @@ Setup success, cancelled startup, RPC panic recovery, saturated monitoring queue
 close-worker panic recovery and extension cleanup. The real-service lifetime test
 requires netlink sockets; it skips only when the runtime prohibits them (EPERM).
 
-Flutter 3.47.6 / Dart 3.13.5: all 131 Flutter tests pass locally. The three
-focused editor/recovery suites also pass (13 tests). GitHub CI confirmed the original 130-test suite and Dart analysis; the final
-131-test run is tracked in the application pull request. Local analysis reports
+Flutter 3.47.6 / Dart 3.13.5: all 134 Flutter tests pass locally. The three
+focused editor/recovery suites also pass (13 tests). GitHub CI confirmed the preceding 131-test suite, Dart analysis and an ARM64
+APK build. The final 134-test suite and APK build with the settings redesign are
+tracked in the application pull request. Local analysis reports
 no errors or warnings. Dart async runtime checks and six Python tooling tests
 pass. Go race tests pass for the core packages listed above and for sing-box's
 root, monitoring and daemon packages. The pinned Android native core builds in
@@ -91,7 +107,9 @@ The editor tests cover preservation of unvalidated text during format/mode
 changes and disabling Save until isolated parsing completes. The recovery tests
 cover continued thirty-second retries after the initial budget and cancellation
 on listener disposal. A core regression test covers invalidation of a queued
-restart by a later stop.
+restart by a later stop. UI regressions cover open categories during settings
+application, retired region defaults, and fork attribution on a narrow screen
+with large text.
 
 ## Remaining evidence required
 

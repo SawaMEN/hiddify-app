@@ -69,15 +69,6 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
         _scheduleUpdate();
       });
     }
-    ref.listen(ConfigOptions.region, (previous, next) {
-      if (previous == next) return;
-      // Android regional routing is built from this value outside sing-box's ordinary
-      // option diff. Treat a region change as a native policy revision so switching to
-      // Russia immediately rebuilds VpnService package exclusions and routing rules.
-      _nativePolicyChanged = true;
-      _desiredRevision++;
-      _scheduleUpdate();
-    });
     return false;
   }
 
@@ -86,10 +77,7 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
   int _appliedRevision = 0;
   bool _nativePolicyChanged = false;
 
-  Future<void> updateTogether(
-    Future<void> Function() operation, {
-    bool applyImmediately = false,
-  }) async {
+  Future<void> updateTogether(Future<void> Function() operation, {bool applyImmediately = false}) async {
     _importing = true;
     _updateTimer?.cancel();
     try {

@@ -26,6 +26,18 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
   static const _channel = MethodChannel('com.hiddify.app/method');
 
   bool _busy = false;
+  final _expandedCategories = <String>{};
+
+  void _setCategoryExpanded(String id, bool expanded) {
+    setState(() {
+      if (expanded) {
+        _expandedCategories.add(id);
+      } else {
+        _expandedCategories.remove(id);
+      }
+    });
+  }
+
   bool? _routingReady;
   int _directApps = 0;
   int _proxyApps = 0;
@@ -53,7 +65,8 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
       return;
     }
     try {
-      final policy = await _channel.invokeMapMethod<dynamic, dynamic>('get_regional_routing') ?? const <dynamic, dynamic>{};
+      final policy =
+          await _channel.invokeMapMethod<dynamic, dynamic>('get_regional_routing') ?? const <dynamic, dynamic>{};
       if (!mounted) return;
       final direct = policy['privacy-direct-packages'];
       final proxy = policy['privacy-proxy-packages'];
@@ -110,9 +123,8 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
         );
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_privacyText(context, successRu, successEn))),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(_privacyText(context, successRu, successEn))));
       }
     } catch (error) {
       _showError(error);
@@ -122,9 +134,7 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
   }
 
   Future<void> _openSelection(PrivacyAppSelectionKind kind) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => PrivacyAppSelectionPage(kind: kind)),
-    );
+    await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => PrivacyAppSelectionPage(kind: kind)));
     if (mounted) await _refreshRoutingStatus();
   }
 
@@ -144,13 +154,10 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
             );
           }
         }
-        await ref.read(configOptionNotifierProvider.notifier).updateTogether(
-          () async {
-            if (enabled) await ref.read(ConfigOptions.serviceMode.notifier).update(ServiceMode.tun);
-            await ref.read(VpnPrivacyPreferences.useRoot.notifier).update(enabled);
-          },
-          applyImmediately: true,
-        );
+        await ref.read(configOptionNotifierProvider.notifier).updateTogether(() async {
+          if (enabled) await ref.read(ConfigOptions.serviceMode.notifier).update(ServiceMode.tun);
+          await ref.read(VpnPrivacyPreferences.useRoot.notifier).update(enabled);
+        }, applyImmediately: true);
       },
       successRu: enabled ? 'Root-режим включён.' : 'Root-режим отключён.',
       successEn: enabled ? 'Root mode enabled.' : 'Root mode disabled.',
@@ -161,12 +168,11 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
     Future<void> Function() update, {
     required String successRu,
     required String successEn,
-  }) =>
-      _run(
-        () => ref.read(configOptionNotifierProvider.notifier).updateTogether(update, applyImmediately: true),
-        successRu: successRu,
-        successEn: successEn,
-      );
+  }) => _run(
+    () => ref.read(configOptionNotifierProvider.notifier).updateTogether(update, applyImmediately: true),
+    successRu: successRu,
+    successEn: successEn,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -313,10 +319,7 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
               label: Text(_privacyText(context, 'Вернуть всё как было', 'Restore previous settings')),
             ),
           ),
-          if (_busy) ...[
-            const SizedBox(height: 14),
-            const LinearProgressIndicator(),
-          ],
+          if (_busy) ...[const SizedBox(height: 14), const LinearProgressIndicator()],
           const SizedBox(height: 24),
           Text(_privacyText(context, 'Что настраивается', 'What gets configured'), style: theme.textTheme.titleMedium),
           const SizedBox(height: 10),
@@ -380,244 +383,293 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
             ),
           ),
           const SizedBox(height: 16),
-          Card(
-            child: ExpansionTile(
-              leading: const Icon(Icons.tune_rounded),
-              title: Text(_privacyText(context, 'Для опытных пользователей', 'For advanced users')),
-              subtitle: Text(
-                _privacyText(
-                  context,
-                  'Маршрутизация, Root, DNS и сетевые параметры',
-                  'Routing, Root, DNS and network options',
-                ),
-              ),
-              children: [
-                SwitchListTile.adaptive(
-                  value: russianNetwork,
-                  onChanged: _busy
-                      ? null
-                      : (value) => _setPrivacyBool(
-                            () => ref.read(VpnPrivacyPreferences.russianNetworkBypass.notifier).update(value),
-                            successRu: value
-                                ? 'Прямой доступ к российским доменам и IP включён.'
-                                : 'Российские домены и IP теперь идут по обычным правилам VPN.',
-                            successEn: value
-                                ? 'Direct routing for Russian domains and IP ranges enabled.'
-                                : 'Russian domains and IP ranges now follow normal VPN rules.',
-                          ),
-                  secondary: const Icon(Icons.language_outlined),
-                  title: Text(
-                    _privacyText(context, 'Российские домены и IP напрямую', 'Russian domains and IPs direct'),
-                  ),
-                  subtitle: Text(
-                    _privacyText(
-                      context,
-                      'Старое поведение региона «Россия»: .ru, .рф, .su, geosite-ru и geoip-ru. Выключение соответствует прежнему режиму «Другой».',
-                      'Old Russia-region behavior: .ru, .рф, .su, geosite-ru and geoip-ru. Turning it off matches the old Other mode.',
-                    ),
-                  ),
-                ),
-                SwitchListTile.adaptive(
-                  value: russianApps,
-                  onChanged: _busy
-                      ? null
-                      : (value) => _setPrivacyBool(
-                            () => ref.read(VpnPrivacyPreferences.russianAppsBypass.notifier).update(value),
-                            successRu: value
-                                ? 'Прямой доступ для российских приложений включён.'
-                                : 'Прямой доступ для российских приложений отключён.',
-                            successEn: value
-                                ? 'Direct routing for Russian apps enabled.'
-                                : 'Direct routing for Russian apps disabled.',
-                          ),
-                  secondary: const Icon(Icons.apps_outlined),
-                  title: Text(
-                    _privacyText(context, 'Российские приложения напрямую', 'Russian apps direct'),
-                  ),
-                  subtitle: Text(
-                    _privacyText(
-                      context,
-                      'Применяет список «Российские приложения». При отключении выбранные галочки сохраняются.',
-                      'Applies the Russian apps list. Saved selections are preserved while disabled.',
-                    ),
-                  ),
-                ),
-                SwitchListTile.adaptive(
-                  value: restrictedServices,
-                  onChanged: _busy
-                      ? null
-                      : (value) => _setPrivacyBool(
-                            () => ref.read(VpnPrivacyPreferences.restrictedServicesProxy.notifier).update(value),
-                            successRu: value
-                                ? 'Маршрутизация заблокированных сервисов через VPN включена.'
-                                : 'Маршрутизация заблокированных сервисов через VPN отключена.',
-                            successEn: value
-                                ? 'VPN routing for restricted services enabled.'
-                                : 'VPN routing for restricted services disabled.',
-                          ),
-                  secondary: const Icon(Icons.route_outlined),
-                  title: Text(
-                    _privacyText(context, 'Заблокированные сервисы через VPN', 'Restricted services through VPN'),
-                  ),
-                  subtitle: Text(
-                    _privacyText(
-                      context,
-                      'Применяет список «Заблокированные сервисы». При отключении выбранные галочки сохраняются.',
-                      'Applies the Restricted services list. Saved selections are preserved while disabled.',
-                    ),
-                  ),
-                ),
-                const Divider(height: 1),
-                if (android)
-                  SwitchListTile.adaptive(
-                    value: ref.watch(VpnPrivacyPreferences.useRoot),
-                    onChanged: _busy || _rootChecking || _root['detected'] != true || _root['helper'] != true
-                        ? null
-                        : _setRoot,
-                    secondary: const Icon(Icons.admin_panel_settings_outlined),
-                    title: Text(_privacyText(context, 'Подключение через root', 'Connect using root')),
-                    subtitle: Text(
-                      _privacyText(
-                        context,
-                        _rootChecking
-                            ? 'Проверяется наличие root…'
-                            : _root['detected'] != true
-                            ? 'Root на устройстве не обнаружен.'
-                            : _root['helper'] != true
-                            ? 'В этом APK нет исполняемого root-ядра.'
-                            : 'Запускает ядро без Android VpnService. Требуется разрешение root.',
-                        _rootChecking
-                            ? 'Checking root availability…'
-                            : _root['detected'] != true
-                            ? 'Root was not detected on this device.'
-                            : _root['helper'] != true
-                            ? 'This APK has no executable root companion.'
-                            : 'Runs the core without Android VpnService. Root permission is required.',
-                      ),
-                    ),
-                  ),
-                SwitchListTile.adaptive(
-                  value: ref.watch(VpnPrivacyPreferences.fullTunnel),
-                  onChanged: _busy
-                      ? null
-                      : (value) => _setPrivacyBool(
-                            () => ref.read(VpnPrivacyPreferences.fullTunnel.notifier).update(value),
-                            successRu: value ? 'Полный туннель включён.' : 'Полный туннель отключён.',
-                            successEn: value ? 'Full tunnel enabled.' : 'Full tunnel disabled.',
-                          ),
-                  secondary: const Icon(Icons.security_outlined),
-                  title: Text(_privacyText(context, 'Полный туннель', 'Full tunnel')),
-                  subtitle: Text(
-                    _privacyText(
-                      context,
-                      'Отправляет весь пользовательский трафик через VPN и временно имеет приоритет над прямыми российскими исключениями.',
-                      'Routes all user traffic through the VPN and temporarily takes priority over direct Russian bypass rules.',
-                    ),
-                  ),
-                ),
-                SwitchListTile.adaptive(
-                  value: ref.watch(VpnPrivacyPreferences.encryptedDns),
-                  onChanged: _busy
-                      ? null
-                      : (value) => _setPrivacyBool(
-                            () => ref.read(VpnPrivacyPreferences.encryptedDns.notifier).update(value),
-                            successRu: 'Настройка DNS применена.',
-                            successEn: 'DNS setting applied.',
-                          ),
-                  secondary: const Icon(Icons.dns_outlined),
-                  title: Text(_privacyText(context, 'Зашифрованный DNS через VPN', 'Encrypted DNS through VPN')),
-                  subtitle: Text(
-                    _privacyText(
-                      context,
-                      'Использует DoH внутри VPN. Рекомендуется оставить включённым.',
-                      'Uses DoH inside the VPN. Recommended to keep enabled.',
-                    ),
-                  ),
-                ),
-                if (android)
-                  SwitchListTile.adaptive(
-                    value: ref.watch(VpnPrivacyPreferences.publicDns),
-                    onChanged: _busy
-                        ? null
-                        : (value) => _setPrivacyBool(
-                              () => ref.read(VpnPrivacyPreferences.publicDns.notifier).update(value),
-                              successRu: 'Отображение DNS применено.',
-                              successEn: 'DNS network display setting applied.',
-                            ),
-                    secondary: const Icon(Icons.public),
-                    title: Text(
-                      _privacyText(context, 'Публичный DNS в сведениях о сети', 'Public DNS in network information'),
-                    ),
-                    subtitle: Text(
-                      _privacyText(
-                        context,
-                        'Показывает публичный DNS вместо внутреннего адреса туннеля; запросы всё равно перехватывает ядро.',
-                        'Shows a public DNS address instead of the tunnel address; the core still intercepts DNS queries.',
-                      ),
-                    ),
-                  ),
-                SwitchListTile.adaptive(
-                  value: ref.watch(VpnPrivacyPreferences.hideLocalProxy),
-                  onChanged: _busy
-                      ? null
-                      : (value) => _setPrivacyBool(
-                            () => ref.read(VpnPrivacyPreferences.hideLocalProxy.notifier).update(value),
-                            successRu: 'Настройка локального прокси применена.',
-                            successEn: 'Local proxy setting applied.',
-                          ),
-                  secondary: const Icon(Icons.portable_wifi_off_outlined),
-                  title: Text(_privacyText(context, 'Не открывать локальный прокси', 'Disable local proxy')),
-                  subtitle: Text(
-                    _privacyText(
-                      context,
-                      'Не поднимает лишние HTTP/SOCKS/direct listener в режиме VPN.',
-                      'Avoids extra HTTP/SOCKS/direct listeners in VPN mode.',
-                    ),
-                  ),
-                ),
-                SwitchListTile.adaptive(
-                  value: ref.watch(VpnPrivacyPreferences.hideClashApi),
-                  onChanged: _busy
-                      ? null
-                      : (value) => _setPrivacyBool(
-                            () => ref.read(VpnPrivacyPreferences.hideClashApi.notifier).update(value),
-                            successRu: 'Настройка Clash API применена.',
-                            successEn: 'Clash API setting applied.',
-                          ),
-                  secondary: const Icon(Icons.api_outlined),
-                  title: Text(_privacyText(context, 'Не открывать Clash API', 'Disable Clash API')),
-                  subtitle: Text(
-                    _privacyText(
-                      context,
-                      'Не открывает внешний REST-порт управления; внутренняя статистика сохраняется.',
-                      'Does not expose the external REST control port; internal statistics remain available.',
-                    ),
-                  ),
-                ),
-                SwitchListTile.adaptive(
-                  value: ref.watch(VpnPrivacyPreferences.disableSystemProxy),
-                  onChanged: _busy
-                      ? null
-                      : (value) => _setPrivacyBool(
-                            () => ref.read(VpnPrivacyPreferences.disableSystemProxy.notifier).update(value),
-                            successRu: 'Настройка системного прокси применена.',
-                            successEn: 'System proxy setting applied.',
-                          ),
-                  secondary: const Icon(Icons.http_outlined),
-                  title: Text(
-                    _privacyText(context, 'Не объявлять системный HTTP-прокси', 'Disable system HTTP proxy'),
-                  ),
-                  subtitle: Text(
-                    _privacyText(
-                      context,
-                      'Не добавляет HTTP-прокси в сведения о VPN-сети.',
-                      'Does not advertise an HTTP proxy on the VPN network.',
-                    ),
-                  ),
-                ),
-              ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
+            child: Text(
+              _privacyText(context, 'Дополнительные настройки', 'Additional settings'),
+              style: theme.textTheme.titleMedium,
             ),
           ),
+          _PrivacyCategory(
+            key: const ValueKey('privacy-routing'),
+            id: 'routing',
+            icon: Icons.route_outlined,
+            title: _privacyText(context, 'Маршрутизация', 'Routing'),
+            subtitle: _privacyText(
+              context,
+              'Какие сайты и приложения идут напрямую или через VPN',
+              'Choose which sites and apps use the VPN',
+            ),
+            expanded: _expandedCategories.contains('routing'),
+            onExpansionChanged: (value) => _setCategoryExpanded('routing', value),
+            children: [
+              SwitchListTile.adaptive(
+                value: russianNetwork,
+                onChanged: _busy
+                    ? null
+                    : (value) => _setPrivacyBool(
+                        () => ref.read(VpnPrivacyPreferences.russianNetworkBypass.notifier).update(value),
+                        successRu: value
+                            ? 'Прямой доступ к российским доменам и IP включён.'
+                            : 'Российские домены и IP теперь идут по обычным правилам VPN.',
+                        successEn: value
+                            ? 'Direct routing for Russian domains and IP ranges enabled.'
+                            : 'Russian domains and IP ranges now follow normal VPN rules.',
+                      ),
+                secondary: const Icon(Icons.language_outlined),
+                title: Text(_privacyText(context, 'Российские домены и IP напрямую', 'Russian domains and IPs direct')),
+                subtitle: Text(
+                  _privacyText(
+                    context,
+                    'Домены .ru, .рф, .su и российские IP-адреса идут без VPN. Выключите, чтобы применять к ним обычные правила VPN.',
+                    'Routes .ru, .рф, .su domains and Russian IP addresses outside the VPN. Turn off to use normal VPN rules.',
+                  ),
+                ),
+              ),
+              SwitchListTile.adaptive(
+                value: russianApps,
+                onChanged: _busy
+                    ? null
+                    : (value) => _setPrivacyBool(
+                        () => ref.read(VpnPrivacyPreferences.russianAppsBypass.notifier).update(value),
+                        successRu: value
+                            ? 'Прямой доступ для российских приложений включён.'
+                            : 'Прямой доступ для российских приложений отключён.',
+                        successEn: value
+                            ? 'Direct routing for Russian apps enabled.'
+                            : 'Direct routing for Russian apps disabled.',
+                      ),
+                secondary: const Icon(Icons.apps_outlined),
+                title: Text(_privacyText(context, 'Российские приложения напрямую', 'Russian apps direct')),
+                subtitle: Text(
+                  _privacyText(
+                    context,
+                    'Применяет список «Российские приложения». При отключении выбранные галочки сохраняются.',
+                    'Applies the Russian apps list. Saved selections are preserved while disabled.',
+                  ),
+                ),
+              ),
+              SwitchListTile.adaptive(
+                value: restrictedServices,
+                onChanged: _busy
+                    ? null
+                    : (value) => _setPrivacyBool(
+                        () => ref.read(VpnPrivacyPreferences.restrictedServicesProxy.notifier).update(value),
+                        successRu: value
+                            ? 'Маршрутизация заблокированных сервисов через VPN включена.'
+                            : 'Маршрутизация заблокированных сервисов через VPN отключена.',
+                        successEn: value
+                            ? 'VPN routing for restricted services enabled.'
+                            : 'VPN routing for restricted services disabled.',
+                      ),
+                secondary: const Icon(Icons.route_outlined),
+                title: Text(
+                  _privacyText(context, 'Заблокированные сервисы через VPN', 'Restricted services through VPN'),
+                ),
+                subtitle: Text(
+                  _privacyText(
+                    context,
+                    'Применяет список «Заблокированные сервисы». При отключении выбранные галочки сохраняются.',
+                    'Applies the Restricted services list. Saved selections are preserved while disabled.',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _PrivacyCategory(
+            key: const ValueKey('privacy-connection'),
+            id: 'connection',
+            icon: Icons.security_outlined,
+            title: _privacyText(context, 'Режим подключения', 'Connection mode'),
+            subtitle: _privacyText(
+              context,
+              'Полный туннель и подключение через root',
+              'Full tunnel and root connection',
+            ),
+            expanded: _expandedCategories.contains('connection'),
+            onExpansionChanged: (value) => _setCategoryExpanded('connection', value),
+            children: [
+              SwitchListTile.adaptive(
+                value: ref.watch(VpnPrivacyPreferences.fullTunnel),
+                onChanged: _busy
+                    ? null
+                    : (value) => _setPrivacyBool(
+                        () => ref.read(VpnPrivacyPreferences.fullTunnel.notifier).update(value),
+                        successRu: value ? 'Полный туннель включён.' : 'Полный туннель отключён.',
+                        successEn: value ? 'Full tunnel enabled.' : 'Full tunnel disabled.',
+                      ),
+                secondary: const Icon(Icons.security_outlined),
+                title: Text(_privacyText(context, 'Полный туннель', 'Full tunnel')),
+                subtitle: Text(
+                  _privacyText(
+                    context,
+                    'Отправляет весь пользовательский трафик через VPN и временно имеет приоритет над прямыми российскими исключениями.',
+                    'Routes all user traffic through the VPN and temporarily takes priority over direct Russian bypass rules.',
+                  ),
+                ),
+              ),
+              if (android)
+                SwitchListTile.adaptive(
+                  value: ref.watch(VpnPrivacyPreferences.useRoot),
+                  onChanged: _busy || _rootChecking || _root['detected'] != true || _root['helper'] != true
+                      ? null
+                      : _setRoot,
+                  secondary: const Icon(Icons.admin_panel_settings_outlined),
+                  title: Text(_privacyText(context, 'Подключение через root', 'Connect using root')),
+                  subtitle: Text(
+                    _privacyText(
+                      context,
+                      _rootChecking
+                          ? 'Проверяется наличие root…'
+                          : _root['detected'] != true
+                          ? 'Root на устройстве не обнаружен.'
+                          : _root['helper'] != true
+                          ? 'В этом APK нет исполняемого root-ядра.'
+                          : 'Запускает ядро без Android VpnService. Требуется разрешение root.',
+                      _rootChecking
+                          ? 'Checking root availability…'
+                          : _root['detected'] != true
+                          ? 'Root was not detected on this device.'
+                          : _root['helper'] != true
+                          ? 'This APK has no executable root companion.'
+                          : 'Runs the core without Android VpnService. Root permission is required.',
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _PrivacyCategory(
+            key: const ValueKey('privacy-dns'),
+            id: 'dns',
+            icon: Icons.dns_outlined,
+            title: _privacyText(context, 'DNS', 'DNS'),
+            subtitle: _privacyText(
+              context,
+              'Шифрование запросов и сведения о сети',
+              'Encrypted queries and network information',
+            ),
+            expanded: _expandedCategories.contains('dns'),
+            onExpansionChanged: (value) => _setCategoryExpanded('dns', value),
+            children: [
+              SwitchListTile.adaptive(
+                value: ref.watch(VpnPrivacyPreferences.encryptedDns),
+                onChanged: _busy
+                    ? null
+                    : (value) => _setPrivacyBool(
+                        () => ref.read(VpnPrivacyPreferences.encryptedDns.notifier).update(value),
+                        successRu: 'Настройка DNS применена.',
+                        successEn: 'DNS setting applied.',
+                      ),
+                secondary: const Icon(Icons.dns_outlined),
+                title: Text(_privacyText(context, 'Зашифрованный DNS через VPN', 'Encrypted DNS through VPN')),
+                subtitle: Text(
+                  _privacyText(
+                    context,
+                    'Использует DoH внутри VPN. Рекомендуется оставить включённым.',
+                    'Uses DoH inside the VPN. Recommended to keep enabled.',
+                  ),
+                ),
+              ),
+              if (android)
+                SwitchListTile.adaptive(
+                  value: ref.watch(VpnPrivacyPreferences.publicDns),
+                  onChanged: _busy
+                      ? null
+                      : (value) => _setPrivacyBool(
+                          () => ref.read(VpnPrivacyPreferences.publicDns.notifier).update(value),
+                          successRu: 'Отображение DNS применено.',
+                          successEn: 'DNS network display setting applied.',
+                        ),
+                  secondary: const Icon(Icons.public),
+                  title: Text(
+                    _privacyText(context, 'Публичный DNS в сведениях о сети', 'Public DNS in network information'),
+                  ),
+                  subtitle: Text(
+                    _privacyText(
+                      context,
+                      'Показывает публичный DNS вместо внутреннего адреса туннеля; запросы всё равно перехватывает ядро.',
+                      'Shows a public DNS address instead of the tunnel address; the core still intercepts DNS queries.',
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _PrivacyCategory(
+            key: const ValueKey('privacy-interfaces'),
+            id: 'interfaces',
+            icon: Icons.settings_ethernet_outlined,
+            title: _privacyText(context, 'Прокси и управление', 'Proxy and control'),
+            subtitle: _privacyText(
+              context,
+              'Локальные порты и системный HTTP-прокси',
+              'Local ports and system HTTP proxy',
+            ),
+            expanded: _expandedCategories.contains('interfaces'),
+            onExpansionChanged: (value) => _setCategoryExpanded('interfaces', value),
+            children: [
+              SwitchListTile.adaptive(
+                value: ref.watch(VpnPrivacyPreferences.hideLocalProxy),
+                onChanged: _busy
+                    ? null
+                    : (value) => _setPrivacyBool(
+                        () => ref.read(VpnPrivacyPreferences.hideLocalProxy.notifier).update(value),
+                        successRu: 'Настройка локального прокси применена.',
+                        successEn: 'Local proxy setting applied.',
+                      ),
+                secondary: const Icon(Icons.portable_wifi_off_outlined),
+                title: Text(_privacyText(context, 'Не открывать локальный прокси', 'Disable local proxy')),
+                subtitle: Text(
+                  _privacyText(
+                    context,
+                    'Не поднимает лишние HTTP/SOCKS/direct listener в режиме VPN.',
+                    'Avoids extra HTTP/SOCKS/direct listeners in VPN mode.',
+                  ),
+                ),
+              ),
+              SwitchListTile.adaptive(
+                value: ref.watch(VpnPrivacyPreferences.hideClashApi),
+                onChanged: _busy
+                    ? null
+                    : (value) => _setPrivacyBool(
+                        () => ref.read(VpnPrivacyPreferences.hideClashApi.notifier).update(value),
+                        successRu: 'Настройка Clash API применена.',
+                        successEn: 'Clash API setting applied.',
+                      ),
+                secondary: const Icon(Icons.api_outlined),
+                title: Text(_privacyText(context, 'Не открывать Clash API', 'Disable Clash API')),
+                subtitle: Text(
+                  _privacyText(
+                    context,
+                    'Не открывает внешний REST-порт управления; внутренняя статистика сохраняется.',
+                    'Does not expose the external REST control port; internal statistics remain available.',
+                  ),
+                ),
+              ),
+              SwitchListTile.adaptive(
+                value: ref.watch(VpnPrivacyPreferences.disableSystemProxy),
+                onChanged: _busy
+                    ? null
+                    : (value) => _setPrivacyBool(
+                        () => ref.read(VpnPrivacyPreferences.disableSystemProxy.notifier).update(value),
+                        successRu: 'Настройка системного прокси применена.',
+                        successEn: 'System proxy setting applied.',
+                      ),
+                secondary: const Icon(Icons.http_outlined),
+                title: Text(_privacyText(context, 'Не объявлять системный HTTP-прокси', 'Disable system HTTP proxy')),
+                subtitle: Text(
+                  _privacyText(
+                    context,
+                    'Не добавляет HTTP-прокси в сведения о VPN-сети.',
+                    'Does not advertise an HTTP proxy on the VPN network.',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
           const SizedBox(height: 16),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -664,12 +716,45 @@ class _FeatureRow extends StatelessWidget {
               ],
             ),
           ),
-          if (onTap != null) ...[
-            const SizedBox(width: 8),
-            const Icon(Icons.chevron_right_rounded),
-          ],
+          if (onTap != null) ...[const SizedBox(width: 8), const Icon(Icons.chevron_right_rounded)],
         ],
       ),
+    ),
+  );
+}
+
+class _PrivacyCategory extends StatelessWidget {
+  const _PrivacyCategory({
+    super.key,
+    required this.id,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.expanded,
+    required this.onExpansionChanged,
+    required this.children,
+  });
+
+  final String id;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool expanded;
+  final ValueChanged<bool> onExpansionChanged;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    clipBehavior: Clip.antiAlias,
+    child: ExpansionTile(
+      key: PageStorageKey('privacy-category-$id'),
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: Text(subtitle),
+      initiallyExpanded: expanded,
+      onExpansionChanged: onExpansionChanged,
+      maintainState: true,
+      children: children,
     ),
   );
 }
