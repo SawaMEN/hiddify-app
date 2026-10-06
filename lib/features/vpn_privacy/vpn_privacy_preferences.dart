@@ -7,14 +7,8 @@ abstract class VpnPrivacyPreferences {
   static final routingMode = PreferencesNotifier.create<String, String>('privacy-routing-mode', 'ru-bypass');
 
   /// Replaces the old region selector. Defaults preserve the previous Russia-region behavior.
-  static final russianNetworkBypass = PreferencesNotifier.create<bool, bool>(
-    'privacy-russian-network-bypass',
-    true,
-  );
-  static final russianAppsBypass = PreferencesNotifier.create<bool, bool>(
-    'privacy-russian-apps-bypass',
-    true,
-  );
+  static final russianNetworkBypass = PreferencesNotifier.create<bool, bool>('privacy-russian-network-bypass', true);
+  static final russianAppsBypass = PreferencesNotifier.create<bool, bool>('privacy-russian-apps-bypass', true);
   static final restrictedServicesProxy = PreferencesNotifier.create<bool, bool>(
     'privacy-restricted-services-proxy',
     true,
@@ -32,6 +26,8 @@ abstract class VpnPrivacyPreferences {
   static final disableSystemProxy = PreferencesNotifier.create<bool, bool>('privacy-disable-system-proxy', true);
   static final publicDns = PreferencesNotifier.create<bool, bool>('privacy-public-dns', false);
   static final encryptedDns = PreferencesNotifier.create<bool, bool>('privacy-encrypted-dns', true);
+  static final modernAllowUDP = PreferencesNotifier.create<bool, bool>('privacy-modern-allow-udp', false);
+  static final modernProtocolsOnly = PreferencesNotifier.create<bool, bool>('privacy-modern-protocols-only', false);
 
   // Experimental network anonymization switches are intentionally off by default.
   // They can reduce network-level metadata but may break protocols and local services.
@@ -53,7 +49,8 @@ abstract class VpnPrivacyPreferences {
   );
 
   static String encodeManualPackages(Iterable<String> packages) {
-    final normalized = packages.map((value) => value.trim()).where((value) => value.isNotEmpty).toSet().toList()..sort();
+    final normalized = packages.map((value) => value.trim()).where((value) => value.isNotEmpty).toSet().toList()
+      ..sort();
     return '$manualPackagePrefix${normalized.join(',')}';
   }
 

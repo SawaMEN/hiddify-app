@@ -202,6 +202,9 @@ class HiddifyCoreService with InfraLogger {
           hideClashApi: ref.read(VpnPrivacyPreferences.hideClashApi),
           disableSystemProxy: ref.read(VpnPrivacyPreferences.disableSystemProxy),
           encryptedDns: ref.read(VpnPrivacyPreferences.encryptedDns),
+          modernAllowUDP: ref.read(VpnPrivacyPreferences.modernAllowUDP),
+          modernProtocolsOnly: ref.read(VpnPrivacyPreferences.modernProtocolsOnly),
+          adaptiveNetwork: ref.read(Preferences.adaptiveNetwork),
         );
         if (PlatformUtils.isAndroid) {
           const channel = MethodChannel('com.hiddify.app/method');
@@ -475,10 +478,10 @@ class HiddifyCoreService with InfraLogger {
     );
   }
 
-  Future<int> probeConnection(String url, CancelToken token) async {
+  Future<int> probeConnection(String url, CancelToken token, {Duration timeout = const Duration(seconds: 12)}) async {
     final request = core.bgClient.probeConnection(
       NetworkProbeRequest(url: url),
-      options: CallOptions(timeout: const Duration(seconds: 12)),
+      options: CallOptions(timeout: timeout),
     );
     unawaited(token.whenCancel.then((_) => request.cancel()));
     try {

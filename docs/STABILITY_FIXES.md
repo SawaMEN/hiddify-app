@@ -190,3 +190,39 @@ Brand edit prompt: faithfully extract the original VetrOFF logo with actual
 transparent alpha; preserve its metallic fan, split blue/grey ring, wind trails,
 VPN shield and wordmark; extract stationary frame and centered five-blade rotor
 for animation without redesigning the brand.
+
+## Modern protocol allow-list and adaptive network mode
+
+Two independent switches, both off by default:
+
+- **Скрытие VPN → Только протоколы с маскировкой**: verified TLS AnyTLS and
+  Naive TCP by default; a separate opt-in UDP switch adds Hysteria 2, TUIC and
+  Naive HTTP/3. VLESS/VMess, opaque nested configs, endpoints and detours are
+  excluded. TUIC 0-RTT and Naive insecure concurrency are disabled; AnyTLS uses
+  Chrome uTLS. Empty eligible sets fail closed without retry or legacy fallback.
+  WARP chains are rejected. Subscription obfuscation/passwords remain unchanged.
+  This is a conservative device policy, not a guarantee of DPI concealment.
+  See [protocol research and complete build inventory](PROTOCOLS_RUSSIA.md).
+  Intentional direct-routing exceptions remain separate.
+- **Дополнительные настройки → Режим подключения → Адаптация к нестабильному
+  интернету** (also in general settings): automatic server selection/recovery,
+  sticky sessions for up to three minutes and no interruption of existing streams
+  on selection updates. New flows avoid nodes with failed health samples. Core
+  monitoring uses the configured endpoint once per minute. Hysteria 2 uses
+  conservative BBR rather than fixed subscription Mbps; TUIC uses BBR with 0-RTT
+  disabled. Dial and TLS budgets allow up to 30 seconds, and the TUN MTU is reduced
+  where compatible with the transport. Stored profile options are never rewritten.
+- Health probes adjust their deadline from 12 to 30 seconds based on recent
+  response times/timeouts, require five failed checks before considering recovery,
+  and pause while the physical network is absent. Recovery polls for a returning
+  network without consuming its bounded retry budget; Stop cancels pending work.
+- Both device switches override profile values and are applied during native
+  Always-on/root starts even when the Flutter UI is not running. Disabling a mode
+  restores the original profile options on the next configuration application.
+- Core and Flutter regression tests cover mixed subscriptions, TLS rejection,
+  hidden/fallback nodes, WARP conflicts, immutable profiles, longer budgets,
+  non-interrupting balancers, offline waiting, cancellation and UI persistence.
+
+References: https://sing-box.sagernet.org/configuration/outbound/hysteria2/,
+https://sing-box.sagernet.org/configuration/outbound/tuic/,
+https://v2.hysteria.network/docs/advanced/Full-Server-Config/.

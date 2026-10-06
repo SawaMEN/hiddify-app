@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:hiddify/core/preferences/general_preferences.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/features/settings/notifier/config_option/config_option_notifier.dart';
 import 'package:hiddify/features/vpn_privacy/privacy_app_selection_page.dart';
@@ -383,6 +384,53 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
             ),
           ),
           const SizedBox(height: 16),
+          Card(
+            child: SwitchListTile.adaptive(
+              key: const ValueKey('modern-protocols-only'),
+              secondary: const Icon(Icons.security_rounded),
+              title: Text(_privacyText(context, 'Только протоколы с маскировкой', 'Masked protocols only')),
+              subtitle: Text(
+                _privacyText(
+                  context,
+                  'TCP: AnyTLS и Naive с проверкой TLS. VLESS/VMess и непроверяемые цепочки исключаются. Для Hysteria 2 и TUIC разрешите UDP ниже. Нужны совместимые серверы в подписке; без них подключение остановится. Маскировка не гарантирует обход ТСПУ или блокировки IP/SNI.',
+                  'TCP: AnyTLS and Naive with verified TLS. VLESS/VMess and unverifiable chains are excluded. Allow UDP below for Hysteria 2 and TUIC. Requires compatible subscription servers; otherwise connection stops. Masking cannot guarantee bypass of DPI or IP/SNI blocks.',
+                ),
+              ),
+              value: ref.watch(VpnPrivacyPreferences.modernProtocolsOnly),
+              onChanged: _busy
+                  ? null
+                  : (value) => _run(
+                      () => ref
+                          .read(configOptionNotifierProvider.notifier)
+                          .updateTogether(
+                            () => ref.read(VpnPrivacyPreferences.modernProtocolsOnly.notifier).update(value),
+                            applyImmediately: true,
+                          ),
+                      successRu: value ? 'Ограничение протоколов включено.' : 'Ограничение протоколов отключено.',
+                      successEn: value ? 'Protocol restriction enabled.' : 'Protocol restriction disabled.',
+                    ),
+            ),
+          ),
+          if (ref.watch(VpnPrivacyPreferences.modernProtocolsOnly))
+            SwitchListTile.adaptive(
+              key: const ValueKey('modern-allow-udp'),
+              title: Text(_privacyText(context, 'Разрешить UDP / QUIC', 'Allow UDP / QUIC')),
+              subtitle: Text(
+                _privacyText(
+                  context,
+                  'Добавляет Hysteria 2, TUIC и Naive HTTP/3. ТСПУ может читать SNI QUIC; при блокировке UDP выключите. Обфускация Hysteria должна совпадать с сервером — приложение не меняет её пароль.',
+                  'Adds Hysteria 2, TUIC and Naive HTTP/3. DPI can read QUIC SNI; disable if UDP is blocked. Hysteria obfuscation must match the server; the app never changes its password.',
+                ),
+              ),
+              value: ref.watch(VpnPrivacyPreferences.modernAllowUDP),
+              onChanged: _busy
+                  ? null
+                  : (value) => _setPrivacyBool(
+                      () => ref.read(VpnPrivacyPreferences.modernAllowUDP.notifier).update(value),
+                      successRu: 'Режим TCP/UDP применён.',
+                      successEn: 'TCP/UDP policy applied.',
+                    ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 8, 4, 12),
             child: Text(
@@ -484,12 +532,32 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
             title: _privacyText(context, 'Режим подключения', 'Connection mode'),
             subtitle: _privacyText(
               context,
-              'Полный туннель и подключение через root',
-              'Full tunnel and root connection',
+              'Нестабильная сеть, полный туннель и подключение через root',
+              'Unstable network, full tunnel and root connection',
             ),
             expanded: _expandedCategories.contains('connection'),
             onExpansionChanged: (value) => _setCategoryExpanded('connection', value),
             children: [
+              SwitchListTile.adaptive(
+                key: const ValueKey('privacy-adaptive-network'),
+                secondary: const Icon(Icons.network_check_rounded),
+                title: Text(_privacyText(context, 'Адаптация к нестабильному интернету', 'Adapt to unstable internet')),
+                subtitle: Text(
+                  _privacyText(
+                    context,
+                    'Автоматический выбор доступных серверов, адаптивная скорость, больше времени на ответы и восстановление с паузами. Переключение сервера сохраняет текущие потоки.',
+                    'Automatically choose available servers, adapt bandwidth, allow slower replies and recover with backoff. Server selection changes preserve existing streams.',
+                  ),
+                ),
+                value: ref.watch(Preferences.adaptiveNetwork),
+                onChanged: _busy
+                    ? null
+                    : (value) => _setPrivacyBool(
+                        () => ref.read(Preferences.adaptiveNetwork.notifier).update(value),
+                        successRu: value ? 'Адаптация к сети включена.' : 'Адаптация к сети отключена.',
+                        successEn: value ? 'Network adaptation enabled.' : 'Network adaptation disabled.',
+                      ),
+              ),
               SwitchListTile.adaptive(
                 value: ref.watch(VpnPrivacyPreferences.fullTunnel),
                 onChanged: _busy

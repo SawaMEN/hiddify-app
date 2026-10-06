@@ -14,6 +14,7 @@ bool _debugIntroPage = false;
 abstract class Preferences {
   static final autoReconnect = PreferencesNotifier.create<bool, bool>("auto_reconnect", true);
   static final smartServerSelection = PreferencesNotifier.create<bool, bool>("smart_server_selection", false);
+  static final adaptiveNetwork = PreferencesNotifier.create<bool, bool>("adaptive_network", false);
   static final introCompleted = PreferencesNotifier.create(
     "intro_completed",
     false,

@@ -7,8 +7,15 @@ Map<String, dynamic> applyVpnPrivacyPolicy(
   required bool hideClashApi,
   required bool disableSystemProxy,
   required bool encryptedDns,
+  bool modernProtocolsOnly = false,
+  bool modernAllowUDP = false,
+  bool adaptiveNetwork = false,
 }) {
   final json = Map<String, dynamic>.of(profile);
+  // Device switches override subscription/profile values in both directions.
+  json['privacy-modern-protocols-only'] = modernProtocolsOnly;
+  json['privacy-modern-allow-udp'] = modernAllowUDP;
+  json['adaptive-network'] = adaptiveNetwork;
   final tun = json['enable-tun'] == true;
   final full = android && tun && fullTunnel;
   json['privacy-full-tunnel'] = full;

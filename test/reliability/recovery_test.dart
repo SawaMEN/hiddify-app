@@ -56,6 +56,9 @@ class _Repository implements ConnectionRepository {
 }
 
 class _NativeRuntime extends AndroidVpnRuntime {
+  bool? online;
+  @override
+  Future<bool?> networkAvailable() async => online;
   bool running = true;
   int stops = 0;
 
@@ -88,6 +91,51 @@ class _Core extends HiddifyCoreService {
 }
 
 void main() {
+  for (final abort in [false, true]) {
+    testWidgets('Adaptive recovery waits for a physical network and respects abort=$abort', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'started_by_user': true,
+        'auto_reconnect': false,
+        'adaptive_network': true,
+        'haptic_feedback': false,
+      });
+      final preferences = await SharedPreferences.getInstance();
+      final repo = _Repository()..fail = false;
+      final native = _NativeRuntime()
+        ..running = false
+        ..online = false;
+      final container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWith((_) async => preferences),
+          connectionRepositoryProvider.overrideWith((_) => repo),
+          activeProfileProvider.overrideWith(_Profile.new),
+          androidVpnRuntimeProvider.overrideWithValue(native),
+          hiddifyCoreServiceProvider.overrideWith((ref) => _Core(ref)),
+        ],
+      );
+      await container.read(sharedPreferencesProvider.future);
+      final subscription = container.listen(connectionNotifierProvider, (_, __) {});
+      await tester.pump();
+      await tester.pump();
+      final notifier = container.read(connectionNotifierProvider.notifier);
+      await notifier.restoreOnResume();
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(seconds: 15));
+        await tester.pump();
+      }
+      expect(repo.connections, 0);
+      expect(native.stops, 0);
+      expect(container.read(Preferences.startedByUser), true);
+      if (abort) await notifier.abortConnection();
+      native.online = true;
+      await tester.pump(const Duration(seconds: 15));
+      await tester.pump();
+      expect(repo.connections, abort ? 0 : 1);
+      subscription.close();
+      container.dispose();
+      await repo.events.close();
+    });
+  }
   for (final status in [const CoreStarted(), const CoreStarting(), const CoreStopping(), null]) {
     testWidgets('Resume preserves an existing service with daemon status $status', (tester) async {
       SharedPreferences.setMockInitialValues({
@@ -275,20 +323,13 @@ void main() {
     await tester.pump();
   });
 
-  for (final (cancel, plainStop) in [
-    (true, false),
-    (false, false),
-    (false, true),
-  ]) {
+  for (final (cancel, plainStop) in [(true, false), (false, false), (false, true)]) {
     testWidgets(
       cancel
           ? 'Manual abort cancels pending recovery'
           : 'Recovery stops after five failed attempts (plainStop=$plainStop)',
       (tester) async {
-        SharedPreferences.setMockInitialValues({
-          'started_by_user': true,
-          'haptic_feedback': false,
-        });
+        SharedPreferences.setMockInitialValues({'started_by_user': true, 'haptic_feedback': false});
         final preferences = await SharedPreferences.getInstance();
         final repo = _Repository();
         final container = ProviderContainer(
@@ -298,13 +339,9 @@ void main() {
             activeProfileProvider.overrideWith(_Profile.new),
           ],
         );
-        repo.onConnect = () =>
-            container.read(coreRestartSignalProvider.notifier).restart();
+        repo.onConnect = () => container.read(coreRestartSignalProvider.notifier).restart();
         await container.read(sharedPreferencesProvider.future);
-        final subscription = container.listen(
-          connectionNotifierProvider,
-          (_, __) {},
-        );
+        final subscription = container.listen(connectionNotifierProvider, (_, __) {});
         await tester.pump();
         await tester.pump();
         if (plainStop) {
@@ -313,19 +350,13 @@ void main() {
           await tester.pump();
         }
         repo.events.add(
-          plainStop
-              ? const Disconnected()
-              : const Disconnected(
-                  ConnectionFailure.backgroundCoreNotAvailable(),
-                ),
+          plainStop ? const Disconnected() : const Disconnected(ConnectionFailure.backgroundCoreNotAvailable()),
         );
         await tester.pump();
         await tester.pump();
         expect(container.read(recoveryStatusProvider), 1);
         if (cancel) {
-          await container
-              .read(connectionNotifierProvider.notifier)
-              .abortConnection();
+          await container.read(connectionNotifierProvider.notifier).abortConnection();
           expect(container.read(Preferences.startedByUser), false);
           await tester.pump(const Duration(seconds: 60));
           expect(repo.connections, 0);
@@ -338,11 +369,7 @@ void main() {
           expect(container.read(recoveryStatusProvider), 0);
           expect(container.read(Preferences.startedByUser), false);
           for (var i = 0; i < 3; i++) {
-            repo.events.add(
-              const Disconnected(
-                ConnectionFailure.backgroundCoreNotAvailable(),
-              ),
-            );
+            repo.events.add(const Disconnected(ConnectionFailure.backgroundCoreNotAvailable()));
             await tester.pump();
           }
           await tester.pump(const Duration(minutes: 2));
@@ -357,118 +384,101 @@ void main() {
   }
   for (final fromError in [false, true]) {
     for (final disposeWhileStopping in [false, true]) {
-      testWidgets(
-        'Abort drains an in-flight recovery (error=$fromError, dispose=$disposeWhileStopping)',
-        (tester) async {
-          SharedPreferences.setMockInitialValues({
-            'started_by_user': true,
-            'haptic_feedback': false,
-          });
-          final preferences = await SharedPreferences.getInstance();
-          final repo = _Repository();
-          final container = ProviderContainer(
-            overrides: [
-              sharedPreferencesProvider.overrideWith((ref) async => preferences),
-              connectionRepositoryProvider.overrideWithValue(repo),
-              activeProfileProvider.overrideWith(_Profile.new),
-            ],
-          );
-          await container.read(sharedPreferencesProvider.future);
-          final subscription = container.listen(connectionNotifierProvider, (_, __) {});
+      testWidgets('Abort drains an in-flight recovery (error=$fromError, dispose=$disposeWhileStopping)', (
+        tester,
+      ) async {
+        SharedPreferences.setMockInitialValues({'started_by_user': true, 'haptic_feedback': false});
+        final preferences = await SharedPreferences.getInstance();
+        final repo = _Repository();
+        final container = ProviderContainer(
+          overrides: [
+            sharedPreferencesProvider.overrideWith((ref) async => preferences),
+            connectionRepositoryProvider.overrideWithValue(repo),
+            activeProfileProvider.overrideWith(_Profile.new),
+          ],
+        );
+        await container.read(sharedPreferencesProvider.future);
+        final subscription = container.listen(connectionNotifierProvider, (_, __) {});
+        await tester.pump();
+        await tester.pump();
+        repo.events.add(const Disconnected(ConnectionFailure.backgroundCoreNotAvailable()));
+        await tester.pump();
+        await tester.pump();
+        if (fromError) {
+          await tester.pump(const Duration(seconds: 2));
           await tester.pump();
-          await tester.pump();
-          repo.events.add(const Disconnected(ConnectionFailure.backgroundCoreNotAvailable()));
-          await tester.pump();
-          await tester.pump();
-          if (fromError) {
-            await tester.pump(const Duration(seconds: 2));
-            await tester.pump();
-            expect(container.read(connectionNotifierProvider), isA<AsyncError<ConnectionStatus>>());
-            expect(repo.connections, 1);
-          }
-          repo.fail = false;
-          final gate = Completer<void>();
-          repo.connectGate = gate;
-          await tester.pump(Duration(seconds: fromError ? 4 : 2));
-          await tester.pump();
-          expect(repo.connections, fromError ? 2 : 1);
-          final stopped = container.read(connectionNotifierProvider.notifier).abortConnection();
-          await tester.pump();
-          expect(container.read(Preferences.startedByUser), false);
-          expect(repo.disconnections, 0, reason: 'Stop must wait for the native start to settle');
-          if (disposeWhileStopping) {
-            subscription.close();
-            container.dispose();
-          }
-          gate.complete();
-          await stopped;
-          await tester.pump(const Duration(minutes: 2));
-          expect(repo.disconnections, 1);
-          expect(repo.connections, fromError ? 2 : 1, reason: 'Cancelled recovery must not restart');
-          if (!disposeWhileStopping) {
-            subscription.close();
-            container.dispose();
-          }
-          await repo.events.close();
-          await tester.pump();
-          expect(tester.takeException(), isNull);
-        },
-      );
+          expect(container.read(connectionNotifierProvider), isA<AsyncError<ConnectionStatus>>());
+          expect(repo.connections, 1);
+        }
+        repo.fail = false;
+        final gate = Completer<void>();
+        repo.connectGate = gate;
+        await tester.pump(Duration(seconds: fromError ? 4 : 2));
+        await tester.pump();
+        expect(repo.connections, fromError ? 2 : 1);
+        final stopped = container.read(connectionNotifierProvider.notifier).abortConnection();
+        await tester.pump();
+        expect(container.read(Preferences.startedByUser), false);
+        expect(repo.disconnections, 0, reason: 'Stop must wait for the native start to settle');
+        if (disposeWhileStopping) {
+          subscription.close();
+          container.dispose();
+        }
+        gate.complete();
+        await stopped;
+        await tester.pump(const Duration(minutes: 2));
+        expect(repo.disconnections, 1);
+        expect(repo.connections, fromError ? 2 : 1, reason: 'Cancelled recovery must not restart');
+        if (!disposeWhileStopping) {
+          subscription.close();
+          container.dispose();
+        }
+        await repo.events.close();
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+      });
     }
   }
-  testWidgets(
-    'Stable duplicate status events reset recovery without postponing the timer',
-    (tester) async {
-      SharedPreferences.setMockInitialValues({
-        'started_by_user': true,
-        'haptic_feedback': false,
-      });
-      final preferences = await SharedPreferences.getInstance();
-      final repo = _Repository();
-      final container = ProviderContainer(
-        overrides: [
-          sharedPreferencesProvider.overrideWith((ref) async => preferences),
-          connectionRepositoryProvider.overrideWithValue(repo),
-          activeProfileProvider.overrideWith(_Profile.new),
-        ],
-      );
-      await container.read(sharedPreferencesProvider.future);
-      final subscription = container.listen(
-        connectionNotifierProvider,
-        (_, __) {},
-      );
-      await tester.pump();
-      await tester.pump();
-      repo.events.add(
-        const Disconnected(ConnectionFailure.backgroundCoreNotAvailable()),
-      );
-      await tester.pump();
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 2));
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 4));
-      await tester.pump();
-      expect(repo.connections, 2);
-      repo.events.add(const Connected());
-      await tester.pump();
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 30));
-      repo.events.add(const Connected());
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 31));
-      repo.events.add(
-        const Disconnected(ConnectionFailure.backgroundCoreNotAvailable()),
-      );
-      await tester.pump();
-      await tester.pump();
-      expect(container.read(recoveryStatusProvider), 1);
-      await tester.pump(const Duration(seconds: 2));
-      await tester.pump();
-      expect(repo.connections, 3);
-      subscription.close();
-      container.dispose();
-      await repo.events.close();
-      await tester.pump();
-    },
-  );
+  testWidgets('Stable duplicate status events reset recovery without postponing the timer', (tester) async {
+    SharedPreferences.setMockInitialValues({'started_by_user': true, 'haptic_feedback': false});
+    final preferences = await SharedPreferences.getInstance();
+    final repo = _Repository();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWith((ref) async => preferences),
+        connectionRepositoryProvider.overrideWithValue(repo),
+        activeProfileProvider.overrideWith(_Profile.new),
+      ],
+    );
+    await container.read(sharedPreferencesProvider.future);
+    final subscription = container.listen(connectionNotifierProvider, (_, __) {});
+    await tester.pump();
+    await tester.pump();
+    repo.events.add(const Disconnected(ConnectionFailure.backgroundCoreNotAvailable()));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pump();
+    expect(repo.connections, 2);
+    repo.events.add(const Connected());
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 30));
+    repo.events.add(const Connected());
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 31));
+    repo.events.add(const Disconnected(ConnectionFailure.backgroundCoreNotAvailable()));
+    await tester.pump();
+    await tester.pump();
+    expect(container.read(recoveryStatusProvider), 1);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pump();
+    expect(repo.connections, 3);
+    subscription.close();
+    container.dispose();
+    await repo.events.close();
+    await tester.pump();
+  });
 }

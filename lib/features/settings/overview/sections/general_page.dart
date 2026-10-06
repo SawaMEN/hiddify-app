@@ -31,6 +31,18 @@ class GeneralPage extends HookConsumerWidget {
           const LocalePrefTile(),
           const ThemeModePrefTile(),
           SwitchListTile.adaptive(
+            key: const ValueKey('adaptive-network'),
+            secondary: const Icon(Icons.network_check_rounded),
+            title: Text(isRussian ? 'Адаптация к нестабильному интернету' : 'Adapt to unstable internet'),
+            subtitle: Text(
+              isRussian
+                  ? 'Автоматический выбор доступных серверов, адаптивная скорость Hysteria 2/TUIC, больше времени на ответы и восстановление с паузами. Текущие соединения сохраняются при смене сервера.'
+                  : 'Automatically choose available servers, adapt Hysteria 2/TUIC bandwidth, allow slower replies and recover with backoff. Existing streams survive server selection changes.',
+            ),
+            value: ref.watch(Preferences.adaptiveNetwork),
+            onChanged: ref.read(Preferences.adaptiveNetwork.notifier).update,
+          ),
+          SwitchListTile.adaptive(
             title: Text(t.client.autoReconnect),
             subtitle: Text(t.client.autoReconnectHint),
             value: ref.watch(Preferences.autoReconnect),
@@ -112,9 +124,8 @@ class GeneralPage extends HookConsumerWidget {
                     : 'Experimental · not recommended for normal use',
               ),
               trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const NetworkAnonymizationPage()),
-              ),
+              onTap: () =>
+                  Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const NetworkAnonymizationPage())),
             ),
           SwitchListTile.adaptive(
             title: Text(t.pages.settings.general.memoryLimit),

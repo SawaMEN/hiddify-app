@@ -6,6 +6,9 @@ import 'package:hiddify/hiddifycore/hiddify_core_service_provider.dart';
 import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/proxy/active/active_proxy_notifier.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
+import 'package:hiddify/core/preferences/general_preferences.dart';
+import 'package:hiddify/features/connection/health/android_vpn_settings.dart';
+import 'package:hiddify/features/connection/health/adaptive_probe_policy.dart';
 
 enum InternetHealth { unchecked, checking, available, unavailable }
 
@@ -25,13 +28,15 @@ class ConnectionHealthNotifier extends Notifier<InternetHealth> {
   Timer? _timer;
   Future<void>? _pending;
   CancelToken? _token;
-  int _generation = 0, _failures = 0;
+  int _generation = 0;
+  AdaptiveProbePolicy _policy = AdaptiveProbePolicy(enabled: false);
   @override
   InternetHealth build() {
     ref.onDispose(_stop);
     ref.listen(serviceRunningProvider, (_, __) => _restart());
     ref.listen(appForegroundProvider, (_, __) => _restart());
     ref.listen(ConfigOptions.connectionTestUrl, (_, __) => _restart());
+    ref.listen(Preferences.adaptiveNetwork, (_, __) => _restart());
     ref.listen(activeProxyNotifierProvider.select((s) => s.value?.tag), (_, __) => _restart());
     Future.microtask(() {
       if (ref.mounted) _restart();
@@ -49,7 +54,7 @@ class ConnectionHealthNotifier extends Notifier<InternetHealth> {
 
   void _restart() {
     _stop();
-    _failures = 0;
+    _policy = AdaptiveProbePolicy(enabled: ref.read(Preferences.adaptiveNetwork));
     state = InternetHealth.unchecked;
     if (ref.read(serviceRunningProvider) && ref.read(appForegroundProvider)) {
       _timer = Timer(const Duration(seconds: 3), () => unawaited(check()));
@@ -70,13 +75,28 @@ class ConnectionHealthNotifier extends Notifier<InternetHealth> {
     if (_token != null && !_token!.isCancelled || !ref.read(serviceRunningProvider) || !ref.read(appForegroundProvider))
       return;
     final generation = _generation;
+    bool? networkAvailable;
+    if (_policy.enabled) {
+      try {
+        networkAvailable = await ref.read(androidVpnRuntimeProvider).networkAvailable();
+      } catch (_) {}
+    }
+    if (_policy.enabled && networkAvailable == false) {
+      if (!ref.mounted || generation != _generation) return;
+      state = InternetHealth.unavailable;
+      _timer = Timer(const Duration(seconds: 15), () => unawaited(check()));
+      return;
+    }
+    if (!ref.mounted || generation != _generation) return;
     final token = _token = CancelToken();
     state = InternetHealth.checking;
-    final deadline = Timer(const Duration(seconds: 12), () => token.cancel('Probe timeout'));
+    final timeout = _policy.timeout;
+    final stopwatch = Stopwatch()..start();
+    final deadline = Timer(timeout, () => token.cancel('Probe timeout'));
     var healthy = false;
     try {
       final url = ref.read(ConfigOptions.connectionTestUrl);
-      final status = await ref.read(hiddifyCoreServiceProvider).probeConnection(url, token);
+      final status = await ref.read(hiddifyCoreServiceProvider).probeConnection(url, token, timeout: timeout);
       healthy = validProbeStatus(url, status);
     } catch (_) {
     } finally {
@@ -85,11 +105,12 @@ class ConnectionHealthNotifier extends Notifier<InternetHealth> {
     }
     if (!ref.mounted || generation != _generation) return;
     state = healthy ? InternetHealth.available : InternetHealth.unavailable;
-    _failures = healthy ? 0 : _failures + 1;
-    if (_failures >= 3 && (ref.read(activeProxyNotifierProvider).value?.urlTestDelay ?? 0) >= 65000) {
+    _policy.record(healthy: healthy, elapsed: stopwatch.elapsed);
+    if (_policy.failures >= _policy.recoveryThreshold &&
+        (ref.read(activeProxyNotifierProvider).value?.urlTestDelay ?? 0) >= 65000) {
       unawaited(ref.read(connectionNotifierProvider.notifier).recoverUnhealthyConnection());
     }
-    _timer = Timer(const Duration(seconds: 30), () => unawaited(check()));
+    _timer = Timer(_policy.interval, () => unawaited(check()));
   }
 }
 

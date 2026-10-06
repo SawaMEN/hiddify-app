@@ -37,7 +37,10 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
 
     ref.onDispose(_cancelRecovery);
     ref.listen(Preferences.autoReconnect, (_, enabled) {
-      if (!enabled) _cancelRecovery();
+      if (!enabled && !ref.read(Preferences.adaptiveNetwork)) _cancelRecovery();
+    });
+    ref.listen(Preferences.adaptiveNetwork, (_, enabled) {
+      if (!enabled && !ref.read(Preferences.autoReconnect)) _cancelRecovery();
     });
     listenSelf((previous, next) async {
       if (next case AsyncData(value: Disconnected(connectionFailure: final failure?))) _scheduleRecovery(failure);
@@ -215,6 +218,7 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   }
 
   final _policy = RecoveryPolicy();
+  bool get _autoRecovery => ref.read(Preferences.autoReconnect) || ref.read(Preferences.adaptiveNetwork);
   Timer? _retryTimer, _stableTimer;
   bool _retrying = false;
   int _epoch = 0;
@@ -229,10 +233,10 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   }
 
   bool _scheduleRecovery(ConnectionFailure failure) {
-    if (!ref.mounted || !ref.read(Preferences.autoReconnect) || !ref.read(Preferences.startedByUser)) return false;
+    if (!ref.mounted || !_autoRecovery || !ref.read(Preferences.startedByUser)) return false;
     if (failure is! UnexpectedConnectionFailure && failure is! BackgroundCoreNotAvailable) return false;
     if (_retryTimer != null) return true;
-    final delay = _policy.nextDelay();
+    final delay = _policy.nextDelay(adaptive: ref.read(Preferences.adaptiveNetwork));
     if (delay == null) {
       _cancelRecovery();
       unawaited(ref.read(Preferences.startedByUser.notifier).update(false));
@@ -253,7 +257,7 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
         _retrying ||
         _retryTimer != null ||
         !ref.read(Preferences.startedByUser) ||
-        !ref.read(Preferences.autoReconnect))
+        !_autoRecovery)
       return;
     final status = state.value;
     if (status is Connecting || status is Disconnecting) return;
@@ -266,12 +270,19 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
     if (_retrying) return;
     _retrying = true;
     try {
-      if (!ref.mounted ||
-          epoch != _epoch ||
-          !ref.read(Preferences.startedByUser) ||
-          !ref.read(Preferences.autoReconnect))
-        return;
+      if (!ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser) || !_autoRecovery) return;
       final native = ref.read(androidVpnRuntimeProvider);
+      if (ref.read(Preferences.adaptiveNetwork) && native.isAndroid && await native.networkAvailable() == false) {
+        if (ref.mounted && epoch == _epoch && ref.read(Preferences.startedByUser) && _autoRecovery) {
+          // Wait for a physical network without spending the retry budget or restarting the VPN.
+          ref.read(recoveryStatusProvider.notifier).set(_policy.attempts == 0 ? 1 : _policy.attempts);
+          _retryTimer = Timer(const Duration(seconds: 15), () {
+            _retryTimer = null;
+            unawaited(_retry(epoch));
+          });
+        }
+        return;
+      }
       final wantsConnection = await native.wantsConnection();
       if (!ref.mounted || epoch != _epoch) return;
       if (!wantsConnection) {
@@ -284,10 +295,7 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
       final profile = await ref.read(activeProfileProvider.future);
       if (!ref.mounted || epoch != _epoch || profile == null) return;
       final result = await _serializeCoreOperation(() async {
-        if (!ref.mounted ||
-            epoch != _epoch ||
-            !ref.read(Preferences.startedByUser) ||
-            !ref.read(Preferences.autoReconnect))
+        if (!ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser) || !_autoRecovery)
           return right<ConnectionFailure, Unit>(unit);
         // Query inside the queue: an earlier connect may have completed while
         // this restore waited. Never stop it based on a stale pre-queue probe.
@@ -333,10 +341,7 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   }
 
   Future<void> recoverUnhealthyConnection() async {
-    if (!ref.mounted ||
-        !ref.read(Preferences.autoReconnect) ||
-        !ref.read(Preferences.startedByUser) ||
-        !(state.value?.isConnected ?? false))
+    if (!ref.mounted || !_autoRecovery || !ref.read(Preferences.startedByUser) || !(state.value?.isConnected ?? false))
       return;
     final now = DateTime.now();
     if (_lastHealthRecovery != null && now.difference(_lastHealthRecovery!) < const Duration(minutes: 2)) return;

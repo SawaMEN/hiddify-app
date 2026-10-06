@@ -13,6 +13,7 @@ class AndroidVpnRuntime {
   Future<bool> wantsConnection() => AndroidVpnSettings.wantsConnection();
   Future<bool> serviceRunning() => AndroidVpnSettings.serviceRunning();
   Future<bool> stopService() => AndroidVpnSettings.stopService();
+  Future<bool?> networkAvailable() => AndroidVpnSettings.networkAvailable();
 }
 
 abstract class AndroidVpnSettings {

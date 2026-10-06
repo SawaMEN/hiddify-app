@@ -74,6 +74,9 @@ sealed class CoreStatus with _$CoreStatus {
   }
 
   ConnectionFailure? getCoreAlert() {
+    if (this case CoreStopped(message: final message?) when isProtocolPolicyFailure(message)) {
+      return ConnectionFailure.invalidConfig(message);
+    }
     return switch (this) {
       CoreStopped(alert: final alert, message: final message) when alert != null => switch (alert) {
         CoreAlert.emptyConfiguration => ConnectionFailure.invalidConfig(message),
@@ -97,6 +100,8 @@ sealed class CoreStatus with _$CoreStatus {
     };
   }
 }
+
+bool isProtocolPolicyFailure(String message) => message.contains('modern protocols only:');
 
 enum CoreAlert {
   requestVPNPermission,
