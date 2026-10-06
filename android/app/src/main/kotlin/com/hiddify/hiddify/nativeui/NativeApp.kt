@@ -33,10 +33,12 @@ import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativeprofile.NativeProfile
+import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
 
 private const val PAGE_HOME = "home"
 private const val PAGE_PROFILES = "profiles"
 private const val PAGE_SETTINGS = "settings"
+private const val PAGE_PER_APP = "per_app"
 
 @Composable
 fun NativeApp(
@@ -47,6 +49,8 @@ fun NativeApp(
     settingsState: NativeSettingsState,
     profiles: List<NativeProfile>,
     busyProfileId: String?,
+    perAppSnapshot: NativePerAppSnapshot,
+    perAppBusy: Boolean,
     errorMessage: String?,
     onDismissError: () -> Unit,
     onToggleConnection: () -> Unit,
@@ -54,6 +58,9 @@ fun NativeApp(
     onDeleteProfile: (NativeProfile) -> Unit,
     onRefreshProfile: (NativeProfile) -> Unit,
     onImportProfile: (String, String?, Int?, Boolean) -> Unit,
+    onPerAppModeChanged: (String) -> Unit,
+    onTogglePerAppPackage: (String) -> Unit,
+    onClearPerApp: () -> Unit,
     onOpenLegacy: () -> Unit,
     onRootModeChanged: (Boolean) -> Unit,
     onWifiSharingChanged: (Boolean) -> Unit,
@@ -71,7 +78,7 @@ fun NativeApp(
     var page by rememberSaveable { mutableStateOf(PAGE_HOME) }
 
     BackHandler(enabled = page != PAGE_HOME) {
-        page = PAGE_HOME
+        page = if (page == PAGE_PER_APP) PAGE_SETTINGS else PAGE_HOME
     }
 
     MaterialTheme {
@@ -96,11 +103,23 @@ fun NativeApp(
                             onImport = onImportProfile,
                         )
 
+                    PAGE_PER_APP ->
+                        NativePerAppScreen(
+                            snapshot = perAppSnapshot,
+                            canChange = status == Status.Stopped,
+                            busy = perAppBusy,
+                            onBack = { page = PAGE_SETTINGS },
+                            onModeChanged = onPerAppModeChanged,
+                            onTogglePackage = onTogglePerAppPackage,
+                            onClear = onClearPerApp,
+                        )
+
                     PAGE_SETTINGS ->
                         NativeSettingsScreen(
                             state = settingsState,
                             canChangeServiceMode = status == Status.Stopped,
                             onBack = { page = PAGE_HOME },
+                            onOpenPerAppRouting = { page = PAGE_PER_APP },
                             onRootModeChanged = onRootModeChanged,
                             onWifiSharingChanged = onWifiSharingChanged,
                             onFullTunnelChanged = onFullTunnelChanged,
