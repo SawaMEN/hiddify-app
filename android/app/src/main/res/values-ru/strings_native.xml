@@ -81,4 +81,19 @@
     <string name="native_profile_update_interval_hint">Оставьте пустым, чтобы использовать интервал от сервера подписки.</string>
     <string name="native_profile_import">Импортировать</string>
     <string name="native_profile_disconnect_required">Отключите VPN перед выбором, импортом или удалением активного профиля.</string>
+
+    <string name="native_per_app_open">Маршрутизация приложений</string>
+    <string name="native_per_app_title">Маршрутизация приложений</string>
+    <string name="native_per_app_all">Все приложения</string>
+    <string name="native_per_app_all_summary">Все приложения используют обычные правила VPN.</string>
+    <string name="native_per_app_include">Только выбранные</string>
+    <string name="native_per_app_include_summary">Только отмеченные приложения будут добавлены в Android VpnService.</string>
+    <string name="native_per_app_exclude">Исключить выбранные</string>
+    <string name="native_per_app_exclude_summary">Отмеченные приложения будут работать в обход VPN.</string>
+    <string name="native_per_app_disconnect">Перед изменением маршрутизации приложений отключите VPN.</string>
+    <string name="native_per_app_search">Поиск приложений</string>
+    <string name="native_per_app_selected_count">Выбрано: %1$d</string>
+    <string name="native_per_app_clear">Очистить</string>
+    <string name="native_per_app_all_active">Фильтрация по приложениям отключена. Все приложения используют VPN согласно текущим правилам маршрутизации.</string>
+    <string name="native_per_app_system">системное</string>
 </resources>
