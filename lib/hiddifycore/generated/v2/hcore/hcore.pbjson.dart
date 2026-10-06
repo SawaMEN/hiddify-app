@@ -722,3 +722,28 @@ const LANIPResponse$json = {
 /// Descriptor for `LANIPResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List lANIPResponseDescriptor =
     $convert.base64Decode('Cg1MQU5JUFJlc3BvbnNlEg4KAmlwGAEgASgJUgJpcA==');
+
+@$core.Deprecated('Use networkProbeRequestDescriptor instead')
+const NetworkProbeRequest$json = {
+  '1': 'NetworkProbeRequest',
+  '2': [
+    {'1': 'url', '3': 1, '4': 1, '5': 9, '10': 'url'},
+  ],
+};
+
+/// Descriptor for `NetworkProbeRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List networkProbeRequestDescriptor = $convert
+    .base64Decode('ChNOZXR3b3JrUHJvYmVSZXF1ZXN0EhAKA3VybBgBIAEoCVIDdXJs');
+
+@$core.Deprecated('Use networkProbeResponseDescriptor instead')
+const NetworkProbeResponse$json = {
+  '1': 'NetworkProbeResponse',
+  '2': [
+    {'1': 'status_code', '3': 1, '4': 1, '5': 5, '10': 'statusCode'},
+  ],
+};
+
+/// Descriptor for `NetworkProbeResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List networkProbeResponseDescriptor = $convert.base64Decode(
+    'ChROZXR3b3JrUHJvYmVSZXNwb25zZRIfCgtzdGF0dXNfY29kZRgBIAEoBVIKc3RhdHVzQ29kZQ'
+    '==');

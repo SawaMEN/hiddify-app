@@ -63,29 +63,17 @@ object Settings {
 
     private const val LIST_IDENTIFIER = "VGhpcyBpcyB0aGUgcHJlZml4IGZvciBhIGxpc3Qu"
 
-    private fun getString(key: String, defaultValue: String): String {
-        val value = preferences.all[key]
-        if (value == null) return defaultValue
-        if (value is String) return value
-        Log.w(TAG, "ignoring preference with invalid type: $key (${value.javaClass.simpleName})")
-        return defaultValue
-    }
+    private fun getString(key: String, defaultValue: String): String = try {
+        preferences.getString(key, defaultValue) ?: defaultValue
+    } catch (_: ClassCastException) { Log.w(TAG, "invalid string preference: $key"); defaultValue }
 
-    private fun getBoolean(key: String, defaultValue: Boolean): Boolean {
-        val value = preferences.all[key]
-        if (value == null) return defaultValue
-        if (value is Boolean) return value
-        Log.w(TAG, "ignoring preference with invalid type: $key (${value.javaClass.simpleName})")
-        return defaultValue
-    }
+    private fun getBoolean(key: String, defaultValue: Boolean): Boolean = try {
+        preferences.getBoolean(key, defaultValue)
+    } catch (_: ClassCastException) { Log.w(TAG, "invalid boolean preference: $key"); defaultValue }
 
-    private fun getInt(key: String, defaultValue: Int): Int {
-        val value = preferences.all[key]
-        if (value == null) return defaultValue
-        if (value is Int) return value
-        Log.w(TAG, "ignoring preference with invalid type: $key (${value.javaClass.simpleName})")
-        return defaultValue
-    }
+    private fun getInt(key: String, defaultValue: Int): Int = try {
+        preferences.getInt(key, defaultValue)
+    } catch (_: ClassCastException) { Log.w(TAG, "invalid integer preference: $key"); defaultValue }
 
     var perAppProxyMode: String
         get() = getString(SettingsKey.PER_APP_PROXY_MODE, PerAppProxyMode.OFF)

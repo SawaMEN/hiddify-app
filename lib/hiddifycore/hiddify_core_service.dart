@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart' show CancelToken;
 import 'package:flutter/services.dart';
 
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_preferences.dart';
@@ -49,7 +51,9 @@ class HiddifyCoreService with InfraLogger {
   final Map<String, RecoveryPolicy> _reconnectPolicies = {};
   final Map<String, StreamSubscription?> subscriptions = {};
   List<OutboundGroup> latest = [];
-  List<LogMessage> logBuffer = [];
+  final Queue<LogMessage> logBuffer = Queue<LogMessage>();
+  Timer? _logPublishTimer;
+  int _logBytes = 0;
 
   static final Object _lifecycleZoneKey = Object();
   Future<void> _lifecycleTail = Future<void>.value();
@@ -93,6 +97,7 @@ class HiddifyCoreService with InfraLogger {
 
   TaskEither<String, Unit> validateConfigByPath(String path, String tempPath, bool debug) {
     return _serialized(() async {
+      var transportUnavailable = false;
       Future<Either<String, Unit>> parse() async {
         try {
           final response = await core.fgClient.parse(
@@ -104,12 +109,13 @@ class HiddifyCoreService with InfraLogger {
           }
           return right(unit);
         } catch (e) {
+          transportUnavailable = e is GrpcError && e.code == StatusCode.unavailable;
           return left(e.toString());
         }
       }
 
       final first = await parse();
-      if (first.isRight()) return first;
+      if (first.isRight() || !transportUnavailable) return first;
 
       // We already own the lifecycle queue here, so call the internal setup implementation
       // directly instead of enqueueing another operation.
@@ -123,11 +129,8 @@ class HiddifyCoreService with InfraLogger {
   TaskEither<String, String> generateFullConfigByPath(String path) {
     return _serialized(() async {
       try {
-        final response = await core.fgClient.parse(ParseRequest(tempPath: path, debug: false), options: parseOptions);
-        if (response.responseCode != ResponseCode.OK) {
-          return left('${response.responseCode} ${response.message}');
-        }
-        return right(response.content);
+        final response = await core.fgClient.generateConfig(GenerateConfigRequest(path: path), options: parseOptions);
+        return right(response.configContent);
       } catch (e, stackTrace) {
         loggy.error('failed to generate full config', e, stackTrace);
         return left(e.toString());
@@ -296,7 +299,7 @@ class HiddifyCoreService with InfraLogger {
 
   Future<void> _cleanupFailedStart() async {
     try {
-      await core.stop();
+      await core.stop(preserveIntent: true);
     } catch (error, stack) {
       loggy.warning('Failed-start cleanup failed', error, stack);
     }
@@ -413,21 +416,30 @@ class HiddifyCoreService with InfraLogger {
 
   Stream<T> _recoveringStream<T>(Stream<T> Function() factory) {
     var failures = 0;
-    return Rx.retryWhen<T>(() => factory().doOnData((_) => failures = 0), (error, stackTrace) {
-      if (_disposed ||
-          currentState is CoreStopped ||
-          ++failures > 5 ||
-          error is! GrpcError ||
-          ![StatusCode.unavailable, StatusCode.deadlineExceeded, StatusCode.unknown].contains(error.code)) {
-        return Stream<void>.error(error, stackTrace);
-      }
-      return Stream<void>.fromFuture(Future<void>.delayed(Duration(milliseconds: 250 * failures)));
-    });
+    return Rx.retryWhen<T>(
+      () {
+        final subscribedAt = DateTime.now();
+        return factory()
+            .doOnData((_) {
+              if (DateTime.now().difference(subscribedAt) >= const Duration(minutes: 1)) failures = 0;
+            })
+            .concatWith([Stream<T>.error(const GrpcError.unavailable("stream closed"))]);
+      },
+      (error, stackTrace) {
+        if (_disposed ||
+            currentState is CoreStopped ||
+            error is! GrpcError ||
+            ![StatusCode.unavailable, StatusCode.deadlineExceeded, StatusCode.unknown].contains(error.code)) {
+          return Stream<void>.error(error, stackTrace);
+        }
+        return Stream<void>.fromFuture(Future<void>.delayed(Duration(milliseconds: 250 * (++failures).clamp(1, 60))));
+      },
+    );
   }
 
-  ResponseStream<SystemInfo> watchStats() {
+  Stream<SystemInfo> watchStats() {
     loggy.debug('watching stats');
-    return core.bgClient.getSystemInfoStream(Empty());
+    return _recoveringStream(() => core.bgClient.getSystemInfoStream(Empty()));
   }
 
   TaskEither<String, Unit> selectOutbound(String groupTag, String outboundTag) {
@@ -461,6 +473,29 @@ class HiddifyCoreService with InfraLogger {
     );
   }
 
+  Future<int> probeConnection(String url, CancelToken token) async {
+    final request = core.bgClient.probeConnection(
+      NetworkProbeRequest(url: url),
+      options: CallOptions(timeout: const Duration(seconds: 12)),
+    );
+    unawaited(token.whenCancel.then((_) => request.cancel()));
+    try {
+      return (await request).statusCode;
+    } finally {
+      await request.cancel();
+    }
+  }
+
+  Future<IpInfo> currentIpInfo(CancelToken token) async {
+    final request = core.bgClient.getCurrentIpInfo(Empty(), options: CallOptions(timeout: const Duration(seconds: 12)));
+    unawaited(token.whenCancel.then((_) => request.cancel()));
+    try {
+      return await request;
+    } finally {
+      await request.cancel();
+    }
+  }
+
   Stream<List<LogMessage>> watchLogs(String path) async* {
     if (!core.isInitialized()) return;
     await startListeningLogs('bg', core.bgClient);
@@ -470,6 +505,9 @@ class HiddifyCoreService with InfraLogger {
 
   TaskEither<String, Unit> clearLogs() {
     return TaskEither(() async {
+      _logPublishTimer?.cancel();
+      _logPublishTimer = null;
+      _logBytes = 0;
       logBuffer.clear();
       if (!logController.isClosed) logController.add(const []);
       return right(unit);
@@ -508,7 +546,7 @@ class HiddifyCoreService with InfraLogger {
   Future<void> startListeningStatus(String key, CoreClient cc) async {
     await listenSingle<CoreStatus>(
       '${key}StatusListener',
-      () => cc.coreInfoListener(Empty()).map(CoreStatus.fromCoreInfo),
+      () => (key == 'bg' ? core.bgClient : core.fgClient).coreInfoListener(Empty()).map(CoreStatus.fromCoreInfo),
       onData: (event) {
         currentState = event;
         _publishStatus(event);
@@ -531,11 +569,19 @@ class HiddifyCoreService with InfraLogger {
     final coreLogLevel = getCoreLogLevel(ref.read(ConfigOptions.logLevel));
     await listenSingle<LogMessage>(
       '${key}LogListener',
-      () => cc.logListener(LogRequest(level: coreLogLevel)),
+      () => (key == 'bg' ? core.bgClient : core.fgClient).logListener(LogRequest(level: coreLogLevel)),
       onData: (event) {
+        // Bound both bytes and events; large configuration logs otherwise dominate memory.
+        if (event.message.length > 16384) event.message = '${event.message.substring(0, 16384)}…';
         logBuffer.add(event);
-        if (logBuffer.length > 300) logBuffer.removeAt(0);
-        if (!logController.isClosed) logController.add(List<LogMessage>.unmodifiable(logBuffer));
+        _logBytes += event.message.length * 2;
+        while (logBuffer.length > 300 || _logBytes > 512 * 1024) {
+          _logBytes -= logBuffer.removeFirst().message.length * 2;
+        }
+        _logPublishTimer ??= Timer(const Duration(milliseconds: 250), () {
+          _logPublishTimer = null;
+          if (!logController.isClosed) logController.add(List<LogMessage>.unmodifiable(logBuffer));
+        });
         for (final line in event.message.split('\n')) {
           loggy.log(getLogLevel(event.level), line);
         }
@@ -593,12 +639,7 @@ class HiddifyCoreService with InfraLogger {
         if (DateTime.now().difference(subscribedAt) >= const Duration(minutes: 1)) {
           policy.reset();
         }
-        final delay = policy.nextDelay();
-        if (delay == null) {
-          _subscriptionTokens.remove(key);
-          loggy.warning('Unable to restore $key after five retries: $error');
-          return;
-        }
+        final delay = policy.nextDelay() ?? const Duration(seconds: 30);
         _reconnectTimers[key] = Timer(delay, () {
           _reconnectTimers.remove(key);
           if (isCurrent()) {
@@ -644,6 +685,7 @@ class HiddifyCoreService with InfraLogger {
     await stopListenSingle('');
     await core.dispose();
     await statusController.close();
+    _logPublishTimer?.cancel();
     await logController.close();
   }
 

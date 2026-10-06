@@ -36,11 +36,11 @@ class SmartSelectionNotifier extends Notifier<String?> {
       _generation++;
       state = null;
       if (!next) {
-        final group = ref.read(proxiesOverviewNotifierProvider).value;
+        final group = ref.read(proxyGroupStreamProvider).value;
         if (group != null) _leaveCoreSmartBalancer(group);
       }
     });
-    ref.listen(proxiesOverviewNotifierProvider, (_, next) {
+    ref.listen(proxyGroupStreamProvider, (_, next) {
       final group = next.value;
       if (group != null) _observe(group);
     });

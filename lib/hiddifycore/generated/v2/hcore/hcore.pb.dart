@@ -2439,6 +2439,123 @@ class LANIPResponse extends $pb.GeneratedMessage {
   void clearIp() => $_clearField(1);
 }
 
+/// Diagnostics use the selected outbound without exposing a local proxy listener.
+class NetworkProbeRequest extends $pb.GeneratedMessage {
+  factory NetworkProbeRequest({
+    $core.String? url,
+  }) {
+    final result = NetworkProbeRequest._();
+    if (url != null) result.url = url;
+    return result;
+  }
+
+  NetworkProbeRequest._();
+
+  factory NetworkProbeRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      NetworkProbeRequest()..mergeFromBuffer(data, registry);
+  factory NetworkProbeRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      NetworkProbeRequest()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NetworkProbeRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
+      createEmptyInstance: NetworkProbeRequest.$_createMessage)
+    ..aOS(1, _omitFieldNames ? '' : 'url')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NetworkProbeRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NetworkProbeRequest copyWith(void Function(NetworkProbeRequest) updates) =>
+      super.copyWith((message) => updates(message as NetworkProbeRequest))
+          as NetworkProbeRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core
+      .Deprecated('Use NetworkProbeRequest() / NetworkProbeRequest.new instead')
+  static NetworkProbeRequest create() => NetworkProbeRequest._();
+  static $pb.GeneratedMessage $_createMessage() => NetworkProbeRequest._();
+  @$core.override
+  NetworkProbeRequest createEmptyInstance() => NetworkProbeRequest._();
+  @$core.pragma('dart2js:noInline')
+  static NetworkProbeRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NetworkProbeRequest>(
+          NetworkProbeRequest.$_createMessage);
+  static NetworkProbeRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get url => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set url($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasUrl() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearUrl() => $_clearField(1);
+}
+
+class NetworkProbeResponse extends $pb.GeneratedMessage {
+  factory NetworkProbeResponse({
+    $core.int? statusCode,
+  }) {
+    final result = NetworkProbeResponse._();
+    if (statusCode != null) result.statusCode = statusCode;
+    return result;
+  }
+
+  NetworkProbeResponse._();
+
+  factory NetworkProbeResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      NetworkProbeResponse()..mergeFromBuffer(data, registry);
+  factory NetworkProbeResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      NetworkProbeResponse()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NetworkProbeResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'hcore'),
+      createEmptyInstance: NetworkProbeResponse.$_createMessage)
+    ..aI(1, _omitFieldNames ? '' : 'statusCode')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NetworkProbeResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NetworkProbeResponse copyWith(void Function(NetworkProbeResponse) updates) =>
+      super.copyWith((message) => updates(message as NetworkProbeResponse))
+          as NetworkProbeResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  @$core.Deprecated(
+      'Use NetworkProbeResponse() / NetworkProbeResponse.new instead')
+  static NetworkProbeResponse create() => NetworkProbeResponse._();
+  static $pb.GeneratedMessage $_createMessage() => NetworkProbeResponse._();
+  @$core.override
+  NetworkProbeResponse createEmptyInstance() => NetworkProbeResponse._();
+  @$core.pragma('dart2js:noInline')
+  static NetworkProbeResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NetworkProbeResponse>(
+          NetworkProbeResponse.$_createMessage);
+  static NetworkProbeResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get statusCode => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set statusCode($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasStatusCode() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearStatusCode() => $_clearField(1);
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =

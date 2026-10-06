@@ -8,6 +8,7 @@ import 'dart:ui';
 import 'package:cupertino_ui/cupertino_ui.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 const _space = 18.0;
@@ -436,22 +437,32 @@ class _JsonEditorState extends State<JsonEditor> {
   }
 
   void callOnChanged() {
+    _parseTimer?.cancel();
+    _parseGeneration++;
     // Publish before Save can be pressed; delayed publication loses the last edit.
-    widget.onChanged(jsonDecode(jsonEncode(_data)));
+    widget.onChanged(_cloneEditorValue(_data));
     widget.onValidationChanged?.call(true);
   }
 
+  Timer? _parseTimer;
+  int _parseGeneration = 0;
+
   void parseData(String value) {
-    try {
-      final data = jsonDecode(value);
-      _data = data;
-      widget.onChanged(data);
-      widget.onValidationChanged?.call(true);
-      setState(() => _onError = false);
-    } catch (_) {
-      widget.onValidationChanged?.call(false);
-      setState(() => _onError = true);
-    }
+    _parseTimer?.cancel();
+    widget.onValidationChanged?.call(false);
+    final generation = ++_parseGeneration;
+    _parseTimer = Timer(const Duration(milliseconds: 200), () async {
+      try {
+        final data = await compute(_decodeEditorJson, value);
+        if (!mounted || generation != _parseGeneration) return;
+        _data = data;
+        widget.onChanged(data);
+        widget.onValidationChanged?.call(true);
+        setState(() => _onError = false);
+      } catch (_) {
+        if (mounted && generation == _parseGeneration) setState(() => _onError = true);
+      }
+    });
   }
 
   void copyData() async {
@@ -620,6 +631,8 @@ class _JsonEditorState extends State<JsonEditor> {
   void dispose() {
     _timer?.cancel();
     _searchTimer?.cancel();
+    _parseTimer?.cancel();
+    _parseGeneration++;
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -1465,3 +1478,11 @@ class _SearchField extends StatelessWidget {
 
 String _stringifyData(dynamic data, int spacing, [bool isLast = false]) =>
     const JsonEncoder.withIndent('  ').convert(data);
+
+dynamic _decodeEditorJson(String value) => jsonDecode(value);
+
+dynamic _cloneEditorValue(dynamic value) {
+  if (value is Map) return value.map((key, item) => MapEntry(key, _cloneEditorValue(item)));
+  if (value is List) return value.map(_cloneEditorValue).toList();
+  return value;
+}

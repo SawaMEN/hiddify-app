@@ -80,6 +80,15 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
           previous.lastUpdate != next.lastUpdate ||
           previous.userOverride != next.userOverride;
       if (shouldReconnect) {
+        final epoch = _epoch;
+        if (next != null && previous.id == next.id) {
+          try {
+            if (!await _connectionRepo.profileRequiresReconnect(next)) return;
+          } catch (error) {
+            loggy.warning('Unable to compare active configuration: $error');
+          }
+        }
+        if (!ref.mounted || epoch != _epoch) return;
         await reconnect(next);
       }
     });

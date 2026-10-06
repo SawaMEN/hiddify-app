@@ -1,3 +1,4 @@
+import 'package:crypto/crypto.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:hiddify/core/model/directories.dart';
 import 'package:hiddify/core/preferences/general_preferences.dart';
@@ -17,6 +18,7 @@ import 'package:meta/meta.dart';
 
 abstract interface class ConnectionRepository {
   SingboxConfigOption? get configOptionsSnapshot;
+  Future<bool> profileRequiresReconnect(ProfileEntity profile);
 
   TaskEither<ConnectionFailure, Unit> setup();
   Stream<ConnectionStatus> watchConnectionStatus();
@@ -43,6 +45,15 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
   SingboxConfigOption? _configOptionsSnapshot;
   @override
   SingboxConfigOption? get configOptionsSnapshot => _configOptionsSnapshot;
+
+  String? _runtimeSignature;
+  Future<String> _signature(ProfileEntity profile) async {
+    final digest = await sha256.bind(profilePathResolver.file(profile.id).openRead()).first;
+    return '${profile.id}:${profile.profileOverride()}:$digest';
+  }
+
+  @override
+  Future<bool> profileRequiresReconnect(ProfileEntity profile) async => _runtimeSignature != await _signature(profile);
 
   bool _initialized = false;
 
@@ -107,17 +118,15 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
   TaskEither<ConnectionFailure, Unit> reconnect(ProfileEntity activeProfile, bool disableMemoryLimit) {
     return TaskEither(
       () => singbox.runExclusive(
-        () => applyConfigOption(activeProfile)
-            .flatMap((_) {
-              if (!ref.read(Preferences.startedByUser)) {
-                loggy.debug('reconnect cancelled before core restart');
-                return TaskEither.of(unit);
-              }
-              return singbox
-                  .restart(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit)
-                  .mapLeft(UnexpectedConnectionFailure.new);
-            })
-            .run(),
+        () => applyConfigOption(activeProfile).flatMap((_) {
+          if (!ref.read(Preferences.startedByUser)) {
+            loggy.debug('reconnect cancelled before core restart');
+            return TaskEither.of(unit);
+          }
+          return singbox
+              .restart(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit)
+              .mapLeft(UnexpectedConnectionFailure.new);
+        }).run(),
       ),
     );
   }
@@ -160,6 +169,7 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
           final result = await singbox.changeOptions(overridedOptions).run();
           result.match((error) => throw ConnectionFailure.invalidConfig(error), (_) {});
           _configOptionsSnapshot = overridedOptions;
+          _runtimeSignature = await _signature(prof);
           return unit;
         }, (error, stackTrace) => error is ConnectionFailure ? error : ConnectionFailure.unexpected(error, stackTrace)),
       );

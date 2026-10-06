@@ -31,7 +31,7 @@ class BootReceiver : BroadcastReceiver() {
                     Log.w(TAG, "skipping automatic restart without an active config")
                     return@launch
                 }
-                if (Settings.serviceMode == ServiceMode.VPN && VpnService.prepare(context) != null) {
+                if (Settings.serviceMode == ServiceMode.VPN && !Settings.privacyUseRoot && VpnService.prepare(context) != null) {
                     Log.w(TAG, "skipping automatic restart because VPN permission is missing")
                     return@launch
                 }

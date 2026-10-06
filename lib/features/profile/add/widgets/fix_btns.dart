@@ -41,11 +41,14 @@ class FixBtns extends ConsumerWidget {
           title: t.common.file,
           icon: Icons.insert_drive_file,
           onTap: () async {
-            final file = await FilePicker.pickFile(
-              type: FileType.custom,
-              allowedExtensions: ['txt', 'json'],
-            );
+            final file = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ['txt', 'json']);
             if (file == null) return;
+            if (await file.length() > 8 * 1024 * 1024) {
+              await ref
+                  .read(dialogNotifierProvider.notifier)
+                  .showOk(t.pages.profiles.msg.add.failure, 'Configuration exceeds 8 MiB');
+              return;
+            }
             final bytes = await file.readAsBytes();
             final content = utf8.decode(bytes);
             ref.read(addProfileNotifierProvider.notifier).addClipboard(content);

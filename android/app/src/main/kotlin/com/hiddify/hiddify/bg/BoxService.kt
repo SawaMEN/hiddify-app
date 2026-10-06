@@ -93,12 +93,12 @@ class BoxService(
             ContextCompat.startForegroundService(Application.application, intent)
         }
 
-        fun stop() {
+        fun stop(preserveIntent: Boolean = false) {
             // Publish intent before the broadcast. A pending start that is holding the native
             // lifecycle mutex must see cancellation even if the receiver runs later.
-            Settings.connectionDesired = false
+            if (!preserveIntent) Settings.connectionDesired = false
             Application.application.sendBroadcast(
-                Intent(Action.SERVICE_CLOSE).setPackage(Application.application.packageName),
+                Intent(Action.SERVICE_CLOSE).setPackage(Application.application.packageName).putExtra("preserve_intent", preserveIntent),
             )
         }
     }
@@ -124,7 +124,11 @@ class BoxService(
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             when (intent.action) {
-                Action.SERVICE_CLOSE -> { Settings.connectionDesired = false; stopService() }
+                Action.SERVICE_CLOSE -> {
+                    val preserveIntent = intent.getBooleanExtra("preserve_intent", false)
+                    if (!preserveIntent) Settings.connectionDesired = false
+                    stopService(preserveIntent)
+                }
                 PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED -> {
                     serviceUpdateIdleMode()
                 }
@@ -213,6 +217,8 @@ class BoxService(
                 try {
                     Mobile.setup(
                         SetupOptions().also {
+                            val memoryClass = (service.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager).memoryClass
+                            it.memoryLimit = memoryClass.coerceIn(128, 512).toLong() * 1024L * 1024L
                             it.basePath = Settings.baseDir
                             it.workingDir = Settings.workingDir
                             it.tempDir = Settings.tempDir
@@ -326,7 +332,7 @@ class BoxService(
         }
     }
 
-    private fun stopService() {
+    private fun stopService(preserveIntent: Boolean = false) {
         if (destroyed || status.value == Status.Stopping) return
         if (status.value == Status.Stopped && coreOwner !== this) return
 
@@ -337,7 +343,7 @@ class BoxService(
 
                 // Keep Android network discovery alive until gomobile has actually stopped using it.
                 if (coreOwner !== this@BoxService) {
-                    Settings.startedByUser = false
+                    if (!preserveIntent) Settings.startedByUser = false
                     withContext(Dispatchers.Main) {
                         status.value = Status.Stopped
                         unregisterReceiver()
@@ -351,7 +357,7 @@ class BoxService(
                 closeTun("stop")
                 runCatching { DefaultNetworkMonitor.stop() }
                     .onFailure { Log.w(TAG, "failed to stop network monitor", it) }
-                Settings.startedByUser = false
+                if (!preserveIntent) Settings.startedByUser = false
 
                 if (closeError == null) {
                     coreOwner = null
@@ -376,7 +382,7 @@ class BoxService(
 
     private suspend fun stopAndAlert(type: Alert, message: String? = null) {
         if (destroyed) return
-        Settings.startedByUser = false
+        if (!Settings.connectionDesired) Settings.startedByUser = false
         val closeError = runCatching { releaseNative("service error") }.exceptionOrNull()
         closeTun("service error")
 

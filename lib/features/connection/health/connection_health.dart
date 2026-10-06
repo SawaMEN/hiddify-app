@@ -2,16 +2,14 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:hiddify/core/http_client/http_client_provider.dart';
+import 'package:hiddify/hiddifycore/hiddify_core_service_provider.dart';
 import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/proxy/active/active_proxy_notifier.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 
 enum InternetHealth { unchecked, checking, available, unavailable }
 
-final appForegroundProvider = NotifierProvider<AppForegroundNotifier, bool>(
-  AppForegroundNotifier.new,
-);
+final appForegroundProvider = NotifierProvider<AppForegroundNotifier, bool>(AppForegroundNotifier.new);
 
 class AppForegroundNotifier extends Notifier<bool> {
   @override
@@ -19,10 +17,9 @@ class AppForegroundNotifier extends Notifier<bool> {
   void set(bool value) => state = value;
 }
 
-final connectionHealthProvider =
-    NotifierProvider<ConnectionHealthNotifier, InternetHealth>(
-      ConnectionHealthNotifier.new,
-    );
+final connectionHealthProvider = NotifierProvider<ConnectionHealthNotifier, InternetHealth>(
+  ConnectionHealthNotifier.new,
+);
 
 class ConnectionHealthNotifier extends Notifier<InternetHealth> {
   Timer? _timer;
@@ -34,10 +31,8 @@ class ConnectionHealthNotifier extends Notifier<InternetHealth> {
     ref.onDispose(_stop);
     ref.listen(serviceRunningProvider, (_, __) => _restart());
     ref.listen(appForegroundProvider, (_, __) => _restart());
-    ref.listen(
-      activeProxyNotifierProvider.select((s) => s.value?.tag),
-      (_, __) => _restart(),
-    );
+    ref.listen(ConfigOptions.connectionTestUrl, (_, __) => _restart());
+    ref.listen(activeProxyNotifierProvider.select((s) => s.value?.tag), (_, __) => _restart());
     Future.microtask(() {
       if (ref.mounted) _restart();
     });
@@ -48,6 +43,8 @@ class ConnectionHealthNotifier extends Notifier<InternetHealth> {
     _generation++;
     _timer?.cancel();
     _token?.cancel();
+    _token = null;
+    _pending = null;
   }
 
   void _restart() {
@@ -70,31 +67,17 @@ class ConnectionHealthNotifier extends Notifier<InternetHealth> {
 
   Future<void> _check() async {
     if (!ref.mounted) return;
-    if (_token != null && !_token!.isCancelled ||
-        !ref.read(serviceRunningProvider) ||
-        !ref.read(appForegroundProvider))
+    if (_token != null && !_token!.isCancelled || !ref.read(serviceRunningProvider) || !ref.read(appForegroundProvider))
       return;
     final generation = _generation;
     final token = _token = CancelToken();
     state = InternetHealth.checking;
-    final deadline = Timer(
-      const Duration(seconds: 12),
-      () => token.cancel('Probe timeout'),
-    );
+    final deadline = Timer(const Duration(seconds: 12), () => token.cancel('Probe timeout'));
     var healthy = false;
     try {
-      // Proxy-only: direct fallback would incorrectly mark a broken tunnel healthy.
-      final response = await ref
-          .read(httpClientProvider)
-          .get<dynamic>(
-            ref.read(ConfigOptions.connectionTestUrl),
-            cancelToken: token,
-            proxyOnly: true,
-          );
-      healthy = validProbeStatus(
-        ref.read(ConfigOptions.connectionTestUrl),
-        response.statusCode,
-      );
+      final url = ref.read(ConfigOptions.connectionTestUrl);
+      final status = await ref.read(hiddifyCoreServiceProvider).probeConnection(url, token);
+      healthy = validProbeStatus(url, status);
     } catch (_) {
     } finally {
       deadline.cancel();
@@ -103,14 +86,8 @@ class ConnectionHealthNotifier extends Notifier<InternetHealth> {
     if (!ref.mounted || generation != _generation) return;
     state = healthy ? InternetHealth.available : InternetHealth.unavailable;
     _failures = healthy ? 0 : _failures + 1;
-    if (_failures >= 3 &&
-        (ref.read(activeProxyNotifierProvider).value?.urlTestDelay ?? 0) >=
-            65000) {
-      unawaited(
-        ref
-            .read(connectionNotifierProvider.notifier)
-            .recoverUnhealthyConnection(),
-      );
+    if (_failures >= 3 && (ref.read(activeProxyNotifierProvider).value?.urlTestDelay ?? 0) >= 65000) {
+      unawaited(ref.read(connectionNotifierProvider.notifier).recoverUnhealthyConnection());
     }
     _timer = Timer(const Duration(seconds: 30), () => unawaited(check()));
   }
@@ -119,7 +96,6 @@ class ConnectionHealthNotifier extends Notifier<InternetHealth> {
 /// A captive portal HTML page must not satisfy a generate_204 endpoint.
 bool validProbeStatus(String url, int? status) {
   final path = Uri.tryParse(url)?.path ?? '';
-  final expectsNoContent =
-      path.contains('generate_204') || path.contains('generate204');
+  final expectsNoContent = path.contains('generate_204') || path.contains('generate204');
   return status == 204 || status == 200 && !expectsNoContent;
 }

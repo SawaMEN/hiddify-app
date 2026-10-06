@@ -91,36 +91,18 @@ class ProxyRepositoryImpl with ExceptionHandler, InfraLogger implements ProxyRep
     );
   }
 
-  static final Map<String, oldipinfo.IpInfo Function(Map<String, dynamic> response)> _ipInfoSources = {
-    // "https://geolocation-db.com/json/": IpInfo.fromGeolocationDbComJson, //bug response is not json
-    "https://ipwho.is/": oldipinfo.IpInfo.fromIpwhoIsJson,
-    "https://api.ip.sb/geoip/": oldipinfo.IpInfo.fromIpSbJson,
-    "https://ipapi.co/json/": oldipinfo.IpInfo.fromIpApiCoJson,
-    "https://ipinfo.io/json/": oldipinfo.IpInfo.fromIpInfoIoJson,
-  };
-
   @override
   TaskEither<ProxyFailure, oldipinfo.IpInfo> getCurrentIpInfo(CancelToken cancelToken) {
     return TaskEither.tryCatch(() async {
-      Object? error;
-      for (final source in _ipInfoSources.entries) {
-        try {
-          loggy.debug("getting current ip info using [${source.key}]");
-          final response = await client.get<Map<String, dynamic>>(
-            source.key,
-            cancelToken: cancelToken,
-            proxyOnly: true,
-          );
-          if (response.statusCode == 200 && response.data != null) {
-            return source.value(response.data!);
-          }
-        } catch (e, s) {
-          loggy.debug("failed getting ip info using [${source.key}]", e, s);
-          error = e;
-          continue;
-        }
-      }
-      throw UnableToRetrieveIp(error, StackTrace.current);
+      final info = await singbox.currentIpInfo(cancelToken);
+      return oldipinfo.IpInfo(
+        ip: info.ip,
+        countryCode: info.countryCode,
+        region: info.region,
+        city: info.city,
+        asn: info.asn.toString(),
+        org: info.org,
+      );
     }, ProxyUnexpectedFailure.new);
   }
 }

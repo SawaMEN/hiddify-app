@@ -1,3 +1,4 @@
+import 'package:hiddify/hiddifycore/init_signal.dart';
 import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/connection/health/connection_health.dart';
 import 'package:rxdart/rxdart.dart';
@@ -13,6 +14,7 @@ part 'stats_notifier.g.dart';
 class StatsNotifier extends _$StatsNotifier with AppLogger {
   @override
   Stream<SystemInfo> build() {
+    ref.watch(coreRestartSignalProvider);
     ref.disposeDelay(const Duration(seconds: 10));
     final serviceRunning = ref.watch(serviceRunningProvider);
     if (serviceRunning && ref.watch(appForegroundProvider)) {

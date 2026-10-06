@@ -8,7 +8,7 @@ final _serviceProvider = Provider<HiddifyCoreService>(HiddifyCoreService.new);
 
 void main() {
   for (final emitsData in [false, true]) {
-    testWidgets('Control streams stop after five retries (emitsData=$emitsData)', (tester) async {
+    testWidgets('Control streams continue slowly after five retries (emitsData=$emitsData)', (tester) async {
       final container = ProviderContainer();
       final service = container.read(_serviceProvider);
       var subscriptions = 0;
@@ -26,7 +26,7 @@ void main() {
       }
       expect(subscriptions, 6);
       await tester.pump(const Duration(minutes: 5));
-      expect(subscriptions, 6);
+      expect(subscriptions, 7);
 
       // An explicit new lifecycle gives the channel a fresh recovery budget.
       await service.stopListenSingle('test');
@@ -34,11 +34,11 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(seconds: 2));
       await tester.pump();
-      expect(subscriptions, 8);
+      expect(subscriptions, 9);
       await service.dispose();
       container.dispose();
       await tester.pump(const Duration(minutes: 1));
-      expect(subscriptions, 8);
+      expect(subscriptions, 9);
     });
   }
 
