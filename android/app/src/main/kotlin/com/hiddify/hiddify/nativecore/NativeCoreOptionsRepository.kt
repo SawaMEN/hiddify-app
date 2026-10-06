@@ -67,6 +67,44 @@ class NativeCoreOptionsRepository {
         )
     }
 
+    fun save(options: NativeCoreOptions): NativeCoreOptions =
+        update { root ->
+            root.put("balancer-strategy", options.balancerStrategy.takeIf(balancerChoices::contains) ?: "round-robin")
+            root.put("resolve-destination", options.resolveDestination)
+            root.put("log-level", options.logLevel.takeIf(logLevelChoices::contains) ?: "warn")
+            root.put("connection-test-url", options.connectionTestUrl.trim())
+            root.put("url-test-interval", options.urlTestIntervalSeconds.coerceIn(60, 86_400))
+            root.put("clash-api-port", options.clashApiPort.validPortOr(16756))
+            root.put("use-xray-core-when-possible", options.useXrayCoreWhenPossible)
+
+            root.put("remote-dns-address", options.remoteDnsAddress.trim())
+            root.put(
+                "remote-dns-domain-strategy",
+                options.remoteDnsStrategy.takeIf(domainStrategyChoices::contains) ?: "",
+            )
+            root.put("direct-dns-address", options.directDnsAddress.trim())
+            root.put(
+                "direct-dns-domain-strategy",
+                options.directDnsStrategy.takeIf(domainStrategyChoices::contains) ?: "",
+            )
+            root.put("enable-fake-dns", options.fakeDns)
+
+            root.put("strict-route", options.strictRoute)
+            root.put("tun-implementation", options.tunImplementation.takeIf(tunChoices::contains) ?: "mixed")
+            root.put("mixed-port", options.mixedPort.takeIf { it in 1..65535 } ?: 0)
+            root.put("direct-port", options.directPort.takeIf { it in 1..65535 } ?: 0)
+            root.put("mtu", options.mtu.coerceIn(1280, 65535))
+
+            val tls = root.optJSONObject("tls-tricks") ?: JSONObject()
+            tls.put("enable-fragment", options.tlsFragment)
+            tls.put("fragment-size", options.tlsFragmentSize.trim())
+            tls.put("fragment-sleep", options.tlsFragmentSleep.trim())
+            tls.put("mixed-sni-case", options.tlsMixedSniCase)
+            tls.put("enable-padding", options.tlsPadding)
+            tls.put("padding-size", options.tlsPaddingSize.trim())
+            root.put("tls-tricks", tls)
+        }
+
     fun update(transform: (JSONObject) -> Unit): NativeCoreOptions {
         val root = root()
         transform(root)
