@@ -26,4 +26,34 @@
     <string name="native_background_title">Allow background VPN operation</string>
     <string name="native_background_message">Battery optimization can stop the VPN in the background. Allow VetrOFF Client to run without battery optimization for more reliable connections.</string>
     <string name="native_background_allow">Open settings</string>
+
+    <string name="native_back">Back</string>
+    <string name="native_settings_vpn">VPN and routing</string>
+    <string name="native_settings_dns">DNS and system proxy</string>
+    <string name="native_settings_custom_routing">Custom routing lists</string>
+    <string name="native_setting_root">Root mode</string>
+    <string name="native_setting_root_summary">Use the root companion instead of Android VpnService.</string>
+    <string name="native_setting_wifi_sharing">Share VPN over Wi-Fi</string>
+    <string name="native_setting_wifi_sharing_summary">Expose the local proxy so hotspot clients can use the VPN.</string>
+    <string name="native_setting_full_tunnel">Full tunnel</string>
+    <string name="native_setting_full_tunnel_summary">Route all IPv4/IPv6 traffic through the VPN except explicit exclusions.</string>
+    <string name="native_setting_ipv4_only">IPv4 only</string>
+    <string name="native_setting_ipv4_only_summary">Disable IPv6 inside the VPN tunnel.</string>
+    <string name="native_setting_encrypted_dns">Encrypted DNS</string>
+    <string name="native_setting_encrypted_dns_summary">Prefer encrypted DNS handling inside the core.</string>
+    <string name="native_setting_public_dns">Use public DNS</string>
+    <string name="native_setting_public_dns_summary">Use the public resolver path configured by VetrOFF.</string>
+    <string name="native_setting_disable_system_proxy">Disable Android system proxy</string>
+    <string name="native_setting_disable_system_proxy_summary">Do not publish an HTTP proxy through Android VpnService.</string>
+    <string name="native_setting_custom_routing">Enable custom routing</string>
+    <string name="native_setting_custom_routing_summary">Apply your proxy/direct domain lists to the generated config.</string>
+    <string name="native_setting_proxy_list">Proxy list</string>
+    <string name="native_setting_proxy_list_summary">Send matching domains through the VPN.</string>
+    <string name="native_setting_direct_list">Direct list</string>
+    <string name="native_setting_direct_list_summary">Bypass the VPN for matching domains.</string>
+    <string name="native_setting_proxy_domains">Proxy domains</string>
+    <string name="native_setting_direct_domains">Direct domains</string>
+    <string name="native_domains_hint">One domain or rule per line.</string>
+    <string name="native_settings_disconnect_required">Disconnect the VPN before changing root mode or Wi-Fi sharing.</string>
+    <string name="native_settings_reconnect_note">Reconnect the VPN after changing routing or DNS settings so the core reloads them.</string>
 </resources>
