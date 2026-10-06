@@ -202,6 +202,9 @@ class HiddifyCoreService with InfraLogger {
           hideClashApi: ref.read(VpnPrivacyPreferences.hideClashApi),
           disableSystemProxy: ref.read(VpnPrivacyPreferences.disableSystemProxy),
           encryptedDns: ref.read(VpnPrivacyPreferences.encryptedDns),
+          modernAllowUDP: ref.read(VpnPrivacyPreferences.modernAllowUDP),
+          modernProtocolsOnly: ref.read(VpnPrivacyPreferences.modernProtocolsOnly),
+          adaptiveNetwork: ref.read(Preferences.adaptiveNetwork),
         );
         if (PlatformUtils.isAndroid) {
           const channel = MethodChannel('com.hiddify.app/method');
@@ -432,7 +435,9 @@ class HiddifyCoreService with InfraLogger {
             ![StatusCode.unavailable, StatusCode.deadlineExceeded, StatusCode.unknown].contains(error.code)) {
           return Stream<void>.error(error, stackTrace);
         }
-        return Stream<void>.fromFuture(Future<void>.delayed(Duration(milliseconds: 250 * (++failures).clamp(1, 60).toInt())));
+        return Stream<void>.fromFuture(
+          Future<void>.delayed(Duration(milliseconds: 250 * (++failures).clamp(1, 60).toInt())),
+        );
       },
     );
   }
@@ -473,10 +478,10 @@ class HiddifyCoreService with InfraLogger {
     );
   }
 
-  Future<int> probeConnection(String url, CancelToken token) async {
+  Future<int> probeConnection(String url, CancelToken token, {Duration timeout = const Duration(seconds: 12)}) async {
     final request = core.bgClient.probeConnection(
       NetworkProbeRequest(url: url),
-      options: CallOptions(timeout: const Duration(seconds: 12)),
+      options: CallOptions(timeout: timeout),
     );
     unawaited(token.whenCancel.then((_) => request.cancel()));
     try {
@@ -515,7 +520,7 @@ class HiddifyCoreService with InfraLogger {
   }
 
   /// Query the daemon rather than trusting the Android service wrapper's state.
-  Future<bool> backgroundCoreRunning() async {
+  Future<CoreStatus?> backgroundCoreStatus() async {
     try {
       final status = await core.bgClient
           .coreInfoListener(Empty(), options: CallOptions(timeout: const Duration(seconds: 4)))
@@ -524,11 +529,17 @@ class HiddifyCoreService with InfraLogger {
           .timeout(const Duration(seconds: 4));
       currentState = status;
       _publishStatus(status);
-      return status is CoreStarted || status is CoreStarting;
+      return status;
     } catch (error) {
       loggy.warning('Background core did not answer: $error');
-      return false;
+      // An unavailable control channel does not prove the VPN has stopped.
+      return null;
     }
+  }
+
+  Future<bool> backgroundCoreRunning() async {
+    final status = await backgroundCoreStatus();
+    return status is CoreStarted || status is CoreStarting;
   }
 
   Stream<CoreStatus> watchStatus() async* {

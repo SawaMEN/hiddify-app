@@ -16,6 +16,9 @@ object NetworkPrivacySettings {
     }
 
     fun policy(context: Context): Map<String, Boolean> = mapOf(
+        "privacy-modern-allow-udp" to boolean(context, "privacy-modern-allow-udp"),
+        "privacy-modern-protocols-only" to boolean(context, "privacy-modern-protocols-only"),
+        "adaptive-network" to boolean(context, "adaptive_network"),
         "privacy-anonymization-block-quic" to boolean(context, "privacy-anonymization-block-quic"),
         "privacy-anonymization-block-stun" to boolean(context, "privacy-anonymization-block-stun"),
         "privacy-anonymization-block-plain-http" to boolean(context, "privacy-anonymization-block-plain-http"),

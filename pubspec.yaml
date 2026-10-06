@@ -97,6 +97,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/logo.png
+    - assets/images/startup-frame.png
+    - assets/images/startup-blades.png
     - assets/images/world_map.png
 
   fonts:

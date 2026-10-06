@@ -137,3 +137,92 @@ regressions exercise an event RPC opened during native startup, foreground
 replacement and disposal with an active RPC. The regression fails by timeout with
 graceful shutdown and completes with termination. Device confirmation of the
 reported connection failure still requires the updated APK.
+
+## Relaunch recovery: reuse a live connection
+
+Recovery now probes the native service and daemon inside the connection-operation
+queue, immediately before any stale-service stop. A connect that completed while
+resume was waiting is reused. Concurrent resume/timer recovery attempts are
+coalesced. Manual start also checks for an existing Android core before starting.
+A missing control-channel reply is represented as unknown, separately from a
+confirmed Stopped response; unknown/Stopping cores are observed again without
+stopping their service.
+
+The successful profile signature is retained in preferences across UI process
+restarts. A metadata-only subscription refresh no longer restarts a profile whose
+bytes and override are unchanged. Failed starts do not overwrite the persisted
+successful signature. Queued automatic profile refreshes recheck the signature
+before restarting so a burst of identical refreshes produces one restart.
+
+Regression tests cover live/starting/stopping/unreachable cores on resume,
+concurrent resume requests, a queued resume behind an in-flight connect, confirmed
+stale-service recovery, duplicate queued profile refreshes, and signature retention
+across repository recreation and failed startup. Device confirmation remains
+necessary for the reported intermittent relaunch behavior.
+
+The core-service provider is a global lifecycle owner, matching the native core.
+Its previously declared scoped dependencies rejected coordinator reads in debug
+mode and made resume recovery fail before it could query the daemon. The focused
+recovery tests exercise these reads with native/core adapters rather than
+bypassing Riverpod's dependency checks.
+
+## Restored branding and independent Android installation
+
+- Restored the earlier VetrOFF artwork (metallic five-blade fan, blue/grey ring,
+  VPN shield and VetrOFF wordmark) from the original image, with alpha transparency.
+  The built-in image editor removed the background and extracted separate static
+  frame and moving blade layers; platform assets are resized from that artwork.
+- Startup rotates only the blades once per second, four times faster than before.
+  The ring, shield and wordmark stay still. Reduced motion, background pause and
+  immediate handoff after initialization remain supported.
+- Android application ID is now `app.vetroff.client`, separate from upstream
+  `app.hiddify.com`. The native Kotlin namespace stays `com.hiddify.hiddify`.
+  The shortcut targets the fork; FileProvider uses the application ID; service
+  actions use the installed package at runtime, including privacy-repacked copies.
+- CI checks the actual APK package, provider authority, native activity and
+  shortcut, as well as version, minimum SDK and architecture.
+- Android treats this as a separate installation with its own data. Before
+  switching from the old package, export/share profiles and import them in the
+  new installation. Installing the fork does not uninstall or overwrite Hiddify.
+  Android permits only one active system VPN at a time.
+
+Brand edit prompt: faithfully extract the original VetrOFF logo with actual
+transparent alpha; preserve its metallic fan, split blue/grey ring, wind trails,
+VPN shield and wordmark; extract stationary frame and centered five-blade rotor
+for animation without redesigning the brand.
+
+## Modern protocol allow-list and adaptive network mode
+
+Two independent switches, both off by default:
+
+- **Скрытие VPN → Только протоколы с маскировкой**: verified TLS AnyTLS and
+  Naive TCP by default; a separate opt-in UDP switch adds Hysteria 2, TUIC and
+  Naive HTTP/3. VLESS/VMess, opaque nested configs, endpoints and detours are
+  excluded. TUIC 0-RTT and Naive insecure concurrency are disabled; AnyTLS uses
+  Chrome uTLS. Empty eligible sets fail closed without retry or legacy fallback.
+  WARP chains are rejected. Subscription obfuscation/passwords remain unchanged.
+  This is a conservative device policy, not a guarantee of DPI concealment.
+  See [protocol research and complete build inventory](PROTOCOLS_RUSSIA.md).
+  Intentional direct-routing exceptions remain separate.
+- **Дополнительные настройки → Режим подключения → Адаптация к нестабильному
+  интернету** (also in general settings): automatic server selection/recovery,
+  sticky sessions for up to three minutes and no interruption of existing streams
+  on selection updates. New flows avoid nodes with failed health samples. Core
+  monitoring uses the configured endpoint once per minute. Hysteria 2 uses
+  conservative BBR rather than fixed subscription Mbps; TUIC uses BBR with 0-RTT
+  disabled. Dial and TLS budgets allow up to 30 seconds, and the TUN MTU is reduced
+  where compatible with the transport. Stored profile options are never rewritten.
+- Health probes adjust their deadline from 12 to 30 seconds based on recent
+  response times/timeouts, require five failed checks before considering recovery,
+  and pause while the physical network is absent. Recovery polls for a returning
+  network without consuming its bounded retry budget; Stop cancels pending work.
+- Both device switches override profile values and are applied during native
+  Always-on/root starts even when the Flutter UI is not running. Disabling a mode
+  restores the original profile options on the next configuration application.
+- Core and Flutter regression tests cover mixed subscriptions, TLS rejection,
+  hidden/fallback nodes, WARP conflicts, immutable profiles, longer budgets,
+  non-interrupting balancers, offline waiting, cancellation and UI persistence.
+
+References: https://sing-box.sagernet.org/configuration/outbound/hysteria2/,
+https://sing-box.sagernet.org/configuration/outbound/tuic/,
+https://v2.hysteria.network/docs/advanced/Full-Server-Config/.

@@ -40,7 +40,7 @@ class _StartupSceneState extends State<_StartupScene> with TickerProviderStateMi
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _entrance = AnimationController(vsync: this, duration: const Duration(milliseconds: 1100));
-    _rotor = AnimationController(vsync: this, duration: const Duration(seconds: 4));
+    _rotor = AnimationController(vsync: this, duration: const Duration(seconds: 1));
     _reveal = CurvedAnimation(parent: _entrance, curve: Curves.easeOutCubic);
   }
 
@@ -93,12 +93,23 @@ class _StartupSceneState extends State<_StartupScene> with TickerProviderStateMi
             child: FadeTransition(opacity: _reveal, child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                RepaintBoundary(child: RotationTransition(
-                  key: const ValueKey('startup_rotor'),
-                  turns: _rotor,
-                  alignment: Alignment.center,
-                  child: Image.asset('assets/images/logo.png', width: 176, height: 176, semanticLabel: 'VetrOFF'),
-                )),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 288),
+                  child: AspectRatio(aspectRatio: 1, child: LayoutBuilder(builder: (context, constraints) {
+                    final size = constraints.maxWidth;
+                    // Coordinates match the restored artwork: only the blades rotate.
+                    return Stack(fit: StackFit.expand, children: [
+                      Positioned(left: size * .234, top: size * .134, width: size * .56, height: size * .56,
+                        child: RepaintBoundary(child: RotationTransition(
+                          key: const ValueKey('startup_rotor'),
+                          turns: _rotor,
+                          child: Image.asset('assets/images/startup-blades.png', excludeFromSemantics: true),
+                        )),
+                      ),
+                      RepaintBoundary(child: Image.asset('assets/images/startup-frame.png', semanticLabel: 'VetrOFF VPN')),
+                    ]);
+                  })),
+                ),
                 const SizedBox(height: 28),
                 SlideTransition(
                   position: Tween<Offset>(begin: const Offset(0, .35), end: Offset.zero).animate(_reveal),

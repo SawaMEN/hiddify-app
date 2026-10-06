@@ -1,6 +1,9 @@
 package com.hiddify.hiddify.constant
 
+import com.hiddify.hiddify.Application
+
 object Action {
-    const val SERVICE = "com.hiddify.app.SERVICE"
-    const val SERVICE_CLOSE = "com.hiddify.app.SERVICE_CLOSE"
+    // Resolve at runtime so privacy-repacked installations stay isolated too.
+    val SERVICE get() = "${Application.application.packageName}.SERVICE"
+    val SERVICE_CLOSE get() = "${Application.application.packageName}.SERVICE_CLOSE"
 }

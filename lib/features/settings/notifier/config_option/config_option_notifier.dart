@@ -13,6 +13,7 @@ import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/utils/custom_loggers.dart';
 import 'package:hiddify/utils/platform_utils.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_preferences.dart';
+import 'package:hiddify/core/preferences/general_preferences.dart';
 import 'package:json_path/json_path.dart';
 import 'package:hiddify/core/utils/preferences_utils.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -40,6 +41,9 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
       VpnPrivacyPreferences.disableSystemProxy,
       VpnPrivacyPreferences.publicDns,
       VpnPrivacyPreferences.encryptedDns,
+      VpnPrivacyPreferences.modernProtocolsOnly,
+      VpnPrivacyPreferences.modernAllowUDP,
+      Preferences.adaptiveNetwork,
       VpnPrivacyPreferences.russianNetworkBypass,
       VpnPrivacyPreferences.russianAppsBypass,
       VpnPrivacyPreferences.restrictedServicesProxy,

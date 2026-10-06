@@ -13,9 +13,8 @@ void main() {
   testWidgets('An unfinished initializer displays startup instead of a blank screen', (tester) async {
     final startup = Completer<Widget>();
     await tester.pumpWidget(StartupApp(initialization: startup.future));
-    final initialAngle = tester.widget<RotationTransition>(find.byKey(const ValueKey('startup_rotor'))).turns.value;
-    await tester.pump(const Duration(seconds: 30));
-    expect(tester.widget<RotationTransition>(find.byKey(const ValueKey('startup_rotor'))).turns.value, isNot(initialAngle));
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(tester.widget<RotationTransition>(find.byKey(const ValueKey('startup_rotor'))).turns.value, closeTo(.25, .001));
     expect(find.text('VetrOFF Client'), findsOneWidget);
     expect(find.text('Starting'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
@@ -44,7 +43,9 @@ void main() {
     });
     await tester.pumpWidget(RepaintBoundary(key: boundary, child: StartupApp(initialization: startup.future)));
     await tester.runAsync(() async {
-      await precacheImage(const AssetImage('assets/images/logo.png'), tester.element(find.byType(StartupApp)));
+      for (final asset in ['startup-frame', 'startup-blades']) {
+        await precacheImage(AssetImage('assets/images/$asset.png'), tester.element(find.byType(StartupApp)));
+      }
     });
     await tester.pump(const Duration(seconds: 2));
     expect(find.text('Запуск'), findsOneWidget);

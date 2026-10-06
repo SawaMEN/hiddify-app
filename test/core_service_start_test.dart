@@ -243,6 +243,6 @@ void main() {
     daemon.state = CoreStates.STARTING;
     expect(await service.backgroundCoreRunning(), isTrue);
     await background.shutdown();
-    expect(await service.backgroundCoreRunning(), isFalse);
+    expect(await service.backgroundCoreStatus(), isNull);
   });
 }

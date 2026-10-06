@@ -12,6 +12,37 @@ Map<String, dynamic> protected(Map<String, dynamic> profile, {bool android = tru
 );
 
 void main() {
+  test('device protocol and network switches override imported values without changing the profile', () {
+    final profile = <String, dynamic>{'privacy-modern-protocols-only': false, 'adaptive-network': false};
+    final on = applyVpnPrivacyPolicy(
+      profile,
+      android: true,
+      fullTunnel: false,
+      hideLocalProxy: false,
+      hideClashApi: false,
+      disableSystemProxy: false,
+      encryptedDns: false,
+      modernProtocolsOnly: true,
+      modernAllowUDP: true,
+      adaptiveNetwork: true,
+    );
+    expect(on['privacy-modern-protocols-only'], true);
+    expect(on['adaptive-network'], true);
+    expect(on['privacy-modern-allow-udp'], true);
+    expect(profile['privacy-modern-protocols-only'], false);
+    final off = applyVpnPrivacyPolicy(
+      on,
+      android: true,
+      fullTunnel: false,
+      hideLocalProxy: false,
+      hideClashApi: false,
+      disableSystemProxy: false,
+      encryptedDns: false,
+    );
+    expect(off['privacy-modern-protocols-only'], false);
+    expect(off['adaptive-network'], false);
+    expect(off['privacy-modern-allow-udp'], false);
+  });
   test('installation policy overrides a permissive profile without modifying it', () {
     final profile = <String, dynamic>{
       'enable-tun': true,

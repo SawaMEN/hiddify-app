@@ -21,6 +21,7 @@ class SmartSelectionNotifier extends Notifier<String?> {
   Timer? _save;
   bool _selecting = false;
   int _generation = 0;
+  bool get _enabled => ref.read(Preferences.smartServerSelection) || ref.read(Preferences.adaptiveNetwork);
 
   @override
   String? build() {
@@ -35,9 +36,21 @@ class SmartSelectionNotifier extends Notifier<String?> {
     ref.listen(Preferences.smartServerSelection, (_, next) {
       _generation++;
       state = null;
-      if (!next) {
+      if (!_enabled) {
         final group = ref.read(proxyGroupStreamProvider).value;
         if (group != null) _leaveCoreSmartBalancer(group);
+      }
+    });
+    ref.listen(Preferences.adaptiveNetwork, (_, __) {
+      _generation++;
+      state = null;
+      final group = ref.read(proxyGroupStreamProvider).value;
+      if (group != null) {
+        if (_enabled) {
+          _observe(group);
+        } else {
+          _leaveCoreSmartBalancer(group);
+        }
       }
     });
     ref.listen(proxyGroupStreamProvider, (_, next) {
@@ -75,7 +88,7 @@ class SmartSelectionNotifier extends Notifier<String?> {
   }
 
   void _observe(OutboundGroup group) {
-    if (_profile == null || !ref.read(Preferences.smartServerSelection)) return;
+    if (_profile == null || !_enabled) return;
 
     final coreBalancer = _coreSmartBalancer(group);
     if (coreBalancer != null) {
@@ -126,10 +139,7 @@ class SmartSelectionNotifier extends Notifier<String?> {
     unawaited(
       serializedProxySelection(() async {
         try {
-          if (!ref.mounted ||
-              generation != _generation ||
-              !ref.read(Preferences.smartServerSelection) ||
-              !ref.read(appForegroundProvider)) {
+          if (!ref.mounted || generation != _generation || !_enabled || !ref.read(appForegroundProvider)) {
             return;
           }
           final result = await ref.read(proxyRepositoryProvider).selectProxy(group.tag, recommended).run();
@@ -157,7 +167,7 @@ class SmartSelectionNotifier extends Notifier<String?> {
     unawaited(
       serializedProxySelection(() async {
         try {
-          if (!ref.mounted || generation != _generation || !ref.read(Preferences.smartServerSelection)) return;
+          if (!ref.mounted || generation != _generation || !_enabled) return;
           final result = await ref.read(proxyRepositoryProvider).selectProxy(group.tag, _coreSmartBalancerTag).run();
           if (!ref.mounted || generation != _generation) return;
           result.match((_) {}, (_) {
@@ -173,13 +183,20 @@ class SmartSelectionNotifier extends Notifier<String?> {
   void _leaveCoreSmartBalancer(OutboundGroup group) {
     if (group.selected != _coreSmartBalancerTag) return;
     final balancer = _coreSmartBalancer(group);
-    final target = balancer?.groupSelectedTag ?? '';
+    final candidates = group.items.where((item) => !item.isGroup).toList()
+      ..sort(
+        (a, b) => (a.urlTestDelay > 0 ? a.urlTestDelay : 65535).compareTo(b.urlTestDelay > 0 ? b.urlTestDelay : 65535),
+      );
+    final current = balancer?.groupSelectedTag ?? '';
+    // A sticky-session balancer has no single global child; leave it explicitly
+    // when the last automatic mode is disabled, rather than retaining cached auto selection.
+    final target = current.isNotEmpty ? current : (candidates.isEmpty ? '' : candidates.first.tag);
     if (target.isEmpty || target == _coreSmartBalancerTag) return;
 
     final generation = _generation;
     unawaited(
       serializedProxySelection(() async {
-        if (!ref.mounted || generation != _generation || ref.read(Preferences.smartServerSelection)) return;
+        if (!ref.mounted || generation != _generation || _enabled) return;
         final result = await ref.read(proxyRepositoryProvider).selectProxy(group.tag, target).run();
         if (!ref.mounted || generation != _generation) return;
         result.match((_) {}, (_) => state = target);

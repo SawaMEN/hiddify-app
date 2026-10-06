@@ -1,15 +1,15 @@
-"""Render all VetrOFF launcher/splash assets from the transparent centered fan rotor.
+"""Package VetrOFF launcher/splash assets from the restored transparent logo.
 
 Run from the repository root with Python and Pillow installed.
 """
 import re
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 RES = ROOT / "android/app/src/main/res"
-LOGO = ROOT / "assets/images/source/vetroff-rotor.png"
+LOGO = ROOT / "assets/images/source/vetroff-logo.png"
 BACKGROUND = "#020506"
 
 
@@ -76,9 +76,7 @@ def generate():
     foreground.alpha_composite(mark(64 * 4), (22 * 4, 22 * 4))
     save(foreground, "assets/images/source/ic_launcher_foreground.png")
     banner = Image.new("RGBA", (320 * 4, 180 * 4), BACKGROUND)
-    banner.alpha_composite(mark(72 * 4), (124 * 4, 26 * 4))
-    font = ImageFont.truetype(str(ROOT / "assets/fonts/Manrope.ttf"), 25 * 4)
-    ImageDraw.Draw(banner).text((160 * 4, 122 * 4), "VetrOFF Client", fill="#FFFFFF", font=font, anchor="mm")
+    banner.alpha_composite(mark(170 * 4), (75 * 4, 5 * 4))
     banner = banner.resize((320, 180), Image.Resampling.LANCZOS)
     save(banner, "android/app/src/main/res/mipmap-xhdpi/ic_banner.png")
     save(banner, "android/app/src/main/res/drawable-nodpi/vetroff_tv_banner.png")

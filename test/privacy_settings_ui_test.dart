@@ -110,6 +110,41 @@ void main() {
     await tester.pumpWidget(const ui.SizedBox());
   });
 
+  testWidgets('Modern protocol switch explains its allow-list and applies device policy', (tester) async {
+    final container = await setup(tester, const VpnPrivacyOverviewPage());
+    final setting = find.byKey(const ui.ValueKey('modern-protocols-only'));
+    await tester.scrollUntilVisible(setting, 250);
+    expect(container.read(VpnPrivacyPreferences.modernProtocolsOnly), false);
+    expect(find.textContaining('TCP: AnyTLS and Naive'), findsOneWidget);
+    await tester.tap(find.text('Masked protocols only'));
+    await tester.pump();
+    final options = container.read(configOptionNotifierProvider.notifier) as _Options;
+    expect(options.called, true);
+    expect(container.read(VpnPrivacyPreferences.modernProtocolsOnly), true);
+    options.pending.complete();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const ui.SizedBox());
+  });
+
+  testWidgets('UDP remains opt-in and persists independently of masked protocol policy', (tester) async {
+    final container = await setup(tester, const VpnPrivacyOverviewPage());
+    await container.read(VpnPrivacyPreferences.modernProtocolsOnly.notifier).update(true);
+    await tester.pump();
+    final udp = find.byKey(const ui.ValueKey('modern-allow-udp'));
+    await tester.scrollUntilVisible(udp, 250);
+    expect(container.read(VpnPrivacyPreferences.modernAllowUDP), false);
+    await tester.tap(find.text('Allow UDP / QUIC'));
+    await tester.pump();
+    expect(container.read(VpnPrivacyPreferences.modernAllowUDP), true);
+    final options = container.read(configOptionNotifierProvider.notifier) as _Options;
+    expect(options.called, true);
+    options.pending.complete();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const ui.SizedBox());
+  });
+
   testWidgets('First launch has no region selector and stored region cannot affect defaults', (tester) async {
     final container = await setup(tester, const IntroPage());
     expect(find.text('Region'), findsNothing);

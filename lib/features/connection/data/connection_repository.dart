@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:crypto/crypto.dart';
 import 'package:fpdart/fpdart.dart';
 import 'package:hiddify/core/model/directories.dart';
 import 'package:hiddify/core/preferences/general_preferences.dart';
+import 'package:hiddify/core/preferences/preferences_provider.dart';
 import 'package:hiddify/core/router/dialog/dialog_notifier.dart';
 import 'package:hiddify/core/utils/exception_handler.dart';
 import 'package:hiddify/features/connection/model/connection_failure.dart';
@@ -47,13 +50,35 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
   SingboxConfigOption? get configOptionsSnapshot => _configOptionsSnapshot;
 
   String? _runtimeSignature;
+  String? _configuredSignature;
+  static const _signaturePreference = 'connection_runtime_signature';
   Future<String> _signature(ProfileEntity profile) async {
     final digest = await sha256.bind(profilePathResolver.file(profile.id).openRead()).first;
-    return '${profile.id}:${profile.profileOverride()}:$digest';
+    return sha256
+        .convert(utf8.encode(jsonEncode([profile.id, profile.profileOverride(), digest.toString()])))
+        .toString();
   }
 
   @override
-  Future<bool> profileRequiresReconnect(ProfileEntity profile) async => _runtimeSignature != await _signature(profile);
+  Future<bool> profileRequiresReconnect(ProfileEntity profile) async {
+    final previous = _runtimeSignature ?? ref.read(sharedPreferencesProvider).value?.getString(_signaturePreference);
+    return previous != await _signature(profile);
+  }
+
+  TaskEither<ConnectionFailure, Unit> _recordSuccessfulStart() => TaskEither(() async {
+    // Retain the successful profile digest across UI process restarts. A routine
+    // subscription refresh must not restart an unchanged, already running VPN.
+    final signature = _configuredSignature;
+    if (signature != null && ref.mounted && ref.read(Preferences.startedByUser)) {
+      _runtimeSignature = signature;
+      try {
+        await ref.read(sharedPreferencesProvider).requireValue.setString(_signaturePreference, signature);
+      } catch (error) {
+        loggy.warning('Unable to save the running profile signature: $error');
+      }
+    }
+    return right(unit);
+  });
 
   bool _initialized = false;
 
@@ -99,11 +124,9 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
                   loggy.debug('connect cancelled before core start');
                   return TaskEither.of(unit);
                 }
-                return singbox.start(
-                  profilePathResolver.file(activeProfile.id).path,
-                  activeProfile.name,
-                  disableMemoryLimit,
-                );
+                return singbox
+                    .start(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit)
+                    .flatMap((_) => _recordSuccessfulStart());
               }),
             )
             .run(),
@@ -125,7 +148,12 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
           }
           return singbox
               .restart(profilePathResolver.file(activeProfile.id).path, activeProfile.name, disableMemoryLimit)
-              .mapLeft(UnexpectedConnectionFailure.new);
+              .mapLeft<ConnectionFailure>(
+                (error) => isProtocolPolicyFailure(error)
+                    ? ConnectionFailure.invalidConfig(error)
+                    : ConnectionFailure.unexpected(error),
+              )
+              .flatMap((_) => _recordSuccessfulStart());
         }).run(),
       ),
     );
@@ -169,7 +197,7 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
           final result = await singbox.changeOptions(overridedOptions).run();
           result.match((error) => throw ConnectionFailure.invalidConfig(error), (_) {});
           _configOptionsSnapshot = overridedOptions;
-          _runtimeSignature = await _signature(prof);
+          _configuredSignature = await _signature(prof);
           return unit;
         }, (error, stackTrace) => error is ConnectionFailure ? error : ConnectionFailure.unexpected(error, stackTrace)),
       );
