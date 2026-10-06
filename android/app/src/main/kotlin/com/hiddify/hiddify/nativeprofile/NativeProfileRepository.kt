@@ -74,7 +74,19 @@ class NativeProfileRepository(private val context: Context) {
             )
     }
 
-    private val databaseFile = File(context.filesDir, "db.sqlite")
+    private val databaseFile: File
+        get() {
+            // path_provider's getApplicationDocumentsDirectory() maps to Flutter's
+            // PathUtils.getDataDirectory(), i.e. Context.getDir("flutter", MODE_PRIVATE).
+            // Keep using that exact location while Kotlin and Dart share Drift schema v6.
+            val flutterDatabase = File(context.getDir("flutter", Context.MODE_PRIVATE), "db.sqlite")
+            val earlyNativeDatabase = File(context.filesDir, "db.sqlite")
+            return when {
+                flutterDatabase.exists() -> flutterDatabase
+                earlyNativeDatabase.exists() -> earlyNativeDatabase
+                else -> flutterDatabase
+            }
+        }
     private val http =
         OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
@@ -348,7 +360,7 @@ class NativeProfileRepository(private val context: Context) {
                 expire = subscription?.expire,
                 webPageUrl = mergedHeaders["profile-web-page-url"]?.takeIf(::isHttpUrl),
                 supportUrl = mergedHeaders["support-url"]?.takeIf(::isHttpUrl),
-                populatedHeaders = JSONObject(mergedHeaders as Map<*, *>).toString(),
+                populatedHeaders = JSONObject(mergedHeaders).toString(),
                 userOverride = override,
             )
         commit(profile, expanded, isNew = existing == null)
@@ -378,7 +390,7 @@ class NativeProfileRepository(private val context: Context) {
                 expire = null,
                 webPageUrl = null,
                 supportUrl = null,
-                populatedHeaders = JSONObject(headers as Map<*, *>).toString(),
+                populatedHeaders = JSONObject(headers).toString(),
                 userOverride =
                     requestedName?.trim()?.takeIf { it.isNotEmpty() }?.let {
                         JSONObject()
@@ -648,7 +660,7 @@ class NativeProfileRepository(private val context: Context) {
     private fun parseRemoteLink(input: String): Pair<String, String?>? {
         if (isHttpUrl(input)) return input to null
         val uri = Uri.parse(input)
-        val scheme = uri.scheme.lowercase()
+        val scheme = uri.scheme?.lowercase().orEmpty()
         if (scheme !in importSchemes || !uri.host.equals("import", ignoreCase = true)) return null
 
         val queryUrl = uri.getQueryParameter("url")
