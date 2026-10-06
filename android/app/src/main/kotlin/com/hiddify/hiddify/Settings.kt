@@ -177,6 +177,14 @@ object Settings {
             }
         }
 
+    private fun encodeListString(values: List<String>): String {
+        val bytes = ByteArrayOutputStream()
+        ObjectOutputStream(bytes).use { stream ->
+            stream.writeObject(ArrayList(values))
+        }
+        return LIST_IDENTIFIER + Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun decodeListString(listString: String): List<String> {
         ObjectInputStream(ByteArrayInputStream(Base64.decode(listString, Base64.DEFAULT))).use { stream ->
