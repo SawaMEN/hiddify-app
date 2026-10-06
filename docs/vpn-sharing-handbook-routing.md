@@ -21,21 +21,22 @@ Core validation: configuration and hcore tests pass, including fixtures for sour
 
 ## Illustrated sharing guides
 
-The five OS tabs now include numbered host/client instructions, illustrated settings
-frames, authentication steps, gateway lookup, connection checks, troubleshooting
-and cleanup. Frames are drawn with Flutter widgets, adapt to dark mode and text
-scaling, and use the actual proxy port. They are labeled as illustrations rather
-than real OS screenshots. Android root instructions are separate from the normal
-authenticated proxy workflow. Windows/Linux/macOS forwarding is described as a
-manual, platform-dependent option, and iOS hosting limitations are explicit.
+The guide assumes the Android phone running this app is already sharing its
+Wi-Fi hotspot through VPN. Every OS tab describes only a receiving device:
+joining the phone network, finding its gateway, configuring/authenticating a proxy,
+testing the connection and removing the proxy afterward. No desktop Internet
+Sharing/ICS, Linux forwarding or iOS hosting setup is included in the tabs.
+
+Illustrated settings frames use Flutter widgets, adapt to themes and text scaling,
+and show the actual proxy port. They are labeled as illustrations. In Android
+root host mode, every client OS tab instead explains how to join without a proxy
+and disable any previously configured proxy; the credentials card is hidden.
 
 OS settings references:
 - https://support.google.com/android/answer/9059108
 - https://support.microsoft.com/en-us/windows/experience/connectivity-networking/use-a-proxy-server-in-windows
-- https://support.microsoft.com/en-us/windows/experience/connectivity-networking/use-your-windows-device-as-a-mobile-hotspot
-- https://help.gnome.org/users/gnome-help/stable/net-wireless-adhoc.html.en
+- https://help.gnome.org/users/gnome-help/stable/net-proxy.html.en
 - https://support.apple.com/guide/mac-help/mchlp2591/mac
-- https://support.apple.com/guide/mac-help/mchlp1540/mac
 - https://support.apple.com/guide/iphone/iphw5gjwl8k2/ios
 
 Launcher alignment: the dedicated mark uses a centered fan ring with short wind

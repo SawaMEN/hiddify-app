@@ -63,7 +63,7 @@ class _WifiSharingTileState extends ConsumerState<WifiSharingTile> {
         if (enabled && !root) const LanSharingPreferenceWidget(),
         ListTile(
           leading: const Icon(Icons.menu_book_outlined),
-          title: Text(ru ? 'Как раздать VPN: инструкции по ОС' : 'How to share VPN: OS instructions'),
+          title: Text(ru ? 'Как подключить устройства к Wi-Fi телефона' : 'Connect devices to this phone Wi-Fi'),
           trailing: const Icon(Icons.chevron_right_rounded),
           onTap: () =>
               Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const WifiSharingInstructionsPage())),

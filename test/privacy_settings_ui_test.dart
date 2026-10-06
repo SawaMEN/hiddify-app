@@ -53,6 +53,9 @@ void main() {
     // Avoid dragging through nested SelectableText scrollables; this test checks
     // layout of the illustrated screens, including those initially offscreen.
     final position = tester.state<ui.ScrollableState>(scrollable).position;
+    // Mode changes can place the shorter guide above the previous offset.
+    position.jumpTo(0);
+    await tester.pump();
     for (var i = 0; target.evaluate().isEmpty && i < 100; i++) {
       position.jumpTo((position.pixels + 400).clamp(0.0, position.maxScrollExtent));
       await tester.pump();
@@ -162,14 +165,17 @@ void main() {
   testWidgets('Russian sharing diagrams fit a narrow screen with enlarged text', (tester) async {
     await tester.binding.setSurfaceSize(const ui.Size(360, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await setup(tester, const WifiSharingInstructionsPage(), russian: true, scale: 1.5);
+    final container = await setup(tester, const WifiSharingInstructionsPage(), russian: true, scale: 1.5);
     final guideScroll = find
         .descendant(of: find.byKey(const ui.PageStorageKey('wifi-guide-0')), matching: find.byType(ui.Scrollable))
         .first;
     await revealGuide(tester, guideScroll, find.text('Android → Изменить сеть → Прокси'));
     expect(find.text('Имя хоста прокси'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await revealGuide(tester, guideScroll, find.text('Раздатчик с root → Клиент без прокси'));
+    await container.read(VpnPrivacyPreferences.useRoot.notifier).update(true);
+    await tester.pumpAndSettle();
+    await revealGuide(tester, guideScroll, find.text('Получающее устройство → Прокси'));
+    expect(find.text('Данные для подключения'), findsNothing);
     expect(find.text('Нет / Выкл.'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const ui.SizedBox());
