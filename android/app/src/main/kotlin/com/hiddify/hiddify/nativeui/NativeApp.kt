@@ -1,5 +1,6 @@
 package com.hiddify.hiddify.nativeui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +21,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -34,13 +39,30 @@ fun NativeApp(
     activeProfileName: String,
     hasActiveProfile: Boolean,
     rootMode: Boolean,
-    wifiSharing: Boolean,
+    settingsState: NativeSettingsState,
     errorMessage: String?,
     onDismissError: () -> Unit,
     onToggleConnection: () -> Unit,
     onOpenProfiles: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onRootModeChanged: (Boolean) -> Unit,
+    onWifiSharingChanged: (Boolean) -> Unit,
+    onFullTunnelChanged: (Boolean) -> Unit,
+    onEncryptedDnsChanged: (Boolean) -> Unit,
+    onPublicDnsChanged: (Boolean) -> Unit,
+    onDisableSystemProxyChanged: (Boolean) -> Unit,
+    onDisableIpv6Changed: (Boolean) -> Unit,
+    onHandbookRoutingChanged: (Boolean) -> Unit,
+    onHandbookProxyChanged: (Boolean) -> Unit,
+    onHandbookDirectChanged: (Boolean) -> Unit,
+    onHandbookProxySitesChanged: (String) -> Unit,
+    onHandbookDirectSitesChanged: (String) -> Unit,
 ) {
+    var settingsOpen by rememberSaveable { mutableStateOf(false) }
+
+    BackHandler(enabled = settingsOpen) {
+        settingsOpen = false
+    }
+
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(
@@ -50,76 +72,37 @@ fun NativeApp(
                         .statusBarsPadding()
                         .navigationBarsPadding()
                         .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Text(
-                    text = stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                )
-
-                ConnectionCard(
-                    status = status,
-                    activeProfileName = activeProfileName,
-                    hasActiveProfile = hasActiveProfile,
-                    onToggleConnection = onToggleConnection,
-                )
-
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Column(
-                        modifier = Modifier.padding(18.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.native_current_mode),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text =
-                                if (rootMode) {
-                                    stringResource(R.string.native_mode_root)
-                                } else {
-                                    stringResource(R.string.native_mode_android_vpn)
-                                },
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
-                        Text(
-                            text =
-                                if (wifiSharing) {
-                                    stringResource(R.string.native_wifi_sharing_on)
-                                } else {
-                                    stringResource(R.string.native_wifi_sharing_off)
-                                },
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
-                    }
+                if (settingsOpen) {
+                    NativeSettingsScreen(
+                        state = settingsState,
+                        canChangeServiceMode = status == Status.Stopped,
+                        onBack = { settingsOpen = false },
+                        onRootModeChanged = onRootModeChanged,
+                        onWifiSharingChanged = onWifiSharingChanged,
+                        onFullTunnelChanged = onFullTunnelChanged,
+                        onEncryptedDnsChanged = onEncryptedDnsChanged,
+                        onPublicDnsChanged = onPublicDnsChanged,
+                        onDisableSystemProxyChanged = onDisableSystemProxyChanged,
+                        onDisableIpv6Changed = onDisableIpv6Changed,
+                        onHandbookRoutingChanged = onHandbookRoutingChanged,
+                        onHandbookProxyChanged = onHandbookProxyChanged,
+                        onHandbookDirectChanged = onHandbookDirectChanged,
+                        onHandbookProxySitesChanged = onHandbookProxySitesChanged,
+                        onHandbookDirectSitesChanged = onHandbookDirectSitesChanged,
+                    )
+                } else {
+                    HomeScreen(
+                        status = status,
+                        activeProfileName = activeProfileName,
+                        hasActiveProfile = hasActiveProfile,
+                        rootMode = rootMode,
+                        wifiSharing = settingsState.wifiSharing,
+                        onToggleConnection = onToggleConnection,
+                        onOpenProfiles = onOpenProfiles,
+                        onOpenSettings = { settingsOpen = true },
+                    )
                 }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    OutlinedButton(
-                        onClick = onOpenProfiles,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(stringResource(R.string.native_profiles))
-                    }
-                    OutlinedButton(
-                        onClick = onOpenSettings,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(stringResource(R.string.native_settings))
-                    }
-                }
-
-                Spacer(modifier = Modifier.weight(1f))
-                Text(
-                    text = stringResource(R.string.native_migration_note),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
             }
         }
 
@@ -135,6 +118,92 @@ fun NativeApp(
                 text = { Text(errorMessage) },
             )
         }
+    }
+}
+
+@Composable
+private fun HomeScreen(
+    status: Status,
+    activeProfileName: String,
+    hasActiveProfile: Boolean,
+    rootMode: Boolean,
+    wifiSharing: Boolean,
+    onToggleConnection: () -> Unit,
+    onOpenProfiles: () -> Unit,
+    onOpenSettings: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.app_name),
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold,
+        )
+
+        ConnectionCard(
+            status = status,
+            activeProfileName = activeProfileName,
+            hasActiveProfile = hasActiveProfile,
+            onToggleConnection = onToggleConnection,
+        )
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.native_current_mode),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text =
+                        if (rootMode) {
+                            stringResource(R.string.native_mode_root)
+                        } else {
+                            stringResource(R.string.native_mode_android_vpn)
+                        },
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                Text(
+                    text =
+                        if (wifiSharing) {
+                            stringResource(R.string.native_wifi_sharing_on)
+                        } else {
+                            stringResource(R.string.native_wifi_sharing_off)
+                        },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            OutlinedButton(
+                onClick = onOpenProfiles,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(stringResource(R.string.native_profiles))
+            }
+            OutlinedButton(
+                onClick = onOpenSettings,
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(stringResource(R.string.native_settings))
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+        Text(
+            text = stringResource(R.string.native_migration_note),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 
