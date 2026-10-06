@@ -20,6 +20,7 @@ import com.hiddify.hiddify.constant.Alert
 import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativeui.NativeApp
+import com.hiddify.hiddify.nativeui.NativeSettingsState
 
 /**
  * Native Android entry point used during the Dart -> Kotlin migration.
@@ -34,6 +35,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val activeProfileName = mutableStateOf("")
     private val activeProfilePath = mutableStateOf("")
     private val errorMessage = mutableStateOf<String?>(null)
+    private val nativeSettings = mutableStateOf(readNativeSettings())
     private val connection = ServiceConnection(this, this)
 
     private var pendingStartAfterVpnPermission = false
@@ -74,6 +76,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
         enableEdgeToEdge()
         refreshProfileSnapshot()
+        refreshSettingsSnapshot()
 
         setContent {
             NativeApp(
@@ -81,12 +84,23 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 activeProfileName = activeProfileName.value,
                 hasActiveProfile = activeProfilePath.value.isNotBlank(),
                 rootMode = Settings.privacyUseRoot,
-                wifiSharing = Settings.wifiVpnSharing,
+                settingsState = nativeSettings.value,
                 errorMessage = errorMessage.value,
                 onDismissError = { errorMessage.value = null },
                 onToggleConnection = ::toggleConnection,
                 onOpenProfiles = ::openLegacyUi,
-                onOpenSettings = ::openLegacyUi,
+                onRootModeChanged = { value -> updateSettings { Settings.setPrivacyUseRoot(value) } },
+                onWifiSharingChanged = { value -> updateSettings { Settings.setWifiVpnSharing(value) } },
+                onFullTunnelChanged = { value -> updateSettings { Settings.setPrivacyFullTunnel(value) } },
+                onEncryptedDnsChanged = { value -> updateSettings { Settings.setPrivacyEncryptedDns(value) } },
+                onPublicDnsChanged = { value -> updateSettings { Settings.setPrivacyPublicDns(value) } },
+                onDisableSystemProxyChanged = { value -> updateSettings { Settings.setPrivacyDisableSystemProxy(value) } },
+                onDisableIpv6Changed = { value -> updateSettings { Settings.setPrivacyDisableIpv6(value) } },
+                onHandbookRoutingChanged = { value -> updateSettings { Settings.setHandbookRouting(value) } },
+                onHandbookProxyChanged = { value -> updateSettings { Settings.setHandbookProxy(value) } },
+                onHandbookDirectChanged = { value -> updateSettings { Settings.setHandbookDirect(value) } },
+                onHandbookProxySitesChanged = { value -> updateSettings { Settings.setHandbookProxySites(value) } },
+                onHandbookDirectSitesChanged = { value -> updateSettings { Settings.setHandbookDirectSites(value) } },
             )
         }
     }
@@ -94,12 +108,14 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     override fun onStart() {
         super.onStart()
         refreshProfileSnapshot()
+        refreshSettingsSnapshot()
         connection.connect()
     }
 
     override fun onResume() {
         super.onResume()
         refreshProfileSnapshot()
+        refreshSettingsSnapshot()
         if (serviceStatus.value == Status.Started) {
             maybeRequestNotificationPermission()
             maybePromptBatteryOptimization()
@@ -114,6 +130,32 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun refreshProfileSnapshot() {
         activeProfileName.value = Settings.activeProfileName
         activeProfilePath.value = Settings.activeConfigPath
+    }
+
+
+    private fun readNativeSettings() =
+        NativeSettingsState(
+            rootRequested = Settings.privacyUseRootRequested,
+            wifiSharing = Settings.wifiVpnSharing,
+            fullTunnel = Settings.privacyFullTunnel,
+            encryptedDns = Settings.privacyEncryptedDns,
+            publicDns = Settings.privacyPublicDns,
+            disableSystemProxy = Settings.privacyDisableSystemProxy,
+            disableIpv6 = Settings.privacyDisableIpv6,
+            handbookRouting = Settings.handbookRouting,
+            handbookProxy = Settings.handbookProxy,
+            handbookDirect = Settings.handbookDirect,
+            handbookProxySites = Settings.handbookProxySites,
+            handbookDirectSites = Settings.handbookDirectSites,
+        )
+
+    private fun refreshSettingsSnapshot() {
+        nativeSettings.value = readNativeSettings()
+    }
+
+    private inline fun updateSettings(action: () -> Unit) {
+        action()
+        refreshSettingsSnapshot()
     }
 
     private fun toggleConnection() {
