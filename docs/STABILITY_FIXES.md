@@ -120,3 +120,20 @@ root mode and Android low-memory pressure. Native ANR/SIGSEGV and device-specifi
 failures need the corresponding exit reasons or logcat/tombstone. A stuck native
 component can still exceed the existing shutdown deadlines; returning its error
 makes this visible but does not safely kill arbitrary Go goroutines.
+
+## Connection startup regression: indefinite control streams
+
+Replacing mobile control channels previously awaited `ClientChannel.shutdown()`.
+That graceful operation waits for active RPCs to finish, while status/statistics
+streams intentionally have no deadline. A subscriber can open a background RPC
+as soon as Android reports Started, before setupBackground replaces the channel.
+The replacement then waits indefinitely and never sends the core Start RPC.
+Warm setup and disposal had the same failure mode.
+
+Use `terminate()` for persistent control channels during replacement and disposal
+so ongoing RPCs are cancelled and recovery listeners can use the new client. The
+short-lived completed Hello request still uses graceful shutdown. Socket-backed
+regressions exercise an event RPC opened during native startup, foreground
+replacement and disposal with an active RPC. The regression fails by timeout with
+graceful shutdown and completes with termination. Device confirmation of the
+reported connection failure still requires the updated APK.

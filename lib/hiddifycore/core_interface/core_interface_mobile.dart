@@ -115,8 +115,10 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
       await hello();
     }
 
-    await _fgChannel?.shutdown();
-    await _bgChannel?.shutdown();
+    // Control channels carry indefinite event RPCs. Graceful shutdown waits for
+    // those streams forever; replacing or disposing a channel must cancel them.
+    await _fgChannel?.terminate();
+    await _bgChannel?.terminate();
     _fgChannel = ClientChannel(
       '127.0.0.1',
       port: _portFront,
@@ -208,7 +210,8 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
     }
     // Discard the channel that probed a stopped/previous service. Its connection
     // can still be in gRPC backoff or refer to the server we just shut down.
-    await _bgChannel?.shutdown();
+    // Terminate event RPCs instead of waiting for indefinite streams to finish.
+    await _bgChannel?.terminate();
     _bgChannel = ClientChannel(
       '127.0.0.1',
       port: _portBack,
@@ -247,8 +250,8 @@ class CoreInterfaceMobile extends CoreInterface with InfraLogger {
   Future<void> dispose() async {
     await _status?.close();
     _status = null;
-    await _fgChannel?.shutdown();
-    await _bgChannel?.shutdown();
+    await _fgChannel?.terminate();
+    await _bgChannel?.terminate();
     _fgChannel = null;
     _bgChannel = null;
   }
