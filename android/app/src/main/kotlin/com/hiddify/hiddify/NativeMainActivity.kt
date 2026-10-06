@@ -352,7 +352,11 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         profileUpdateJob =
             lifecycleScope.launch {
                 while (isActive) {
-                    updateDueProfiles()
+                    try {
+                        updateDueProfiles()
+                    } catch (error: Exception) {
+                        Log.w(TAG, "automatic profile update cycle failed", error)
+                    }
                     delay(PROFILE_UPDATE_INTERVAL_MS)
                 }
             }
