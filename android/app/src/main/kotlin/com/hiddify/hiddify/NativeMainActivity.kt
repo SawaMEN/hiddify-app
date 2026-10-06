@@ -522,16 +522,78 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun handleIncomingIntent(incoming: Intent?) {
-        val payload =
-            when (incoming?.action) {
+        if (incoming == null) return
+
+        val textPayload =
+            when (incoming.action) {
                 Intent.ACTION_VIEW -> incoming.dataString
                 Intent.ACTION_SEND -> incoming.getStringExtra(Intent.EXTRA_TEXT)
                 else -> null
-            }?.trim()?.takeIf { it.isNotEmpty() } ?: return
+            }?.trim()?.takeIf { it.isNotEmpty() }
+
+        val sharedDocument =
+            if (incoming.action == Intent.ACTION_SEND) {
+                sharedStreamUri(incoming)
+            } else {
+                null
+            }
+
+        if (textPayload == null && sharedDocument == null) return
 
         // Avoid re-importing the launch intent after Activity recreation/resume.
         incoming.action = null
-        importProfile(payload, null, null, false)
+
+        if (textPayload != null) {
+            importProfile(textPayload, null, null, false)
+        } else if (sharedDocument != null) {
+            importSharedProfile(sharedDocument)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun sharedStreamUri(incoming: Intent): Uri? {
+        val extra =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                incoming.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            } else {
+                incoming.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+            }
+        return extra
+            ?: incoming.clipData
+                ?.takeIf { it.itemCount > 0 }
+                ?.getItemAt(0)
+                ?.uri
+    }
+
+    private fun importSharedProfile(uri: Uri) {
+        lifecycleScope.launch {
+            val result =
+                withContext(Dispatchers.IO) {
+                    runCatching {
+                        contentResolver.openInputStream(uri)
+                            ?.bufferedReader(Charsets.UTF_8)
+                            ?.use { it.readText() }
+                            ?: throw java.io.FileNotFoundException(uri.toString())
+                    }
+                }
+
+            result.fold(
+                onSuccess = { text ->
+                    if (text.isBlank()) {
+                        errorMessage.value = getString(R.string.native_profile_file_empty)
+                    } else {
+                        importProfile(text, null, null, false)
+                    }
+                },
+                onFailure = { error ->
+                    errorMessage.value =
+                        getString(
+                            R.string.native_profile_file_read_failed,
+                            error.message ?: error.javaClass.simpleName,
+                        )
+                },
+            )
+        }
     }
 
     private fun readNativeSettings() =
