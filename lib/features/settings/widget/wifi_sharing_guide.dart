@@ -256,8 +256,8 @@ List<SharingGuideSection> sharingGuide(int platform, bool ru, String host, int p
             'Join the host Wi-Fi. In GNOME open Settings → Network → Network Proxy → Manual; in KDE find Proxy in System Settings. Set the host IP and the same port for HTTP and HTTPS.',
           ),
           t(
-            'Не все программы используют настройки окружения. При отсутствии авторизации настройте прокси в самой программе. Например, в Firefox: Настройки → Основные → Настройки сети → Настроить → Ручная настройка прокси → SOCKS-узел, порт, SOCKS v5 → DNS через SOCKS v5. Авторизуйтесь как hiddify.',
-            'Not all programs use desktop proxy settings. If authentication is unavailable, configure the app itself. For example in Firefox: Settings → General → Network Settings → Settings → Manual proxy configuration → SOCKS Host, port, SOCKS v5 → Proxy DNS when using SOCKS v5. Authenticate as hiddify.',
+            'Не все программы используют настройки окружения. При отсутствии авторизации настройте прокси в самой программе. Например, в Firefox найдите «прокси» поиском настроек → Настроить → Ручная настройка прокси. Укажите HTTP-прокси и тот же адрес для HTTPS. При запросе введите hiddify и пароль. Для SOCKS5 нужен клиент, где можно явно указать имя и пароль; обычного поля SOCKS-узла недостаточно.',
+            'Not all programs use desktop proxy settings. If authentication is unavailable, configure the app itself. For example in Firefox search Settings for proxy → Settings → Manual proxy configuration. Set the HTTP proxy and use the same address for HTTPS. When prompted enter hiddify and the password. For SOCKS5 use a client with explicit username and password support; a SOCKS Host field alone is insufficient.',
           ),
           t(
             'Для консольных клиентов, поддерживающих его, socks5h означает DNS на стороне прокси; socks5 может разрешать имена локально. Пароль передавайте безопасным способом, без публикации в истории команд или снимках экрана.',
