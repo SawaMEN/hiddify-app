@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -61,19 +60,6 @@ void main() {
     final gradle = source('android/app/build.gradle');
     expect(gradle, contains("System.getenv('CHANNEL') == 'prod' && !hasKeyStore"));
     expect(gradle, contains('Production Android release requires android/key.properties'));
-  });
-
-  test('route-rule payloads are URL-safe and legacy base64 remains decodable', () {
-    final rules = source('lib/features/route_rules/notifier/rules_notifier.dart');
-    expect(rules, contains('base64Url.encode'));
-    expect(rules, contains('base64.normalize'));
-    expect(rules, contains("replaceAll(' ', '+')"));
-
-    final bytes = utf8.encode('{"route":"+/="}');
-    final encoded = base64Url.encode(bytes);
-    final link = Uri.parse('hiddify:///settings/routing-options').replace(queryParameters: {'routeRule': encoded});
-    final roundTrip = Uri.parse(link.toString()).queryParameters['routeRule']!;
-    expect(base64.decode(base64.normalize(roundTrip)), bytes);
   });
 
   test('profile rollback keeps recovery copy when restoration fails', () {

@@ -31,10 +31,7 @@ class HomePage extends ConsumerWidget {
       appBar: AppBar(
         title: Row(
           children: [
-            Assets.images.logo.svg(
-              height: 28,
-              colorFilter: ColorFilter.mode(theme.colorScheme.primary, BlendMode.srcIn),
-            ),
+            Assets.images.logo.image(width: 28, height: 28),
             const Gap(12),
             Flexible(child: Text(t.common.appTitle, overflow: TextOverflow.ellipsis)),
             const Gap(8),

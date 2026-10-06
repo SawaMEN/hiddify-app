@@ -2,15 +2,11 @@ package com.hiddify.hiddify.bg
 
 import android.net.DnsResolver
 import android.net.Network
-import android.os.Build
 import android.os.CancellationSignal
 import android.system.ErrnoException
 import android.util.Log
-import androidx.annotation.RequiresApi
 import com.hiddify.core.libbox.ExchangeContext
 import com.hiddify.core.libbox.LocalDNSTransport
-import java.net.Inet4Address
-import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.UnknownHostException
 import java.util.concurrent.atomic.AtomicBoolean
@@ -31,7 +27,7 @@ object LocalResolver : LocalDNSTransport {
     private const val NXDOMAIN = 3
     private const val TIMEOUT_MS = 15_000L
 
-    override fun raw(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+    override fun raw(): Boolean = true
 
     // Cancellation must release both the network wait and the DNS continuation.
     // Android does not invoke a DNS result callback for a cancelled query.
@@ -59,7 +55,6 @@ object LocalResolver : LocalDNSTransport {
         }
     }
 
-    @RequiresApi(Build.VERSION_CODES.Q)
     private suspend fun <T : Any> query(start: (CancellationSignal, DnsResolver.Callback<T>) -> Unit): Pair<T, Int> =
         suspendCancellableCoroutine { continuation ->
             val signal = CancellationSignal()
@@ -84,7 +79,6 @@ object LocalResolver : LocalDNSTransport {
             }
         }
 
-    @RequiresApi(Build.VERSION_CODES.Q)
     override fun exchange(ctx: ExchangeContext, message: ByteArray) = resolve(ctx) {
         val network = DefaultNetworkMonitor.require()
         try {
@@ -103,31 +97,9 @@ object LocalResolver : LocalDNSTransport {
 
     override fun lookup(ctx: ExchangeContext, network: String, domain: String) = resolve(ctx) {
         val defaultNetwork = DefaultNetworkMonitor.require()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            lookupModern(ctx, defaultNetwork, network, domain)
-        } else {
-            // Do not keep the gomobile caller waiting for an uncancellable legacy resolver.
-            val answer = suspendCancellableCoroutine<List<InetAddress>> { continuation ->
-                Dispatchers.IO.asExecutor().execute {
-                    try {
-                        continuation.resume(defaultNetwork.getAllByName(domain).toList())
-                    } catch (e: Exception) {
-                        continuation.resumeWithException(e)
-                    }
-                }
-            }
-            val filtered = answer.filter { address ->
-                when {
-                    network.endsWith("4") -> address is Inet4Address
-                    network.endsWith("6") -> address is Inet6Address
-                    else -> true
-                }
-            }
-            ({ ctx.success(filtered.mapNotNull { it.hostAddress }.joinToString("\n")) })
-        }
+        lookupModern(ctx, defaultNetwork, network, domain)
     }
 
-    @RequiresApi(Build.VERSION_CODES.Q)
     private suspend fun lookupModern(ctx: ExchangeContext, network: Network, family: String, domain: String): () -> Unit {
         return try {
             val (answer, rcode) = query<Collection<InetAddress>> { signal, callback ->

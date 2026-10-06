@@ -35,7 +35,9 @@ class _ConnectionWrapperState extends ConsumerState<ConnectionWrapper> with AppL
               //       .reconnect(await ref.read(activeProfileProvider.future));
               // },
             );
-        await ref.read(connectionNotifierProvider.notifier).reconnect(await ref.read(activeProfileProvider.future));
+        final profile = await ref.read(activeProfileProvider.future);
+        if (!mounted) return;
+        await ref.read(connectionNotifierProvider.notifier).reconnect(profile);
       }
     });
 

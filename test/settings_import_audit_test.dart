@@ -7,8 +7,6 @@ import 'package:hiddify/core/preferences/preferences_provider.dart';
 import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/features/settings/notifier/config_option/config_option_notifier.dart';
-import 'package:hiddify/features/route_rules/notifier/rules_notifier.dart';
-import 'package:hiddify/hiddifycore/generated/v2/config/route_rule.pb.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -39,12 +37,9 @@ void main() {
       }
       await notifier.importJson('{"extra-security":{"profile":{"id":null}},"unblocker":{"warp":{"clean-port":0}}}');
       expect(container.read(ConfigOptions.extraSecurityProfileId), isNull);
-      final rules = RouteRule(
-        rules: [Rule(name: 'imported', outbound: Outbound.block, listOrder: 42)],
-      );
-      await notifier.importJson(jsonEncode({'route-rule': rules.toProto3Json()}));
-      expect(container.read(rulesNotifierProvider).single.name, 'imported');
-      expect(container.read(rulesNotifierProvider).single.listOrder, 0);
+      await expectLater(notifier.importJson('{"route-rule":{"rules":[]}}'), throwsFormatException);
+      await notifier.importJson('{"lan-sharing-password":"changed","route-rule":{"unsupported":true}}');
+      expect(container.read(ConfigOptions.lanSharingPassword), 'changed');
       final exported = container.read(ConfigOptions.singboxConfigOptions).toJson();
       await notifier.importJson(jsonEncode(exported));
       expect(container.read(ConfigOptions.singboxConfigOptions).toJson(), exported);

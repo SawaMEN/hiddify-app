@@ -109,13 +109,13 @@ abstract class VpnPrivacyActions {
 
     final serviceMode = enumByKey(
       ServiceMode.values,
-      snapshot?['serviceMode'] as String?,
+      snapshot?['serviceMode'] is String ? snapshot!['serviceMode'] as String : null,
       (value) => value.key,
       ServiceMode.defaultMode,
     );
     final ipv6Mode = enumByKey(
       IPv6Mode.values,
-      snapshot?['ipv6Mode'] as String?,
+      snapshot?['ipv6Mode'] is String ? snapshot!['ipv6Mode'] as String : null,
       (value) => value.key,
       IPv6Mode.disable,
     );
@@ -126,11 +126,13 @@ abstract class VpnPrivacyActions {
     }
 
     final routingMode = value<String>('routingMode', 'ru-bypass');
+    final mtu = value<int>('mtu', 9000);
+    if (mtu < 576 || mtu > 65535) throw const FormatException('Invalid MTU in saved settings');
     await ref.read(configOptionNotifierProvider.notifier).updateTogether(
       () async {
         await ref.read(ConfigOptions.serviceMode.notifier).update(serviceMode);
         await ref.read(ConfigOptions.ipv6Mode.notifier).update(ipv6Mode);
-        await ref.read(ConfigOptions.mtu.notifier).update(value<int>('mtu', 9000));
+        await ref.read(ConfigOptions.mtu.notifier).update(mtu);
         await ref.read(Preferences.autoReconnect.notifier).update(value<bool>('autoReconnect', true));
         await _setRoutingMode(ref, routingMode, forceRevision: true);
         await ref

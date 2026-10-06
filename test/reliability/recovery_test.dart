@@ -33,6 +33,7 @@ class _Repository implements ConnectionRepository {
   int connections = 0, disconnections = 0;
   bool fail = true;
   void Function()? onConnect;
+  Completer<void>? connectGate;
   @override
   SingboxConfigOption? get configOptionsSnapshot => null;
   @override
@@ -44,6 +45,7 @@ class _Repository implements ConnectionRepository {
       TaskEither(() async {
         connections++;
         onConnect?.call();
+        await connectGate?.future;
         return fail
             ? left(const ConnectionFailure.backgroundCoreNotAvailable())
             : right(unit);
@@ -137,6 +139,67 @@ void main() {
         await tester.pump();
       },
     );
+  }
+  for (final fromError in [false, true]) {
+    for (final disposeWhileStopping in [false, true]) {
+      testWidgets(
+        'Abort drains an in-flight recovery (error=$fromError, dispose=$disposeWhileStopping)',
+        (tester) async {
+          SharedPreferences.setMockInitialValues({
+            'started_by_user': true,
+            'haptic_feedback': false,
+          });
+          final preferences = await SharedPreferences.getInstance();
+          final repo = _Repository();
+          final container = ProviderContainer(
+            overrides: [
+              sharedPreferencesProvider.overrideWith((ref) async => preferences),
+              connectionRepositoryProvider.overrideWithValue(repo),
+              activeProfileProvider.overrideWith(_Profile.new),
+            ],
+          );
+          await container.read(sharedPreferencesProvider.future);
+          final subscription = container.listen(connectionNotifierProvider, (_, __) {});
+          await tester.pump();
+          await tester.pump();
+          repo.events.add(const Disconnected(ConnectionFailure.backgroundCoreNotAvailable()));
+          await tester.pump();
+          await tester.pump();
+          if (fromError) {
+            await tester.pump(const Duration(seconds: 2));
+            await tester.pump();
+            expect(container.read(connectionNotifierProvider), isA<AsyncError<ConnectionStatus>>());
+            expect(repo.connections, 1);
+          }
+          repo.fail = false;
+          final gate = Completer<void>();
+          repo.connectGate = gate;
+          await tester.pump(Duration(seconds: fromError ? 4 : 2));
+          await tester.pump();
+          expect(repo.connections, fromError ? 2 : 1);
+          final stopped = container.read(connectionNotifierProvider.notifier).abortConnection();
+          await tester.pump();
+          expect(container.read(Preferences.startedByUser), false);
+          expect(repo.disconnections, 0, reason: 'Stop must wait for the native start to settle');
+          if (disposeWhileStopping) {
+            subscription.close();
+            container.dispose();
+          }
+          gate.complete();
+          await stopped;
+          await tester.pump(const Duration(minutes: 2));
+          expect(repo.disconnections, 1);
+          expect(repo.connections, fromError ? 2 : 1, reason: 'Cancelled recovery must not restart');
+          if (!disposeWhileStopping) {
+            subscription.close();
+            container.dispose();
+          }
+          await repo.events.close();
+          await tester.pump();
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
   }
   testWidgets(
     'Stable duplicate status events reset recovery without postponing the timer',

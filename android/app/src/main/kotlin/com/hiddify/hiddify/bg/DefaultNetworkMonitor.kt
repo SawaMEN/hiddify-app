@@ -3,7 +3,6 @@ package com.hiddify.hiddify.bg
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.ConnectivityManager
-import android.os.Build
 import android.util.Log
 import com.hiddify.core.libbox.InterfaceUpdateListener
 import com.hiddify.hiddify.Application
@@ -40,12 +39,6 @@ object DefaultNetworkMonitor {
             defaultNetwork = it
             checkDefaultInterfaceUpdate(it)
         }
-        defaultNetwork = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Application.connectivity.activeNetwork
-        } else {
-            runCatching { DefaultNetworkListener.get() }.getOrNull()
-        }
-        checkDefaultInterfaceUpdate(defaultNetwork)
     }
 
     /** Detach only the gomobile callback while keeping Android network discovery alive. */
@@ -71,9 +64,7 @@ object DefaultNetworkMonitor {
 
     suspend fun require(): Network {
         defaultNetwork?.let { return it }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            Application.connectivity.activeNetwork?.let { return it }
-        }
+        DefaultNetworkListener.underlyingNetwork()?.let { return it }
         return DefaultNetworkListener.get()
     }
 
@@ -130,7 +121,7 @@ object DefaultNetworkMonitor {
             runCatching {
                 val capabilities = network?.let { Application.connectivity.getNetworkCapabilities(it) }
                 val expensive = capabilities != null && !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-                val constrained = expensive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.N &&
+                val constrained = expensive &&
                     Application.connectivity.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
                 currentListener.updateDefaultInterface(interfaceName, interfaceIndex, expensive, constrained)
                 if (recovering) Mobile.wake()

@@ -107,9 +107,7 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
             .setSession(applicationInfo.loadLabel(packageManager).toString())
             .setMtu(safeMtu)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            builder.setMetered(false)
-        }
+        builder.setMetered(false)
 
         val inet4Address = options.inet4Address
         while (inet4Address.hasNext()) {
@@ -212,7 +210,7 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
             }
         }
 
-        if (!Settings.privacyDisableSystemProxy && options.isHTTPProxyEnabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        if (!Settings.privacyDisableSystemProxy && options.isHTTPProxyEnabled) {
             systemProxyAvailable = true
             systemProxyEnabled = Settings.systemProxyEnabled
             if (systemProxyEnabled) {

@@ -12,20 +12,16 @@ class LocalePreferences extends Notifier<AppLocale> with AppLogger {
   AppLocale build() {
     final persisted = ref.watch(sharedPreferencesProvider).requireValue.getString("locale");
     if (persisted == null) return AppLocaleUtils.findDeviceLocale();
-    // keep backward compatibility with chinese after changing zh to zh_CN
-    if (persisted == "zh") {
-      return AppLocale.zhCn;
-    }
-    try {
-      return AppLocale.values.byName(persisted);
-    } catch (e) {
-      loggy.error("error setting locale: [$persisted]", e);
-      return AppLocale.en;
-    }
+    // A saved locale removed from this build follows the supported device locale.
+    return AppLocale.values.firstWhere(
+      (locale) => locale.name == persisted,
+      orElse: AppLocaleUtils.findDeviceLocale,
+    );
   }
 
   Future<void> changeLocale(AppLocale value) async {
-    state = value;
-    await ref.read(sharedPreferencesProvider).requireValue.setString("locale", value.name);
+    final saved = await ref.read(sharedPreferencesProvider).requireValue.setString("locale", value.name);
+    if (!saved) throw StateError('Unable to save language');
+    if (ref.mounted) state = value;
   }
 }

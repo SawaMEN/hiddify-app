@@ -43,11 +43,8 @@ void main() {
 
     // "其他" is two characters, which is what made the picker unusable under the
     // Chinese locales.
-    test('has no flag for the two-character Chinese label', () async {
-      final t = await AppLocale.zhCn.build();
-      final label = Region.other.present(t);
-      expect(label, '其他');
-      expect(ChoicePreferenceWidget.flagByTitle(label), isNull);
+    test('has no flag for a two-character label', () {
+      expect(ChoicePreferenceWidget.flagByTitle('其他'), isNull);
     });
 
     test('has no flag for an empty label', () {

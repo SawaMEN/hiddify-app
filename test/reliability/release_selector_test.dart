@@ -6,7 +6,7 @@ Map<String, dynamic> release(
   String tag, {
   bool draft = false,
   bool dev = false,
-  String asset = 'Hiddify-Android-arm64-v8a.apk',
+  String asset = 'vetroff-Android-arm64-v8a.apk',
 }) => {
   'tag_name': tag,
   'draft': draft,

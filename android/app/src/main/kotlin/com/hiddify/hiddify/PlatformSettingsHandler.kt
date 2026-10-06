@@ -23,13 +23,18 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.PluginRegistry
 import io.flutter.plugin.common.StandardMethodCodec
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 
 
 class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, ActivityAware,
     PluginRegistry.ActivityResultListener {
+    private var scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var channel: MethodChannel? = null
     private var activity: Activity? = null
     private var ignoreRequestResult: MethodChannel.Result? = null
@@ -60,6 +65,8 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
     }
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
+        scope.cancel()
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val taskQueue = flutterPluginBinding.binaryMessenger.makeBackgroundTaskQueue()
         channel = MethodChannel(
             flutterPluginBinding.binaryMessenger,
@@ -71,6 +78,7 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
+        scope.cancel()
         channel?.setMethodCallHandler(null)
         mainHandler.post { finishBatteryRequest("Plugin detached") }
     }
@@ -99,8 +107,7 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
             val pending = ignoreRequestResult ?: return false
             ignoreRequestResult = null
             pending.safely {
-                success(Build.VERSION.SDK_INT < Build.VERSION_CODES.M ||
-                    Application.powerManager.isIgnoringBatteryOptimizations(Application.application.packageName))
+                success(Application.powerManager.isIgnoringBatteryOptimizations(Application.application.packageName))
             }
             return true
         }
@@ -119,19 +126,12 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
             Trigger.IsIgnoringBatteryOptimizations.method -> {
                 result.safely {
                     success(
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            Application.powerManager.isIgnoringBatteryOptimizations(Application.application.packageName)
-                        } else {
-                            true
-                        }
+                        Application.powerManager.isIgnoringBatteryOptimizations(Application.application.packageName)
                     )
                 }
             }
 
             Trigger.RequestIgnoreBatteryOptimizations.method -> {
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                    return result.success(true)
-                }
                 mainHandler.post {
                     val currentActivity = activity
                     if (currentActivity == null) {
@@ -155,14 +155,9 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
             }
 
             Trigger.GetInstalledPackages.method -> {
-                GlobalScope.launch {
+                scope.launch {
                     result.safely {
-                        val flag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                            PackageManager.GET_PERMISSIONS or PackageManager.MATCH_UNINSTALLED_PACKAGES
-                        } else {
-                            @Suppress("DEPRECATION")
-                            PackageManager.GET_PERMISSIONS or PackageManager.GET_UNINSTALLED_PACKAGES
-                        }
+                        val flag = PackageManager.GET_PERMISSIONS
                         val installedPackages =
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                                 packageManager.getInstalledPackages(
@@ -190,7 +185,7 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
                             }
                         }
                         list.sortBy { it.name }
-                        success(gson.toJson(list))
+                        if (isActive) success(gson.toJson(list))
                     }
                 }
             }
@@ -202,18 +197,21 @@ class PlatformSettingsHandler : FlutterPlugin, MethodChannel.MethodCallHandler, 
                         args["packageName"] as String
                     val drawable = packageManager.getApplicationIcon(packageName)
                     val bitmap = Bitmap.createBitmap(
-                        drawable.intrinsicWidth.coerceAtLeast(1),
-                        drawable.intrinsicHeight.coerceAtLeast(1),
+                        drawable.intrinsicWidth.coerceIn(1, 128),
+                        drawable.intrinsicHeight.coerceIn(1, 128),
                         Bitmap.Config.ARGB_8888
                     )
-                    val canvas = Canvas(bitmap)
-                    drawable.setBounds(0, 0, canvas.width, canvas.height)
-                    drawable.draw(canvas)
-                    val byteArrayOutputStream = ByteArrayOutputStream()
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, byteArrayOutputStream)
-                    val base64: String =
-                        Base64.encodeToString(byteArrayOutputStream.toByteArray(), Base64.NO_WRAP)
-                    success(base64)
+                    try {
+                        val canvas = Canvas(bitmap)
+                        drawable.setBounds(0, 0, canvas.width, canvas.height)
+                        drawable.draw(canvas)
+                        ByteArrayOutputStream().use { output ->
+                            bitmap.compress(Bitmap.CompressFormat.PNG, 100, output)
+                            success(Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP))
+                        }
+                    } finally {
+                        bitmap.recycle()
+                    }
                 }
             }
 

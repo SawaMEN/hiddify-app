@@ -11,8 +11,8 @@ void main() {
       final routes = container.read(routingConfigNotifierProvider).routes;
       final shell = routes.first as StatefulShellRoute;
       final expected = mobile
-          ? ['home', 'vpnPrivacy', 'routingOptions', 'settings']
-          : ['home', 'profiles', 'vpnPrivacy', 'routingOptions', 'settings', 'logs', 'about'];
+          ? ['home', 'vpnPrivacy', 'settings']
+          : ['home', 'profiles', 'vpnPrivacy', 'settings', 'logs', 'about'];
       expect(shell.branches.map((b) => (b.routes.first as GoRoute).name).toList(), expected);
       for (var i = 0; i < expected.length; i++) {
         expect(getNameOfBranch(mobile, !mobile, i), expected[i]);
@@ -20,8 +20,6 @@ void main() {
       }
       final router = GoRouter(routes: routes);
       expect(router.namedLocation('vpnPrivacy'), '/home/vpn-privacy');
-      expect(router.namedLocation('routingOptions'), '/settings/routing-options');
-      expect(router.namedLocation('rule', pathParameters: {'orderId': 'new'}), '/settings/routing-options/rule/new');
       expect(router.namedLocation('profiles'), mobile ? '/settings/profiles' : '/profiles');
       router.dispose();
       container.dispose();

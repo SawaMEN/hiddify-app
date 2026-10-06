@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hiddify/features/per_app_proxy/model/app_package_info.dart';
@@ -6,6 +9,7 @@ import 'package:hiddify/features/vpn_privacy/vpn_privacy_preferences.dart';
 import 'package:hiddify/utils/utils.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:installed_apps/index.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 enum PrivacyAppSelectionKind { direct, proxy }
 
@@ -53,7 +57,8 @@ class _PrivacyAppSelectionPageState extends ConsumerState<PrivacyAppSelectionPag
       return;
     }
     try {
-      final installed = await InstalledApps.getInstalledApps(false, true);
+      final installed = await InstalledApps.getInstalledApps(false, false);
+      final ownPackage = (await PackageInfo.fromPlatform()).packageName;
       final policy = await _channel.invokeMapMethod<dynamic, dynamic>('get_regional_routing') ?? const <dynamic, dynamic>{};
       final configuredKey = _direct ? 'privacy-configured-direct-packages' : 'privacy-configured-proxy-packages';
       final automaticKey = _direct ? 'privacy-default-direct-packages' : 'privacy-default-proxy-packages';
@@ -63,7 +68,7 @@ class _PrivacyAppSelectionPageState extends ConsumerState<PrivacyAppSelectionPag
       final automatic = (policy[automaticKey] as List? ?? const []).whereType<String>().toSet();
       final apps = installed
           .map((app) => AppPackageInfo(packageName: app.packageName, name: app.name, icon: app.icon))
-          .where((app) => app.packageName != 'com.hiddify.app')
+          .where((app) => app.packageName != ownPackage)
           .toList();
       apps.sort((a, b) {
         final selectedOrder = (selected.contains(b.packageName) ? 1 : 0) - (selected.contains(a.packageName) ? 1 : 0);
@@ -250,9 +255,7 @@ class _PrivacyAppSelectionPageState extends ConsumerState<PrivacyAppSelectionPag
                               }),
                         title: Text(app.name, maxLines: 1, overflow: TextOverflow.ellipsis),
                         subtitle: Text(app.packageName, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        secondary: app.icon == null
-                            ? const Icon(Icons.android)
-                            : Image.memory(app.icon!, width: 42, height: 42, cacheWidth: 42, cacheHeight: 42),
+                        secondary: _PackageIcon(key: ValueKey(app.packageName), packageName: app.packageName),
                       );
                     },
                   ),
@@ -283,4 +286,37 @@ class _PrivacyAppSelectionPageState extends ConsumerState<PrivacyAppSelectionPag
       ),
     );
   }
+}
+
+// Only visible rows request bounded icons; unmounted rows release their bytes.
+class _PackageIcon extends StatefulWidget {
+  const _PackageIcon({super.key, required this.packageName});
+
+  final String packageName;
+
+  @override
+  State<_PackageIcon> createState() => _PackageIconState();
+}
+
+class _PackageIconState extends State<_PackageIcon> {
+  static const _channel = MethodChannel('com.hiddify.app/platform');
+  late final Future<Uint8List?> _icon = _loadIcon();
+
+  Future<Uint8List?> _loadIcon() async {
+    try {
+      final encoded = await _channel.invokeMethod<String>('get_package_icon', {'packageName': widget.packageName});
+      return encoded == null ? null : base64Decode(encoded);
+    } catch (_) {
+      // An app may be uninstalled while this list is open.
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Uint8List?>(
+    future: _icon,
+    builder: (context, snapshot) => snapshot.data == null
+        ? const Icon(Icons.android)
+        : Image.memory(snapshot.data!, width: 42, height: 42, cacheWidth: 42, cacheHeight: 42),
+  );
 }

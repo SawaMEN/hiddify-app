@@ -28,14 +28,14 @@ abstract class FreeProfile with _$FreeProfile {
 
 @freezed
 abstract class StringByLocale with _$StringByLocale {
-  const factory StringByLocale({required String en, required String fa}) = _StringByLocale;
+  const factory StringByLocale({required String en, String? ru}) = _StringByLocale;
 
   factory StringByLocale.fromJson(Map<String, Object?> json) => _$StringByLocaleFromJson(json);
 }
 
 @freezed
 abstract class ListOfStringByLocale with _$ListOfStringByLocale {
-  const factory ListOfStringByLocale({required List<String> en, required List<String> fa}) = _ListOfStringByLocale;
+  const factory ListOfStringByLocale({required List<String> en, List<String>? ru}) = _ListOfStringByLocale;
 
   factory ListOfStringByLocale.fromJson(Map<String, Object?> json) => _$ListOfStringByLocaleFromJson(json);
 }

@@ -53,8 +53,8 @@ object DefaultNetworkListener {
                         is NetworkMessage.Start -> {
                             if (listeners.isEmpty()) {
                                 register()
-                                if (fallback && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                    network = Application.connectivity.activeNetwork
+                                if (fallback) {
+                                    network = underlyingNetwork()
                                 }
                             }
                             listeners[message.key] = message.listener
@@ -68,8 +68,8 @@ object DefaultNetworkListener {
                             val currentNetwork = network
                             if (currentNetwork != null) {
                                 message.response.complete(currentNetwork)
-                            } else if (fallback && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                                val active = Application.connectivity.activeNetwork
+                            } else if (fallback) {
+                                val active = underlyingNetwork()
                                 if (active != null) {
                                     network = active
                                     message.response.complete(active)
@@ -133,8 +133,8 @@ object DefaultNetworkListener {
     }
 
     suspend fun get(): Network {
-        if (fallback && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            return Application.connectivity.activeNetwork ?: error("missing default network")
+        if (fallback) {
+            return underlyingNetwork() ?: error("missing default network")
         }
         val response = CompletableDeferred<Network>()
         messages.send(NetworkMessage.Get(response))
@@ -146,6 +146,19 @@ object DefaultNetworkListener {
 
     suspend fun stop(key: Any) {
         messages.send(NetworkMessage.Stop(key))
+    }
+
+    /** activeNetwork may be the TUN itself during startup or a network transition. */
+    fun underlyingNetwork(): Network? {
+        fun usable(network: Network): Boolean {
+            val caps = Application.connectivity.getNetworkCapabilities(network) ?: return false
+            return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) &&
+                !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+        }
+        val connectivity = Application.connectivity
+        connectivity.activeNetwork?.let { if (usable(it)) return it }
+        return connectivity.allNetworks.firstOrNull { usable(it) }
     }
 
     private fun enqueue(message: NetworkMessage) {
@@ -177,12 +190,9 @@ object DefaultNetworkListener {
 
     private val request =
         NetworkRequest.Builder().apply {
+            addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
             addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
-            if (Build.VERSION.SDK_INT == 23) {
-                removeCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-                removeCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)
-            }
         }.build()
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -190,20 +200,10 @@ object DefaultNetworkListener {
     private fun register() {
         fallback = false
         try {
-            when (Build.VERSION.SDK_INT) {
-                in 31..Int.MAX_VALUE ->
-                    Application.connectivity.registerBestMatchingNetworkCallback(request, Callback, mainHandler)
-
-                in 28 until 31 ->
-                    Application.connectivity.requestNetwork(request, Callback, mainHandler)
-
-                in 26 until 28 ->
-                    Application.connectivity.registerDefaultNetworkCallback(Callback, mainHandler)
-
-                in 24 until 26 ->
-                    Application.connectivity.registerDefaultNetworkCallback(Callback)
-
-                else -> Application.connectivity.requestNetwork(request, Callback)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                Application.connectivity.registerBestMatchingNetworkCallback(request, Callback, mainHandler)
+            } else {
+                Application.connectivity.requestNetwork(request, Callback, mainHandler)
             }
         } catch (e: RuntimeException) {
             fallback = true

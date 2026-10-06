@@ -5,12 +5,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.Build
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import android.os.PowerManager
 import android.util.Log
-import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.MutableLiveData
 import com.hiddify.core.libbox.Libbox
@@ -84,7 +82,7 @@ class BoxService(
 
         fun vpnProtection(): Map<String, Boolean?> {
             val vpn = coreOwner?.service as? VPNService
-            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && vpn != null) {
+            return if (vpn != null) {
                 mapOf("alwaysOn" to vpn.isAlwaysOn, "lockdown" to vpn.isLockdownEnabled)
             } else mapOf("alwaysOn" to null, "lockdown" to null)
         }
@@ -128,9 +126,7 @@ class BoxService(
             when (intent.action) {
                 Action.SERVICE_CLOSE -> { Settings.connectionDesired = false; stopService() }
                 PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED -> {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        serviceUpdateIdleMode()
-                    }
+                    serviceUpdateIdleMode()
                 }
             }
         }
@@ -220,7 +216,8 @@ class BoxService(
                             it.basePath = Settings.baseDir
                             it.workingDir = Settings.workingDir
                             it.tempDir = Settings.tempDir
-                            it.fixAndroidStack = Bugs.fixAndroidStack
+                            // Required by the Go runtime on every supported Android version.
+                            it.fixAndroidStack = true
                             it.mode = 4L
                             it.listen = "127.0.0.1:${Settings.grpcServiceModePort}"
                             it.secret = Settings.grpcAuthToken
@@ -322,7 +319,6 @@ class BoxService(
         serviceReload()
     }
 
-    @RequiresApi(Build.VERSION_CODES.M)
     private fun serviceUpdateIdleMode() {
         if (!rootActive && !Application.powerManager.isDeviceIdleMode) {
             runCatching { Mobile.wake() }
@@ -420,7 +416,7 @@ class BoxService(
                     service, receiver,
                     IntentFilter().apply {
                         addAction(Action.SERVICE_CLOSE)
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED)
+                        addAction(PowerManager.ACTION_DEVICE_IDLE_MODE_CHANGED)
                     },
                     ContextCompat.RECEIVER_NOT_EXPORTED,
                 )

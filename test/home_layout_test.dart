@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:hiddify/features/stats/notifier/stats_notifier.dart';
 import 'package:hiddify/features/connection/health/connection_health.dart';
@@ -46,15 +47,18 @@ class _Options extends ConfigOptionNotifier {
 
 class _Info extends AppInfo {
   @override
-  Future<AppInfoEntity> build() async => const AppInfoEntity(
-    name: 'Hiddify',
-    version: '4.1.2',
-    buildNumber: '40102',
-    release: Release.general,
-    operatingSystem: 'android',
-    operatingSystemVersion: 'test',
-    environment: Environment.prod,
-  );
+  Future<AppInfoEntity> build() async {
+    final version = RegExp(r'^version:\s*([\d.]+)\+(\d+)', multiLine: true).firstMatch(File('pubspec.yaml').readAsStringSync())!;
+    return AppInfoEntity(
+      name: 'VetrOFF Client',
+      version: version.group(1)!,
+      buildNumber: version.group(2)!,
+      release: Release.general,
+      operatingSystem: 'android',
+      operatingSystemVersion: 'test',
+      environment: Environment.prod,
+    );
+  }
 }
 
 class _Stats extends StatsNotifier {
@@ -140,6 +144,9 @@ void main() {
           ),
         ),
       );
+      await tester.runAsync(() async {
+        await precacheImage(const AssetImage('assets/images/logo.png'), tester.element(find.byType(HomePage)));
+      });
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('home_connection_button')), findsOneWidget);
       expect(tester.takeException(), isNull);

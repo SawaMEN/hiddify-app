@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:hiddify/features/app/widget/background_permission_prompt.dart';
+
 import 'package:hiddify/features/connection/health/connection_health.dart';
 import 'package:hiddify/features/proxy/selection/smart_selection.dart';
 
@@ -145,7 +147,11 @@ class App extends HookConsumerWidget with WidgetsBindingObserver, PresLogger {
                       // Third-party widgets still use Flutter's legacy Material types.
                       child: TickerMode(
                         enabled: ref.watch(appForegroundProvider),
-                        child: MaterialUiCompatibilityBridge(child: CyberBackground(child: appChild)),
+                        child: MaterialUiCompatibilityBridge(child: BackgroundPermissionPrompt(
+                          navigatorKey: router.routerDelegate.navigatorKey,
+                          languageCode: locale.languageCode,
+                          child: CyberBackground(child: appChild),
+                        )),
                       ),
                     ),
                   );

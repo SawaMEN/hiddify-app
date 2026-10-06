@@ -3,7 +3,6 @@ package com.hiddify.hiddify
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.ShortcutManager
-import android.os.Build
 import android.os.Bundle
 import android.net.VpnService
 import android.util.Log
@@ -46,9 +45,7 @@ class ShortcutActivity : Activity(), ServiceConnection.Callback {
             finish()
         } else {
             connection.connect()
-            if (Build.VERSION.SDK_INT >= 25) {
-                getSystemService<ShortcutManager>()?.reportShortcutUsed("toggle")
-            }
+            getSystemService<ShortcutManager>()?.reportShortcutUsed("toggle")
         }
         moveTaskToBack(true)
     }

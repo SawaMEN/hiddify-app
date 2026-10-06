@@ -1,0 +1,8 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:width="24dp" android:height="24dp" android:gravity="center">
+      <shape><solid android:color="@android:color/transparent"/></shape>
+    </item>
+    <item android:width="24dp" android:height="24dp" android:gravity="center">
+      <bitmap android:src="@drawable/vetroff_notification" android:gravity="fill"/>
+    </item>
+</layer-list>

@@ -4,6 +4,7 @@ import hashlib
 from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
+from check_app_version import declared_version, validate_tag
 
 
 def generate(directory, repository, tag, channel):
@@ -22,17 +23,18 @@ def generate(directory, repository, tag, channel):
     match = re.fullmatch(r"v?(\d+\.\d+\.\d+)(?:\+(\d+))?(?:\.prod)?", tag)
     if not match:
         raise ValueError("Stable release requires a semantic version tag")
+    validate_tag(tag, channel, *declared_version())
     ns = "http://www.andymatuschak.org/xml-namespaces/sparkle"
     ET.register_namespace("sparkle", ns)
     rss = ET.Element("rss", {"version": "2.0"})
     feed = ET.SubElement(rss, "channel")
-    ET.SubElement(feed, "title").text = "Hiddify SawaMEN updates"
+    ET.SubElement(feed, "title").text = "VetrOFF Client SawaMEN updates"
     for apk in apks:
         if "arm64" not in apk.name.lower() or "dev" in apk.name.lower():
             continue
         item = ET.SubElement(feed, "item")
         ET.SubElement(item, "title").text = match[1]
-        ET.SubElement(item, f"{{{ns}}}minimumSystemVersion").text = "7.0.0"
+        ET.SubElement(item, f"{{{ns}}}minimumSystemVersion").text = "10.0.0"
         ET.SubElement(item, "link").text = f"https://github.com/{repository}/releases/tag/{tag}"
         ET.SubElement(item, "enclosure", {
             "url": f"https://github.com/{repository}/releases/download/{tag}/{apk.name}",

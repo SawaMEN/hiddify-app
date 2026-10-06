@@ -186,17 +186,14 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   }
 
   Future<void> abortConnection() async {
+    if (!ref.mounted) return;
     _cancelRecovery();
     await ref.read(Preferences.startedByUser.notifier).update(false);
-    if (state case AsyncData(:final value)) {
-      switch (value) {
-        case Connected() || Connecting():
-          loggy.debug("aborting connection");
-          await ref.read(Preferences.startedByUser.notifier).update(false);
-          await _disconnect();
-        default:
-      }
-    }
+    if (!ref.mounted) return;
+    // The status stream can still expose Disconnected/AsyncError while a recovery
+    // has already entered the native start path. Always stop the serialized core
+    // operation, including a start waiting for an Android permission result.
+    await _disconnect();
   }
 
   final _policy = RecoveryPolicy();
@@ -233,7 +230,8 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   }
 
   Future<void> restoreOnResume() async {
-    if (!Platform.isAndroid ||
+    if (!ref.mounted ||
+        !Platform.isAndroid ||
         _retrying ||
         _retryTimer != null ||
         !ref.read(Preferences.startedByUser) ||
@@ -252,17 +250,24 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
           !ref.read(Preferences.startedByUser) ||
           !ref.read(Preferences.autoReconnect))
         return;
-      if (!await AndroidVpnSettings.wantsConnection()) {
+      final wantsConnection = await AndroidVpnSettings.wantsConnection();
+      if (!ref.mounted || epoch != _epoch) return;
+      if (!wantsConnection) {
         if (ref.mounted && epoch == _epoch) {
           _cancelRecovery();
           await ref.read(Preferences.startedByUser.notifier).update(false);
         }
         return;
       }
-      if (await AndroidVpnSettings.serviceRunning() &&
-          await ref.read(hiddifyCoreServiceProvider).backgroundCoreRunning()) {
-        if (ref.mounted && epoch == _epoch) ref.read(recoveryStatusProvider.notifier).set(0);
-        return;
+      final serviceRunning = await AndroidVpnSettings.serviceRunning();
+      if (!ref.mounted || epoch != _epoch) return;
+      if (serviceRunning) {
+        final coreRunning = await ref.read(hiddifyCoreServiceProvider).backgroundCoreRunning();
+        if (!ref.mounted || epoch != _epoch) return;
+        if (coreRunning) {
+          ref.read(recoveryStatusProvider.notifier).set(0);
+          return;
+        }
       }
       final profile = await ref.read(activeProfileProvider.future);
       if (!ref.mounted || epoch != _epoch || profile == null) return;
@@ -272,7 +277,10 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
             !ref.read(Preferences.startedByUser) ||
             !ref.read(Preferences.autoReconnect))
           return right<ConnectionFailure, Unit>(unit);
-        if (await AndroidVpnSettings.serviceRunning()) {
+        final serviceRunning = await AndroidVpnSettings.serviceRunning();
+        if (!ref.mounted || epoch != _epoch || !ref.read(Preferences.startedByUser))
+          return right<ConnectionFailure, Unit>(unit);
+        if (serviceRunning) {
           if (!await AndroidVpnSettings.stopService()) {
             return left<ConnectionFailure, Unit>(
               ConnectionFailure.unexpected(StateError('Unable to stop stale service'), StackTrace.current),
@@ -373,12 +381,14 @@ class ConnectionNotifier extends _$ConnectionNotifier with AppLogger {
   }
 
   Future<void> _disconnect() async {
+    if (!ref.mounted) return;
+    final repository = _connectionRepo;
     _cancelRecovery();
     // A connect operation can legitimately spend tens of seconds in Android permission/setup
     // while the serialized core queue is occupied. Ask the native service to stop immediately;
     // the regular queued disconnect below still performs the authoritative core cleanup.
     if (Platform.isAndroid) unawaited(_requestNativeStop());
-    final result = await _serializeCoreOperation(() => _connectionRepo.disconnect().run());
+    final result = await _serializeCoreOperation(() => repository.disconnect().run());
     await result.match<Future<void>>((error) => _handleFailure(error), (_) async {});
   }
 

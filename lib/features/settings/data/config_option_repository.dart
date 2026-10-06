@@ -456,7 +456,7 @@ abstract class ConfigOptions {
           noiseSize: ref.watch(unblockerWarpNoiseSize),
           noiseDelay: ref.watch(unblockerWarpNoiseDelay),
         ),
-        psiphon: SingboxExtraSecurityPsiphonOption(
+        psiphon: SingboxUnblockerPsiphonOption(
           region: ref.watch(unblockerPsiphonRegion),
           conduitPairingId: ref.watch(unblockerPsiphonConduitPairingId),
         ),

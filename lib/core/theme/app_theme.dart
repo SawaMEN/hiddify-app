@@ -79,7 +79,7 @@ class AppTheme {
       scaffoldBackgroundColor: Colors.transparent,
       canvasColor: scaffoldColor,
       fontFamily: fontFamily,
-      fontFamilyFallback: const ["Shabnam", "Emoji"],
+      fontFamilyFallback: const ["Emoji"],
       visualDensity: VisualDensity.standard,
       splashFactory: InkRipple.splashFactory,
       splashColor: scheme.primary.withValues(alpha: .10),

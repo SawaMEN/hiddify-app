@@ -21,7 +21,7 @@ class FreeBtns extends ConsumerWidget {
     final freeProfilesFilteredByRegion = ref.watch(freeProfilesFilteredByRegionProvider);
     final theme = Theme.of(context);
     final locale = ref.watch(localePreferencesProvider);
-    final isFa = locale.name == AppLocale.fa.name;
+    final isRu = locale == AppLocale.ru;
     return freeProfilesFilteredByRegion.when(
       data: (data) => data.isNotEmpty
           ? ScrollConfiguration(
@@ -44,8 +44,8 @@ class FreeBtns extends ConsumerWidget {
                   return FreeBtn(
                     freeProfile: profile,
                     onTap: () async {
-                      final title = isFa ? profile.title.fa : profile.title.en;
-                      final consent = isFa ? profile.consent.fa : profile.consent.en;
+                      final title = isRu ? (profile.title.ru ?? profile.title.en) : profile.title.en;
+                      final consent = isRu ? (profile.consent.ru ?? profile.consent.en) : profile.consent.en;
                       final result = await ref
                           .read(dialogNotifierProvider.notifier)
                           .showFreeProfileConsent(title: title, consent: consent);

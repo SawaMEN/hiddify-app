@@ -16,7 +16,7 @@ class FreeBtn extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).requireValue;
     final locale = ref.watch(localePreferencesProvider);
-    final isFa = locale.name == AppLocale.fa.name;
+    final isRu = locale == AppLocale.ru;
     final theme = Theme.of(context);
     final borderRadius = BorderRadius.circular(18);
 
@@ -41,7 +41,7 @@ class FreeBtn extends ConsumerWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        isFa ? freeProfile.title.fa : freeProfile.title.en,
+                        isRu ? (freeProfile.title.ru ?? freeProfile.title.en) : freeProfile.title.en,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleSmall!.copyWith(color: theme.colorScheme.onSurface),
@@ -63,7 +63,7 @@ class FreeBtn extends ConsumerWidget {
                 ),
               ),
               CustomTextScroll(
-                isFa ? freeProfile.tags.fa.join(' · ') : freeProfile.tags.en.join(' · '),
+                (isRu ? (freeProfile.tags.ru ?? freeProfile.tags.en) : freeProfile.tags.en).join(' · '),
                 style: theme.textTheme.labelMedium!.copyWith(color: theme.colorScheme.onSurfaceVariant),
               ),
             ],

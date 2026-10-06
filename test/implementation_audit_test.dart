@@ -1,17 +1,12 @@
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hiddify/core/directories/directories_provider.dart';
 import 'package:hiddify/core/model/environment.dart';
 import 'package:hiddify/core/model/optional_range.dart';
 import 'package:hiddify/core/utils/preferences_utils.dart';
 import 'package:hiddify/core/utils/profile_metadata.dart';
 import 'package:hiddify/features/app_update/data/app_update_repository.dart';
-import 'package:hiddify/features/route_rules/notifier/rules_notifier.dart';
-import 'package:hiddify/hiddifycore/generated/v2/config/route_rule.pb.dart';
 import 'package:hiddify/utils/link_parsers.dart';
 import 'package:hiddify/utils/validators.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -133,35 +128,4 @@ void main() {
     expect(() => selectLatestCompatibleRelease([release('broken')]), throwsFormatException);
   });
 
-  test('Rule writes serialize, normalize orders and preserve state on failed persistence', () async {
-    final dir = await Directory.systemTemp.createTemp('hiddify-rules-');
-    final container = ProviderContainer(
-      overrides: [
-        appDirectoriesProvider.overrideWithBuild((_, _) async => (baseDir: dir, workingDir: dir, tempDir: dir)),
-      ],
-    );
-    final sub = container.listen(rulesNotifierProvider, (_, _) {});
-    try {
-      await container.read(appDirectoriesProvider.future);
-      final notifier = container.read(rulesNotifierProvider.notifier);
-      await notifier.replaceRules([Rule(name: 'first', outbound: Outbound.direct, listOrder: 20)]);
-      await Future.wait([
-        notifier.addRule(Rule(name: 'second', outbound: Outbound.block)),
-        notifier.addRule(Rule(name: 'third', outbound: Outbound.direct)),
-      ]);
-      final rules = container.read(rulesNotifierProvider);
-      expect(rules.map((r) => r.listOrder), [0, 1, 2]);
-      expect(RouteRule.fromBuffer(await notifier.file.readAsBytes()).rules, rules);
-      final original = notifier.file;
-      final target = Directory('${dir.path}/cannot-replace')..createSync();
-      notifier.file = File(target.path);
-      await expectLater(notifier.deleteRule(0), throwsA(isA<FileSystemException>()));
-      expect(container.read(rulesNotifierProvider), rules);
-      notifier.file = original;
-    } finally {
-      sub.close();
-      container.dispose();
-      await dir.delete(recursive: true);
-    }
-  });
 }

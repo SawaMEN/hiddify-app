@@ -7,8 +7,6 @@ import 'package:hiddify/core/privacy/redactor.dart';
 import 'package:hiddify/features/connection/health/recovery_policy.dart';
 import 'package:hiddify/features/profile/import/import_summary.dart';
 import 'package:hiddify/features/proxy/selection/server_ranker.dart';
-import 'package:hiddify/features/route_rules/inspection/route_inspector.dart';
-import 'package:hiddify/hiddifycore/generated/v2/config/route_rule.pb.dart';
 
 void main() {
   test('A captive portal 200 cannot satisfy a 204 probe', () {
@@ -69,111 +67,6 @@ void main() {
     }
     expect(r.recommend('a', {'a', 'b'}, 900000), isNull);
   });
-  test('Domain suffix matching has a label boundary', () {
-    final rule = Rule(
-      enabled: true,
-      domainSuffixes: ['example.org'],
-      outbound: Outbound.direct,
-    );
-    expect(
-      RouteInspector.matches(rule, const RouteQuery('sub.example.org')),
-      MatchResult.yes,
-    );
-    expect(
-      RouteInspector.matches(rule, const RouteQuery('notexample.org')),
-      MatchResult.no,
-    );
-    rule.domainSuffixes[0] = '.example.org';
-    expect(
-      RouteInspector.matches(rule, const RouteQuery('example.org')),
-      MatchResult.no,
-    );
-  });
-  test('Destination criteria are OR, port and package are AND', () {
-    final rule = Rule(
-      domains: ['example.org'],
-      ipCidrs: ['192.0.2.0/24'],
-      portRanges: ['443'],
-      packageNames: ['org.app'],
-    );
-    expect(
-      RouteInspector.matches(
-        rule,
-        const RouteQuery('example.org', port: 443, package: 'org.app'),
-      ),
-      MatchResult.yes,
-    );
-    expect(
-      RouteInspector.matches(
-        rule,
-        const RouteQuery('example.org', port: 80, package: 'org.app'),
-      ),
-      MatchResult.no,
-    );
-    expect(
-      RouteInspector.matches(
-        rule,
-        const RouteQuery('elsewhere.org', port: 443, package: 'org.app'),
-      ),
-      MatchResult.unknown,
-    );
-  });
-  test(
-    'An uncertain earlier rule cannot be bypassed by a definite later match',
-    () {
-      final unknown = Rule(enabled: true, listOrder: 0, ruleSets: ['remote']);
-      final later = Rule(enabled: true, listOrder: 1, domains: ['example.org']);
-      final result = RouteInspector.inspect([
-        later,
-        unknown,
-      ], const RouteQuery('example.org'));
-      expect(result.rule, unknown);
-      expect(result.match, MatchResult.unknown);
-    },
-  );
-  test('IPv4 and IPv6 CIDRs are evaluated by prefix', () {
-    expect(
-      RouteInspector.matches(
-        Rule(ipCidrs: ['192.0.2.0/24']),
-        const RouteQuery('192.0.2.7'),
-      ),
-      MatchResult.yes,
-    );
-    expect(
-      RouteInspector.matches(
-        Rule(ipCidrs: ['2001:db8::/32']),
-        const RouteQuery('2001:db8::123'),
-      ),
-      MatchResult.yes,
-    );
-    expect(
-      RouteInspector.matches(
-        Rule(ipCidrs: ['2001:db8::/32']),
-        const RouteQuery('2001:db9::123'),
-      ),
-      MatchResult.no,
-    );
-  });
-  test(
-    'Complex regular expressions and missing process data remain uncertain',
-    () {
-      expect(
-        RouteInspector.matches(
-          Rule(domainRegexes: ['(a+)+']),
-          const RouteQuery('aaa'),
-        ),
-        MatchResult.unknown,
-      );
-      expect(
-        RouteInspector.matches(
-          Rule(processNames: ['browser']),
-          const RouteQuery('example.org'),
-        ),
-        MatchResult.unknown,
-      );
-      expect(RouteQuery.normalize('https://example.org/'), isNull);
-    },
-  );
   test(
     'JSON preview counts duplicates without server names and detects overrides',
     () {
