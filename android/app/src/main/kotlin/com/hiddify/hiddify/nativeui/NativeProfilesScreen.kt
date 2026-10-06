@@ -43,6 +43,7 @@ fun NativeProfilesScreen(
     onSelect: (NativeProfile) -> Unit,
     onDelete: (NativeProfile) -> Unit,
     onRefresh: (NativeProfile) -> Unit,
+    onEdit: (NativeProfile) -> Unit,
     onImport: (raw: String, name: String?, intervalHours: Int?, disableAutoUpdate: Boolean) -> Unit,
 ) {
     var addOpen by remember { mutableStateOf(false) }
@@ -105,6 +106,7 @@ fun NativeProfilesScreen(
                         onSelect = { onSelect(profile) },
                         onDelete = { deleteCandidate = profile },
                         onRefresh = { onRefresh(profile) },
+                        onEdit = { onEdit(profile) },
                     )
                 }
             }
@@ -152,6 +154,7 @@ private fun ProfileCard(
     onSelect: () -> Unit,
     onDelete: () -> Unit,
     onRefresh: () -> Unit,
+    onEdit: () -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -228,6 +231,9 @@ private fun ProfileCard(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                TextButton(onClick = onEdit, enabled = !busy) {
+                    Text(stringResource(R.string.native_profile_edit))
+                }
                 if (profile.isRemote) {
                     TextButton(onClick = onRefresh, enabled = !busy) {
                         Text(
