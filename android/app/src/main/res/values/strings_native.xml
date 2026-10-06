@@ -80,6 +80,11 @@
     <string name="native_profile_update_interval">Update interval, hours</string>
     <string name="native_profile_update_interval_hint">Leave empty to use the subscription-provided interval.</string>
     <string name="native_profile_import">Import</string>
+    <string name="native_profile_paste_clipboard">Paste clipboard</string>
+    <string name="native_profile_choose_file">Choose file</string>
+    <string name="native_profile_clipboard_empty">Clipboard does not contain profile text.</string>
+    <string name="native_profile_file_empty">The selected file is empty.</string>
+    <string name="native_profile_file_read_failed">Could not read the selected file: %1$s</string>
     <string name="native_profile_disconnect_required">Disconnect the VPN before changing, importing or deleting the active profile.</string>
 
     <string name="native_per_app_open">Per-app routing</string>
