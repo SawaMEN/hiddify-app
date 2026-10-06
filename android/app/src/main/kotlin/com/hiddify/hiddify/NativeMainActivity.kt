@@ -22,6 +22,8 @@ import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativeprofile.NativeProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileRepository
+import com.hiddify.hiddify.nativerouting.NativePerAppRepository
+import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
 import com.hiddify.hiddify.nativeui.NativeApp
 import com.hiddify.hiddify.nativeui.NativeSettingsState
 import kotlinx.coroutines.Dispatchers
@@ -46,10 +48,20 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val activeProfilePath = mutableStateOf("")
     private val profiles = mutableStateOf<List<NativeProfile>>(emptyList())
     private val busyProfileId = mutableStateOf<String?>(null)
+    private val perAppSnapshot =
+        mutableStateOf(
+            NativePerAppSnapshot(
+                mode = Settings.perAppProxyMode,
+                apps = emptyList(),
+                selectedPackages = emptySet(),
+            ),
+        )
+    private val perAppBusy = mutableStateOf(false)
     private val errorMessage = mutableStateOf<String?>(null)
     private val nativeSettings = mutableStateOf(readNativeSettings())
 
     private val profileRepository by lazy { NativeProfileRepository(applicationContext) }
+    private val perAppRepository by lazy { NativePerAppRepository(applicationContext) }
     private val connection = ServiceConnection(this, this)
 
     private var pendingStartAfterVpnPermission = false
@@ -92,6 +104,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
         refreshProfiles(syncActive = true)
+        refreshPerApp()
 
         setContent {
             NativeApp(
@@ -102,6 +115,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 settingsState = nativeSettings.value,
                 profiles = profiles.value,
                 busyProfileId = busyProfileId.value,
+                perAppSnapshot = perAppSnapshot.value,
+                perAppBusy = perAppBusy.value,
                 errorMessage = errorMessage.value,
                 onDismissError = { errorMessage.value = null },
                 onToggleConnection = ::toggleConnection,
@@ -109,6 +124,9 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onDeleteProfile = ::deleteProfile,
                 onRefreshProfile = ::refreshRemoteProfile,
                 onImportProfile = ::importProfile,
+                onPerAppModeChanged = ::setPerAppMode,
+                onTogglePerAppPackage = ::togglePerAppPackage,
+                onClearPerApp = ::clearPerAppPackages,
                 onOpenLegacy = ::openLegacyUi,
                 onRootModeChanged = { value ->
                     if (serviceStatus.value != Status.Stopped) {
@@ -146,6 +164,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
         refreshProfiles()
+        refreshPerApp()
         connection.connect()
     }
 
@@ -154,6 +173,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
         refreshProfiles()
+        refreshPerApp()
         if (serviceStatus.value == Status.Started) {
             maybeRequestNotificationPermission()
             maybePromptBatteryOptimization()
@@ -190,6 +210,49 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 if (syncActive) {
                     errorMessage.value = error.message ?: error.javaClass.simpleName
                 }
+            }
+        }
+    }
+
+    private fun refreshPerApp() {
+        if (perAppBusy.value) return
+        lifecycleScope.launch {
+            try {
+                perAppSnapshot.value = withContext(Dispatchers.IO) { perAppRepository.snapshot() }
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            }
+        }
+    }
+
+    private fun setPerAppMode(mode: String) {
+        runPerAppOperation { perAppRepository.setMode(mode) }
+    }
+
+    private fun togglePerAppPackage(packageName: String) {
+        val mode = perAppSnapshot.value.mode
+        runPerAppOperation { perAppRepository.togglePackage(mode, packageName) }
+    }
+
+    private fun clearPerAppPackages() {
+        val mode = perAppSnapshot.value.mode
+        runPerAppOperation { perAppRepository.clear(mode) }
+    }
+
+    private fun runPerAppOperation(operation: () -> NativePerAppSnapshot) {
+        if (perAppBusy.value) return
+        if (serviceStatus.value != Status.Stopped) {
+            errorMessage.value = getString(R.string.native_per_app_disconnect)
+            return
+        }
+        perAppBusy.value = true
+        lifecycleScope.launch {
+            try {
+                perAppSnapshot.value = withContext(Dispatchers.IO) { operation() }
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                perAppBusy.value = false
             }
         }
     }
