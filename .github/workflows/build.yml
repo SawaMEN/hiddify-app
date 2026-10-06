@@ -314,6 +314,18 @@ jobs:
           from check_app_version import apk_minimum_sdk, declared_version
           aapt = Path(os.environ['ANDROID_HOME']) / 'build-tools/37.0.0/aapt2'
           metadata = subprocess.check_output([str(aapt), 'dump', 'badging', sys.argv[1]], text=True)
+          package = re.search(r"^package: name='([^']+)'", metadata, re.M)
+          if package is None or package.group(1) != 'app.vetroff.client':
+              raise SystemExit('APK must use the independent VetrOFF package app.vetroff.client')
+          manifest = subprocess.check_output([str(aapt), 'dump', 'xmltree', sys.argv[1], '--file', 'AndroidManifest.xml'], text=True)
+          shortcuts = subprocess.check_output([str(aapt), 'dump', 'xmltree', sys.argv[1], '--file', 'res/xml/shortcuts.xml'], text=True)
+          if 'app.vetroff.client.privacy.files' not in manifest or 'app.hiddify.com.privacy.files' in manifest:
+              raise SystemExit('APK FileProvider must belong to VetrOFF')
+          if 'app.vetroff.client' not in shortcuts or 'app.hiddify.com' in shortcuts:
+              raise SystemExit('Packaged shortcut must launch VetrOFF rather than upstream')
+          if 'com.hiddify.hiddify.MainActivity' not in manifest:
+              raise SystemExit('Changing applicationId must preserve the native activity namespace')
+          print('Independent VetrOFF package, FileProvider and shortcut verified')
           version, build = declared_version()
           actual = re.search(r"package:.*versionCode='([^']+)'.*versionName='([^']+)'", metadata)
           if actual is None or actual.groups() != (build, version):

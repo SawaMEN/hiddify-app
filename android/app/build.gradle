@@ -88,7 +88,8 @@ android {
     }
 
     defaultConfig {
-        applicationId "app.hiddify.com"
+        // The fork must install alongside upstream, with its own data and providers.
+        applicationId "app.vetroff.client"
         minSdkVersion 29
         targetSdkVersion 36
         versionCode flutterVersionCode.toInteger()

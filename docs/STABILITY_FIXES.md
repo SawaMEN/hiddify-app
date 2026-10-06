@@ -165,3 +165,28 @@ Its previously declared scoped dependencies rejected coordinator reads in debug
 mode and made resume recovery fail before it could query the daemon. The focused
 recovery tests exercise these reads with native/core adapters rather than
 bypassing Riverpod's dependency checks.
+
+## Restored branding and independent Android installation
+
+- Restored the earlier VetrOFF artwork (metallic five-blade fan, blue/grey ring,
+  VPN shield and VetrOFF wordmark) from the original image, with alpha transparency.
+  The built-in image editor removed the background and extracted separate static
+  frame and moving blade layers; platform assets are resized from that artwork.
+- Startup rotates only the blades once per second, four times faster than before.
+  The ring, shield and wordmark stay still. Reduced motion, background pause and
+  immediate handoff after initialization remain supported.
+- Android application ID is now `app.vetroff.client`, separate from upstream
+  `app.hiddify.com`. The native Kotlin namespace stays `com.hiddify.hiddify`.
+  The shortcut targets the fork; FileProvider uses the application ID; service
+  actions use the installed package at runtime, including privacy-repacked copies.
+- CI checks the actual APK package, provider authority, native activity and
+  shortcut, as well as version, minimum SDK and architecture.
+- Android treats this as a separate installation with its own data. Before
+  switching from the old package, export/share profiles and import them in the
+  new installation. Installing the fork does not uninstall or overwrite Hiddify.
+  Android permits only one active system VPN at a time.
+
+Brand edit prompt: faithfully extract the original VetrOFF logo with actual
+transparent alpha; preserve its metallic fan, split blue/grey ring, wind trails,
+VPN shield and wordmark; extract stationary frame and centered five-blade rotor
+for animation without redesigning the brand.
