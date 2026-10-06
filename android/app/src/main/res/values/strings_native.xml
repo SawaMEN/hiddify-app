@@ -18,7 +18,7 @@
     <string name="native_wifi_sharing_off">VPN sharing is disabled</string>
     <string name="native_profiles">Profiles</string>
     <string name="native_settings">Settings</string>
-    <string name="native_migration_note">Profiles and advanced settings still open the compatibility interface while they are being migrated to Kotlin.</string>
+    <string name="native_migration_note">Connection, profiles, imports and core network settings are native Kotlin. The compatibility interface remains only for advanced screens not migrated yet.</string>
     <string name="native_error_title">Unable to continue</string>
     <string name="native_no_active_profile">Select or import a profile before connecting.</string>
     <string name="native_vpn_permission_denied">Android VPN permission was not granted.</string>
@@ -56,4 +56,29 @@
     <string name="native_domains_hint">One domain or rule per line.</string>
     <string name="native_settings_disconnect_required">Disconnect the VPN before changing root mode or Wi-Fi sharing.</string>
     <string name="native_settings_reconnect_note">Reconnect the VPN after changing routing or DNS settings so the core reloads them.</string>
+
+    <string name="native_advanced_legacy">Advanced compatibility UI</string>
+    <string name="native_profile_add">Add</string>
+    <string name="native_profiles_empty">No profiles yet</string>
+    <string name="native_profiles_empty_summary">Import a subscription URL, Hiddify deep link, proxy link list, or raw configuration.</string>
+    <string name="native_profile_active">Active</string>
+    <string name="native_profile_remote">Remote subscription</string>
+    <string name="native_profile_local">Local profile</string>
+    <string name="native_profile_use">Use</string>
+    <string name="native_profile_update">Update</string>
+    <string name="native_profile_updating">Updating…</string>
+    <string name="native_profile_delete">Delete</string>
+    <string name="native_profile_delete_title">Delete profile?</string>
+    <string name="native_profile_delete_message">Delete “%1$s” and its local configuration file?</string>
+    <string name="native_profile_traffic">Used %1$s of %2$s · %3$s remaining</string>
+    <string name="native_profile_add_title">Import profile</string>
+    <string name="native_profile_url_or_content">Subscription URL or configuration</string>
+    <string name="native_profile_url_or_content_hint">Paste an HTTPS/HTTP URL, import link, proxy links, JSON/YAML, WireGuard config, or base64 subscription.</string>
+    <string name="native_profile_name_optional">Name (optional)</string>
+    <string name="native_profile_disable_update">Disable automatic updates</string>
+    <string name="native_profile_disable_update_summary">Keep this subscription unchanged until you update it manually.</string>
+    <string name="native_profile_update_interval">Update interval, hours</string>
+    <string name="native_profile_update_interval_hint">Leave empty to use the subscription-provided interval.</string>
+    <string name="native_profile_import">Import</string>
+    <string name="native_profile_disconnect_required">Disconnect the VPN before changing, importing or deleting the active profile.</string>
 </resources>
