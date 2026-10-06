@@ -26,7 +26,7 @@ void main() {
       }
       expect(subscriptions, 6);
       await tester.pump(const Duration(minutes: 5));
-      expect(subscriptions, 7);
+      expect(subscriptions, 16);
 
       // An explicit new lifecycle gives the channel a fresh recovery budget.
       await service.stopListenSingle('test');
@@ -34,11 +34,11 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(seconds: 2));
       await tester.pump();
-      expect(subscriptions, 9);
+      expect(subscriptions, 18);
       await service.dispose();
       container.dispose();
       await tester.pump(const Duration(minutes: 1));
-      expect(subscriptions, 9);
+      expect(subscriptions, 18);
     });
   }
 

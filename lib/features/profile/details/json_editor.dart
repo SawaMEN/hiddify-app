@@ -408,6 +408,7 @@ class _JsonEditorState extends State<JsonEditor> {
   late final _themeColor = widget.themeColor ?? Theme.of(context).primaryColor;
   late Editors _editor = widget.editors.first;
   bool _onError = false;
+  bool _parsePending = false;
   bool? allExpanded;
   late final _controller = TextEditingController()..text = _stringifyData(_data, 0, true);
   late final _scrollController = ScrollController();
@@ -449,24 +450,33 @@ class _JsonEditorState extends State<JsonEditor> {
 
   void parseData(String value) {
     _parseTimer?.cancel();
+    _parsePending = true;
     widget.onValidationChanged?.call(false);
     final generation = ++_parseGeneration;
     _parseTimer = Timer(const Duration(milliseconds: 200), () async {
       try {
         final data = await compute(_decodeEditorJson, value);
         if (!mounted || generation != _parseGeneration) return;
+        _parsePending = false;
         _data = data;
         widget.onChanged(data);
         widget.onValidationChanged?.call(true);
         setState(() => _onError = false);
       } catch (_) {
-        if (mounted && generation == _parseGeneration) setState(() => _onError = true);
+        if (mounted && generation == _parseGeneration) {
+          _parsePending = false;
+          setState(() => _onError = true);
+        }
       }
     });
   }
 
   void copyData() async {
-    await Clipboard.setData(ClipboardData(text: const JsonEncoder.withIndent(' ').convert(_data)));
+    await Clipboard.setData(
+      ClipboardData(
+        text: _editor == Editors.text ? _controller.text : const JsonEncoder.withIndent(' ').convert(_data),
+      ),
+    );
   }
 
   bool updateParentObjects(List newExpandList) {
@@ -666,7 +676,7 @@ class _JsonEditorState extends State<JsonEditor> {
                           tooltip: 'Change editor',
                           padding: EdgeInsets.zero,
                           onSelected: (value) {
-                            if (_onError) return;
+                            if (_onError || _parsePending) return;
                             if (value == _editor) return;
                             if (value == Editors.text) _controller.text = _stringifyData(_data, 0, true);
                             setState(() => _editor = value);
@@ -703,7 +713,7 @@ class _JsonEditorState extends State<JsonEditor> {
                         const SizedBox(width: 20),
                         InkWell(
                           onTap: () {
-                            if (!_onError) _controller.text = _stringifyData(_data, 0, true);
+                            if (!_onError && !_parsePending) _controller.text = _stringifyData(_data, 0, true);
                           },
                           child: const Tooltip(message: 'Format', child: Icon(Icons.format_align_left, size: 20)),
                         ),

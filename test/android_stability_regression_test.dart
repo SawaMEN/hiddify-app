@@ -56,7 +56,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Text editor escapes JSON strings and publishes valid edits immediately', (tester) async {
+  testWidgets('Text editor escapes JSON strings and keeps Save disabled until the latest text edit is validated', (
+    tester,
+  ) async {
     dynamic changed;
     bool? valid;
     await tester.pumpWidget(
@@ -72,6 +74,15 @@ void main() {
     expect(source['route']['final'], 'a"b\\c\n');
     source['route']['final'] = 'edited';
     await tester.enterText(field, jsonEncode(source));
+    expect(valid, isFalse);
+    expect(changed, isNull);
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.runAsync(() async {
+      for (var attempt = 0; attempt < 500 && valid != true; attempt++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+    });
+    await tester.pump();
     expect(changed['route']['final'], 'edited');
     expect(changed['dns'], source['dns']);
     expect(valid, isTrue);
