@@ -49,6 +49,7 @@ fun NativeSettingsScreen(
     canChangeServiceMode: Boolean,
     onBack: () -> Unit,
     onOpenPerAppRouting: () -> Unit,
+    onOpenCoreOptions: () -> Unit,
     onProxyOnlyChanged: (Boolean) -> Unit,
     onRootModeChanged: (Boolean) -> Unit,
     onWifiSharingChanged: (Boolean) -> Unit,
@@ -190,6 +191,20 @@ fun NativeSettingsScreen(
                 supportingText = { Text(stringResource(R.string.native_domains_hint)) },
                 minLines = 3,
             )
+        }
+
+        SettingsSection(title = stringResource(R.string.native_core_options_title)) {
+            Text(
+                text = stringResource(R.string.native_core_options_summary),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(
+                onClick = onOpenCoreOptions,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.native_core_options_open))
+            }
         }
 
         SettingsSection(title = stringResource(R.string.native_settings_app)) {
