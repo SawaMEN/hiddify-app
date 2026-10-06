@@ -162,14 +162,17 @@ void main() {
   testWidgets('Russian sharing diagrams fit a narrow screen with enlarged text', (tester) async {
     await tester.binding.setSurfaceSize(const ui.Size(360, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await setup(tester, const WifiSharingInstructionsPage(), russian: true, scale: 1.5);
+    final container = await setup(tester, const WifiSharingInstructionsPage(), russian: true, scale: 1.5);
     final guideScroll = find
         .descendant(of: find.byKey(const ui.PageStorageKey('wifi-guide-0')), matching: find.byType(ui.Scrollable))
         .first;
     await revealGuide(tester, guideScroll, find.text('Android → Изменить сеть → Прокси'));
     expect(find.text('Имя хоста прокси'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await revealGuide(tester, guideScroll, find.text('Раздатчик с root → Клиент без прокси'));
+    await container.read(VpnPrivacyPreferences.useRoot.notifier).update(true);
+    await tester.pumpAndSettle();
+    await revealGuide(tester, guideScroll, find.text('Получающее устройство → Прокси'));
+    expect(find.text('Данные для подключения'), findsNothing);
     expect(find.text('Нет / Выкл.'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const ui.SizedBox());

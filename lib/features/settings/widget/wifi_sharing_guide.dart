@@ -7,7 +7,7 @@ class SharingGuideSection {
   final Map<String, String> fields;
 }
 
-List<SharingGuideSection> sharingGuide(int platform, bool ru, String host, int port) {
+List<SharingGuideSection> sharingGuide(int platform, bool ru, String host, int port, {bool root = false}) {
   String t(String russian, String english) => ru ? russian : english;
   final on = t('Включено', 'On');
   final manual = t('Вручную', 'Manual');
@@ -18,43 +18,90 @@ List<SharingGuideSection> sharingGuide(int platform, bool ru, String host, int p
     t('Пользователь', 'Username'): 'hiddify',
     t('Пароль прокси', 'Proxy password'): t('Из карточки выше', 'From the card above'),
   };
-  final app = SharingGuideSection(
-    t('Подготовьте раздатчик в приложении', 'Prepare the host in the app'),
+  final connect = SharingGuideSection(
+    t('Подключитесь к Wi-Fi телефона', 'Join the phone Wi-Fi'),
     [
       t(
-        'Раздатчик — устройство с запущенным VPN. Клиент — устройство, которое подключается к его Wi-Fi. Вкладку выбирайте по ОС устройства, которое сейчас настраиваете; ОС раздатчика и клиента могут отличаться.',
-        'The host runs the VPN. The client joins its Wi-Fi. Choose the tab for the device you are configuring; host and client can use different operating systems.',
+        'На устройстве, которое получает интернет, откройте список Wi-Fi сетей. Выберите точку доступа этого телефона (например, VPN-WiFi) и введите пароль Wi-Fi, заданный на телефоне.',
+        'On the device receiving internet open the Wi-Fi network list. Select this phone hotspot (for example VPN-WiFi) and enter the Wi-Fi password set on the phone.',
       ),
       t(
-        'Проверьте, что на раздатчике работает интернет. В основных настройках приложения включите «Раздача Wi-Fi через VPN». Подключите VPN и дождитесь успешного подключения.',
-        'Check the host internet connection. In the app general settings enable VPN Wi-Fi sharing. Connect the VPN and wait for a successful connection.',
+        'Телефон с приложением должен уже раздавать Wi-Fi, а VPN и «Раздача Wi-Fi через VPN» должны быть включены. Приложение на получающем устройстве устанавливать не нужно. Выберите вкладку ОС получающего устройства.',
+        'This phone must already have its hotspot, VPN and VPN Wi-Fi sharing enabled. You do not need to install this app on the receiving device. Choose the receiving device OS tab.',
       ),
       t(
-        'В обычном режиме приложение открывает HTTP/SOCKS5-прокси. Системную точку доступа включите отдельно по шагам ниже. Переключатель приложения сам Wi-Fi сеть не создаёт.',
-        'In normal mode the app opens an HTTP/SOCKS5 proxy. Enable the system hotspot separately using the steps below. The app switch does not create a Wi-Fi network.',
-      ),
-      t(
-        'Запишите порт, имя hiddify и пароль из карточки выше. Пароль Wi-Fi и пароль прокси — два разных пароля. Не вводите адрес VPN-сервера в поле IP прокси.',
-        'Note the port, username hiddify and password in the card above. The Wi-Fi password and proxy password are different. Do not enter the remote VPN server address as the proxy IP.',
+        'Пока проверяете подключение, не переключайте получающее устройство на мобильные данные или другую Wi-Fi сеть. Если на нём работает свой VPN, отключите его для проверки.',
+        'While testing, keep the receiving device on the phone Wi-Fi rather than cellular data or another network. Disable its own VPN for this check if one is running.',
       ),
     ],
-    screenTitle: t('Приложение → Основные настройки', 'App → General settings'),
+    screenTitle: t('Получающее устройство → Wi-Fi', 'Receiving device → Wi-Fi'),
     fields: {
-      t('Раздача Wi-Fi через VPN', 'VPN Wi-Fi sharing'): on,
-      'VPN': t('Подключён', 'Connected'),
-      t('Порт прокси', 'Proxy port'): '$port',
+      t('Сеть телефона', 'Phone network'): 'VPN-WiFi',
+      t('Состояние', 'Status'): t('Подключено', 'Connected'),
+      t('Пароль Wi-Fi', 'Wi-Fi password'): t('Пароль точки доступа телефона', 'Phone hotspot password'),
     },
   );
+  final proxyPath = [
+    t(
+      'Android: Настройки → Wi-Fi → сеть телефона → Изменить → Прокси → Нет.',
+      'Android: Settings → Wi-Fi → phone network → Edit → Proxy → None.',
+    ),
+    t(
+      'Windows: Параметры → Сеть и Интернет → Прокси → Использовать прокси-сервер → Выкл.',
+      'Windows: Settings → Network & internet → Proxy → Use a proxy server → Off.',
+    ),
+    t(
+      'Linux: Настройки → Сеть → Сетевой прокси → Отключено. Также отключите прокси в настройках используемых программ.',
+      'Linux: Settings → Network → Network Proxy → Disabled. Also disable proxies in your apps.',
+    ),
+    t(
+      'macOS: Системные настройки → Сеть → Wi-Fi → Подробнее → Прокси. Отключите веб-прокси HTTP/HTTPS и SOCKS-прокси.',
+      'macOS: System Settings → Network → Wi-Fi → Details → Proxies. Disable HTTP/HTTPS web proxies and SOCKS Proxy.',
+    ),
+    t(
+      'iOS: Настройки → Wi-Fi → ⓘ рядом с сетью телефона → Настройка прокси → Выкл.',
+      'iOS: Settings → Wi-Fi → ⓘ next to the phone network → Configure Proxy → Off.',
+    ),
+  ][platform];
+  if (root) {
+    return [
+      connect,
+      SharingGuideSection(
+        t('На телефоне включён root-режим', 'The phone uses root mode'),
+        [
+          t(
+            'В этом режиме телефон сам направляет трафик точки доступа по правилам VPN. На получающем устройстве достаточно подключиться к Wi-Fi; вручную задавать HTTP/SOCKS5-прокси и вводить логин не нужно.',
+            'In this mode the phone routes hotspot traffic according to its VPN rules. On the receiving device simply join Wi-Fi; you do not need to set an HTTP/SOCKS5 proxy or enter a proxy login.',
+          ),
+          t(
+            'Если ранее вы настраивали прокси этой сети, отключите его по пути ниже. Прокси, заданный отдельно внутри браузера или другой программы, тоже отключите.',
+            'If you previously configured a proxy for this network, disable it using the path below. Also disable any proxy set separately inside your browser or another app.',
+          ),
+          proxyPath,
+          t(
+            'После подключения проверьте внешний IP и DNS. Если интернет не работает или идёт напрямую, попросите проверить VPN и root-раздачу на телефоне. Текущие исключения маршрутизации телефона продолжают действовать.',
+            'After joining check the external IP and DNS. If internet fails or goes direct, check the phone VPN and root sharing. The phone routing exceptions still apply.',
+          ),
+        ],
+        screenTitle: t('Получающее устройство → Прокси', 'Receiving device → Proxy'),
+        fields: {
+          t('Wi-Fi телефона', 'Phone Wi-Fi'): t('Подключено', 'Connected'),
+          t('Ручной прокси', 'Manual proxy'): t('Нет / Выкл.', 'None / Off'),
+          t('Логин и пароль прокси', 'Proxy credentials'): t('Не требуются', 'Not required'),
+        },
+      ),
+    ];
+  }
   final address = SharingGuideSection(
     t('Найдите правильный IP раздатчика', 'Find the correct host IP'),
     [
       t(
-        'Подключите клиент к созданной сети Wi-Fi. Нажмите «Обновить IP раздатчика» выше. Приложение может показать адрес другого сетевого интерфейса, поэтому сравните его со шлюзом сети клиента.',
-        'Join the host Wi-Fi on the client. Tap Refresh host IP above. The app may show another interface address, so compare it with the client network gateway.',
+        'На подключённом устройстве откройте сведения о Wi-Fi сети телефона. Найдите «Шлюз» или «Маршрутизатор»: это локальный IP телефона, который нужно ввести в настройках прокси.',
+        'On the connected device open details of the phone Wi-Fi network. Find Gateway or Router: this is the phone local IP to enter in proxy settings.',
       ),
       t(
-        'Нужен локальный адрес раздатчика в сети клиента. Для прямого подключения к точке доступа это обычно «Шлюз» или «Маршрутизатор». Если оба устройства подключены к общему роутеру, нужен LAN IP самого раздатчика, а не адрес роутера.',
-        'Use the host local address in the client network. For a direct hotspot connection it is usually Gateway or Router. When both devices join an existing router, use the host LAN IP, not the router address.',
+        'Сверьте адрес с карточкой выше. Если приложение показало другой интерфейс телефона, используйте шлюз подключённой Wi-Fi сети. Не вводите внешний IP, адрес VPN-сервера или IP самого клиента.',
+        'Compare with the card above. If the app shows another phone interface, use the connected Wi-Fi network gateway. Do not enter the public IP, remote VPN server address or client own IP.',
       ),
       t(
         'После пересоздания точки доступа IP может измениться. Введите новый адрес на клиенте. Порт берите из карточки приложения; одинаковый порт используется для HTTP и SOCKS5.',
@@ -68,37 +115,11 @@ List<SharingGuideSection> sharingGuide(int platform, bool ru, String host, int p
       t('Это IP прокси при прямой раздаче', 'Proxy IP for a direct hotspot'): host,
     },
   );
-  late final SharingGuideSection hotspot;
   late final SharingGuideSection client;
-  SharingGuideSection? extra;
   switch (platform) {
     case 0:
-      hotspot = SharingGuideSection(
-        t('Android: включите точку доступа', 'Android: enable the hotspot'),
-        [
-          t(
-            'Откройте Настройки → Сеть и Интернет → Точка доступа и модем → Точка доступа Wi-Fi. На Samsung путь может называться «Подключения → Мобильная точка доступа и модем». У других производителей найдите «Точка доступа» поиском настроек.',
-            'Open Settings → Network & internet → Hotspot & tethering → Wi-Fi hotspot. Samsung may use Connections → Mobile Hotspot and Tethering. On other devices search Settings for hotspot.',
-          ),
-          t(
-            'Задайте понятное имя сети (например, VPN-WiFi), защиту WPA2/WPA3 и отдельный пароль Wi-Fi. Включите точку доступа. Если клиент не видит сеть, попробуйте диапазон 2,4 ГГц.',
-            'Choose a network name (for example VPN-WiFi), WPA2/WPA3 security and a separate Wi-Fi password. Turn on the hotspot. Try the 2.4 GHz band if the client cannot see it.',
-          ),
-          t(
-            'На клиенте выберите эту сеть и введите пароль Wi-Fi. Для раздачи из мобильного интернета включите мобильные данные. Раздача из входящего Wi-Fi поддерживается не на всех телефонах.',
-            'On the client select this network and enter the Wi-Fi password. Enable mobile data when sharing cellular internet. Sharing an incoming Wi-Fi connection is not supported on every phone.',
-          ),
-        ],
-        screenTitle: t('Android → Точка доступа Wi-Fi', 'Android → Wi-Fi hotspot'),
-        fields: {
-          t('Точка доступа', 'Hotspot'): on,
-          t('Имя сети', 'Network name'): 'VPN-WiFi',
-          t('Защита', 'Security'): 'WPA2 / WPA3',
-          t('Пароль Wi-Fi', 'Wi-Fi password'): '••••••••',
-        },
-      );
       client = SharingGuideSection(
-        t('Android-клиент: обычный режим без root', 'Android client: normal mode without root'),
+        t('Android: настройте прокси', 'Android: configure the proxy'),
         [
           t(
             'Откройте Настройки → Wi-Fi → подключённая сеть → Изменить / значок карандаша → Дополнительные параметры → Прокси → Вручную. Названия пунктов зависят от прошивки.',
@@ -125,59 +146,7 @@ List<SharingGuideSection> sharingGuide(int platform, bool ru, String host, int p
           t('Логин / пароль', 'Username / password'): t('В браузере или прокси-клиенте', 'In browser or proxy client'),
         },
       );
-      extra = SharingGuideSection(
-        t('Android-раздатчик: вариант с root', 'Android host: root mode'),
-        [
-          t(
-            'Этот вариант только для устройства, где root уже установлен. В дополнительных настройках приложения включите root-режим и подтвердите запрос su в менеджере root. Установка root не входит в эти действия.',
-            'This option is for a device that already has root. Enable root mode in the app additional settings and grant its su request in your root manager. These steps do not install root.',
-          ),
-          t(
-            'Оставьте включёнными системную точку доступа и «Раздача Wi-Fi через VPN». Переподключите VPN после смены режима. Дождитесь успешного запуска; ошибка TUN/netfilter означает, что перехват не запущен.',
-            'Keep the system hotspot and VPN Wi-Fi sharing enabled. Reconnect the VPN after changing mode. Wait for successful startup; a TUN/netfilter error means interception has not started.',
-          ),
-          t(
-            'На клиенте отключите вручную заданный прокси (Прокси → Нет / Выкл.) и подключитесь к точке доступа. В этом режиме ядро перехватывает трафик клиентов; логин прокси вводить не нужно. Применяются текущие правила маршрутизации, включая исключения напрямую.',
-            'On the client disable the manually configured proxy (Proxy → None / Off) and join the hotspot. The core intercepts client traffic in this mode; no proxy login is needed. Current routing rules, including direct exceptions, still apply.',
-          ),
-          t(
-            'Проверьте IP и DNS на клиенте. Если трафик идёт напрямую, проверьте выданные root-права, переподключите VPN и попробуйте обычный режим с прокси. Автоперехват зависит от ядра и прошивки устройства.',
-            'Check the client IP and DNS. If traffic goes direct, check root permission, reconnect the VPN and try normal proxy mode. Automatic interception depends on the device kernel and firmware.',
-          ),
-        ],
-        screenTitle: t('Раздатчик с root → Клиент без прокси', 'Root host → Client without proxy'),
-        fields: {
-          t('Root-режим на раздатчике', 'Host root mode'): on,
-          t('Разрешение su', 'su permission'): t('Разрешено', 'Granted'),
-          t('VPN после переподключения', 'VPN after reconnect'): t('Подключён', 'Connected'),
-          t('Прокси на клиенте', 'Client proxy'): t('Нет / Выкл.', 'None / Off'),
-        },
-      );
     case 1:
-      hotspot = SharingGuideSection(
-        t('Windows-раздатчик: мобильный хот-спот', 'Windows host: mobile hotspot'),
-        [
-          t(
-            'Откройте Параметры → Сеть и Интернет → Мобильный хот-спот. В «Совместное использование интернет-соединения из» выберите работающий входящий интернет (Ethernet или Wi-Fi). Для обычного режима не требуется выбирать VPN-адаптер.',
-            'Open Settings → Network & internet → Mobile hotspot. Under Share my internet connection from select a working incoming connection (Ethernet or Wi-Fi). Normal proxy mode does not require a VPN adapter here.',
-          ),
-          t(
-            'Выберите раздачу через Wi-Fi. Нажмите «Изменить» в свойствах сети, задайте имя и пароль Wi-Fi, сохраните и включите мобильный хот-спот. Подключите клиент к этой сети.',
-            'Select sharing over Wi-Fi. Edit network properties, set the Wi-Fi name and password, save and enable Mobile hotspot. Join this network on the client.',
-          ),
-          t(
-            'Если брандмауэр запрашивает доступ, разрешите приложению входящие подключения в доверенной частной сети. Не выключайте брандмауэр целиком. В обычном режиме хот-спот сам по себе раздаёт входящий интернет; клиенту обязательно нужен прокси.',
-            'If the firewall prompts, allow the app incoming connections on the trusted private network. Keep the firewall enabled. In normal mode the hotspot shares incoming internet; the client must use the proxy.',
-          ),
-        ],
-        screenTitle: t('Windows → Мобильный хот-спот', 'Windows → Mobile hotspot'),
-        fields: {
-          t('Раздавать через', 'Share over'): 'Wi-Fi',
-          t('Имя сети', 'Network name'): 'VPN-WiFi',
-          t('Пароль Wi-Fi', 'Wi-Fi password'): '••••••••',
-          t('Мобильный хот-спот', 'Mobile hotspot'): on,
-        },
-      );
       client = SharingGuideSection(
         t('Windows-клиент: настройте HTTP-прокси', 'Windows client: configure HTTP proxy'),
         [
@@ -194,8 +163,8 @@ List<SharingGuideSection> sharingGuide(int platform, bool ru, String host, int p
             'If an app ignores the system proxy or cannot prompt for a password, configure HTTP or SOCKS5 in that app. Use the same IP, port, username and password. Enable DNS through the proxy for SOCKS5.',
           ),
           t(
-            'IP точки доступа можно проверить командой ipconfig: в разделе адаптера Wi-Fi найдите «Основной шлюз». Для обоих устройств на общем роутере используйте IP раздатчика из его ipconfig.',
-            'To check the hotspot IP run ipconfig and find Default Gateway under the client Wi-Fi adapter. For both devices on a shared router use the host IP from its ipconfig.',
+            'IP точки доступа можно проверить командой ipconfig: в разделе адаптера Wi-Fi найдите «Основной шлюз». Не берите адрес компьютера из строки IPv4: нужен адрес телефона из «Основной шлюз».',
+            'To check the hotspot IP run ipconfig and find Default Gateway under the client Wi-Fi adapter. Do not use the computer IPv4 address: use the phone address shown as Default Gateway.',
           ),
         ],
         screenTitle: t('Windows → Прокси → Вручную', 'Windows → Proxy → Manual'),
@@ -206,48 +175,7 @@ List<SharingGuideSection> sharingGuide(int platform, bool ru, String host, int p
           t('Авторизация', 'Authentication'): t('По запросу браузера', 'When the browser prompts'),
         },
       );
-      extra = SharingGuideSection(
-        t('Если нужен прозрачный режим на Windows', 'If you need transparent sharing on Windows'),
-        [
-          t(
-            'Root-переключатель приложения относится к Android. На Windows автоматический перехват хот-спота этим переключателем не настраивается. Для всего трафика нужны TUN, права администратора и совместимость Internet Connection Sharing с VPN-адаптером.',
-            'The app root switch is for Android. It does not configure automatic hotspot interception on Windows. Forwarding all traffic requires TUN, administrator rights and compatible Internet Connection Sharing with the VPN adapter.',
-          ),
-          t(
-            'В совместимой конфигурации откройте Win+R → ncpa.cpl → свойства VPN-адаптера → Доступ. Разрешите общий доступ и выберите адаптер хот-спота. Если VPN-адаптера или вкладки «Доступ» нет, используйте обычный режим. Эта настройка зависит от драйвера и может конфликтовать с мобильным хот-спотом.',
-            'For a compatible setup open Win+R → ncpa.cpl → VPN adapter properties → Sharing. Enable sharing and choose the hotspot adapter. If the adapter or Sharing tab is absent, use normal mode. This depends on the driver and may conflict with Mobile hotspot.',
-          ),
-          t(
-            'После изменений переподключите клиент, отключите его ручной прокси и обязательно проверьте IP и DNS. Работа хот-спота без ошибок ещё не подтверждает передачу через VPN.',
-            'After changes reconnect the client, disable its manual proxy and verify IP and DNS. A working hotspot alone does not confirm VPN forwarding.',
-          ),
-        ],
-      );
     case 2:
-      hotspot = SharingGuideSection(
-        t('Linux-раздатчик: точка доступа', 'Linux host: hotspot'),
-        [
-          t(
-            'В GNOME откройте Настройки → Wi-Fi → меню → Включить точку доступа Wi-Fi. Если такого пункта нет, адаптер или его драйвер может не поддерживать режим точки доступа.',
-            'In GNOME open Settings → Wi-Fi → menu → Turn On Wi-Fi Hotspot. If missing, the adapter or driver may not support hotspot mode.',
-          ),
-          t(
-            'В KDE откройте настройки сетевых соединений и создайте Wi-Fi соединение в режиме «Точка доступа». Задайте имя сети, WPA2/WPA3, пароль и общий доступ IPv4 (shared). Включите соединение и подключите клиент.',
-            'In KDE open network connection settings and create a Wi-Fi connection in Access Point mode. Set the network name, WPA2/WPA3, password and IPv4 shared mode. Activate it and connect the client.',
-          ),
-          t(
-            'Раздатчик должен иметь рабочий входящий интернет. Один адаптер часто не умеет одновременно принимать Wi-Fi и раздавать сеть; при необходимости используйте Ethernet, мобильный модем или второй адаптер. Разрешите порт прокси только в доверенной LAN в вашем брандмауэре.',
-            'The host needs working incoming internet. One adapter often cannot receive Wi-Fi and host a network simultaneously; use Ethernet, a cellular modem or a second adapter if needed. Allow the proxy port only on the trusted LAN in your firewall.',
-          ),
-        ],
-        screenTitle: t('Linux → Wi-Fi → Точка доступа', 'Linux → Wi-Fi → Hotspot'),
-        fields: {
-          t('Режим', 'Mode'): t('Точка доступа', 'Access Point'),
-          'SSID': 'VPN-WiFi',
-          t('Защита', 'Security'): 'WPA2 / WPA3',
-          'IPv4': t('Общий доступ (shared)', 'Shared'),
-        },
-      );
       client = SharingGuideSection(
         t('Linux-клиент: прокси и DNS', 'Linux client: proxy and DNS'),
         [
@@ -264,8 +192,8 @@ List<SharingGuideSection> sharingGuide(int platform, bool ru, String host, int p
             'For compatible command-line clients socks5h resolves DNS through the proxy; socks5 may resolve locally. Supply the password securely without publishing it in command history or screenshots.',
           ),
           t(
-            'На клиенте выполните ip route: адрес после «default via» обычно является IP прямой точки доступа. Сравните с карточкой приложения. При общей сети через роутер используйте адрес самого раздатчика.',
-            'Run ip route on the client: the address after default via is usually the direct hotspot IP. Compare it with the app card. On a shared router network use the host own address.',
+            'На клиенте выполните ip route: адрес после «default via» обычно является IP прямой точки доступа. Сравните с карточкой приложения. Не путайте его с IP самого компьютера.',
+            'Run ip route on the client: the address after default via is usually the direct hotspot IP. Compare it with the app card. Do not confuse it with the computer own IP.',
           ),
         ],
         screenTitle: t('Linux → Сетевой прокси / приложение', 'Linux → Network proxy / app'),
@@ -277,41 +205,7 @@ List<SharingGuideSection> sharingGuide(int platform, bool ru, String host, int p
           t('Пользователь', 'Username'): 'hiddify',
         },
       );
-      extra = SharingGuideSection(t('Прозрачная раздача на Linux', 'Transparent sharing on Linux'), [
-        t(
-          'Режим shared NetworkManager создаёт сеть и NAT, но сам не гарантирует передачу через VPN. Для прозрачного режима нужны TUN, IP forwarding, forwarding/NAT и policy routing в таблицу TUN с правами администратора.',
-          'NetworkManager shared mode creates a network and NAT but does not guarantee VPN forwarding. Transparent mode requires administrator rights, TUN, IP forwarding, forwarding/NAT and policy routing to the TUN table.',
-        ),
-        t(
-          'Имена интерфейсов, таблицы маршрутов и nftables/iptables отличаются между системами. Автоматической настройки этим переключателем для Linux нет; используйте обычный режим с прокси, если не настраиваете маршрутизацию вручную. При ручной настройке проверьте также IPv6 и DNS.',
-          'Interface names, route tables and nftables/iptables differ between systems. This switch does not automatically configure Linux forwarding; use normal proxy mode unless you configure routing manually. Check IPv6 and DNS in any manual setup.',
-        ),
-      ]);
     case 3:
-      hotspot = SharingGuideSection(
-        t('macOS-раздатчик: Общий Интернет', 'macOS host: Internet Sharing'),
-        [
-          t(
-            'Откройте Системные настройки → Основные → Общий доступ → Общий Интернет (кнопка информации / настройки). На старых версиях macOS: Системные настройки → Общий доступ.',
-            'Open System Settings → General → Sharing → Internet Sharing (information / settings button). Older macOS versions use System Preferences → Sharing.',
-          ),
-          t(
-            'Выберите работающий входящий интерфейс, например Ethernet. В списке «Для компьютеров, использующих» отметьте Wi-Fi. В параметрах Wi-Fi задайте имя сети, защиту WPA2/WPA3 и пароль. Включите Общий Интернет и подтвердите.',
-            'Select a working incoming interface, such as Ethernet. Under To devices using select Wi-Fi. In Wi-Fi options set the network name, WPA2/WPA3 and password. Enable Internet Sharing and confirm.',
-          ),
-          t(
-            'Один Wi-Fi адаптер обычно не может одновременно принимать Wi-Fi и раздавать его. При таком подключении используйте другой входящий интерфейс. Оставьте приложение и VPN запущенными; настройте прокси на клиенте. Общий Интернет сам не гарантирует VPN.',
-            'One Wi-Fi adapter usually cannot receive Wi-Fi and share it simultaneously. Use a different incoming interface in that case. Keep the app and VPN running; configure the client proxy. Internet Sharing itself does not guarantee VPN forwarding.',
-          ),
-        ],
-        screenTitle: t('macOS → Общий Интернет', 'macOS → Internet Sharing'),
-        fields: {
-          t('Общее подключение из', 'Share connection from'): 'Ethernet',
-          t('Для устройств через', 'To devices using'): 'Wi-Fi',
-          t('Имя сети', 'Network name'): 'VPN-WiFi',
-          t('Общий Интернет', 'Internet Sharing'): on,
-        },
-      );
       client = SharingGuideSection(
         t('macOS-клиент: HTTP или SOCKS5', 'macOS client: HTTP or SOCKS5'),
         [
@@ -340,29 +234,6 @@ List<SharingGuideSection> sharingGuide(int platform, bool ru, String host, int p
         },
       );
     default:
-      hotspot = SharingGuideSection(
-        t('iPhone/iPad как раздатчик: ограничения', 'iPhone/iPad as host: limitations'),
-        [
-          t(
-            'iOS раздаёт сотовое подключение через Настройки → Режим модема → Разрешать другим. Задайте пароль Wi-Fi. Этот системный режим сам по себе не направляет подключённых клиентов через VPN приложения.',
-            'iOS shares cellular data through Settings → Personal Hotspot → Allow Others to Join. Set the Wi-Fi password. This system mode itself does not route connected clients through the app VPN.',
-          ),
-          t(
-            'iOS не предоставляет этому приложению способ прозрачно перехватить трафик режима модема. Надёжный вариант: используйте Android, Windows, Linux или macOS как раздатчик, а iPhone/iPad как клиент по инструкции ниже.',
-            'iOS does not give this app a way to transparently intercept Personal Hotspot traffic. The reliable option is to use Android, Windows, Linux or macOS as the host and iPhone/iPad as the client below.',
-          ),
-          t(
-            'Доступ к прокси приложения в LAN зависит от iOS и локальных разрешений. При экспериментальной раздаче оставьте приложение открытым, разрешите доступ к локальной сети при запросе и проверьте доступность IP и порта. При блокировке экрана или уходе в фон соединение может прерваться; работа не гарантируется.',
-            'App LAN proxy access depends on iOS and local permissions. For experimental sharing keep the app open, grant local network access when prompted and test IP and port reachability. Locking the screen or backgrounding may interrupt it; availability is not guaranteed.',
-          ),
-        ],
-        screenTitle: t('iOS → Режим модема', 'iOS → Personal Hotspot'),
-        fields: {
-          t('Разрешать другим', 'Allow Others to Join'): on,
-          t('Пароль Wi-Fi', 'Wi-Fi password'): '••••••••',
-          t('VPN для клиентов автоматически', 'Automatic VPN for clients'): t('Не поддерживается', 'Not supported'),
-        },
-      );
       client = SharingGuideSection(
         t('iPhone/iPad-клиент: ручной HTTP-прокси', 'iPhone/iPad client: manual HTTP proxy'),
         [
@@ -391,5 +262,5 @@ List<SharingGuideSection> sharingGuide(int platform, bool ru, String host, int p
         },
       );
   }
-  return [app, hotspot, address, client, if (extra != null) extra];
+  return [connect, address, client];
 }
