@@ -80,6 +80,11 @@
     <string name="native_profile_update_interval">Интервал обновления, часы</string>
     <string name="native_profile_update_interval_hint">Оставьте пустым, чтобы использовать интервал от сервера подписки.</string>
     <string name="native_profile_import">Импортировать</string>
+    <string name="native_profile_paste_clipboard">Вставить из буфера</string>
+    <string name="native_profile_choose_file">Выбрать файл</string>
+    <string name="native_profile_clipboard_empty">В буфере обмена нет текста профиля.</string>
+    <string name="native_profile_file_empty">Выбранный файл пуст.</string>
+    <string name="native_profile_file_read_failed">Не удалось прочитать выбранный файл: %1$s</string>
     <string name="native_profile_disconnect_required">Отключите VPN перед выбором, импортом или удалением активного профиля.</string>
 
     <string name="native_per_app_open">Маршрутизация приложений</string>
