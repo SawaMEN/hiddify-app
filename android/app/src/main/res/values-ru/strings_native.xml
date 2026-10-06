@@ -118,4 +118,10 @@
     <string name="native_profile_configuration">Конфигурация</string>
     <string name="native_profile_save">Сохранить</string>
     <string name="native_profile_saving">Сохранение…</string>
+
+    <string name="native_logs_title">Журнал и диагностика</string>
+    <string name="native_logs_refresh">Обновить</string>
+    <string name="native_logs_clear">Очистить</string>
+    <string name="native_logs_empty">Записей журнала ядра или Android-сервиса пока нет.</string>
+    <string name="native_logs_sources">Файлов журнала: %1$d</string>
 </resources>
