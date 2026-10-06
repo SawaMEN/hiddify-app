@@ -32,6 +32,8 @@ class NativeLogRepository(private val context: Context) {
         val working = workingDir()
         return listOf(
             File(working, "data/box.log"),
+            File(working, "data/stderr4.log"),
+            File(working, "data/stderr3.log"),
             File(working, "box.log"),
             File(working, "stderr.log"),
             File(working, "app.log"),
