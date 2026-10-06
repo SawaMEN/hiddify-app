@@ -7,6 +7,7 @@ import 'package:hiddify/core/router/dialog/dialog_notifier.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/hiddifycore/hiddify_core_service_provider.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:hiddify/features/vpn_privacy/vpn_privacy_preferences.dart';
 
 class LanSharingPreferenceWidget extends HookConsumerWidget {
   const LanSharingPreferenceWidget({super.key});
@@ -15,6 +16,7 @@ class LanSharingPreferenceWidget extends HookConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = ref.watch(translationsProvider).requireValue;
     final theme = Theme.of(context);
+    final sharing = ref.watch(VpnPrivacyPreferences.wifiSharing);
 
     Future<String?> getSharingLink() async {
       final ipResult = await ref.read(hiddifyCoreServiceProvider).getLANIP().run();
@@ -44,7 +46,8 @@ class LanSharingPreferenceWidget extends HookConsumerWidget {
                 ? t.pages.settings.inbound.lanSharingPasswordNotSet
                 : ref.watch(ConfigOptions.lanSharingPassword),
           ),
-          if (ref.watch(ConfigOptions.allowConnectionFromLan) && ref.watch(ConfigOptions.enableMixedPort)) ...[
+          if (sharing ||
+              (ref.watch(ConfigOptions.allowConnectionFromLan) && ref.watch(ConfigOptions.enableMixedPort))) ...[
             const Gap(12),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -86,8 +89,8 @@ class LanSharingPreferenceWidget extends HookConsumerWidget {
         ],
       ),
       trailing: Switch.adaptive(
-        value: ref.watch(ConfigOptions.allowConnectionFromLan),
-        onChanged: ref.read(ConfigOptions.allowConnectionFromLan.notifier).update,
+        value: sharing || ref.watch(ConfigOptions.allowConnectionFromLan),
+        onChanged: sharing ? null : ref.read(ConfigOptions.allowConnectionFromLan.notifier).update,
       ),
       onTap: () async {
         final inputValue = await ref

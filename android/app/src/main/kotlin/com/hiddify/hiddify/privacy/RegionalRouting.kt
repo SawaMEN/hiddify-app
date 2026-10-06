@@ -51,7 +51,7 @@ object RegionalRouting {
     }
 
     fun policy(context: Context, @Suppress("UNUSED_PARAMETER") legacyRegion: String = "other"): Map<String, Any> {
-        val mode = Settings.privacyRoutingMode.takeIf { !Settings.privacyFullTunnel } ?: "off"
+        val mode = Settings.privacyRoutingMode.takeIf { !Settings.privacyFullTunnel && !Settings.handbookRouting } ?: "off"
         val catalogue = catalogue(context)
         val version = catalogue.optInt("version", 1)
 
@@ -115,7 +115,13 @@ object RegionalRouting {
         val regionalPolicy = mapOf<String, Any>(
             // Force the generic core region internally. The old user-facing region selector is gone.
             // ru enables the existing geoip/geosite + .ru path; other disables it.
-            "region" to if (Settings.privacyRussianNetworkBypass) "ru" else "other",
+            "region" to if (Settings.privacyRussianNetworkBypass && !Settings.handbookRouting) "ru" else "other",
+            "wifi-vpn-sharing" to Settings.wifiVpnSharing,
+            "handbook-routing" to Settings.handbookRouting,
+            "handbook-proxy" to Settings.handbookProxy,
+            "handbook-direct" to Settings.handbookDirect,
+            "handbook-proxy-sites" to Settings.handbookProxySites,
+            "handbook-direct-sites" to Settings.handbookDirectSites,
             "privacy-routing-mode" to mode,
             "privacy-catalogue-version" to version,
             "privacy-russian-network-bypass" to Settings.privacyRussianNetworkBypass,

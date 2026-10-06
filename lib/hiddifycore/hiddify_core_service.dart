@@ -217,6 +217,22 @@ class HiddifyCoreService with InfraLogger {
         if (!options.enableDirectPort) json['direct-port'] = 0;
         if (!options.enableTproxyPort) json['tproxy-port'] = 0;
         if (!options.enableRedirectPort) json['redirect-port'] = 0;
+        json['wifi-vpn-sharing'] = ref.read(VpnPrivacyPreferences.wifiSharing);
+        json['handbook-routing'] = ref.read(VpnPrivacyPreferences.handbookRouting);
+        json['handbook-proxy'] = ref.read(VpnPrivacyPreferences.handbookProxy);
+        json['handbook-direct'] = ref.read(VpnPrivacyPreferences.handbookDirect);
+        json['handbook-proxy-sites'] = ref.read(VpnPrivacyPreferences.handbookProxySites);
+        json['handbook-direct-sites'] = ref.read(VpnPrivacyPreferences.handbookDirectSites);
+        if (json['handbook-routing'] == true) {
+          json['region'] = 'other';
+          json['privacy-routing-mode'] = 'off';
+        }
+        if (json['wifi-vpn-sharing'] == true && !(PlatformUtils.isAndroid && ref.read(VpnPrivacyPreferences.useRoot))) {
+          json['privacy-hide-local-proxy'] = false;
+          json['allow-connection-from-lan'] = true;
+          json['mixed-port'] = options.mixedPort;
+          json['set-system-proxy'] = false;
+        }
         if (PlatformUtils.isAndroid) {
           await const MethodChannel('com.hiddify.app/method')
               .invokeMethod<void>('save_privacy_core_options', {'json': jsonEncode(json)});

@@ -14,6 +14,7 @@ import 'package:hooks_riverpod/hooks_riverpod.dart';
 /// and waits for the active Android service to consume the new native policy.
 abstract class VpnPrivacyActions {
   static Map<String, Object> _snapshot(WidgetRef ref) => {
+    'handbookRouting': ref.read(VpnPrivacyPreferences.handbookRouting),
     'serviceMode': ref.read(ConfigOptions.serviceMode).key,
     'ipv6Mode': ref.read(ConfigOptions.ipv6Mode).key,
     'mtu': ref.read(ConfigOptions.mtu),
@@ -36,6 +37,7 @@ abstract class VpnPrivacyActions {
   };
 
   static bool isConfigured(WidgetRef ref) =>
+      !ref.watch(VpnPrivacyPreferences.handbookRouting) &&
       ref.watch(ConfigOptions.serviceMode) == ServiceMode.tun &&
       ref.watch(VpnPrivacyPreferences.routingMode) == 'ru-bypass' &&
       ref.watch(VpnPrivacyPreferences.russianNetworkBypass) &&
@@ -69,6 +71,7 @@ abstract class VpnPrivacyActions {
 
     await ref.read(configOptionNotifierProvider.notifier).updateTogether(
       () async {
+        await ref.read(VpnPrivacyPreferences.handbookRouting.notifier).update(false);
         await ref.read(ConfigOptions.serviceMode.notifier).update(ServiceMode.tun);
         await ref.read(VpnPrivacyPreferences.russianNetworkBypass.notifier).update(true);
         await ref.read(VpnPrivacyPreferences.russianAppsBypass.notifier).update(true);
@@ -130,6 +133,7 @@ abstract class VpnPrivacyActions {
     if (mtu < 576 || mtu > 65535) throw const FormatException('Invalid MTU in saved settings');
     await ref.read(configOptionNotifierProvider.notifier).updateTogether(
       () async {
+        await ref.read(VpnPrivacyPreferences.handbookRouting.notifier).update(value<bool>('handbookRouting', false));
         await ref.read(ConfigOptions.serviceMode.notifier).update(serviceMode);
         await ref.read(ConfigOptions.ipv6Mode.notifier).update(ipv6Mode);
         await ref.read(ConfigOptions.mtu.notifier).update(mtu);

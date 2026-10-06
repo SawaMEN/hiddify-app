@@ -8,6 +8,7 @@ import 'package:hiddify/features/settings/notifier/config_option/config_option_n
 import 'package:hiddify/features/vpn_privacy/privacy_app_selection_page.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_actions.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_preferences.dart';
+import 'package:hiddify/features/vpn_privacy/handbook_routing_tile.dart';
 import 'package:hiddify/singbox/model/singbox_config_enum.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
@@ -451,9 +452,10 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
             expanded: _expandedCategories.contains('routing'),
             onExpansionChanged: (value) => _setCategoryExpanded('routing', value),
             children: [
+              const HandbookRoutingTile(),
               SwitchListTile.adaptive(
-                value: russianNetwork,
-                onChanged: _busy
+                value: russianNetwork && !ref.watch(VpnPrivacyPreferences.handbookRouting),
+                onChanged: _busy || ref.watch(VpnPrivacyPreferences.handbookRouting)
                     ? null
                     : (value) => _setPrivacyBool(
                         () => ref.read(VpnPrivacyPreferences.russianNetworkBypass.notifier).update(value),
@@ -475,8 +477,8 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
                 ),
               ),
               SwitchListTile.adaptive(
-                value: russianApps,
-                onChanged: _busy
+                value: russianApps && !ref.watch(VpnPrivacyPreferences.handbookRouting),
+                onChanged: _busy || ref.watch(VpnPrivacyPreferences.handbookRouting)
                     ? null
                     : (value) => _setPrivacyBool(
                         () => ref.read(VpnPrivacyPreferences.russianAppsBypass.notifier).update(value),
@@ -498,8 +500,8 @@ class _VpnPrivacyOverviewPageState extends ConsumerState<VpnPrivacyOverviewPage>
                 ),
               ),
               SwitchListTile.adaptive(
-                value: restrictedServices,
-                onChanged: _busy
+                value: restrictedServices && !ref.watch(VpnPrivacyPreferences.handbookRouting),
+                onChanged: _busy || ref.watch(VpnPrivacyPreferences.handbookRouting)
                     ? null
                     : (value) => _setPrivacyBool(
                         () => ref.read(VpnPrivacyPreferences.restrictedServicesProxy.notifier).update(value),

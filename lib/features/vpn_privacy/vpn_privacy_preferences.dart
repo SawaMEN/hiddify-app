@@ -2,6 +2,13 @@ import 'package:hiddify/core/utils/preferences_utils.dart';
 
 /// Local device policy. Subscription overrides must never weaken these settings.
 abstract class VpnPrivacyPreferences {
+  static final wifiSharing = PreferencesNotifier.create<bool, bool>('wifi-vpn-sharing', false);
+  static final handbookRouting = PreferencesNotifier.create<bool, bool>('handbook-routing', false);
+  static final handbookProxy = PreferencesNotifier.create<bool, bool>('handbook-proxy', true);
+  static final handbookDirect = PreferencesNotifier.create<bool, bool>('handbook-direct', true);
+  static final handbookProxySites = PreferencesNotifier.create<String, String>('handbook-proxy-sites', '');
+  static final handbookDirectSites = PreferencesNotifier.create<String, String>('handbook-direct-sites', '');
+
   static const manualPackagePrefix = 'manual:';
 
   static final routingMode = PreferencesNotifier.create<String, String>('privacy-routing-mode', 'ru-bypass');

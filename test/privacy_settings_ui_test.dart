@@ -11,6 +11,8 @@ import 'package:hiddify/core/preferences/preferences_provider.dart';
 import 'package:hiddify/features/about/widget/about_page.dart';
 import 'package:hiddify/features/intro/widget/intro_page.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
+import 'package:hiddify/features/settings/widget/wifi_sharing_tile.dart';
+import 'package:hiddify/features/settings/widget/wifi_sharing_instructions_page.dart';
 import 'package:hiddify/features/settings/notifier/config_option/config_option_notifier.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_overview_page.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_preferences.dart';
@@ -85,6 +87,59 @@ void main() {
     await tester.pumpAndSettle();
     return container;
   }
+
+  testWidgets('External routing disables built-in controls and preserves selections', (tester) async {
+    final container = await setup(tester, const VpnPrivacyOverviewPage());
+    final category = find.byKey(const ui.ValueKey('privacy-routing'));
+    await tester.scrollUntilVisible(category, 300);
+    await tester.tap(find.text('Routing'));
+    await tester.pumpAndSettle();
+    final alternative = find.byKey(const ui.ValueKey('handbook-routing'));
+    await tester.ensureVisible(alternative);
+    await tester.tap(alternative);
+    await tester.pump();
+    final options = container.read(configOptionNotifierProvider.notifier) as _Options;
+    expect(container.read(VpnPrivacyPreferences.handbookRouting), true);
+    expect(container.read(VpnPrivacyPreferences.russianNetworkBypass), true);
+    options.pending.complete();
+    await tester.pumpAndSettle();
+    final builtIn = find.ancestor(
+      of: find.text('Russian domains and IPs direct'),
+      matching: find.byType(legacy.SwitchListTile),
+    );
+    expect(tester.widget<legacy.SwitchListTile>(builtIn).onChanged, isNull);
+    expect(tester.widget<legacy.SwitchListTile>(builtIn).value, false);
+    expect(find.byKey(const ui.ValueKey('handbook-proxy')), findsOneWidget);
+    expect(find.byKey(const ui.ValueKey('handbook-direct')), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const ui.SizedBox());
+  });
+
+  testWidgets('Sharing generates credentials and waits for options to apply', (tester) async {
+    final container = await setup(tester, const ui.Scaffold(body: WifiSharingTile()));
+    await tester.tap(find.byKey(const ui.ValueKey('wifi-vpn-sharing')));
+    await tester.pump();
+    expect(container.read(VpnPrivacyPreferences.wifiSharing), true);
+    expect(container.read(ConfigOptions.lanSharingPassword).length, 24);
+    final options = container.read(configOptionNotifierProvider.notifier) as _Options;
+    expect(options.called, true);
+    options.pending.complete();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const ui.SizedBox());
+  });
+
+  testWidgets('Sharing help has instructions on every OS tab', (tester) async {
+    await setup(tester, const WifiSharingInstructionsPage());
+    for (final tab in ['Android', 'Windows', 'Linux', 'macOS', 'iOS / iPadOS']) {
+      await tester.ensureVisible(find.text(tab));
+      await tester.tap(find.text(tab));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    }
+    expect(find.textContaining('does not give this app a way'), findsOneWidget);
+    await tester.pumpWidget(const ui.SizedBox());
+  });
 
   testWidgets('Expanded routing category survives preference changes and busy indicator insertion', (tester) async {
     final container = await setup(tester, const VpnPrivacyOverviewPage());

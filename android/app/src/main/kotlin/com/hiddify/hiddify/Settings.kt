@@ -15,6 +15,12 @@ import java.io.ObjectInputStream
 object Settings {
 
     val privacyUseRoot get() = getBoolean("flutter.privacy-use-root", false) && serviceMode == ServiceMode.VPN
+    val wifiVpnSharing get() = getBoolean("flutter.wifi-vpn-sharing", false)
+    val handbookRouting get() = getBoolean("flutter.handbook-routing", false)
+    val handbookProxy get() = getBoolean("flutter.handbook-proxy", true)
+    val handbookDirect get() = getBoolean("flutter.handbook-direct", true)
+    val handbookProxySites get() = getString("flutter.handbook-proxy-sites", "")
+    val handbookDirectSites get() = getString("flutter.handbook-direct-sites", "")
     val privacyRoutingMode get() = getString("flutter.privacy-routing-mode", "ru-bypass")
     val privacyRussianNetworkBypass get() = getBoolean("flutter.privacy-russian-network-bypass", true)
     val privacyRussianAppsBypass get() = getBoolean("flutter.privacy-russian-apps-bypass", true)
@@ -32,7 +38,7 @@ object Settings {
             return table
         }
     val privacyFullTunnel get() = getBoolean("flutter.privacy-full-tunnel", false)
-    val privacyHideLocalProxy get() = getBoolean("flutter.privacy-hide-local-proxy", true)
+    val privacyHideLocalProxy get() = (!wifiVpnSharing || privacyUseRoot) && getBoolean("flutter.privacy-hide-local-proxy", true)
     val privacyHideClashApi get() = getBoolean("flutter.privacy-hide-clash-api", true)
     val privacyEncryptedDns get() = getBoolean("flutter.privacy-encrypted-dns", true)
     val privacyPublicDns get() = getBoolean("flutter.privacy-public-dns", false)

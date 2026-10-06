@@ -56,6 +56,18 @@ def generate():
     save(launcher(512), "android/app/src/main/ic_launcher-playstore.png")
     save(mark(512), "assets/images/logo.png")
     save(mark(512), "android/app/src/main/res/drawable-nodpi/vetroff_fan.png")
+    save(mark(512, "#FFFFFF"), "android/app/src/main/res/drawable-nodpi/vetroff_monochrome.png")
+    (RES / "drawable/ic_launcher_monochrome.xml").write_text(drawable(source="vetroff_monochrome"))
+    for name in ["ic_launcher", "ic_launcher_round"]:
+        folder = RES / "mipmap-anydpi-v33"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / f"{name}.xml").write_text('''<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background"/>
+    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome"/>
+</adaptive-icon>
+''')
     save(mark(256, "#FFFFFF"), "android/app/src/main/res/drawable-nodpi/vetroff_notification.png")
     (RES / "drawable/ic_launcher_foreground.xml").write_text(drawable())
     (RES / "drawable/android12splash.xml").write_text(drawable())
