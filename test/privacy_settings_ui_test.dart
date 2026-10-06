@@ -49,6 +49,19 @@ class _Info extends AppInfo {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  Future<void> revealGuide(WidgetTester tester, Finder scrollable, Finder target) async {
+    // Avoid dragging through nested SelectableText scrollables; this test checks
+    // layout of the illustrated screens, including those initially offscreen.
+    final position = tester.state<ui.ScrollableState>(scrollable).position;
+    for (var i = 0; target.evaluate().isEmpty && i < 100; i++) {
+      position.jumpTo((position.pixels + 400).clamp(0.0, position.maxScrollExtent));
+      await tester.pump();
+    }
+    expect(target, findsOneWidget);
+    await tester.ensureVisible(target);
+    await tester.pumpAndSettle();
+  }
+
   Future<ProviderContainer> setup(WidgetTester tester, ui.Widget page, {bool russian = false, double scale = 1}) async {
     SharedPreferences.setMockInitialValues({'region': 'ru'});
     final preferences = (await tester.runAsync(SharedPreferences.getInstance))!;
@@ -140,12 +153,7 @@ void main() {
     final guideScroll = find
         .descendant(of: find.byKey(const ui.PageStorageKey('wifi-guide-4')), matching: find.byType(ui.Scrollable))
         .first;
-    await tester.scrollUntilVisible(
-      find.text('iOS → Wi-Fi → ⓘ → Configure Proxy'),
-      500,
-      maxScrolls: 80,
-      scrollable: guideScroll,
-    );
+    await revealGuide(tester, guideScroll, find.text('iOS → Wi-Fi → ⓘ → Configure Proxy'));
     expect(find.text('Illustration • use your own details'), findsWidgets);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const ui.SizedBox());
@@ -158,20 +166,10 @@ void main() {
     final guideScroll = find
         .descendant(of: find.byKey(const ui.PageStorageKey('wifi-guide-0')), matching: find.byType(ui.Scrollable))
         .first;
-    await tester.scrollUntilVisible(
-      find.text('Android → Изменить сеть → Прокси'),
-      400,
-      maxScrolls: 100,
-      scrollable: guideScroll,
-    );
+    await revealGuide(tester, guideScroll, find.text('Android → Изменить сеть → Прокси'));
     expect(find.text('Имя хоста прокси'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.scrollUntilVisible(
-      find.text('Раздатчик с root → Клиент без прокси'),
-      400,
-      maxScrolls: 100,
-      scrollable: guideScroll,
-    );
+    await revealGuide(tester, guideScroll, find.text('Раздатчик с root → Клиент без прокси'));
     expect(find.text('Нет / Выкл.'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const ui.SizedBox());
