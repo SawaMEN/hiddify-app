@@ -96,4 +96,15 @@
     <string name="native_per_app_clear">Очистить</string>
     <string name="native_per_app_all_active">Фильтрация по приложениям отключена. Все приложения используют VPN согласно текущим правилам маршрутизации.</string>
     <string name="native_per_app_system">системное</string>
+
+    <string name="native_mode_proxy">Режим локального прокси</string>
+    <string name="native_settings_app">Работа приложения</string>
+    <string name="native_setting_proxy_only">Только локальный прокси</string>
+    <string name="native_setting_proxy_only_summary">Запускать ядро без создания Android VPN-туннеля.</string>
+    <string name="native_setting_dynamic_notification">Динамическое уведомление</string>
+    <string name="native_setting_dynamic_notification_summary">Показывать состояние VPN и рабочие данные в постоянном уведомлении.</string>
+    <string name="native_setting_disable_memory_limit">Отключить лимит памяти</string>
+    <string name="native_setting_disable_memory_limit_summary">Разрешить ядру использовать память без обычного лимита приложения.</string>
+    <string name="native_setting_debug">Режим отладки</string>
+    <string name="native_setting_debug_summary">Включить подробную диагностику ядра при следующем подключении.</string>
 </resources>
