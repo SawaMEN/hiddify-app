@@ -81,4 +81,19 @@
     <string name="native_profile_update_interval_hint">Leave empty to use the subscription-provided interval.</string>
     <string name="native_profile_import">Import</string>
     <string name="native_profile_disconnect_required">Disconnect the VPN before changing, importing or deleting the active profile.</string>
+
+    <string name="native_per_app_open">Per-app routing</string>
+    <string name="native_per_app_title">Per-app routing</string>
+    <string name="native_per_app_all">All apps</string>
+    <string name="native_per_app_all_summary">Route all applications using the normal VPN rules.</string>
+    <string name="native_per_app_include">Only selected apps</string>
+    <string name="native_per_app_include_summary">Only checked applications are allowed through Android VpnService.</string>
+    <string name="native_per_app_exclude">Bypass selected apps</string>
+    <string name="native_per_app_exclude_summary">Checked applications stay outside the VPN tunnel.</string>
+    <string name="native_per_app_disconnect">Disconnect the VPN before changing per-app routing.</string>
+    <string name="native_per_app_search">Search applications</string>
+    <string name="native_per_app_selected_count">%1$d selected</string>
+    <string name="native_per_app_clear">Clear</string>
+    <string name="native_per_app_all_active">Per-app filtering is disabled. All applications use the VPN according to the current routing rules.</string>
+    <string name="native_per_app_system">system</string>
 </resources>
