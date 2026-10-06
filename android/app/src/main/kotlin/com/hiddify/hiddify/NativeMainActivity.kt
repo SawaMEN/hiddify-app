@@ -26,6 +26,8 @@ import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
 import com.hiddify.hiddify.nativeprofile.NativeProfileRepository
 import com.hiddify.hiddify.nativelog.NativeLogRepository
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
+import com.hiddify.hiddify.nativecore.NativeCoreOptions
+import com.hiddify.hiddify.nativecore.NativeCoreOptionsRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
 import com.hiddify.hiddify.nativeui.NativeApp
@@ -75,12 +77,15 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val logSnapshot = mutableStateOf(NativeLogSnapshot(emptyList(), emptyList()))
     private val logBusy = mutableStateOf(false)
     private val serviceLogLines = ArrayDeque<String>()
+    private val coreOptions = mutableStateOf(NativeCoreOptionsRepository().load())
+    private val coreOptionsBusy = mutableStateOf(false)
     private val errorMessage = mutableStateOf<String?>(null)
     private val nativeSettings = mutableStateOf(readNativeSettings())
 
     private val profileRepository by lazy { NativeProfileRepository(applicationContext) }
     private val perAppRepository by lazy { NativePerAppRepository(applicationContext) }
     private val logRepository by lazy { NativeLogRepository(applicationContext) }
+    private val coreOptionsRepository by lazy { NativeCoreOptionsRepository() }
     private val profileOperationMutex = Mutex()
     private val connection = ServiceConnection(this, this)
 
@@ -143,6 +148,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 perAppBusy = perAppBusy.value,
                 logSnapshot = logSnapshot.value,
                 logBusy = logBusy.value,
+                coreOptions = coreOptions.value,
+                coreOptionsBusy = coreOptionsBusy.value,
                 errorMessage = errorMessage.value,
                 onDismissError = { errorMessage.value = null },
                 onToggleConnection = ::toggleConnection,
@@ -157,6 +164,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onClearPerApp = ::clearPerAppPackages,
                 onRefreshLogs = ::refreshLogs,
                 onClearLogs = ::clearLogs,
+                onSaveCoreOptions = ::saveCoreOptions,
                 onOpenLegacy = ::openLegacyUi,
                 onProxyOnlyChanged = { proxyOnly ->
                     if (serviceStatus.value != Status.Stopped) {
@@ -209,6 +217,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         super.onStart()
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
+        refreshCoreOptions()
         refreshProfiles()
         refreshPerApp()
         startProfileUpdateLoop()
@@ -220,6 +229,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         super.onResume()
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
+        refreshCoreOptions()
         refreshProfiles()
         refreshPerApp()
         if (serviceStatus.value == Status.Started) {
@@ -546,6 +556,27 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun refreshSettingsSnapshot() {
         nativeSettings.value = readNativeSettings()
+    }
+
+    private fun refreshCoreOptions() {
+        coreOptions.value = coreOptionsRepository.load()
+    }
+
+    private fun saveCoreOptions(value: NativeCoreOptions) {
+        if (coreOptionsBusy.value) return
+        coreOptionsBusy.value = true
+        lifecycleScope.launch {
+            try {
+                coreOptions.value =
+                    withContext(Dispatchers.IO) {
+                        coreOptionsRepository.save(value)
+                    }
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                coreOptionsBusy.value = false
+            }
+        }
     }
 
     private inline fun updateSettings(action: () -> Unit) {
