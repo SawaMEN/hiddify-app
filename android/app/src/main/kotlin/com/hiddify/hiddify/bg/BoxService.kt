@@ -1,5 +1,7 @@
 package com.hiddify.hiddify.bg
 
+import com.hiddify.hiddify.nativecore.NativeCoreControl
+
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -241,6 +243,12 @@ class BoxService(
 
                 if (!Settings.connectionDesired) {
                     finishCancelledStart("cancelled during native setup")
+                    return
+                }
+                try {
+                    NativeCoreControl.applyStoredSettings()
+                } catch (error: Exception) {
+                    stopAndAlert(Alert.CreateService, "Unable to apply core settings: ${error.message ?: error.javaClass.simpleName}")
                     return
                 }
                 Mobile.applyDevicePrivacy(Settings.privacyFullTunnel, Settings.privacyHideLocalProxy,
