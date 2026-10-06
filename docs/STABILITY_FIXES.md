@@ -36,6 +36,8 @@ coordinated changes in the app, hiddify-core and hiddify-sing-box submodules.
 - Use effective profile bytes and overrides to distinguish configuration changes
   from metadata/304 updates before reconnecting.
 - Root boot recovery does not request Android VpnService permission.
+- Await asynchronous platform results inside error handlers so native URL launch
+  failures return false instead of escaping as unhandled errors.
 
 ## Resource use
 
@@ -77,9 +79,10 @@ Setup success, cancelled startup, RPC panic recovery, saturated monitoring queue
 close-worker panic recovery and extension cleanup. The real-service lifetime test
 requires netlink sockets; it skips only when the runtime prohibits them (EPERM).
 
-Flutter 3.47.6 / Dart 3.13.5: all 130 Flutter tests pass locally. The three
-focused editor/recovery suites also pass (13 tests). GitHub CI confirms all 130
-tests and Dart analysis. Dart async runtime checks and six Python tooling tests
+Flutter 3.47.6 / Dart 3.13.5: all 131 Flutter tests pass locally. The three
+focused editor/recovery suites also pass (13 tests). GitHub CI confirmed the original 130-test suite and Dart analysis; the final
+131-test run is tracked in the application pull request. Local analysis reports
+no errors or warnings. Dart async runtime checks and six Python tooling tests
 pass. Go race tests pass for the core packages listed above and for sing-box's
 root, monitoring and daemon packages. The pinned Android native core builds in
 CI; final ARM64 APK validation is tracked in the application pull request.

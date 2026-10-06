@@ -707,7 +707,6 @@ class HiddifyCoreService with InfraLogger {
       config_log_level.LogLevel.warn => LogLevel.WARNING,
       config_log_level.LogLevel.error => LogLevel.ERROR,
       config_log_level.LogLevel.fatal || config_log_level.LogLevel.panic => LogLevel.FATAL,
-      _ => LogLevel.INFO,
     };
   }
 
