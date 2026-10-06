@@ -7,6 +7,7 @@ import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.provider.Settings as AndroidSettings
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -21,13 +22,19 @@ import com.hiddify.hiddify.constant.Alert
 import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativeprofile.NativeProfile
+import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
 import com.hiddify.hiddify.nativeprofile.NativeProfileRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
 import com.hiddify.hiddify.nativeui.NativeApp
 import com.hiddify.hiddify.nativeui.NativeSettingsState
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -40,7 +47,9 @@ import kotlinx.coroutines.withContext
 class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     companion object {
+        private const val TAG = "NativeMainActivity"
         private const val IMPORT_BUSY_ID = "__import__"
+        private const val PROFILE_UPDATE_INTERVAL_MS = 15L * 60L * 1000L
     }
 
     private val serviceStatus = mutableStateOf(Status.Stopped)
@@ -48,6 +57,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val activeProfilePath = mutableStateOf("")
     private val profiles = mutableStateOf<List<NativeProfile>>(emptyList())
     private val busyProfileId = mutableStateOf<String?>(null)
+    private val profileEditor = mutableStateOf<NativeProfileEditor?>(null)
+    private val profileEditorBusy = mutableStateOf(false)
     private val perAppSnapshot =
         mutableStateOf(
             NativePerAppSnapshot(
@@ -62,8 +73,10 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private val profileRepository by lazy { NativeProfileRepository(applicationContext) }
     private val perAppRepository by lazy { NativePerAppRepository(applicationContext) }
+    private val profileOperationMutex = Mutex()
     private val connection = ServiceConnection(this, this)
 
+    private var profileUpdateJob: Job? = null
     private var pendingStartAfterVpnPermission = false
     private var notificationRequestInFlight = false
     private var batteryPromptOpen = false
@@ -115,6 +128,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 settingsState = nativeSettings.value,
                 profiles = profiles.value,
                 busyProfileId = busyProfileId.value,
+                profileEditor = profileEditor.value,
+                profileEditorBusy = profileEditorBusy.value,
                 perAppSnapshot = perAppSnapshot.value,
                 perAppBusy = perAppBusy.value,
                 errorMessage = errorMessage.value,
@@ -123,6 +138,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onSelectProfile = ::selectProfile,
                 onDeleteProfile = ::deleteProfile,
                 onRefreshProfile = ::refreshRemoteProfile,
+                onOpenProfileEditor = ::openProfileEditor,
+                onSaveProfileEditor = ::saveProfileEditor,
                 onImportProfile = ::importProfile,
                 onPerAppModeChanged = ::setPerAppMode,
                 onTogglePerAppPackage = ::togglePerAppPackage,
@@ -181,6 +198,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshSettingsSnapshot()
         refreshProfiles()
         refreshPerApp()
+        startProfileUpdateLoop()
         connection.connect()
     }
 
@@ -203,6 +221,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     override fun onStop() {
+        profileUpdateJob?.cancel()
+        profileUpdateJob = null
         connection.disconnect()
         super.onStop()
     }
@@ -273,6 +293,89 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    private fun openProfileEditor(profile: NativeProfile) {
+        if (profileEditorBusy.value) return
+        profileEditor.value = null
+        profileEditorBusy.value = true
+        lifecycleScope.launch {
+            try {
+                profileEditor.value =
+                    withContext(Dispatchers.IO) {
+                        profileOperationMutex.withLock { profileRepository.loadEditor(profile.id) }
+                    }
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                profileEditorBusy.value = false
+            }
+        }
+    }
+
+    private fun saveProfileEditor(
+        name: String,
+        disableAutoUpdate: Boolean,
+        updateIntervalHours: Int?,
+        content: String,
+    ) {
+        val editor = profileEditor.value ?: return
+        if (profileEditorBusy.value) return
+        profileEditorBusy.value = true
+        lifecycleScope.launch {
+            try {
+                val result =
+                    withContext(Dispatchers.IO) {
+                        profileOperationMutex.withLock {
+                            profileRepository.saveEditedProfile(
+                                id = editor.profile.id,
+                                content = content,
+                                name = name,
+                                disableAutoUpdate = disableAutoUpdate,
+                                updateIntervalHours = updateIntervalHours,
+                            )
+                            profileRepository.synchronizeActiveProfile()
+                            profileRepository.loadEditor(editor.profile.id) to profileRepository.listProfiles()
+                        }
+                    }
+                profileEditor.value = result.first
+                profiles.value = result.second
+                refreshProfileSnapshot()
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                profileEditorBusy.value = false
+            }
+        }
+    }
+
+    private fun startProfileUpdateLoop() {
+        if (profileUpdateJob?.isActive == true) return
+        profileUpdateJob =
+            lifecycleScope.launch {
+                while (isActive) {
+                    updateDueProfiles()
+                    delay(PROFILE_UPDATE_INTERVAL_MS)
+                }
+            }
+    }
+
+    private suspend fun updateDueProfiles() {
+        if (busyProfileId.value != null || profileEditorBusy.value) return
+        val loaded =
+            withContext(Dispatchers.IO) {
+                profileOperationMutex.withLock {
+                    val due = profileRepository.dueRemoteProfileIds()
+                    for (id in due) {
+                        runCatching { profileRepository.refreshRemote(id) }
+                            .onFailure { Log.w(TAG, "automatic profile update failed for $id", it) }
+                    }
+                    profileRepository.synchronizeActiveProfile()
+                    profileRepository.listProfiles()
+                }
+            }
+        profiles.value = loaded
+        refreshProfileSnapshot()
+    }
+
     private fun selectProfile(profile: NativeProfile) {
         runProfileOperation(profile.id, requireDisconnected = true) {
             profileRepository.setActive(profile.id)
@@ -322,11 +425,13 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         busyProfileId.value = operationId
         lifecycleScope.launch {
             try {
-                withContext(Dispatchers.IO) { operation() }
                 val loaded =
                     withContext(Dispatchers.IO) {
-                        profileRepository.synchronizeActiveProfile()
-                        profileRepository.listProfiles()
+                        profileOperationMutex.withLock {
+                            operation()
+                            profileRepository.synchronizeActiveProfile()
+                            profileRepository.listProfiles()
+                        }
                     }
                 profiles.value = loaded
                 refreshProfileSnapshot()
