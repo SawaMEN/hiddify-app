@@ -159,3 +159,9 @@ concurrent resume requests, a queued resume behind an in-flight connect, confirm
 stale-service recovery, duplicate queued profile refreshes, and signature retention
 across repository recreation and failed startup. Device confirmation remains
 necessary for the reported intermittent relaunch behavior.
+
+The core-service provider is a global lifecycle owner, matching the native core.
+Its previously declared scoped dependencies rejected coordinator reads in debug
+mode and made resume recovery fail before it could query the daemon. The focused
+recovery tests exercise these reads with native/core adapters rather than
+bypassing Riverpod's dependency checks.

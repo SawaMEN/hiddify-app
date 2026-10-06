@@ -54,7 +54,9 @@ class ConnectionRepositoryImpl with ExceptionHandler, InfraLogger implements Con
   static const _signaturePreference = 'connection_runtime_signature';
   Future<String> _signature(ProfileEntity profile) async {
     final digest = await sha256.bind(profilePathResolver.file(profile.id).openRead()).first;
-    return sha256.convert(utf8.encode(jsonEncode([profile.id, profile.profileOverride(), digest.toString()]))).toString();
+    return sha256
+        .convert(utf8.encode(jsonEncode([profile.id, profile.profileOverride(), digest.toString()])))
+        .toString();
   }
 
   @override

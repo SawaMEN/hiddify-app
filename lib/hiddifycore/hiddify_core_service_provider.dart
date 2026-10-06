@@ -1,15 +1,15 @@
 import 'dart:async';
 
-import 'package:hiddify/core/directories/directories_provider.dart';
-import 'package:hiddify/core/notification/in_app_notification_controller.dart';
-import 'package:hiddify/core/preferences/general_preferences.dart';
 import 'package:hiddify/hiddifycore/hiddify_core_service.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'hiddify_core_service_provider.g.dart';
 
-@Riverpod(keepAlive: true, dependencies: [AppDirectories, DebugModeNotifier, inAppNotificationController])
+// The native core has one lifecycle per app, shared by connection/recovery and
+// the UI. Declaring scoped dependencies here incorrectly makes this global
+// owner scoped and rejects reads from the connection coordinator in debug mode.
+@Riverpod(keepAlive: true)
 HiddifyCoreService hiddifyCoreService(Ref ref) {
   final service = HiddifyCoreService(ref);
   ref.onDispose(
