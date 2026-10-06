@@ -8,6 +8,7 @@ import android.net.VpnService
 import android.os.Build
 import android.provider.Settings as AndroidSettings
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.mutableStateOf
