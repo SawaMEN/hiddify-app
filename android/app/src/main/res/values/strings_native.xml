@@ -96,4 +96,15 @@
     <string name="native_per_app_clear">Clear</string>
     <string name="native_per_app_all_active">Per-app filtering is disabled. All applications use the VPN according to the current routing rules.</string>
     <string name="native_per_app_system">system</string>
+
+    <string name="native_mode_proxy">Local proxy mode</string>
+    <string name="native_settings_app">Application runtime</string>
+    <string name="native_setting_proxy_only">Local proxy only</string>
+    <string name="native_setting_proxy_only_summary">Run the core without creating an Android VPN tunnel.</string>
+    <string name="native_setting_dynamic_notification">Dynamic notification</string>
+    <string name="native_setting_dynamic_notification_summary">Show live VPN status and runtime information in the foreground notification.</string>
+    <string name="native_setting_disable_memory_limit">Disable memory limit</string>
+    <string name="native_setting_disable_memory_limit_summary">Allow the core to use memory without the normal application limit.</string>
+    <string name="native_setting_debug">Debug mode</string>
+    <string name="native_setting_debug_summary">Enable verbose core diagnostics on the next connection.</string>
 </resources>
