@@ -139,6 +139,17 @@ object Settings {
         get() = getString(SettingsKey.PER_APP_PROXY_MODE, PerAppProxyMode.OFF)
         set(value) = preferences.edit().putString(SettingsKey.PER_APP_PROXY_MODE, value).apply()
 
+    fun setPerAppProxyPackages(mode: String, packages: Collection<String>) {
+        val key = when (mode) {
+            PerAppProxyMode.INCLUDE -> SettingsKey.PER_APP_PROXY_INCLUDE_LIST
+            PerAppProxyMode.EXCLUDE -> SettingsKey.PER_APP_PROXY_EXCLUDE_LIST
+            else -> return
+        }
+        // Settings.perAppProxyList supports this legacy semicolon representation in addition
+        // to Flutter's serialized List<String>, so Kotlin can update the VPN path directly.
+        preferences.edit().putString(key, packages.filter { it.isNotBlank() }.distinct().joinToString(";")).apply()
+    }
+
     val perAppProxyEnabled: Boolean
         get() = perAppProxyMode != PerAppProxyMode.OFF
 
