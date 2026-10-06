@@ -18,7 +18,7 @@
     <string name="native_wifi_sharing_off">Раздача VPN выключена</string>
     <string name="native_profiles">Профили</string>
     <string name="native_settings">Настройки</string>
-    <string name="native_migration_note">Профили и расширенные настройки временно открываются в интерфейсе совместимости, пока их перенос на Kotlin не завершён.</string>
+    <string name="native_migration_note">Подключение, профили, импорт и основные сетевые настройки уже работают нативно на Kotlin. Интерфейс совместимости оставлен только для ещё не перенесённых расширенных экранов.</string>
     <string name="native_error_title">Не удалось выполнить действие</string>
     <string name="native_no_active_profile">Перед подключением выберите или импортируйте профиль.</string>
     <string name="native_vpn_permission_denied">Разрешение Android на создание VPN не предоставлено.</string>
@@ -56,4 +56,29 @@
     <string name="native_domains_hint">Один домен или правило на строку.</string>
     <string name="native_settings_disconnect_required">Перед сменой root-режима или раздачи Wi-Fi отключите VPN.</string>
     <string name="native_settings_reconnect_note">После изменения маршрутизации или DNS переподключите VPN, чтобы ядро применило настройки.</string>
+
+    <string name="native_advanced_legacy">Расширенный интерфейс совместимости</string>
+    <string name="native_profile_add">Добавить</string>
+    <string name="native_profiles_empty">Профилей пока нет</string>
+    <string name="native_profiles_empty_summary">Импортируйте ссылку подписки, Hiddify deep link, список proxy-ссылок или готовую конфигурацию.</string>
+    <string name="native_profile_active">Активный</string>
+    <string name="native_profile_remote">Удалённая подписка</string>
+    <string name="native_profile_local">Локальный профиль</string>
+    <string name="native_profile_use">Выбрать</string>
+    <string name="native_profile_update">Обновить</string>
+    <string name="native_profile_updating">Обновление…</string>
+    <string name="native_profile_delete">Удалить</string>
+    <string name="native_profile_delete_title">Удалить профиль?</string>
+    <string name="native_profile_delete_message">Удалить «%1$s» и его локальный файл конфигурации?</string>
+    <string name="native_profile_traffic">Использовано %1$s из %2$s · осталось %3$s</string>
+    <string name="native_profile_add_title">Импорт профиля</string>
+    <string name="native_profile_url_or_content">Ссылка подписки или конфигурация</string>
+    <string name="native_profile_url_or_content_hint">Вставьте HTTPS/HTTP-ссылку, ссылку импорта, proxy-ссылки, JSON/YAML, WireGuard-конфиг или base64-подписку.</string>
+    <string name="native_profile_name_optional">Название (необязательно)</string>
+    <string name="native_profile_disable_update">Отключить автообновление</string>
+    <string name="native_profile_disable_update_summary">Не изменять подписку, пока вы не обновите её вручную.</string>
+    <string name="native_profile_update_interval">Интервал обновления, часы</string>
+    <string name="native_profile_update_interval_hint">Оставьте пустым, чтобы использовать интервал от сервера подписки.</string>
+    <string name="native_profile_import">Импортировать</string>
+    <string name="native_profile_disconnect_required">Отключите VPN перед выбором, импортом или удалением активного профиля.</string>
 </resources>
