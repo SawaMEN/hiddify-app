@@ -107,4 +107,15 @@
     <string name="native_setting_disable_memory_limit_summary">Allow the core to use memory without the normal application limit.</string>
     <string name="native_setting_debug">Debug mode</string>
     <string name="native_setting_debug_summary">Enable verbose core diagnostics on the next connection.</string>
+
+    <string name="native_profile_edit">Edit</string>
+    <string name="native_profile_details">Profile details</string>
+    <string name="native_profile_name">Name</string>
+    <string name="native_profile_subscription_url">Subscription URL</string>
+    <string name="native_profile_last_update">Last update: %1$s</string>
+    <string name="native_profile_raw_config">Raw configuration</string>
+    <string name="native_profile_raw_config_summary">Edit the original profile document. Invalid JSON is rejected before saving; other formats are validated by the core on the next connection.</string>
+    <string name="native_profile_configuration">Configuration</string>
+    <string name="native_profile_save">Save</string>
+    <string name="native_profile_saving">Saving…</string>
 </resources>
