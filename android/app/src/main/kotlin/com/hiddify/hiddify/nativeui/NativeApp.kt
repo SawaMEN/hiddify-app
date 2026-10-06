@@ -32,6 +32,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.constant.Status
+import com.hiddify.hiddify.nativeprofile.NativeProfile
+
+private const val PAGE_HOME = "home"
+private const val PAGE_PROFILES = "profiles"
+private const val PAGE_SETTINGS = "settings"
 
 @Composable
 fun NativeApp(
@@ -40,10 +45,16 @@ fun NativeApp(
     hasActiveProfile: Boolean,
     rootMode: Boolean,
     settingsState: NativeSettingsState,
+    profiles: List<NativeProfile>,
+    busyProfileId: String?,
     errorMessage: String?,
     onDismissError: () -> Unit,
     onToggleConnection: () -> Unit,
-    onOpenProfiles: () -> Unit,
+    onSelectProfile: (NativeProfile) -> Unit,
+    onDeleteProfile: (NativeProfile) -> Unit,
+    onRefreshProfile: (NativeProfile) -> Unit,
+    onImportProfile: (String, String?, Int?, Boolean) -> Unit,
+    onOpenLegacy: () -> Unit,
     onRootModeChanged: (Boolean) -> Unit,
     onWifiSharingChanged: (Boolean) -> Unit,
     onFullTunnelChanged: (Boolean) -> Unit,
@@ -57,10 +68,10 @@ fun NativeApp(
     onHandbookProxySitesChanged: (String) -> Unit,
     onHandbookDirectSitesChanged: (String) -> Unit,
 ) {
-    var settingsOpen by rememberSaveable { mutableStateOf(false) }
+    var page by rememberSaveable { mutableStateOf(PAGE_HOME) }
 
-    BackHandler(enabled = settingsOpen) {
-        settingsOpen = false
+    BackHandler(enabled = page != PAGE_HOME) {
+        page = PAGE_HOME
     }
 
     MaterialTheme {
@@ -73,35 +84,49 @@ fun NativeApp(
                         .navigationBarsPadding()
                         .padding(horizontal = 20.dp, vertical = 16.dp),
             ) {
-                if (settingsOpen) {
-                    NativeSettingsScreen(
-                        state = settingsState,
-                        canChangeServiceMode = status == Status.Stopped,
-                        onBack = { settingsOpen = false },
-                        onRootModeChanged = onRootModeChanged,
-                        onWifiSharingChanged = onWifiSharingChanged,
-                        onFullTunnelChanged = onFullTunnelChanged,
-                        onEncryptedDnsChanged = onEncryptedDnsChanged,
-                        onPublicDnsChanged = onPublicDnsChanged,
-                        onDisableSystemProxyChanged = onDisableSystemProxyChanged,
-                        onDisableIpv6Changed = onDisableIpv6Changed,
-                        onHandbookRoutingChanged = onHandbookRoutingChanged,
-                        onHandbookProxyChanged = onHandbookProxyChanged,
-                        onHandbookDirectChanged = onHandbookDirectChanged,
-                        onHandbookProxySitesChanged = onHandbookProxySitesChanged,
-                        onHandbookDirectSitesChanged = onHandbookDirectSitesChanged,
-                    )
-                } else {
-                    HomeScreen(
-                        status = status,
-                        activeProfileName = activeProfileName,
-                        hasActiveProfile = hasActiveProfile,
-                        rootMode = rootMode,
-                        wifiSharing = settingsState.wifiSharing,
-                        onToggleConnection = onToggleConnection,
-                        onOpenProfiles = onOpenProfiles,
-                        onOpenSettings = { settingsOpen = true },
-                    )
+                when (page) {
+                    PAGE_PROFILES ->
+                        NativeProfilesScreen(
+                            profiles = profiles,
+                            busyProfileId = busyProfileId,
+                            onBack = { page = PAGE_HOME },
+                            onSelect = onSelectProfile,
+                            onDelete = onDeleteProfile,
+                            onRefresh = onRefreshProfile,
+                            onImport = onImportProfile,
+                        )
+
+                    PAGE_SETTINGS ->
+                        NativeSettingsScreen(
+                            state = settingsState,
+                            canChangeServiceMode = status == Status.Stopped,
+                            onBack = { page = PAGE_HOME },
+                            onRootModeChanged = onRootModeChanged,
+                            onWifiSharingChanged = onWifiSharingChanged,
+                            onFullTunnelChanged = onFullTunnelChanged,
+                            onEncryptedDnsChanged = onEncryptedDnsChanged,
+                            onPublicDnsChanged = onPublicDnsChanged,
+                            onDisableSystemProxyChanged = onDisableSystemProxyChanged,
+                            onDisableIpv6Changed = onDisableIpv6Changed,
+                            onHandbookRoutingChanged = onHandbookRoutingChanged,
+                            onHandbookProxyChanged = onHandbookProxyChanged,
+                            onHandbookDirectChanged = onHandbookDirectChanged,
+                            onHandbookProxySitesChanged = onHandbookProxySitesChanged,
+                            onHandbookDirectSitesChanged = onHandbookDirectSitesChanged,
+                        )
+
+                    else ->
+                        HomeScreen(
+                            status = status,
+                            activeProfileName = activeProfileName,
+                            hasActiveProfile = hasActiveProfile,
+                            rootMode = rootMode,
+                            wifiSharing = settingsState.wifiSharing,
+                            onToggleConnection = onToggleConnection,
+                            onOpenProfiles = { page = PAGE_PROFILES },
+                            onOpenSettings = { page = PAGE_SETTINGS },
+                            onOpenLegacy = onOpenLegacy,
+                        )
                 }
             }
         }
@@ -131,6 +156,7 @@ private fun HomeScreen(
     onToggleConnection: () -> Unit,
     onOpenProfiles: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenLegacy: () -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -204,6 +230,12 @@ private fun HomeScreen(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        TextButton(
+            onClick = onOpenLegacy,
+            modifier = Modifier.align(Alignment.End),
+        ) {
+            Text(stringResource(R.string.native_advanced_legacy))
+        }
     }
 }
 
