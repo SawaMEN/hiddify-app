@@ -1,5 +1,8 @@
 package com.hiddify.hiddify.nativeui
 
+import android.content.ClipboardManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,15 +26,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativeprofile.NativeProfile
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.math.ln
 import kotlin.math.pow
 
@@ -258,25 +266,109 @@ private fun AddProfileDialog(
     onDismiss: () -> Unit,
     onImport: (String, String?, Int?, Boolean) -> Unit,
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var raw by remember { mutableStateOf("") }
     var name by remember { mutableStateOf("") }
     var interval by remember { mutableStateOf("") }
     var disableAutoUpdate by remember { mutableStateOf(false) }
+    var importError by remember { mutableStateOf<String?>(null) }
+
+    val filePicker =
+        rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                val result =
+                    withContext(Dispatchers.IO) {
+                        runCatching {
+                            context.contentResolver.openInputStream(uri)
+                                ?.bufferedReader(Charsets.UTF_8)
+                                ?.use { it.readText() }
+                                ?: throw java.io.FileNotFoundException(uri.toString())
+                        }
+                    }
+                result.fold(
+                    onSuccess = { text ->
+                        if (text.isBlank()) {
+                            importError = context.getString(R.string.native_profile_file_empty)
+                        } else {
+                            raw = text
+                            importError = null
+                        }
+                    },
+                    onFailure = { error ->
+                        importError =
+                            context.getString(
+                                R.string.native_profile_file_read_failed,
+                                error.message ?: error.javaClass.simpleName,
+                            )
+                    },
+                )
+            }
+        }
+
+    fun pasteFromClipboard() {
+        val clipboard = context.getSystemService(ClipboardManager::class.java)
+        val clip = clipboard?.primaryClip
+        val text =
+            if (clip != null && clip.itemCount > 0) {
+                clip.getItemAt(0).coerceToText(context)?.toString()
+            } else {
+                null
+            }
+
+        if (text.isNullOrBlank()) {
+            importError = context.getString(R.string.native_profile_clipboard_empty)
+        } else {
+            raw = text.trim()
+            importError = null
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.native_profile_add_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    OutlinedButton(
+                        onClick = ::pasteFromClipboard,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(R.string.native_profile_paste_clipboard))
+                    }
+                    OutlinedButton(
+                        onClick = { filePicker.launch(arrayOf("*/*")) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(stringResource(R.string.native_profile_choose_file))
+                    }
+                }
+
                 OutlinedTextField(
                     value = raw,
-                    onValueChange = { raw = it },
+                    onValueChange = {
+                        raw = it
+                        importError = null
+                    },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text(stringResource(R.string.native_profile_url_or_content)) },
                     supportingText = { Text(stringResource(R.string.native_profile_url_or_content_hint)) },
                     minLines = 3,
                     maxLines = 8,
                 )
+
+                importError?.let { message ->
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
