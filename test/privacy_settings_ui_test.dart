@@ -137,7 +137,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     }
-    await tester.scrollUntilVisible(find.text('iOS → Wi-Fi → ⓘ → Configure Proxy'), 500, maxScrolls: 80);
+    final guideScroll = find
+        .descendant(of: find.byKey(const ui.PageStorageKey('wifi-guide-4')), matching: find.byType(ui.Scrollable))
+        .first;
+    await tester.scrollUntilVisible(
+      find.text('iOS → Wi-Fi → ⓘ → Configure Proxy'),
+      500,
+      maxScrolls: 80,
+      scrollable: guideScroll,
+    );
     expect(find.text('Illustration • use your own details'), findsWidgets);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const ui.SizedBox());
@@ -147,10 +155,23 @@ void main() {
     await tester.binding.setSurfaceSize(const ui.Size(360, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await setup(tester, const WifiSharingInstructionsPage(), russian: true, scale: 1.5);
-    await tester.scrollUntilVisible(find.text('Android → Изменить сеть → Прокси'), 400, maxScrolls: 100);
+    final guideScroll = find
+        .descendant(of: find.byKey(const ui.PageStorageKey('wifi-guide-0')), matching: find.byType(ui.Scrollable))
+        .first;
+    await tester.scrollUntilVisible(
+      find.text('Android → Изменить сеть → Прокси'),
+      400,
+      maxScrolls: 100,
+      scrollable: guideScroll,
+    );
     expect(find.text('Имя хоста прокси'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    await tester.scrollUntilVisible(find.text('Раздатчик с root → Клиент без прокси'), 400, maxScrolls: 100);
+    await tester.scrollUntilVisible(
+      find.text('Раздатчик с root → Клиент без прокси'),
+      400,
+      maxScrolls: 100,
+      scrollable: guideScroll,
+    );
     expect(find.text('Нет / Выкл.'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const ui.SizedBox());
