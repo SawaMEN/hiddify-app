@@ -26,4 +26,34 @@
     <string name="native_background_title">Разрешить работу VPN в фоне</string>
     <string name="native_background_message">Оптимизация батареи может останавливать VPN в фоне. Разрешите VetrOFF Client работать без оптимизации батареи для более стабильного соединения.</string>
     <string name="native_background_allow">Открыть настройки</string>
+
+    <string name="native_back">Назад</string>
+    <string name="native_settings_vpn">VPN и маршрутизация</string>
+    <string name="native_settings_dns">DNS и системный прокси</string>
+    <string name="native_settings_custom_routing">Пользовательские списки маршрутизации</string>
+    <string name="native_setting_root">Root-режим</string>
+    <string name="native_setting_root_summary">Использовать root-компаньон вместо Android VpnService.</string>
+    <string name="native_setting_wifi_sharing">Раздавать VPN по Wi-Fi</string>
+    <string name="native_setting_wifi_sharing_summary">Открывать локальный прокси для устройств, подключённых к точке доступа.</string>
+    <string name="native_setting_full_tunnel">Полный туннель</string>
+    <string name="native_setting_full_tunnel_summary">Направлять весь IPv4/IPv6-трафик через VPN, кроме явных исключений.</string>
+    <string name="native_setting_ipv4_only">Только IPv4</string>
+    <string name="native_setting_ipv4_only_summary">Отключить IPv6 внутри VPN-туннеля.</string>
+    <string name="native_setting_encrypted_dns">Шифрованный DNS</string>
+    <string name="native_setting_encrypted_dns_summary">Использовать защищённую обработку DNS внутри ядра.</string>
+    <string name="native_setting_public_dns">Публичный DNS</string>
+    <string name="native_setting_public_dns_summary">Использовать публичный DNS-резолвер, заданный VetrOFF.</string>
+    <string name="native_setting_disable_system_proxy">Отключить системный прокси Android</string>
+    <string name="native_setting_disable_system_proxy_summary">Не публиковать HTTP-прокси через Android VpnService.</string>
+    <string name="native_setting_custom_routing">Включить свои правила</string>
+    <string name="native_setting_custom_routing_summary">Добавлять списки proxy/direct в генерируемую конфигурацию.</string>
+    <string name="native_setting_proxy_list">Список через VPN</string>
+    <string name="native_setting_proxy_list_summary">Отправлять совпавшие домены через VPN.</string>
+    <string name="native_setting_direct_list">Список напрямую</string>
+    <string name="native_setting_direct_list_summary">Пускать совпавшие домены в обход VPN.</string>
+    <string name="native_setting_proxy_domains">Домены через VPN</string>
+    <string name="native_setting_direct_domains">Домены напрямую</string>
+    <string name="native_domains_hint">Один домен или правило на строку.</string>
+    <string name="native_settings_disconnect_required">Перед сменой root-режима или раздачи Wi-Fi отключите VPN.</string>
+    <string name="native_settings_reconnect_note">После изменения маршрутизации или DNS переподключите VPN, чтобы ядро применило настройки.</string>
 </resources>
