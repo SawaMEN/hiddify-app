@@ -53,6 +53,9 @@ void main() {
     // Avoid dragging through nested SelectableText scrollables; this test checks
     // layout of the illustrated screens, including those initially offscreen.
     final position = tester.state<ui.ScrollableState>(scrollable).position;
+    // Mode changes can place the shorter guide above the previous offset.
+    position.jumpTo(0);
+    await tester.pump();
     for (var i = 0; target.evaluate().isEmpty && i < 100; i++) {
       position.jumpTo((position.pixels + 400).clamp(0.0, position.maxScrollExtent));
       await tester.pump();
