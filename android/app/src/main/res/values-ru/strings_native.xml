@@ -107,4 +107,15 @@
     <string name="native_setting_disable_memory_limit_summary">Разрешить ядру использовать память без обычного лимита приложения.</string>
     <string name="native_setting_debug">Режим отладки</string>
     <string name="native_setting_debug_summary">Включить подробную диагностику ядра при следующем подключении.</string>
+
+    <string name="native_profile_edit">Редактировать</string>
+    <string name="native_profile_details">Параметры профиля</string>
+    <string name="native_profile_name">Название</string>
+    <string name="native_profile_subscription_url">Ссылка подписки</string>
+    <string name="native_profile_last_update">Последнее обновление: %1$s</string>
+    <string name="native_profile_raw_config">Исходная конфигурация</string>
+    <string name="native_profile_raw_config_summary">Редактируется исходный документ профиля. Некорректный JSON не сохраняется; остальные форматы проверит ядро при следующем подключении.</string>
+    <string name="native_profile_configuration">Конфигурация</string>
+    <string name="native_profile_save">Сохранить</string>
+    <string name="native_profile_saving">Сохранение…</string>
 </resources>
