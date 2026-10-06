@@ -2,7 +2,7 @@
     <item android:width="108dp" android:height="108dp" android:gravity="center">
       <shape><solid android:color="@android:color/transparent"/></shape>
     </item>
-    <item android:width="64dp" android:height="64dp" android:gravity="center">
+    <item android:width="72dp" android:height="72dp" android:gravity="center">
       <bitmap android:src="@drawable/vetroff_monochrome" android:gravity="fill"/>
     </item>
 </layer-list>
