@@ -3,6 +3,6 @@
       <shape><solid android:color="@android:color/transparent"/></shape>
     </item>
     <item android:width="72dp" android:height="72dp" android:gravity="center">
-      <bitmap android:src="@drawable/vetroff_launcher" android:gravity="fill"/>
+      <bitmap android:src="@drawable/vetroff_monochrome" android:gravity="fill"/>
     </item>
 </layer-list>

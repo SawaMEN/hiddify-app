@@ -62,7 +62,7 @@ object RootCore {
         RegionalRouting.policy(context, region).forEach { (key, value) ->
             options.put(key, if (value is List<*>) org.json.JSONArray(value) else value)
         }
-        options.put("enable-tun", true).put("privacy-root", true)
+        options.put("enable-tun", true).put("privacy-root", true).put("wifi-vpn-sharing", Settings.wifiVpnSharing)
         options.put("privacy-full-tunnel", Settings.privacyFullTunnel)
         options.put("privacy-hide-local-proxy", Settings.privacyHideLocalProxy)
         if (Settings.privacyHideClashApi) options.put("enable-clash-api", false)

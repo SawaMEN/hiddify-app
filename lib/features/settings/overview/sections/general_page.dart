@@ -10,6 +10,7 @@ import 'package:hiddify/features/common/general_pref_tiles.dart';
 import 'package:hiddify/features/log/model/log_level.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/features/settings/widget/preference_tile.dart';
+import 'package:hiddify/features/settings/widget/wifi_sharing_tile.dart';
 import 'package:hiddify/features/vpn_privacy/network_anonymization_page.dart';
 import 'package:hiddify/singbox/model/singbox_config_enum.dart';
 import 'package:hiddify/utils/utils.dart';
@@ -30,6 +31,7 @@ class GeneralPage extends HookConsumerWidget {
         children: [
           const LocalePrefTile(),
           const ThemeModePrefTile(),
+          const WifiSharingTile(),
           SwitchListTile.adaptive(
             key: const ValueKey('adaptive-network'),
             secondary: const Icon(Icons.network_check_rounded),

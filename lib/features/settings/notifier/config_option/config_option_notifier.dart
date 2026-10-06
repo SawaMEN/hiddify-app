@@ -34,6 +34,10 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
       if (running && _desiredRevision > _appliedRevision) _scheduleUpdate();
     });
     for (final preference in [
+      VpnPrivacyPreferences.wifiSharing,
+      VpnPrivacyPreferences.handbookRouting,
+      VpnPrivacyPreferences.handbookProxy,
+      VpnPrivacyPreferences.handbookDirect,
       VpnPrivacyPreferences.useRoot,
       VpnPrivacyPreferences.fullTunnel,
       VpnPrivacyPreferences.hideLocalProxy,
@@ -60,6 +64,8 @@ class ConfigOptionNotifier extends _$ConfigOptionNotifier with AppLogger {
       });
     }
     for (final preference in [
+      VpnPrivacyPreferences.handbookProxySites,
+      VpnPrivacyPreferences.handbookDirectSites,
       VpnPrivacyPreferences.routingMode,
       VpnPrivacyPreferences.customDirectPackages,
       VpnPrivacyPreferences.customProxyPackages,
