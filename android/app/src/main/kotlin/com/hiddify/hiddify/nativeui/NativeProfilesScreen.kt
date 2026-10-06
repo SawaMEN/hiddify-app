@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -205,14 +206,16 @@ private fun ProfileCard(
                 )
             }
 
-            if (profile.total != null && profile.consumed != null) {
-                val remaining = (profile.total - profile.consumed).coerceAtLeast(0)
+            val total = profile.total
+            val consumed = profile.consumed
+            if (total != null && consumed != null) {
+                val remaining = (total - consumed).coerceAtLeast(0)
                 Text(
                     text =
                         stringResource(
                             R.string.native_profile_traffic,
-                            formatBytes(profile.consumed),
-                            formatBytes(profile.total),
+                            formatBytes(consumed),
+                            formatBytes(total),
                             formatBytes(remaining),
                         ),
                     style = MaterialTheme.typography.bodySmall,
