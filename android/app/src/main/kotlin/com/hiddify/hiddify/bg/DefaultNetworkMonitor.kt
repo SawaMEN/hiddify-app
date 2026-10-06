@@ -39,8 +39,6 @@ object DefaultNetworkMonitor {
             defaultNetwork = it
             checkDefaultInterfaceUpdate(it)
         }
-        defaultNetwork = Application.connectivity.activeNetwork
-        checkDefaultInterfaceUpdate(defaultNetwork)
     }
 
     /** Detach only the gomobile callback while keeping Android network discovery alive. */
@@ -66,7 +64,7 @@ object DefaultNetworkMonitor {
 
     suspend fun require(): Network {
         defaultNetwork?.let { return it }
-        Application.connectivity.activeNetwork?.let { return it }
+        DefaultNetworkListener.underlyingNetwork()?.let { return it }
         return DefaultNetworkListener.get()
     }
 

@@ -54,7 +54,7 @@ object DefaultNetworkListener {
                             if (listeners.isEmpty()) {
                                 register()
                                 if (fallback) {
-                                    network = Application.connectivity.activeNetwork
+                                    network = underlyingNetwork()
                                 }
                             }
                             listeners[message.key] = message.listener
@@ -69,7 +69,7 @@ object DefaultNetworkListener {
                             if (currentNetwork != null) {
                                 message.response.complete(currentNetwork)
                             } else if (fallback) {
-                                val active = Application.connectivity.activeNetwork
+                                val active = underlyingNetwork()
                                 if (active != null) {
                                     network = active
                                     message.response.complete(active)
@@ -134,7 +134,7 @@ object DefaultNetworkListener {
 
     suspend fun get(): Network {
         if (fallback) {
-            return Application.connectivity.activeNetwork ?: error("missing default network")
+            return underlyingNetwork() ?: error("missing default network")
         }
         val response = CompletableDeferred<Network>()
         messages.send(NetworkMessage.Get(response))
@@ -146,6 +146,19 @@ object DefaultNetworkListener {
 
     suspend fun stop(key: Any) {
         messages.send(NetworkMessage.Stop(key))
+    }
+
+    /** activeNetwork may be the TUN itself during startup or a network transition. */
+    fun underlyingNetwork(): Network? {
+        fun usable(network: Network): Boolean {
+            val caps = Application.connectivity.getNetworkCapabilities(network) ?: return false
+            return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) &&
+                !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN)
+        }
+        val connectivity = Application.connectivity
+        connectivity.activeNetwork?.let { if (usable(it)) return it }
+        return connectivity.allNetworks.firstOrNull { usable(it) }
     }
 
     private fun enqueue(message: NetworkMessage) {
@@ -177,6 +190,7 @@ object DefaultNetworkListener {
 
     private val request =
         NetworkRequest.Builder().apply {
+            addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
             addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED)
         }.build()
