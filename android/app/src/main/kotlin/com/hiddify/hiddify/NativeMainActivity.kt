@@ -128,6 +128,16 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onTogglePerAppPackage = ::togglePerAppPackage,
                 onClearPerApp = ::clearPerAppPackages,
                 onOpenLegacy = ::openLegacyUi,
+                onProxyOnlyChanged = { proxyOnly ->
+                    if (serviceStatus.value != Status.Stopped) {
+                        errorMessage.value = getString(R.string.native_settings_disconnect_required)
+                    } else {
+                        updateSettings {
+                            Settings.serviceMode = if (proxyOnly) ServiceMode.NORMAL else ServiceMode.VPN
+                        }
+                        connection.reconnect()
+                    }
+                },
                 onRootModeChanged = { value ->
                     if (serviceStatus.value != Status.Stopped) {
                         errorMessage.value = getString(R.string.native_profile_disconnect_required)
@@ -153,6 +163,12 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onHandbookDirectChanged = { value -> updateSettings { Settings.setHandbookDirect(value) } },
                 onHandbookProxySitesChanged = { value -> updateSettings { Settings.setHandbookProxySites(value) } },
                 onHandbookDirectSitesChanged = { value -> updateSettings { Settings.setHandbookDirectSites(value) } },
+                onDynamicNotificationChanged = { value ->
+                    updateSettings { Settings.dynamicNotification = value }
+                    com.hiddify.hiddify.bg.ServiceNotification.refreshActive()
+                },
+                onDebugModeChanged = { value -> updateSettings { Settings.debugMode = value } },
+                onDisableMemoryLimitChanged = { value -> updateSettings { Settings.disableMemoryLimit = value } },
             )
         }
 
@@ -337,6 +353,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun readNativeSettings() =
         NativeSettingsState(
+            serviceMode = Settings.serviceMode,
             rootRequested = Settings.privacyUseRootRequested,
             wifiSharing = Settings.wifiVpnSharing,
             fullTunnel = Settings.privacyFullTunnel,
@@ -349,6 +366,9 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
             handbookDirect = Settings.handbookDirect,
             handbookProxySites = Settings.handbookProxySites,
             handbookDirectSites = Settings.handbookDirectSites,
+            dynamicNotification = Settings.dynamicNotification,
+            debugMode = Settings.debugMode,
+            disableMemoryLimit = Settings.disableMemoryLimit,
         )
 
     private fun refreshSettingsSnapshot() {
