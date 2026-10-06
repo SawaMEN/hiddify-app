@@ -118,4 +118,10 @@
     <string name="native_profile_configuration">Configuration</string>
     <string name="native_profile_save">Save</string>
     <string name="native_profile_saving">Saving…</string>
+
+    <string name="native_logs_title">Logs and diagnostics</string>
+    <string name="native_logs_refresh">Refresh</string>
+    <string name="native_logs_clear">Clear</string>
+    <string name="native_logs_empty">No native core or service log entries are available yet.</string>
+    <string name="native_logs_sources">Log files: %1$d</string>
 </resources>
