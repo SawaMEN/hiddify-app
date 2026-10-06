@@ -24,6 +24,8 @@ import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativeprofile.NativeProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
 import com.hiddify.hiddify.nativeprofile.NativeProfileRepository
+import com.hiddify.hiddify.nativelog.NativeLogRepository
+import com.hiddify.hiddify.nativelog.NativeLogSnapshot
 import com.hiddify.hiddify.nativerouting.NativePerAppRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
 import com.hiddify.hiddify.nativeui.NativeApp
@@ -50,6 +52,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         private const val TAG = "NativeMainActivity"
         private const val IMPORT_BUSY_ID = "__import__"
         private const val PROFILE_UPDATE_INTERVAL_MS = 15L * 60L * 1000L
+        private const val LOG_REFRESH_INTERVAL_MS = 2_000L
+        private const val MAX_SERVICE_LOG_LINES = 200
     }
 
     private val serviceStatus = mutableStateOf(Status.Stopped)
@@ -68,15 +72,20 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
             ),
         )
     private val perAppBusy = mutableStateOf(false)
+    private val logSnapshot = mutableStateOf(NativeLogSnapshot(emptyList(), emptyList()))
+    private val logBusy = mutableStateOf(false)
+    private val serviceLogLines = ArrayDeque<String>()
     private val errorMessage = mutableStateOf<String?>(null)
     private val nativeSettings = mutableStateOf(readNativeSettings())
 
     private val profileRepository by lazy { NativeProfileRepository(applicationContext) }
     private val perAppRepository by lazy { NativePerAppRepository(applicationContext) }
+    private val logRepository by lazy { NativeLogRepository(applicationContext) }
     private val profileOperationMutex = Mutex()
     private val connection = ServiceConnection(this, this)
 
     private var profileUpdateJob: Job? = null
+    private var logRefreshJob: Job? = null
     private var pendingStartAfterVpnPermission = false
     private var notificationRequestInFlight = false
     private var batteryPromptOpen = false
@@ -132,6 +141,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 profileEditorBusy = profileEditorBusy.value,
                 perAppSnapshot = perAppSnapshot.value,
                 perAppBusy = perAppBusy.value,
+                logSnapshot = logSnapshot.value,
+                logBusy = logBusy.value,
                 errorMessage = errorMessage.value,
                 onDismissError = { errorMessage.value = null },
                 onToggleConnection = ::toggleConnection,
@@ -144,6 +155,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onPerAppModeChanged = ::setPerAppMode,
                 onTogglePerAppPackage = ::togglePerAppPackage,
                 onClearPerApp = ::clearPerAppPackages,
+                onRefreshLogs = ::refreshLogs,
+                onClearLogs = ::clearLogs,
                 onOpenLegacy = ::openLegacyUi,
                 onProxyOnlyChanged = { proxyOnly ->
                     if (serviceStatus.value != Status.Stopped) {
@@ -199,6 +212,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshProfiles()
         refreshPerApp()
         startProfileUpdateLoop()
+        startLogRefreshLoop()
         connection.connect()
     }
 
@@ -223,6 +237,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     override fun onStop() {
         profileUpdateJob?.cancel()
         profileUpdateJob = null
+        logRefreshJob?.cancel()
+        logRefreshJob = null
         connection.disconnect()
         super.onStop()
     }
@@ -248,6 +264,54 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 }
             }
         }
+    }
+
+    private fun refreshLogs() {
+        val serviceLines = serviceLogLines.toList()
+        lifecycleScope.launch {
+            try {
+                logSnapshot.value =
+                    withContext(Dispatchers.IO) {
+                        logRepository.readRecent(serviceLines)
+                    }
+            } catch (error: Exception) {
+                Log.w(TAG, "failed to refresh native logs", error)
+            }
+        }
+    }
+
+    private fun clearLogs() {
+        if (logBusy.value) return
+        logBusy.value = true
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) { logRepository.clear() }
+                serviceLogLines.clear()
+                logSnapshot.value = NativeLogSnapshot(emptyList(), emptyList())
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                logBusy.value = false
+            }
+        }
+    }
+
+    private fun startLogRefreshLoop() {
+        if (logRefreshJob?.isActive == true) return
+        logRefreshJob =
+            lifecycleScope.launch {
+                while (isActive) {
+                    refreshLogs()
+                    delay(LOG_REFRESH_INTERVAL_MS)
+                }
+            }
+    }
+
+    private fun appendServiceLog(message: String) {
+        if (message.isBlank()) return
+        serviceLogLines.addLast(logRepository.decorateServiceLine(message))
+        while (serviceLogLines.size > MAX_SERVICE_LOG_LINES) serviceLogLines.removeFirst()
+        refreshLogs()
     }
 
     private fun refreshPerApp() {
@@ -614,6 +678,22 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 maybeRequestNotificationPermission()
                 maybePromptBatteryOptimization()
             }
+        }
+    }
+
+    override fun onServiceWriteLog(message: String) {
+        runOnUiThread { appendServiceLog(message) }
+    }
+
+    override fun onServiceResetLogs(messages: List<String>) {
+        runOnUiThread {
+            serviceLogLines.clear()
+            messages.takeLast(MAX_SERVICE_LOG_LINES).forEach { message ->
+                if (message.isNotBlank()) {
+                    serviceLogLines.addLast(logRepository.decorateServiceLine(message))
+                }
+            }
+            refreshLogs()
         }
     }
 
