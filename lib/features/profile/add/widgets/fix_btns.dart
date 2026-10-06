@@ -43,7 +43,7 @@ class FixBtns extends ConsumerWidget {
           onTap: () async {
             final file = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ['txt', 'json']);
             if (file == null) return;
-            if (await file.length() > 8 * 1024 * 1024) {
+            if ((await file.length() ?? 0) > 8 * 1024 * 1024) {
               await ref
                   .read(dialogNotifierProvider.notifier)
                   .showOk(t.pages.profiles.msg.add.failure, 'Configuration exceeds 8 MiB');

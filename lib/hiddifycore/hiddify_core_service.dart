@@ -432,7 +432,7 @@ class HiddifyCoreService with InfraLogger {
             ![StatusCode.unavailable, StatusCode.deadlineExceeded, StatusCode.unknown].contains(error.code)) {
           return Stream<void>.error(error, stackTrace);
         }
-        return Stream<void>.fromFuture(Future<void>.delayed(Duration(milliseconds: 250 * (++failures).clamp(1, 60))));
+        return Stream<void>.fromFuture(Future<void>.delayed(Duration(milliseconds: 250 * (++failures).clamp(1, 60).toInt())));
       },
     );
   }
