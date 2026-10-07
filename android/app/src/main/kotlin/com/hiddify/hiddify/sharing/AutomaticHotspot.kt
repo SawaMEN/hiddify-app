@@ -6,16 +6,21 @@ import android.content.pm.PackageManager
 import android.location.LocationManager
 import android.net.wifi.SoftApConfiguration
 import android.net.wifi.WifiManager
+import android.net.wifi.WifiSsid
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.SparseIntArray
 import androidx.core.content.ContextCompat
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.security.SecureRandom
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -79,14 +84,32 @@ object AutomaticHotspot {
             }
             context = app
             root = rootMode
-            val before = withContext(Dispatchers.IO) { addresses() }
+            var before = withContext(Dispatchers.IO) { addresses() }
             val request = ++generation
             val ready = CompletableDeferred<WifiManager.LocalOnlyHotspotReservation>()
+            val scope = CoroutineScope(currentCoroutineContext())
+            var retried = false
+            var launchAp: (() -> Unit)? = null
             val callback = object : WifiManager.LocalOnlyHotspotCallback() {
                 override fun onStarted(value: WifiManager.LocalOnlyHotspotReservation) {
                     if (request != generation || !ready.complete(value)) value.close()
                 }
-                override fun onFailed(reason: Int) { ready.completeExceptionally(IllegalStateException("Android hotspot failed ($reason)")) }
+                override fun onFailed(reason: Int) {
+                    if (rootMode && reason == ERROR_INCOMPATIBLE_MODE && !retried && !ready.isCompleted) {
+                        retried = true
+                        scope.launch {
+                            try {
+                                // Replace a conflicting system tethered AP only on an explicit root sharing request.
+                                HotspotRoot.run("cmd wifi stop-softap")
+                                delay(2000) // netd releases DHCP/address after the Wi-Fi stop request.
+                                if (request == generation && !ready.isCompleted) {
+                                    before = withContext(Dispatchers.IO) { addresses() }
+                                    launchAp?.invoke()
+                                }
+                            } catch (error: Exception) { ready.completeExceptionally(error) }
+                        }
+                    } else ready.completeExceptionally(IllegalStateException("Android hotspot failed ($reason)"))
+                }
                 override fun onStopped() {
                     if (request == generation) {
                         ready.completeExceptionally(IllegalStateException("Android stopped the hotspot"))
@@ -104,14 +127,19 @@ object AutomaticHotspot {
                     }
                 }
                 val wifi = app.getSystemService(WifiManager::class.java)
-                if (Build.VERSION.SDK_INT >= 36) {
-                    val bytes = ByteArray(12).also { SecureRandom().nextBytes(it) }
-                    val password = bytes.joinToString("") { "%02x".format(it.toInt() and 255) }
-                    val config = SoftApConfiguration.Builder().setSsid("VetrOFF-${password.takeLast(4)}")
-                        .setPassphrase(password, SoftApConfiguration.SECURITY_TYPE_WPA2_PSK)
-                        .setBand(SoftApConfiguration.BAND_2GHZ).build()
-                    wifi.startLocalOnlyHotspotWithConfiguration(config, ContextCompat.getMainExecutor(app), callback)
-                } else wifi.startLocalOnlyHotspot(callback, main)
+                launchAp = {
+                    // SSID and passphrase setters became public in Android 16 minor release 1.
+                    if (Build.VERSION.SDK_INT >= 36 && Build.VERSION.SDK_INT_FULL >= 3_600_001) {
+                        val bytes = ByteArray(12).also { SecureRandom().nextBytes(it) }
+                        val password = bytes.joinToString("") { "%02x".format(it.toInt() and 255) }
+                        val ssid = WifiSsid.fromBytes("VetrOFF-${password.takeLast(4)}".toByteArray(Charsets.UTF_8))
+                        val config = SoftApConfiguration.Builder().setWifiSsid(ssid)
+                            .setPassphrase(password, SoftApConfiguration.SECURITY_TYPE_WPA2_PSK)
+                            .setChannels(SparseIntArray().apply { put(SoftApConfiguration.BAND_2GHZ, 0) }).build()
+                        wifi.startLocalOnlyHotspotWithConfiguration(config, ContextCompat.getMainExecutor(app), callback)
+                    } else wifi.startLocalOnlyHotspot(callback, main)
+                }
+                launchAp.invoke()
                 val value = withTimeout(30_000) { ready.await() }
                 reservation = value
                 val pair = withTimeout(10_000) {
