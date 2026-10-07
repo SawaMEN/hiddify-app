@@ -36,6 +36,7 @@ import com.hiddify.hiddify.nativelog.NativeLogSnapshot
 import com.hiddify.hiddify.nativecore.NativeCoreOptions
 import com.hiddify.hiddify.nativecore.NativeOutboundGroup
 import com.hiddify.hiddify.nativecore.NativeSystemStats
+import com.hiddify.hiddify.nativecore.NativeWifiSharingDetails
 import com.hiddify.hiddify.nativeprofile.NativeProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
@@ -48,6 +49,7 @@ private const val PAGE_PROFILE_DETAILS = "profile_details"
 private const val PAGE_LOGS = "logs"
 private const val PAGE_CORE_OPTIONS = "core_options"
 private const val PAGE_OUTBOUNDS = "outbounds"
+private const val PAGE_WIFI_GUIDE = "wifi_guide"
 
 @Composable
 fun NativeApp(
@@ -69,6 +71,8 @@ fun NativeApp(
     outboundGroups: List<NativeOutboundGroup>,
     outboundBusyTag: String?,
     systemStats: NativeSystemStats,
+    wifiSharingDetails: NativeWifiSharingDetails,
+    wifiSharingDetailsBusy: Boolean,
     errorMessage: String?,
     onDismissError: () -> Unit,
     onToggleConnection: () -> Unit,
@@ -88,6 +92,7 @@ fun NativeApp(
     onSelectOutbound: (String, String) -> Unit,
     onTestOutbound: (String) -> Unit,
     onTestActiveOutbounds: () -> Unit,
+    onRefreshWifiSharingDetails: () -> Unit,
     onOpenLegacy: () -> Unit,
     onProxyOnlyChanged: (Boolean) -> Unit,
     onRootModeChanged: (Boolean) -> Unit,
@@ -114,6 +119,7 @@ fun NativeApp(
                 PAGE_PER_APP -> PAGE_SETTINGS
                 PAGE_PROFILE_DETAILS -> PAGE_PROFILES
                 PAGE_CORE_OPTIONS -> PAGE_SETTINGS
+                PAGE_WIFI_GUIDE -> PAGE_SETTINGS
                 else -> PAGE_HOME
             }
     }
@@ -183,6 +189,15 @@ fun NativeApp(
                             onTestActive = onTestActiveOutbounds,
                         )
 
+                    PAGE_WIFI_GUIDE ->
+                        NativeWifiSharingGuideScreen(
+                            rootMode = rootMode,
+                            details = wifiSharingDetails,
+                            busy = wifiSharingDetailsBusy,
+                            onBack = { page = PAGE_SETTINGS },
+                            onRefresh = onRefreshWifiSharingDetails,
+                        )
+
                     PAGE_SETTINGS ->
                         NativeSettingsScreen(
                             state = settingsState,
@@ -190,6 +205,10 @@ fun NativeApp(
                             onBack = { page = PAGE_HOME },
                             onOpenPerAppRouting = { page = PAGE_PER_APP },
                             onOpenCoreOptions = { page = PAGE_CORE_OPTIONS },
+                            onOpenWifiSharingGuide = {
+                                onRefreshWifiSharingDetails()
+                                page = PAGE_WIFI_GUIDE
+                            },
                             onProxyOnlyChanged = onProxyOnlyChanged,
                             onRootModeChanged = onRootModeChanged,
                             onWifiSharingChanged = onWifiSharingChanged,
