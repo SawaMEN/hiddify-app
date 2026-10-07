@@ -23,6 +23,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativerouting/NativePerAppBackup.kt'
             include 'com/hiddify/hiddify/privacy/NativeTrafficFilters.kt'
             include 'com/hiddify/hiddify/privacy/NativeRegionalOptions.kt'
+            include 'com/hiddify/hiddify/privacy/NativeRegionalPackages.kt'
         }
     }
     test {

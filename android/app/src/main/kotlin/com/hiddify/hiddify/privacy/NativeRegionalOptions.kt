@@ -1,14 +1,14 @@
 package com.hiddify.hiddify.privacy
 
 object NativeRoutingTokens {
-    private val pattern = Regex("[a-z0-9_\\-]+(\\.[a-z0-9_\\-]+)+")
+    private val pattern = Regex("[a-zA-Z0-9_\\-]+(\\.[a-zA-Z0-9_\\-]+)+")
 
     fun merge(builtIn: List<String>, extra: String, domain: Boolean): List<String> =
         (builtIn + parse(extra, domain)).distinct().also {
             require(it.size <= 256) { "Too many routing entries" }
         }
 
-    fun parse(text: String, domain: Boolean): List<String> = text.lowercase()
+    fun parse(text: String, domain: Boolean): List<String> = (if (domain) text.lowercase() else text)
         .split(Regex("[\\s,;]+"))
         .map { if (domain) it.trim('.').removePrefix("*.") else it }
         .filter { it.isNotBlank() }

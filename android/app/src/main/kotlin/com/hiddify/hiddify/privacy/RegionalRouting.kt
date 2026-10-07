@@ -6,7 +6,6 @@ import org.json.JSONObject
 
 /** Bundled, offline routing catalogue used by the VPN privacy screen. */
 object RegionalRouting {
-    private const val MANUAL_PREFIX = "manual:"
     private fun tokens(text: String, domain: Boolean): List<String> = NativeRoutingTokens.parse(text, domain)
 
     private fun catalogueTokens(catalogue: JSONObject, keys: List<String>, domain: Boolean): List<String> {
@@ -21,22 +20,12 @@ object RegionalRouting {
     private fun merged(builtIn: List<String>, extra: String, domain: Boolean): List<String> =
         NativeRoutingTokens.merge(builtIn, extra, domain)
 
-    private data class PackageSelection(val manual: Boolean, val values: List<String>)
-
-    private fun packageSelection(stored: String, automatic: List<String>): PackageSelection {
-        if (stored.startsWith(MANUAL_PREFIX)) {
-            return PackageSelection(true, tokens(stored.removePrefix(MANUAL_PREFIX), false))
-        }
-        // Plain values are kept as a migration path for older custom-package settings.
-        return PackageSelection(false, merged(automatic, stored, false))
-    }
-
     @Volatile private var cachedCatalogue: JSONObject? = null
     private fun catalogue(context: Context): JSONObject = cachedCatalogue ?: synchronized(this) {
         cachedCatalogue ?: JSONObject(context.assets.open("region_routing.json").bufferedReader().use { it.readText() }).also { cachedCatalogue = it }
     }
 
-    fun policy(context: Context, @Suppress("UNUSED_PARAMETER") legacyRegion: String = "other", options: NativeRegionalOptions? = null): Map<String, Any> {
+    fun policy(context: Context, @Suppress("UNUSED_PARAMETER") legacyRegion: String = "other", options: NativeRegionalOptions? = null, packages: NativeRegionalPackageValues? = null): Map<String, Any> {
         val selected = options ?: NativeRegionalOptions(
             mode = NativeRegionalMode.fromValue(Settings.privacyRoutingMode),
             russianNetworkBypass = Settings.privacyRussianNetworkBypass,
@@ -64,8 +53,8 @@ object RegionalRouting {
 
         val automaticDirect = (vpnAwarePackages + compatibilityPackages).distinct()
         val automaticProxy = catalogueTokens(catalogue, listOf("proxyPackages"), false)
-        val directSelection = packageSelection(Settings.privacyDirectPackages, automaticDirect)
-        val proxySelection = packageSelection(Settings.privacyProxyPackages, automaticProxy)
+        val directSelection = NativeRegionalPackages.selection(packages?.direct ?: Settings.privacyDirectPackages, automaticDirect)
+        val proxySelection = NativeRegionalPackages.selection(packages?.proxy ?: Settings.privacyProxyPackages, automaticProxy)
 
         val uidCache = mutableMapOf<String, Int?>()
         fun installedUid(packageName: String): Int? {

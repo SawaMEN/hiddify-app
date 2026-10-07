@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
+import com.hiddify.hiddify.privacy.NativeRegionalAppKind
 import com.hiddify.hiddify.privacy.NativeRegionalMode
 import com.hiddify.hiddify.privacy.NativeRegionalOptions
 
@@ -37,6 +38,7 @@ fun NativeRegionalRoutingScreen(
     handbookRouting: Boolean,
     onBack: () -> Unit,
     onSave: (NativeRegionalOptions) -> Unit,
+    onOpenApps: (NativeRegionalAppKind) -> Unit,
 ) {
     var mode by rememberSaveable(options.mode) { mutableStateOf(options.mode.value) }
     var network by rememberSaveable(options.russianNetworkBypass) { mutableStateOf(options.russianNetworkBypass) }
@@ -85,6 +87,15 @@ fun NativeRegionalRoutingScreen(
             apps, !busy) { apps = it }
         RegionalSwitch(R.string.native_regional_restricted, R.string.native_regional_restricted_summary,
             restricted, !busy) { restricted = it }
+        if (draft != options) {
+            Text(stringResource(R.string.native_regional_apps_save_first), style = MaterialTheme.typography.bodySmall)
+        }
+        TextButton(enabled = !busy && draft == options, onClick = { onOpenApps(NativeRegionalAppKind.DIRECT) }) {
+            Text(stringResource(R.string.native_regional_apps_direct_title))
+        }
+        TextButton(enabled = !busy && draft == options, onClick = { onOpenApps(NativeRegionalAppKind.PROXY) }) {
+            Text(stringResource(R.string.native_regional_apps_proxy_title))
+        }
         OutlinedTextField(value = direct, onValueChange = { if (it.length <= 8192) direct = it },
             enabled = !busy, modifier = Modifier.fillMaxWidth(), minLines = 3,
             label = { Text(stringResource(R.string.native_regional_direct_domains)) },

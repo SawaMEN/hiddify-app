@@ -89,8 +89,8 @@ The Kotlin settings page now opens a regional-routing form with the existing off
 and selected-services modes, independent Russian domain/IP, Russian app and proxied-service
 switches, and additional direct/proxied domains. The form preserves drafts across rotation and
 explains when full tunnel or manual routing overrides automatic choices. Changes apply on reconnect.
-Application selections and their manual/automatic semantics are retained; this screen does not
-replace the separate application-selection editor that remains to be migrated.
+Application selections and their manual/automatic semantics are retained through the native
+regional application editor described below.
 
 The repository validates and normalizes domain lists before an atomic preferences write on IO.
 It checks the candidate policy against the real bundled catalogue before saving, including the
@@ -98,12 +98,32 @@ It checks the candidate policy against the real bundled catalogue before saving,
 form bounds each domain field to 8192 characters and rejects URLs, ports and IP literals; ASCII
 and punycode domain names use the existing routing grammar. Unknown stored modes resolve to off.
 
+## Native regional application selection
+
+The regional form now opens native Russian-app and proxied-service lists, with search by label or
+package, selected-first ordering, manual save and an offline reset to the bundled automatic list.
+All controls and rows share one lazy scrolling list. Unsaved regional form edits must be saved
+before opening these lists. Application drafts and the search query survive Activity recreation;
+only package strings enter saved state, not package-manager objects or icons.
+
+Saving follows the compatibility UI: it selects the Russian-bypass routing mode and removes
+intersections from the opposite manual list in the same preferences transaction. Automatic and
+legacy opposite lists remain intact. A manual empty list (`manual:`) differs from an automatic
+reset (empty string). Uninstalled or unavailable manual selections remain visible and are retained
+until deselected. The client package cannot be selected. The repository checks the candidate
+policy before writing preferences; loading/saving runs on IO and regional operations are serialized.
+The UI states that changes require reconnecting, and retains category/full-tunnel/manual overrides.
+
+Both native per-app editors now share a package loader without routing/database side effects.
+The policy and editor share manual-package parsing and encoding. Package identifiers preserve
+case for exact PackageManager lookup, while domain names are still normalized to lowercase.
+
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and
-`NativeDiagnosticReportTest`, `NativePerAppBackupTest`, `NativePerAppFlagsTest` `NativeTrafficFiltersTest` and `NativeRegionalOptionsTest` cover UTF-8, byte-order marks, size limits,
+`NativeDiagnosticReportTest`, `NativePerAppBackupTest`, `NativePerAppFlagsTest` `NativeTrafficFiltersTest` `NativeRegionalOptionsTest` and `NativeRegionalPackagesTest` cover UTF-8, byte-order marks, size limits,
 encoded URL tokens, custom ports, IPv6, QR round trips, inverted QR images and oversized QR
-payloads, captive portal responses, probe URL validation and the diagnostic report allowlist, legacy routing backups, validation limits and manual/automatic flag transitions, typed privacy preferences and bulk filter round trips, regional routing modes, override precedence, domain normalization and merged catalogue limits. Run with the configured Android/Flutter SDK and prepared core:
+payloads, captive portal responses, probe URL validation and the diagnostic report allowlist, legacy routing backups, validation limits and manual/automatic flag transitions, typed privacy preferences and bulk filter round trips, regional routing modes, override precedence, domain normalization and merged catalogue limits, automatic/manual empty selections, package case preservation, cross-list conflict removal, reset isolation and package limits. Run with the configured Android/Flutter SDK and prepared core:
 
 ```sh
 cd android

@@ -50,6 +50,8 @@ import com.hiddify.hiddify.nativerouting.NativePerAppBackup
 import com.hiddify.hiddify.nativerouting.NativePerAppBackupCodec
 import com.hiddify.hiddify.nativerouting.NativePerAppRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
+import com.hiddify.hiddify.privacy.NativeRegionalAppKind
+import com.hiddify.hiddify.privacy.NativeRegionalAppSnapshot
 import com.hiddify.hiddify.privacy.NativeRegionalOptions
 import com.hiddify.hiddify.privacy.NativeRegionalRepository
 import com.hiddify.hiddify.privacy.NativeTrafficFilters
@@ -119,6 +121,9 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val diagnosticBusy = mutableStateOf(false)
     private val vpnProtection = mutableStateOf(NativeVpnProtection())
     private val errorMessage = mutableStateOf<String?>(null)
+    private val regionalAppsRevision = mutableStateOf(0)
+    private val regionalApps = mutableStateOf<NativeRegionalAppSnapshot?>(null)
+    private val regionalOperationMutex = Mutex()
     private val regionalOptions = mutableStateOf(NativeRegionalOptions())
     private val regionalBusy = mutableStateOf(false)
     private val regionalRepository by lazy { NativeRegionalRepository(applicationContext) }
@@ -281,6 +286,11 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 hasActiveProfile = activeProfilePath.value.isNotBlank(),
                 rootMode = Settings.privacyUseRoot,
                 settingsState = nativeSettings.value,
+                regionalApps = regionalApps.value,
+                regionalAppsRevision = regionalAppsRevision.value,
+                onOpenRegionalApps = ::loadRegionalApps,
+                onSaveRegionalApps = ::saveRegionalApps,
+                onResetRegionalApps = ::resetRegionalApps,
                 regionalOptions = regionalOptions.value,
                 regionalBusy = regionalBusy.value,
                 onSaveRegionalOptions = ::saveRegionalOptions,
@@ -1110,12 +1120,57 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         trafficFilters.value = NetworkPrivacySettings.loadFilters(this)
     }
 
+    private fun loadRegionalApps(kind: NativeRegionalAppKind) {
+        if (regionalBusy.value) return
+        regionalApps.value = null
+        regionalBusy.value = true
+        lifecycleScope.launch {
+            try {
+                regionalApps.value = withContext(Dispatchers.IO) {
+                    regionalOperationMutex.withLock { regionalRepository.applicationSnapshot(kind) }
+                }
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                regionalBusy.value = false
+            }
+        }
+    }
+
+    private fun saveRegionalApps(kind: NativeRegionalAppKind, selected: Set<String>) {
+        changeRegionalApps(kind, selected)
+    }
+
+    private fun resetRegionalApps(kind: NativeRegionalAppKind) {
+        changeRegionalApps(kind, null)
+    }
+
+    private fun changeRegionalApps(kind: NativeRegionalAppKind, selected: Set<String>?) {
+        if (regionalBusy.value || regionalApps.value?.kind != kind) return
+        regionalBusy.value = true
+        lifecycleScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    regionalOperationMutex.withLock { regionalRepository.saveApplications(kind, selected) }
+                }
+                regionalApps.value = result
+                regionalAppsRevision.value += 1
+                regionalOptions.value = regionalRepository.load()
+                Toast.makeText(this@NativeMainActivity, R.string.native_regional_apps_saved, Toast.LENGTH_SHORT).show()
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                regionalBusy.value = false
+            }
+        }
+    }
+
     private fun saveRegionalOptions(value: NativeRegionalOptions) {
         if (regionalBusy.value) return
         regionalBusy.value = true
         lifecycleScope.launch {
             try {
-                regionalOptions.value = withContext(Dispatchers.IO) { regionalRepository.save(value) }
+                regionalOptions.value = withContext(Dispatchers.IO) { regionalOperationMutex.withLock { regionalRepository.save(value) } }
                 Toast.makeText(this@NativeMainActivity, R.string.native_regional_saved, Toast.LENGTH_SHORT).show()
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName

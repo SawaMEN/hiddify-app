@@ -410,4 +410,18 @@
     <string name="native_regional_invalid">Проверьте домены и размер списка. URL, порты и IP-адреса не принимаются.</string>
     <string name="native_regional_save">Сохранить маршрутизацию</string>
     <string name="native_regional_saved">Маршрутизация сохранена. Переподключите VPN для применения.</string>
+    <string name="native_regional_apps_direct_title">Российские приложения</string>
+    <string name="native_regional_apps_proxy_title">Сервисы через VPN</string>
+    <string name="native_regional_apps_direct_hint">Отмеченные приложения идут напрямую при включённом обходе для российских приложений. Полный туннель и ручная маршрутизация могут переопределить этот выбор.</string>
+    <string name="native_regional_apps_proxy_hint">Отмеченные приложения идут через VPN при включённой категории сервисов. Ручной выбор сохраняется при отключении категории.</string>
+    <string name="native_regional_apps_save_hint">Сохранение включает режим российских исключений и убирает пересечения из противоположного ручного списка. Переподключите VPN для применения. До 256 приложений.</string>
+    <string name="native_regional_apps_manual">Ручной выбор</string>
+    <string name="native_regional_apps_auto">Встроенный автовыбор</string>
+    <string name="native_regional_apps_count">Выбрано: %1$d / 256</string>
+    <string name="native_regional_apps_reset">Сбросить к встроенному автовыбору</string>
+    <string name="native_regional_apps_reload">Обновить список приложений</string>
+    <string name="native_regional_apps_empty">Подходящих приложений нет</string>
+    <string name="native_regional_apps_missing">Не установлено или недоступно; сохранённый выбор сохраняется</string>
+    <string name="native_regional_apps_saved">Маршрутизация приложений сохранена. Переподключите VPN для применения.</string>
+    <string name="native_regional_apps_save_first">Сохраните изменения маршрутизации перед выбором приложений.</string>
 </resources>

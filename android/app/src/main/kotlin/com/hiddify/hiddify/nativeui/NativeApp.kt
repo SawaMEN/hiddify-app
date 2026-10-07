@@ -33,6 +33,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.nativediagnostics.NativeDiagnosticSnapshot
 import com.hiddify.hiddify.nativediagnostics.NativeVpnProtection
+import com.hiddify.hiddify.privacy.NativeRegionalAppKind
+import com.hiddify.hiddify.privacy.NativeRegionalAppSnapshot
 import com.hiddify.hiddify.privacy.NativeRegionalOptions
 import com.hiddify.hiddify.privacy.NativeTrafficFilters
 import com.hiddify.hiddify.R
@@ -62,6 +64,7 @@ private const val PAGE_WIFI_GUIDE = "wifi_guide"
 private const val PAGE_ABOUT = "about"
 private const val PAGE_CHAIN = "chain"
 private const val PAGE_DIAGNOSTICS = "diagnostics"
+private const val PAGE_REGIONAL_APPS = "regional_apps"
 private const val PAGE_REGIONAL = "regional"
 private const val PAGE_TRAFFIC_FILTERS = "traffic_filters"
 private const val PAGE_PROTECTION = "protection"
@@ -73,6 +76,11 @@ fun NativeApp(
     hasActiveProfile: Boolean,
     rootMode: Boolean,
     settingsState: NativeSettingsState,
+    regionalApps: NativeRegionalAppSnapshot?,
+    regionalAppsRevision: Int,
+    onOpenRegionalApps: (NativeRegionalAppKind) -> Unit,
+    onSaveRegionalApps: (NativeRegionalAppKind, Set<String>) -> Unit,
+    onResetRegionalApps: (NativeRegionalAppKind) -> Unit,
     regionalOptions: NativeRegionalOptions,
     regionalBusy: Boolean,
     onSaveRegionalOptions: (NativeRegionalOptions) -> Unit,
@@ -168,6 +176,7 @@ fun NativeApp(
     onDisableMemoryLimitChanged: (Boolean) -> Unit,
 ) {
     var page by rememberSaveable { mutableStateOf(PAGE_HOME) }
+    var regionalAppKind by rememberSaveable { mutableStateOf(NativeRegionalAppKind.DIRECT.name) }
 
     BackHandler(enabled = page != PAGE_HOME) {
         if (page == PAGE_DIAGNOSTICS) onCancelDiagnostics()
@@ -180,6 +189,7 @@ fun NativeApp(
                 PAGE_CORE_OPTIONS -> PAGE_SETTINGS
                 PAGE_CHAIN -> PAGE_SETTINGS
                 PAGE_WIFI_GUIDE -> PAGE_SETTINGS
+                PAGE_REGIONAL_APPS -> PAGE_REGIONAL
                 PAGE_REGIONAL -> PAGE_SETTINGS
                 PAGE_TRAFFIC_FILTERS -> PAGE_SETTINGS
                 PAGE_PROTECTION -> PAGE_SETTINGS
@@ -212,6 +222,20 @@ fun NativeApp(
                             onShareReport = onShareDiagnosticReport,
                         )
 
+                    PAGE_REGIONAL_APPS -> {
+                        val kind = NativeRegionalAppKind.valueOf(regionalAppKind)
+                        NativeRegionalAppsScreen(
+                            kind = kind,
+                            snapshot = regionalApps?.takeIf { it.kind == kind },
+                            revision = regionalAppsRevision,
+                            busy = regionalBusy,
+                            onBack = { page = PAGE_REGIONAL },
+                            onReload = { onOpenRegionalApps(kind) },
+                            onSave = { onSaveRegionalApps(kind, it) },
+                            onReset = { onResetRegionalApps(kind) },
+                        )
+                    }
+
                     PAGE_REGIONAL ->
                         NativeRegionalRoutingScreen(
                             options = regionalOptions,
@@ -220,6 +244,11 @@ fun NativeApp(
                             handbookRouting = settingsState.handbookRouting,
                             onBack = { page = PAGE_SETTINGS },
                             onSave = onSaveRegionalOptions,
+                            onOpenApps = { kind ->
+                                regionalAppKind = kind.name
+                                onOpenRegionalApps(kind)
+                                page = PAGE_REGIONAL_APPS
+                            },
                         )
 
                     PAGE_TRAFFIC_FILTERS ->

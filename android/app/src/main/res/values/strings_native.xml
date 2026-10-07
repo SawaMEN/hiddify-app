@@ -410,4 +410,18 @@
     <string name="native_regional_invalid">Check domain names and list size. URLs, ports and IP literals are not accepted.</string>
     <string name="native_regional_save">Save routing</string>
     <string name="native_regional_saved">Routing saved. Reconnect the VPN to apply it.</string>
+    <string name="native_regional_apps_direct_title">Russian applications</string>
+    <string name="native_regional_apps_proxy_title">Proxied services</string>
+    <string name="native_regional_apps_direct_hint">Checked apps go directly outside the VPN when Russian app bypass is enabled. Full tunnel and manual routing can override these choices.</string>
+    <string name="native_regional_apps_proxy_hint">Checked apps use the VPN when service proxying is enabled. Manual choices are retained while the category is disabled.</string>
+    <string name="native_regional_apps_save_hint">Saving activates Russian-bypass app routing and removes overlaps from the opposite manual list. Reconnect the VPN to apply. Up to 256 apps.</string>
+    <string name="native_regional_apps_manual">Manual selection</string>
+    <string name="native_regional_apps_auto">Bundled automatic selection</string>
+    <string name="native_regional_apps_count">Selected: %1$d / 256</string>
+    <string name="native_regional_apps_reset">Reset to bundled automatic selection</string>
+    <string name="native_regional_apps_reload">Reload app list</string>
+    <string name="native_regional_apps_empty">No matching applications</string>
+    <string name="native_regional_apps_missing">Not installed or unavailable; saved choice retained</string>
+    <string name="native_regional_apps_saved">Application routing saved. Reconnect the VPN to apply.</string>
+    <string name="native_regional_apps_save_first">Save routing changes before opening application selection.</string>
 </resources>
