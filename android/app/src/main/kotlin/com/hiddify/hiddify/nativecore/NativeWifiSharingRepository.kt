@@ -35,15 +35,14 @@ class NativeWifiSharingRepository {
                 .takeIf { it in 1..65535 }
                 ?: 12334
         val password = root.optString("lan-sharing-password").trim()
-        val host =
-            runCatching {
+        val host = hotspot["ip"] as? String ?: runCatching {
                 client().GetLANIP().executeBlocking(Empty()).ip.trim()
             }.getOrDefault("")
 
         return NativeWifiSharingDetails(
             ssid = hotspot["ssid"] as? String ?: "",
             wifiPassword = hotspot["password"] as? String ?: "",
-            host = hotspot["ip"] as? String ?: host,
+            host = host,
             port = port,
             password = password,
         )

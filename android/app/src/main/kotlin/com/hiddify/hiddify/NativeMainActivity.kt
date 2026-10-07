@@ -121,6 +121,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshSettingsSnapshot()
         refreshWifiSharingDetails()
     }
+    private var wifiDetailsRefreshPending = false
     private val wifiSharingDetailsBusy = mutableStateOf(false)
     private val updateChecking = mutableStateOf(false)
     private val updateMessage = mutableStateOf<String?>(null)
@@ -1086,7 +1087,10 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun refreshWifiSharingDetails() {
-        if (wifiSharingDetailsBusy.value) return
+        if (wifiSharingDetailsBusy.value) {
+            wifiDetailsRefreshPending = true
+            return
+        }
         wifiSharingDetailsBusy.value = true
         lifecycleScope.launch {
             try {
@@ -1098,6 +1102,10 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
                 wifiSharingDetailsBusy.value = false
+                if (wifiDetailsRefreshPending) {
+                    wifiDetailsRefreshPending = false
+                    refreshWifiSharingDetails()
+                }
             }
         }
     }
