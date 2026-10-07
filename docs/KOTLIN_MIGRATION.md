@@ -189,10 +189,13 @@ Glass regions use the source gradient and accent border without a full-screen bl
 Home restores the compact logo header, selectable profile, 176dp circular power control with a 64dp
 power icon, centered status, paired speed readings, glass quick-settings entry and rounded 72dp
 bottom navigation. Pending connection operations remain disabled; cancellation of automatic
-recovery remains available. Existing native actions remain accessible below the primary controls.
-Dark, light and black home previews are available in Android Studio. The protection tab currently
-opens the native Android VPN protection screen; the broader Flutter privacy hub and identical
-settings row grouping remain migration work. Android device screenshot comparison is still required
+recovery remains available. Logs, About and the compatibility entry are now accessible from the settings overview.
+Dark, light and black home previews are available in Android Studio. The middle tab now opens a native VPN privacy overview with the source routing, connection, DNS
+and proxy/control categories. Categories retain expansion across child screens and Activity recreation.
+Settings use glass icon/chevron rows, with separate general, VPN, DNS, custom-routing and backup pages.
+Shared native page history returns children to their actual entry point, including nested selectors
+and backups. All switches retain their existing Kotlin preference writers; entire switch rows are
+accessible touch targets. The Flutter one-tap automatic protection/restore actions remain migration work. Android device screenshot comparison is still required
 before claiming pixel-for-pixel equivalence.
 
 ## Validation

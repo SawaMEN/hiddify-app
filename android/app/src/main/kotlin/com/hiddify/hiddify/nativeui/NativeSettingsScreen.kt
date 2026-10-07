@@ -1,5 +1,7 @@
 package com.hiddify.hiddify.nativeui
 
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -49,9 +51,16 @@ data class NativeSettingsState(
     val disableMemoryLimit: Boolean,
 )
 
+enum class NativeSettingsCategory(val title: Int) {
+    VPN(R.string.native_settings_vpn), DNS(R.string.native_settings_dns),
+    ROUTING(R.string.native_settings_custom_routing), CORE(R.string.native_core_options_title),
+    BACKUP(R.string.native_settings_transfer), APP(R.string.native_settings_general),
+}
+
 @Composable
 fun NativeSettingsScreen(
     state: NativeSettingsState,
+    category: NativeSettingsCategory? = null,
     themeMode: NativeThemeMode,
     themeBusy: Boolean,
     onChangeTheme: (NativeThemeMode) -> Unit,
@@ -102,31 +111,12 @@ fun NativeSettingsScreen(
                 .padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = stringResource(R.string.native_settings),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            TextButton(onClick = onBack) {
-                Text(stringResource(R.string.native_back))
-            }
-        }
+        NativePageHeader(stringResource(category?.title ?: R.string.native_settings), onBack)
 
-        SettingsSection(title = stringResource(R.string.native_settings_vpn)) {
-            OutlinedButton(onClick = onOpenVpnProtection, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.native_protection_title))
-            }
-            OutlinedButton(onClick = onOpenConnectionPolicy, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.native_connection_policy_title))
-            }
-            OutlinedButton(onClick = onOpenTrafficFilters, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.native_filters_title))
-            }
+        if (category == null || category == NativeSettingsCategory.VPN) SettingsSection(title = stringResource(R.string.native_settings_vpn)) {
+            NativeSettingsLink(R.string.native_protection_title, R.drawable.native_shield, onOpenVpnProtection)
+            NativeSettingsLink(R.string.native_connection_policy_title, R.drawable.native_shield, onOpenConnectionPolicy)
+            NativeSettingsLink(R.string.native_filters_title, R.drawable.native_shield, onOpenTrafficFilters)
             SettingSwitch(
                 title = stringResource(R.string.native_setting_proxy_only),
                 summary = stringResource(R.string.native_setting_proxy_only_summary),
@@ -150,18 +140,8 @@ fun NativeSettingsScreen(
             )
             if (wifiSharingBusy) Text(stringResource(R.string.native_wifi_busy))
             NativeWifiCredentialsCard(wifiSharingDetails)
-            OutlinedButton(
-                onClick = onOpenWifiSharingGuide,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.native_wifi_guide_open))
-            }
-            OutlinedButton(
-                onClick = onOpenPerAppRouting,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.native_per_app_open))
-            }
+            NativeSettingsLink(R.string.native_wifi_guide_open, R.drawable.native_route, onOpenWifiSharingGuide)
+            NativeSettingsLink(R.string.native_per_app_open, R.drawable.native_list, onOpenPerAppRouting)
             SettingSwitch(
                 title = stringResource(R.string.native_setting_full_tunnel),
                 summary = stringResource(R.string.native_setting_full_tunnel_summary),
@@ -176,7 +156,7 @@ fun NativeSettingsScreen(
             )
         }
 
-        SettingsSection(title = stringResource(R.string.native_settings_dns)) {
+        if (category == null || category == NativeSettingsCategory.DNS) SettingsSection(title = stringResource(R.string.native_settings_dns)) {
             SettingSwitch(
                 title = stringResource(R.string.native_setting_encrypted_dns),
                 summary = stringResource(R.string.native_setting_encrypted_dns_summary),
@@ -197,10 +177,8 @@ fun NativeSettingsScreen(
             )
         }
 
-        SettingsSection(title = stringResource(R.string.native_settings_custom_routing)) {
-            OutlinedButton(onClick = onOpenRegionalRouting, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.native_regional_title))
-            }
+        if (category == null || category == NativeSettingsCategory.ROUTING) SettingsSection(title = stringResource(R.string.native_settings_custom_routing)) {
+            NativeSettingsLink(R.string.native_regional_title, R.drawable.native_route, onOpenRegionalRouting)
             SettingSwitch(
                 title = stringResource(R.string.native_setting_custom_routing),
                 summary = stringResource(R.string.native_setting_custom_routing_summary),
@@ -241,27 +219,17 @@ fun NativeSettingsScreen(
             )
         }
 
-        SettingsSection(title = stringResource(R.string.native_core_options_title)) {
+        if (category == null || category == NativeSettingsCategory.CORE) SettingsSection(title = stringResource(R.string.native_core_options_title)) {
             Text(
                 text = stringResource(R.string.native_core_options_summary),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            OutlinedButton(
-                onClick = onOpenCoreOptions,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.native_core_options_open))
-            }
-            OutlinedButton(
-                onClick = onOpenChain,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.native_chain_open))
-            }
+            NativeSettingsLink(R.string.native_core_options_open, R.drawable.native_settings, onOpenCoreOptions)
+            NativeSettingsLink(R.string.native_chain_open, R.drawable.native_route, onOpenChain)
         }
 
-        SettingsSection(title = stringResource(R.string.native_settings_transfer)) {
+        if (category == null || category == NativeSettingsCategory.BACKUP) SettingsSection(title = stringResource(R.string.native_settings_transfer)) {
             Text(
                 text = stringResource(R.string.native_settings_transfer_summary),
                 style = MaterialTheme.typography.bodySmall,
@@ -305,19 +273,14 @@ fun NativeSettingsScreen(
             }
         }
 
-        SettingsSection(title = stringResource(R.string.native_settings_app)) {
-            OutlinedButton(onClick = { themePickerOpen = true }, enabled = !themeBusy,
-                modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.native_theme_title) + ": " + stringResource(themeTitle(themeMode)))
-            }
-            OutlinedButton(onClick = onOpenNotificationSettings, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.native_notification_settings))
-            }
-            Text(stringResource(R.string.native_notification_settings_summary), style = MaterialTheme.typography.bodySmall)
-            OutlinedButton(onClick = onOpenBatterySettings, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.native_battery_settings))
-            }
-            Text(stringResource(R.string.native_battery_settings_summary), style = MaterialTheme.typography.bodySmall)
+        if (category == null || category == NativeSettingsCategory.APP) SettingsSection(title = stringResource(R.string.native_settings_app)) {
+            if (!themeBusy) NativeSettingsLink(R.string.native_theme_title, R.drawable.native_layers,
+                { themePickerOpen = true }, themeTitle(themeMode))
+            else Text(stringResource(R.string.native_theme_title) + ": " + stringResource(themeTitle(themeMode)))
+            NativeSettingsLink(R.string.native_notification_settings, R.drawable.native_settings,
+                onOpenNotificationSettings, R.string.native_notification_settings_summary)
+            NativeSettingsLink(R.string.native_battery_settings, R.drawable.native_settings,
+                onOpenBatterySettings, R.string.native_battery_settings_summary)
             SettingSwitch(
                 title = stringResource(R.string.native_setting_dynamic_notification),
                 summary = stringResource(R.string.native_setting_dynamic_notification_summary),
@@ -430,7 +393,7 @@ private fun SettingSwitch(
     onCheckedChange: (Boolean) -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange).padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -447,7 +410,7 @@ private fun SettingSwitch(
         }
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = null,
             enabled = enabled,
         )
     }

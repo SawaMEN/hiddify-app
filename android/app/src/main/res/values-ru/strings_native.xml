@@ -461,4 +461,18 @@
     <string name="native_general_settings_failed">Не удалось открыть настройки приложения Android</string>
     <string name="native_home">Главная</string>
     <string name="native_quick_settings">Быстрые настройки</string>
+    <string name="native_settings_general">Общие</string>
+    <string name="native_privacy_title">Скрытие VPN</string>
+    <string name="native_privacy_summary">Управляйте маршрутизацией, режимом подключения, DNS и сетевыми признаками.</string>
+    <string name="native_privacy_routing">Маршрутизация</string>
+    <string name="native_privacy_routing_summary">Какие сайты и приложения идут напрямую или через VPN</string>
+    <string name="native_privacy_connection">Режим подключения</string>
+    <string name="native_privacy_connection_summary">Нестабильная сеть, полный туннель и подключение через root</string>
+    <string name="native_privacy_dns">DNS</string>
+    <string name="native_privacy_dns_summary">Шифрование DNS и выбор DNS-серверов</string>
+    <string name="native_privacy_interfaces">Прокси и управление</string>
+    <string name="native_privacy_interfaces_summary">Локальные порты и системный HTTP-прокси</string>
+    <string name="native_privacy_limits">Скрытие VPN снижает количество локальных признаков, но не может гарантировать полную незаметность для любого приложения или сервера.</string>
+    <string name="native_category_expanded">Развёрнуто</string>
+    <string name="native_category_collapsed">Свёрнуто</string>
 </resources>

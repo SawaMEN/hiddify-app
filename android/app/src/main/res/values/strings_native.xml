@@ -461,4 +461,18 @@
     <string name="native_general_settings_failed">Could not open Android application settings</string>
     <string name="native_home">Home</string>
     <string name="native_quick_settings">Quick settings</string>
+    <string name="native_settings_general">General</string>
+    <string name="native_privacy_title">VPN privacy</string>
+    <string name="native_privacy_summary">Manage routing, connection mode, DNS and network signals.</string>
+    <string name="native_privacy_routing">Routing</string>
+    <string name="native_privacy_routing_summary">Choose which sites and apps use the VPN</string>
+    <string name="native_privacy_connection">Connection mode</string>
+    <string name="native_privacy_connection_summary">Unstable network, full tunnel and root connection</string>
+    <string name="native_privacy_dns">DNS</string>
+    <string name="native_privacy_dns_summary">Encrypted DNS and resolver selection</string>
+    <string name="native_privacy_interfaces">Proxy and control</string>
+    <string name="native_privacy_interfaces_summary">Local ports and system HTTP proxy</string>
+    <string name="native_privacy_limits">VPN privacy reduces local signals but cannot guarantee complete invisibility to every app or server.</string>
+    <string name="native_category_expanded">Expanded</string>
+    <string name="native_category_collapsed">Collapsed</string>
 </resources>

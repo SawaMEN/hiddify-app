@@ -6,7 +6,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -14,10 +13,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.AlertDialog
-import com.hiddify.hiddify.nativeui.NativeButton as Button
-import com.hiddify.hiddify.nativeui.NativeCard as Card
 import androidx.compose.material3.MaterialTheme
-import com.hiddify.hiddify.nativeui.NativeOutlinedButton as OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -40,6 +36,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -76,6 +73,8 @@ import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
 private const val PAGE_HOME = "home"
 private const val PAGE_PROFILES = "profiles"
 private const val PAGE_SETTINGS = "settings"
+private const val PAGE_PREFERENCES = "preferences"
+private const val PAGE_PRIVACY = "privacy"
 private const val PAGE_PER_APP = "per_app"
 private const val PAGE_PER_APP_BACKUP = "per_app_backup"
 private const val PAGE_PROFILE_DETAILS = "profile_details"
@@ -212,25 +211,26 @@ fun NativeApp(
     var page by rememberSaveable { mutableStateOf(PAGE_HOME) }
     var regionalAppKind by rememberSaveable { mutableStateOf(NativeRegionalAppKind.DIRECT.name) }
 
-    BackHandler(enabled = page != PAGE_HOME) {
+    // Only internal page names are stored, so this trail also survives Activity recreation.
+    var privacyExpanded by rememberSaveable { mutableStateOf("") }
+    var pageTrail by rememberSaveable { mutableStateOf("") }
+    var settingsCategory by rememberSaveable { mutableStateOf(NativeSettingsCategory.APP.name) }
+    fun openPage(destination: String) {
+        pageTrail += "|$page"
+        page = destination
+    }
+    fun goBack() {
         if (page == PAGE_DIAGNOSTICS) onCancelDiagnostics()
         if (page == PAGE_PER_APP_BACKUP) onDismissPerAppImport()
-        page =
-            when (page) {
-                PAGE_PER_APP -> PAGE_SETTINGS
-                PAGE_PER_APP_BACKUP -> PAGE_PER_APP
-                PAGE_PROFILE_DETAILS -> PAGE_PROFILES
-                PAGE_CORE_OPTIONS -> PAGE_SETTINGS
-                PAGE_CHAIN -> PAGE_SETTINGS
-                PAGE_WIFI_GUIDE -> PAGE_SETTINGS
-                PAGE_CONNECTION_POLICY -> PAGE_SETTINGS
-                PAGE_REGIONAL_APPS -> PAGE_REGIONAL
-                PAGE_REGIONAL -> PAGE_SETTINGS
-                PAGE_TRAFFIC_FILTERS -> PAGE_SETTINGS
-                PAGE_PROTECTION -> PAGE_SETTINGS
-                else -> PAGE_HOME
-            }
+        page = pageTrail.substringAfterLast('|', PAGE_HOME)
+        pageTrail = pageTrail.substringBeforeLast('|', "")
     }
+    fun openCategory(category: NativeSettingsCategory) {
+        settingsCategory = category.name
+        openPage(PAGE_PREFERENCES)
+    }
+
+    BackHandler(enabled = page != PAGE_HOME) { goBack() }
 
     NativeAppTheme(themeMode) {
         NativeAtmosphere {
@@ -243,17 +243,14 @@ fun NativeApp(
                         .padding(top = 8.dp),
             ) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    Box(Modifier.widthIn(max = 680.dp).fillMaxWidth().padding(horizontal = 20.dp)) {
+                    Box(Modifier.widthIn(max = 680.dp).fillMaxWidth().padding(horizontal = if (page == PAGE_PRIVACY) 16.dp else 20.dp)) {
                         when (page) {
                             PAGE_DIAGNOSTICS ->
                                 NativeDiagnosticsScreen(
                                     snapshot = diagnosticSnapshot,
                                     busy = diagnosticBusy,
                                     report = diagnosticReport,
-                                    onBack = {
-                                        onCancelDiagnostics()
-                                        page = PAGE_HOME
-                                    },
+                                    onBack = { goBack() },
                                     onRun = onRunDiagnostics,
                                     onCancel = onCancelDiagnostics,
                                     onShareReport = onShareDiagnosticReport,
@@ -262,7 +259,7 @@ fun NativeApp(
                             PAGE_CONNECTION_POLICY -> NativeConnectionPolicyScreen(
                                 options = connectionOptions,
                                 busy = connectionOptionsBusy,
-                                onBack = { page = PAGE_SETTINGS },
+                                onBack = { goBack() },
                                 onSave = onSaveConnectionOptions,
                             )
 
@@ -273,7 +270,7 @@ fun NativeApp(
                                     snapshot = regionalApps?.takeIf { it.kind == kind },
                                     revision = regionalAppsRevision,
                                     busy = regionalBusy,
-                                    onBack = { page = PAGE_REGIONAL },
+                                    onBack = { goBack() },
                                     onReload = { onOpenRegionalApps(kind) },
                                     onSave = { onSaveRegionalApps(kind, it) },
                                     onReset = { onResetRegionalApps(kind) },
@@ -286,12 +283,12 @@ fun NativeApp(
                                     busy = regionalBusy,
                                     fullTunnel = settingsState.fullTunnel,
                                     handbookRouting = settingsState.handbookRouting,
-                                    onBack = { page = PAGE_SETTINGS },
+                                    onBack = { goBack() },
                                     onSave = onSaveRegionalOptions,
                                     onOpenApps = { kind ->
                                         regionalAppKind = kind.name
                                         onOpenRegionalApps(kind)
-                                        page = PAGE_REGIONAL_APPS
+                                        openPage(PAGE_REGIONAL_APPS)
                                     },
                                 )
 
@@ -299,14 +296,14 @@ fun NativeApp(
                                 NativeTrafficFiltersScreen(
                                     filters = trafficFilters,
                                     busy = trafficFiltersBusy,
-                                    onBack = { page = PAGE_SETTINGS },
+                                    onBack = { goBack() },
                                     onSave = onSaveTrafficFilters,
                                 )
 
                             PAGE_PROTECTION ->
                                 NativeVpnProtectionScreen(
                                     protection = vpnProtection,
-                                    onBack = { page = PAGE_SETTINGS },
+                                    onBack = { goBack() },
                                     onRefresh = onRefreshVpnProtection,
                                     onOpenSettings = onOpenVpnSettings,
                                 )
@@ -315,13 +312,13 @@ fun NativeApp(
                                 NativeProfilesScreen(
                                     profiles = profiles,
                                     busyProfileId = busyProfileId,
-                                    onBack = { page = PAGE_HOME },
+                                    onBack = { goBack() },
                                     onSelect = onSelectProfile,
                                     onDelete = onDeleteProfile,
                                     onRefresh = onRefreshProfile,
                                     onEdit = { profile ->
                                         onOpenProfileEditor(profile)
-                                        page = PAGE_PROFILE_DETAILS
+                                        openPage(PAGE_PROFILE_DETAILS)
                                     },
                                     onImport = onImportProfile,
                                     onCopyConfig = onCopyProfileConfig,
@@ -332,7 +329,7 @@ fun NativeApp(
                                 NativeProfileDetailsScreen(
                                     editor = profileEditor,
                                     busy = profileEditorBusy,
-                                    onBack = { page = PAGE_PROFILES },
+                                    onBack = { goBack() },
                                     onSave = onSaveProfileEditor,
                                 )
 
@@ -341,10 +338,7 @@ fun NativeApp(
                                     busy = perAppBusy,
                                     canImport = status == Status.Stopped,
                                     pendingImport = pendingPerAppImport,
-                                    onBack = {
-                                        onDismissPerAppImport()
-                                        page = PAGE_PER_APP
-                                    },
+                                    onBack = { goBack() },
                                     onImportClipboard = onImportPerAppClipboard,
                                     onImportFile = onImportPerAppFile,
                                     onExportClipboard = onExportPerAppClipboard,
@@ -358,18 +352,18 @@ fun NativeApp(
                                     snapshot = perAppSnapshot,
                                     canChange = status == Status.Stopped,
                                     busy = perAppBusy,
-                                    onBack = { page = PAGE_SETTINGS },
+                                    onBack = { goBack() },
                                     onModeChanged = onPerAppModeChanged,
                                     onTogglePackage = onTogglePerAppPackage,
                                     onClear = onClearPerApp,
-                                    onOpenBackup = { page = PAGE_PER_APP_BACKUP },
+                                    onOpenBackup = { openPage(PAGE_PER_APP_BACKUP) },
                                 )
 
                             PAGE_LOGS ->
                                 NativeLogsScreen(
                                     snapshot = logSnapshot,
                                     busy = logBusy,
-                                    onBack = { page = PAGE_HOME },
+                                    onBack = { goBack() },
                                     onRefresh = onRefreshLogs,
                                     onClear = onClearLogs,
                                 )
@@ -378,7 +372,7 @@ fun NativeApp(
                                 NativeOutboundsScreen(
                                     groups = outboundGroups,
                                     busyTag = outboundBusyTag,
-                                    onBack = { page = PAGE_HOME },
+                                    onBack = { goBack() },
                                     onRefresh = onRefreshOutbounds,
                                     onSelect = onSelectOutbound,
                                     onTest = onTestOutbound,
@@ -390,7 +384,7 @@ fun NativeApp(
                                     rootMode = rootMode,
                                     details = wifiSharingDetails,
                                     busy = wifiSharingDetailsBusy,
-                                    onBack = { page = PAGE_SETTINGS },
+                                    onBack = { goBack() },
                                     onRefresh = onRefreshWifiSharingDetails,
                                 )
 
@@ -401,7 +395,7 @@ fun NativeApp(
                                     updateChecking = updateChecking,
                                     updateMessage = updateMessage,
                                     updateUrl = updateUrl,
-                                    onBack = { page = PAGE_HOME },
+                                    onBack = { goBack() },
                                     onCheckUpdate = onCheckUpdate,
                                     onOpenUpdate = onOpenUpdate,
                                     onOpenFork = onOpenFork,
@@ -414,7 +408,7 @@ fun NativeApp(
                                 NativeCoreOptionsScreen(
                                     options = coreOptions,
                                     busy = coreOptionsBusy,
-                                    onBack = { page = PAGE_SETTINGS },
+                                    onBack = { goBack() },
                                     onSave = onSaveCoreOptions,
                                 )
 
@@ -423,12 +417,42 @@ fun NativeApp(
                                     options = chainOptions,
                                     profiles = profiles,
                                     busy = chainBusy,
-                                    onBack = { page = PAGE_SETTINGS },
+                                    onBack = { goBack() },
                                     onSave = onSaveChainOptions,
                                 )
 
-                            PAGE_SETTINGS ->
+                            PAGE_SETTINGS -> NativeSettingsOverviewScreen(
+                                onOpenProfiles = { openPage(PAGE_PROFILES) },
+                                onOpenCategory = { openCategory(it) },
+                                onOpenCoreOptions = { openPage(PAGE_CORE_OPTIONS) },
+                                onOpenChain = { openPage(PAGE_CHAIN) },
+                                onOpenLogs = { openPage(PAGE_LOGS) },
+                                onOpenAbout = { openPage(PAGE_ABOUT) },
+                                onOpenLegacy = onOpenLegacy,
+                            )
+
+                            PAGE_PRIVACY -> NativePrivacyOverviewScreen(
+                                expandedCategories = privacyExpanded.split('|').filter { it.isNotEmpty() }.toSet(),
+                                onToggleCategory = { category ->
+                                    val expanded = privacyExpanded.split('|').filter { it.isNotEmpty() }.toMutableSet()
+                                    if (!expanded.add(category)) expanded.remove(category)
+                                    privacyExpanded = expanded.sorted().joinToString("|")
+                                },
+                                onOpenRegional = { openPage(PAGE_REGIONAL) },
+                                onOpenPerApp = { openPage(PAGE_PER_APP) },
+                                onOpenPolicy = { openPage(PAGE_CONNECTION_POLICY) },
+                                onOpenProtection = {
+                                    onRefreshVpnProtection()
+                                    openPage(PAGE_PROTECTION)
+                                },
+                                onOpenFilters = { openPage(PAGE_TRAFFIC_FILTERS) },
+                                onOpenCoreOptions = { openPage(PAGE_CORE_OPTIONS) },
+                                onOpenCategory = { openCategory(it) },
+                            )
+
+                            PAGE_PREFERENCES ->
                                 NativeSettingsScreen(
+                                    category = NativeSettingsCategory.valueOf(settingsCategory),
                                     state = settingsState,
                                     themeMode = themeMode,
                                     themeBusy = themeBusy,
@@ -438,20 +462,20 @@ fun NativeApp(
                                     canChangeServiceMode = status == Status.Stopped && !wifiSharingBusy,
                                     wifiSharingBusy = wifiSharingBusy || status == Status.Starting || status == Status.Stopping,
                                     wifiSharingDetails = wifiSharingDetails,
-                                    onBack = { page = PAGE_HOME },
+                                    onBack = { goBack() },
                                     onOpenVpnProtection = {
                                         onRefreshVpnProtection()
-                                        page = PAGE_PROTECTION
+                                        openPage(PAGE_PROTECTION)
                                     },
-                                    onOpenConnectionPolicy = { page = PAGE_CONNECTION_POLICY },
-                                    onOpenRegionalRouting = { page = PAGE_REGIONAL },
-                                    onOpenTrafficFilters = { page = PAGE_TRAFFIC_FILTERS },
-                                    onOpenPerAppRouting = { page = PAGE_PER_APP },
-                                    onOpenCoreOptions = { page = PAGE_CORE_OPTIONS },
-                                    onOpenChain = { page = PAGE_CHAIN },
+                                    onOpenConnectionPolicy = { openPage(PAGE_CONNECTION_POLICY) },
+                                    onOpenRegionalRouting = { openPage(PAGE_REGIONAL) },
+                                    onOpenTrafficFilters = { openPage(PAGE_TRAFFIC_FILTERS) },
+                                    onOpenPerAppRouting = { openPage(PAGE_PER_APP) },
+                                    onOpenCoreOptions = { openPage(PAGE_CORE_OPTIONS) },
+                                    onOpenChain = { openPage(PAGE_CHAIN) },
                                     onOpenWifiSharingGuide = {
                                         onRefreshWifiSharingDetails()
-                                        page = PAGE_WIFI_GUIDE
+                                        openPage(PAGE_WIFI_GUIDE)
                                     },
                                     onImportSettingsClipboard = onImportSettingsClipboard,
                                     onImportSettingsFile = onImportSettingsFile,
@@ -488,29 +512,26 @@ fun NativeApp(
                                     wifiSharing = settingsState.wifiSharing,
                                     systemStats = systemStats,
                                     onToggleConnection = onToggleConnection,
-                                    onOpenProfiles = { page = PAGE_PROFILES },
-                                    onOpenSettings = { page = PAGE_SETTINGS },
-                                    onOpenLogs = { page = PAGE_LOGS },
-                                    onOpenDiagnostics = { page = PAGE_DIAGNOSTICS },
-                                    onOpenAbout = { page = PAGE_ABOUT },
+                                    onOpenProfiles = { openPage(PAGE_PROFILES) },
+                                    onOpenSettings = { openCategory(NativeSettingsCategory.VPN) },
+                                    onOpenDiagnostics = { openPage(PAGE_DIAGNOSTICS) },
                                     onOpenOutbounds = {
                                         onRefreshOutbounds()
-                                        page = PAGE_OUTBOUNDS
+                                        openPage(PAGE_OUTBOUNDS)
                                     },
-                                    onOpenLegacy = onOpenLegacy,
                                 )
                         }
                     }
                 }
-                if (page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PROTECTION)) {
+                if (page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY)) {
                     NativeGlass(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp), radius = 24) {
                         NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp, modifier = Modifier.height(72.dp)) {
                             listOf(
                                 Triple(PAGE_HOME, R.drawable.native_power, R.string.native_home),
-                                Triple(PAGE_PROTECTION, R.drawable.native_shield, R.string.native_protection_title),
+                                Triple(PAGE_PRIVACY, R.drawable.native_shield, R.string.native_privacy_title),
                                 Triple(PAGE_SETTINGS, R.drawable.native_settings, R.string.native_settings),
                             ).forEach { (destination, icon, label) ->
-                                NavigationBarItem(selected = page == destination, onClick = { page = destination },
+                                NavigationBarItem(selected = page == destination, onClick = { pageTrail = ""; page = destination },
                                     icon = { Icon(painterResource(icon), contentDescription = null) },
                                     label = { Text(stringResource(label), maxLines = 1) })
                             }
@@ -549,11 +570,8 @@ private fun HomeScreen(
     onToggleConnection: () -> Unit,
     onOpenProfiles: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenLogs: () -> Unit,
     onOpenDiagnostics: () -> Unit,
-    onOpenAbout: () -> Unit,
     onOpenOutbounds: () -> Unit,
-    onOpenLegacy: () -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
@@ -591,83 +609,28 @@ private fun HomeScreen(
                 NativeInternetHealth.UNAVAILABLE -> R.string.native_health_unavailable
             }), modifier = Modifier.align(Alignment.CenterHorizontally), style = MaterialTheme.typography.bodyMedium)
         }
+        NativeGlass(Modifier.fillMaxWidth()) {
+            NativeSettingsLink(R.string.native_outbounds_open, R.drawable.native_route,
+                onOpenOutbounds, enabled = status == Status.Started)
+        }
         ConnectionStatsCard(systemStats)
 
         NativeGlass(Modifier.fillMaxWidth().clickable(onClick = onOpenSettings)) {
             Row(Modifier.padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(painterResource(R.drawable.native_settings), null, tint = MaterialTheme.colorScheme.primary)
-                Text(stringResource(R.string.native_quick_settings), modifier = Modifier.padding(start = 12.dp),
-                    style = MaterialTheme.typography.titleSmall)
+                Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                    Text(stringResource(R.string.native_quick_settings), style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(when {
+                        serviceMode != ServiceMode.VPN -> R.string.native_mode_proxy
+                        rootMode -> R.string.native_mode_root
+                        else -> R.string.native_mode_android_vpn
+                    }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (wifiSharing) Text(stringResource(R.string.native_wifi_sharing_on), style = MaterialTheme.typography.bodySmall)
+                }
+                Icon(painterResource(R.drawable.native_chevron), null, Modifier.rotate(270f))
             }
         }
 
-        OutlinedButton(
-            onClick = onOpenOutbounds,
-            enabled = status == Status.Started,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(R.string.native_outbounds_open))
-        }
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.native_current_mode),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    text =
-                        when {
-                            serviceMode != ServiceMode.VPN ->
-                                stringResource(R.string.native_mode_proxy)
-                            rootMode ->
-                                stringResource(R.string.native_mode_root)
-                            else ->
-                                stringResource(R.string.native_mode_android_vpn)
-                        },
-                    style = MaterialTheme.typography.bodyLarge,
-                )
-                Text(
-                    text =
-                        if (wifiSharing) {
-                            stringResource(R.string.native_wifi_sharing_on)
-                        } else {
-                            stringResource(R.string.native_wifi_sharing_off)
-                        },
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-        }
-
-        OutlinedButton(
-            onClick = onOpenLogs,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(R.string.native_logs_title))
-        }
-
-        OutlinedButton(
-            onClick = onOpenAbout,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(R.string.native_about_open))
-        }
-
-        OutlinedButton(onClick = onOpenDiagnostics, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.native_diagnostics_title))
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-        TextButton(
-            onClick = onOpenLegacy,
-            modifier = Modifier.align(Alignment.End),
-        ) {
-            Text(stringResource(R.string.native_advanced_legacy))
-        }
     }
 }
 
@@ -773,8 +736,8 @@ private fun NativeHomePreview(mode: NativeThemeMode) {
                     recoveryAttempt = 0, activeProfileName = "VetrOFF", hasActiveProfile = true,
                     serviceMode = ServiceMode.VPN, rootMode = false, wifiSharing = false,
                     systemStats = NativeSystemStats(downlink = 1258291, uplink = 52428, trafficAvailable = true),
-                    onToggleConnection = {}, onOpenProfiles = {}, onOpenSettings = {}, onOpenLogs = {},
-                    onOpenDiagnostics = {}, onOpenAbout = {}, onOpenOutbounds = {}, onOpenLegacy = {},
+                    onToggleConnection = {}, onOpenProfiles = {}, onOpenSettings = {},
+                    onOpenDiagnostics = {}, onOpenOutbounds = {},
                 )
             }
         }
