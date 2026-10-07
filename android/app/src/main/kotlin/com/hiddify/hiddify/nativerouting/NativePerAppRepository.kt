@@ -158,7 +158,7 @@ class NativePerAppRepository(private val context: Context) {
             try {
                 // Replace manual choices in both modes while retaining automatic policy bits.
                 db.execSQL("UPDATE app_proxy_entries SET flags = flags & ? WHERE mode IN (?, ?)",
-                    arrayOf(NativePerAppFlags.MANUAL_MASK.inv(), PerAppProxyMode.INCLUDE, PerAppProxyMode.EXCLUDE))
+                    arrayOf<Any>(NativePerAppFlags.MANUAL_MASK.inv(), PerAppProxyMode.INCLUDE, PerAppProxyMode.EXCLUDE))
                 db.execSQL("DELETE FROM app_proxy_entries WHERE flags = 0 AND mode IN (?, ?)",
                     arrayOf(PerAppProxyMode.INCLUDE, PerAppProxyMode.EXCLUDE))
                 fun apply(mode: String, packages: Set<String>, selected: Boolean) {
