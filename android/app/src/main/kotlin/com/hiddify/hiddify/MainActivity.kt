@@ -137,6 +137,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val chainOptions = mutableStateOf(NativeChainRepository().load())
     private val chainBusy = mutableStateOf(false)
     private val outboundGroups = mutableStateOf<List<NativeOutboundGroup>>(emptyList())
+    private val activeOutbound = mutableStateOf<com.hiddify.hiddify.nativecore.NativeOutbound?>(null)
     private val outboundBusyTag = mutableStateOf<String?>(null)
     private val systemStats = mutableStateOf(NativeSystemStats())
     private val wifiSharingDetails = mutableStateOf(NativeWifiSharingDetails())
@@ -218,6 +219,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private var profileUpdateJob: Job? = null
     private var logRefreshJob: Job? = null
     private var statsRefreshJob: Job? = null
+    private var activeOutboundRefreshJob: Job? = null
     private var pendingStartAfterVpnPermission = false
     private var notificationRequestInFlight = false
     private var batteryPromptOpen = false
@@ -430,6 +432,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 chainOptions = chainOptions.value,
                 chainBusy = chainBusy.value,
                 outboundGroups = outboundGroups.value,
+                activeOutbound = activeOutbound.value,
                 outboundBusyTag = outboundBusyTag.value,
                 systemStats = systemStats.value,
                 wifiSharingDetails = wifiSharingDetails.value,
@@ -542,6 +545,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         startProfileUpdateLoop()
         startLogRefreshLoop()
         startStatsRefreshLoop()
+        startActiveOutboundRefreshLoop()
         connection.connect()
         restartHealthMonitor()
         startSmartSelectionLoop()
@@ -590,6 +594,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         logRefreshJob = null
         statsRefreshJob?.cancel()
         statsRefreshJob = null
+        activeOutboundRefreshJob?.cancel()
+        activeOutboundRefreshJob = null
+        activeOutbound.value = null
         connection.disconnect()
         super.onStop()
     }
@@ -767,6 +774,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                         outboundsRepository.load()
                     }
                 outboundGroups.value = refreshed
+                val active = withContext(Dispatchers.IO) { outboundsRepository.loadActive() }
+                if (nativeForeground && serviceStatus.value == Status.Started) activeOutbound.value = active
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
@@ -784,6 +793,25 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     delay(LOG_REFRESH_INTERVAL_MS)
                 }
             }
+    }
+
+    private fun startActiveOutboundRefreshLoop() {
+        if (activeOutboundRefreshJob?.isActive == true) return
+        activeOutboundRefreshJob = lifecycleScope.launch {
+            while (isActive && nativeForeground) {
+                if (serviceStatus.value == Status.Started) {
+                    try {
+                        val active = withContext(Dispatchers.IO) { outboundsRepository.loadActive() }
+                        if (nativeForeground && serviceStatus.value == Status.Started) activeOutbound.value = active
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        Log.w(TAG, "failed to refresh active native outbound", error)
+                    }
+                } else activeOutbound.value = null
+                delay(3000)
+            }
+        }
     }
 
     private fun startStatsRefreshLoop() {

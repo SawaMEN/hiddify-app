@@ -584,4 +584,9 @@
     <string name="native_outbound_unknown_country">Страна неизвестна</string>
     <string name="native_outbound_map_unavailable">Не удалось открыть карту</string>
     <string name="native_home_health_stopped">VPN остановлен</string>
+    <string name="native_active_unknown_ip">Неизвестный IP</string>
+    <string name="native_active_timeout">Тайм-аут</string>
+    <string name="native_active_delay_timeout">Тайм-аут теста задержки</string>
+    <string name="native_active_delay_testing">Задержка: тестирование...</string>
+    <string name="native_active_delay_result">Задержка: %1$d мс</string>
 </resources>

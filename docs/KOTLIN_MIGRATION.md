@@ -28,8 +28,15 @@ The home app bar now stays outside the scroll area, with a 56 dp height, 28 dp l
 version badge and tonal add button. The scroll body uses the original 680 dp maximum width
 and profile/connection section insets. Health text uses the original translations and opens
 diagnostics, with live-region semantics. Quick settings restores the single title, tune/up icons
-and 16 dp gap after the compact speed card. Profile content, active-proxy footer, empty-profile
-state, latency indicator and quick-settings sheet still need further parity work.
+and 16 dp gap after the compact speed card. The active-proxy footer and latency indicator
+now use the same MainOutboundsInfo RPC / first group item as the Dart notifier. IP masking,
+revealing, delay testing with an empty UrlTest tag and proxy inspection are connected.
+The native foreground poll uses a separate job every three seconds and an eight-second RPC
+deadline; it stops on backgrounding and clears data when disconnected. User URL-test operations
+refresh the active item before releasing the busy state. Profile content, empty-profile state,
+quick-settings sheet and the visual/interaction details listed in KOTLIN_PARITY.md remain.
+
+The remaining work is tracked in [KOTLIN_PARITY.md](KOTLIN_PARITY.md).
 
 These are source-based corrections, not a claim of verified pixel parity. Country/provider
 artwork, remaining screen layouts and screenshot comparisons on the same device, theme,

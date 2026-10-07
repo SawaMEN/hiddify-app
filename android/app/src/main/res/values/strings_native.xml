@@ -584,4 +584,9 @@
     <string name="native_outbound_unknown_country">Unknown country</string>
     <string name="native_outbound_map_unavailable">Unable to open map</string>
     <string name="native_home_health_stopped">VPN stopped</string>
+    <string name="native_active_unknown_ip">Unknown IP</string>
+    <string name="native_active_timeout">Timeout</string>
+    <string name="native_active_delay_timeout">Delay test timeout</string>
+    <string name="native_active_delay_testing">Delay: testing...</string>
+    <string name="native_active_delay_result">Delay: %1$dms</string>
 </resources>

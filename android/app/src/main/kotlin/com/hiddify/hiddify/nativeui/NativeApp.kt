@@ -171,6 +171,7 @@ fun NativeApp(
     chainOptions: NativeChainOptions,
     chainBusy: Boolean,
     outboundGroups: List<NativeOutboundGroup>,
+    activeOutbound: com.hiddify.hiddify.nativecore.NativeOutbound?,
     outboundBusyTag: String?,
     systemStats: NativeSystemStats,
     wifiSharingDetails: NativeWifiSharingDetails,
@@ -616,6 +617,9 @@ fun NativeApp(
                                     activeProfileName = activeProfileName,
                                     hasActiveProfile = hasActiveProfile,
                                     systemStats = systemStats,
+                                    activeOutbound = activeOutbound,
+                                    outboundBusy = outboundBusyTag != null,
+                                    onTestActive = { onTestOutbound("") },
                                     onToggleConnection = onToggleConnection,
                                     onOpenProfiles = { openPage(PAGE_PROFILES) },
                                     onOpenSettings = { openCategory(NativeSettingsCategory.VPN) },
@@ -669,6 +673,9 @@ private fun HomeScreen(
     activeProfileName: String,
     hasActiveProfile: Boolean,
     systemStats: NativeSystemStats,
+    activeOutbound: com.hiddify.hiddify.nativecore.NativeOutbound? = null,
+    outboundBusy: Boolean = false,
+    onTestActive: () -> Unit = {},
     onToggleConnection: () -> Unit,
     onOpenProfiles: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -711,6 +718,9 @@ private fun HomeScreen(
                         ConnectionCard(status = status, recovering = recoveryAttempt > 0, internetHealth = internetHealth,
                             onToggleConnection = onToggleConnection)
                         Spacer(Modifier.height(12.dp))
+                        if (status == Status.Started && activeOutbound != null) {
+                            NativeActiveProxyDelay(activeOutbound, outboundBusy, onTestActive)
+                        }
                         TextButton(onClick = onOpenDiagnostics, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
                             Text(if (recoveryAttempt > 0) stringResource(R.string.native_recovery_attempt, recoveryAttempt)
                                 else stringResource(if (status != Status.Started) R.string.native_home_health_stopped else when (internetHealth) {
@@ -721,10 +731,8 @@ private fun HomeScreen(
                                 }), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         }
                     }
-                    if (status == Status.Started) {
-                        NativeGlass(Modifier.fillMaxWidth(), radius = 24) {
-                            NativeSettingsLink(R.string.native_outbounds_open, R.drawable.native_route, onOpenOutbounds)
-                        }
+                    if (status == Status.Started && activeOutbound != null) {
+                        NativeActiveProxyFooter(activeOutbound, outboundBusy, onOpenOutbounds, onTestActive)
                     }
                     Spacer(Modifier.height(12.dp))
                     ConnectionStatsCard(systemStats)
