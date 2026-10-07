@@ -26,6 +26,8 @@ import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
 import com.hiddify.hiddify.nativeprofile.NativeProfileRepository
 import com.hiddify.hiddify.nativelog.NativeLogRepository
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
+import com.hiddify.hiddify.nativecore.NativeChainOptions
+import com.hiddify.hiddify.nativecore.NativeChainRepository
 import com.hiddify.hiddify.nativecore.NativeCoreOptions
 import com.hiddify.hiddify.nativecore.NativeCoreOptionsRepository
 import com.hiddify.hiddify.nativecore.NativeOutboundGroup
@@ -86,6 +88,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val serviceLogLines = ArrayDeque<String>()
     private val coreOptions = mutableStateOf(NativeCoreOptionsRepository().load())
     private val coreOptionsBusy = mutableStateOf(false)
+    private val chainOptions = mutableStateOf(NativeChainRepository().load())
+    private val chainBusy = mutableStateOf(false)
     private val outboundGroups = mutableStateOf<List<NativeOutboundGroup>>(emptyList())
     private val outboundBusyTag = mutableStateOf<String?>(null)
     private val systemStats = mutableStateOf(NativeSystemStats())
@@ -101,6 +105,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val perAppRepository by lazy { NativePerAppRepository(applicationContext) }
     private val logRepository by lazy { NativeLogRepository(applicationContext) }
     private val coreOptionsRepository by lazy { NativeCoreOptionsRepository() }
+    private val chainRepository by lazy { NativeChainRepository() }
     private val outboundsRepository by lazy { NativeOutboundsRepository() }
     private val statsRepository by lazy { NativeStatsRepository() }
     private val wifiSharingRepository by lazy { NativeWifiSharingRepository() }
@@ -171,6 +176,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 logBusy = logBusy.value,
                 coreOptions = coreOptions.value,
                 coreOptionsBusy = coreOptionsBusy.value,
+                chainOptions = chainOptions.value,
+                chainBusy = chainBusy.value,
                 outboundGroups = outboundGroups.value,
                 outboundBusyTag = outboundBusyTag.value,
                 systemStats = systemStats.value,
@@ -194,6 +201,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onRefreshLogs = ::refreshLogs,
                 onClearLogs = ::clearLogs,
                 onSaveCoreOptions = ::saveCoreOptions,
+                onSaveChainOptions = ::saveChainOptions,
                 onRefreshOutbounds = { refreshOutbounds(showError = true) },
                 onSelectOutbound = ::selectOutbound,
                 onTestOutbound = ::testOutbound,
@@ -264,6 +272,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
         refreshCoreOptions()
+        refreshChainOptions()
         refreshProfiles()
         refreshPerApp()
         if (serviceStatus.value == Status.Started) refreshOutbounds(showError = false)
@@ -768,6 +777,27 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun refreshCoreOptions() {
         coreOptions.value = coreOptionsRepository.load()
+    }
+
+    private fun refreshChainOptions() {
+        chainOptions.value = chainRepository.load()
+    }
+
+    private fun saveChainOptions(value: NativeChainOptions) {
+        if (chainBusy.value) return
+        chainBusy.value = true
+        lifecycleScope.launch {
+            try {
+                chainOptions.value =
+                    withContext(Dispatchers.IO) {
+                        chainRepository.save(value)
+                    }
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                chainBusy.value = false
+            }
+        }
     }
 
     private fun refreshWifiSharingDetails() {
