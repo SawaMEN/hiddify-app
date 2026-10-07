@@ -302,4 +302,24 @@
     <string name="native_settings_export_success">Настройки экспортированы.</string>
     <string name="native_settings_reset_success">Настройки ядра сброшены.</string>
 
+
+    <string name="native_profile_share">Поделиться</string>
+    <string name="native_profile_share_title">Поделиться: %1$s</string>
+    <string name="native_profile_share_summary">Ссылки подписок и конфигурации содержат данные доступа. Передавайте их только тем, кому доверяете.</string>
+    <string name="native_profile_copy_url">Копировать ссылку подписки</string>
+    <string name="native_profile_share_url">Поделиться ссылкой подписки</string>
+    <string name="native_profile_show_qr">QR-код подписки</string>
+    <string name="native_profile_copy_config">Копировать исходную конфигурацию</string>
+    <string name="native_profile_export_config">Сохранить исходную конфигурацию в файл</string>
+    <string name="native_profile_copied">Скопировано в буфер обмена</string>
+    <string name="native_profile_exported">Конфигурация сохранена</string>
+    <string name="native_profile_share_failed">Не удалось открыть меню отправки</string>
+    <string name="native_profile_clipboard_too_large">Конфигурация слишком велика для буфера обмена. Сохраните её в файл.</string>
+    <string name="native_profile_scan_qr">Сканировать QR</string>
+    <string name="native_profile_qr_image">QR из изображения</string>
+    <string name="native_profile_qr_prompt">Наведите камеру на QR-код подписки или конфигурации VPN</string>
+    <string name="native_profile_qr_not_found">Не удалось прочитать QR-код. Попробуйте более чёткое изображение.</string>
+    <string name="native_profile_qr_too_large">Ссылку нельзя показать как QR-код. Скопируйте или отправьте её.</string>
+    <string name="native_profile_qr_camera_failed">Не удалось открыть камеру. Можно импортировать QR из изображения.</string>
+    <string name="native_profile_export_busy">Дождитесь завершения операции с профилем и повторите экспорт.</string>
 </resources>

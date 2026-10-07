@@ -26,6 +26,7 @@ import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativeprofile.NativeProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
+import com.hiddify.hiddify.nativeprofile.NativeProfileTransfer
 import com.hiddify.hiddify.nativeprofile.NativeProfileRepository
 import com.hiddify.hiddify.nativelog.NativeLogRepository
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
@@ -45,6 +46,7 @@ import com.hiddify.hiddify.nativerouting.NativePerAppRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
 import com.hiddify.hiddify.nativeui.NativeApp
 import com.hiddify.hiddify.nativeui.NativeSettingsState
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -125,6 +127,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private var notificationRequestInFlight = false
     private var batteryPromptOpen = false
     private var pendingSettingsExport: String? = null
+    private var pendingProfileExportId: String? = null
 
     private val vpnPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -155,8 +158,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                     withContext(Dispatchers.IO) {
                         runCatching {
                             contentResolver.openInputStream(uri)
-                                ?.bufferedReader(Charsets.UTF_8)
-                                ?.use { it.readText() }
+                                ?.use(NativeProfileTransfer::readText)
                                 ?: throw java.io.FileNotFoundException(uri.toString())
                         }
                     }
@@ -193,12 +195,31 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
             }
         }
 
+    private val profileExportLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+            val id = pendingProfileExportId
+            pendingProfileExportId = null
+            if (uri == null || id == null) return@registerForActivityResult
+            exportProfile(id) { content ->
+                contentResolver.openOutputStream(uri, "wt")
+                    ?.bufferedWriter(Charsets.UTF_8)
+                    ?.use { it.write(content) }
+                    ?: throw java.io.FileNotFoundException(uri.toString())
+            }
+        }
+
+    override fun onSaveInstanceState(outState: android.os.Bundle) {
+        outState.putString("native_profile_export_id", pendingProfileExportId)
+        super.onSaveInstanceState(outState)
+    }
+
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         val migrationError =
             runCatching { com.hiddify.hiddify.privacy.PackageIdentity.importMigration(this) }
                 .exceptionOrNull()
 
         super.onCreate(savedInstanceState)
+        pendingProfileExportId = savedInstanceState?.getString("native_profile_export_id")
 
         if (migrationError != null) {
             errorMessage.value = migrationError.message ?: migrationError.javaClass.simpleName
@@ -247,6 +268,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onOpenProfileEditor = ::openProfileEditor,
                 onSaveProfileEditor = ::saveProfileEditor,
                 onImportProfile = ::importProfile,
+                onCopyProfileConfig = ::copyProfileConfig,
+                onExportProfileConfig = ::exportProfileConfig,
                 onPerAppModeChanged = ::setPerAppMode,
                 onTogglePerAppPackage = ::togglePerAppPackage,
                 onClearPerApp = ::clearPerAppPackages,
@@ -733,6 +756,65 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    private fun copyProfileConfig(profile: NativeProfile) {
+        exportProfile(profile.id, toClipboard = true)
+    }
+
+    private fun exportProfileConfig(profile: NativeProfile) {
+        if (pendingProfileExportId != null || busyProfileId.value != null) return
+        pendingProfileExportId = profile.id
+        try {
+            // A raw profile may be JSON, YAML or protocol links; do not mislabel it as JSON.
+            profileExportLauncher.launch("profile-${profile.id}.txt")
+        } catch (error: Exception) {
+            pendingProfileExportId = null
+            errorMessage.value = error.message ?: error.javaClass.simpleName
+        }
+    }
+
+    private fun exportProfile(
+        id: String,
+        toClipboard: Boolean = false,
+        writeFile: ((String) -> Unit)? = null,
+    ) {
+        if (busyProfileId.value != null) {
+            errorMessage.value = getString(R.string.native_profile_export_busy)
+            return
+        }
+        busyProfileId.value = id
+        lifecycleScope.launch {
+            try {
+                val content = withContext(Dispatchers.IO) {
+                    profileOperationMutex.withLock {
+                        val raw = profileRepository.loadEditor(id).content
+                        if (toClipboard) {
+                            require(raw.toByteArray(Charsets.UTF_8).size <= NativeProfileTransfer.MAX_CLIPBOARD_BYTES) {
+                                getString(R.string.native_profile_clipboard_too_large)
+                            }
+                        }
+                        writeFile?.invoke(raw)
+                        raw
+                    }
+                }
+                if (toClipboard) {
+                    getSystemService(ClipboardManager::class.java)
+                        ?.setPrimaryClip(ClipData.newPlainText("VetrOFF profile", content))
+                }
+                Toast.makeText(
+                    this@NativeMainActivity,
+                    if (toClipboard) R.string.native_profile_copied else R.string.native_profile_exported,
+                    Toast.LENGTH_SHORT,
+                ).show()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                busyProfileId.value = null
+            }
+        }
+    }
+
     private fun handleIncomingIntent(incoming: Intent?) {
         if (incoming == null) return
 
@@ -783,8 +865,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 withContext(Dispatchers.IO) {
                     runCatching {
                         contentResolver.openInputStream(uri)
-                            ?.bufferedReader(Charsets.UTF_8)
-                            ?.use { it.readText() }
+                            ?.use(NativeProfileTransfer::readText)
                             ?: throw java.io.FileNotFoundException(uri.toString())
                     }
                 }

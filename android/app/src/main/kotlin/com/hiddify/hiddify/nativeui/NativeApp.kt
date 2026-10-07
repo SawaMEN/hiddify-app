@@ -90,6 +90,8 @@ fun NativeApp(
     onOpenProfileEditor: (NativeProfile) -> Unit,
     onSaveProfileEditor: (String, Boolean, Int?, String) -> Unit,
     onImportProfile: (String, String?, Int?, Boolean) -> Unit,
+    onCopyProfileConfig: (NativeProfile) -> Unit,
+    onExportProfileConfig: (NativeProfile) -> Unit,
     onPerAppModeChanged: (String) -> Unit,
     onTogglePerAppPackage: (String) -> Unit,
     onClearPerApp: () -> Unit,
@@ -169,6 +171,8 @@ fun NativeApp(
                                 page = PAGE_PROFILE_DETAILS
                             },
                             onImport = onImportProfile,
+                            onCopyConfig = onCopyProfileConfig,
+                            onExportConfig = onExportProfileConfig,
                         )
 
                     PAGE_PROFILE_DETAILS ->
@@ -233,6 +237,14 @@ fun NativeApp(
                             onOpenUpstream = onOpenUpstream,
                             onOpenTerms = onOpenTerms,
                             onOpenPrivacy = onOpenPrivacy,
+                        )
+
+                    PAGE_CORE_OPTIONS ->
+                        NativeCoreOptionsScreen(
+                            options = coreOptions,
+                            busy = coreOptionsBusy,
+                            onBack = { page = PAGE_SETTINGS },
+                            onSave = onSaveCoreOptions,
                         )
 
                     PAGE_CHAIN ->

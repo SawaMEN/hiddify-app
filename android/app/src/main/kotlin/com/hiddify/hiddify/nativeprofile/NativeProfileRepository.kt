@@ -61,7 +61,7 @@ data class NativeProfileEditor(
 class NativeProfileRepository(private val context: Context) {
 
     companion object {
-        private const val MAX_CONFIG_BYTES = 8 * 1024 * 1024
+        private const val MAX_CONFIG_BYTES = NativeProfileTransfer.MAX_CONFIG_BYTES
         private const val MAX_NESTED_SUBSCRIPTIONS = 128
         private const val INFINITE_TRAFFIC = 1_099_511_627_776_001L
         private const val INFINITE_EXPIRE_SECONDS = 92_233_720_368L
@@ -307,10 +307,7 @@ class NativeProfileRepository(private val context: Context) {
         val profile = openDatabase().use { db -> getById(db, id) ?: error("Profile not found") }
         val file = profileFile(id)
         check(file.isFile) { "Profile configuration file not found" }
-        val content = file.readText()
-        check(content.toByteArray(Charsets.UTF_8).size <= MAX_CONFIG_BYTES) {
-            "Configuration exceeds 8 MiB"
-        }
+        val content = file.inputStream().use(NativeProfileTransfer::readText)
         return NativeProfileEditor(
             profile = profile,
             content = content,

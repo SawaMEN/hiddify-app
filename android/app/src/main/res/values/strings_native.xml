@@ -302,4 +302,24 @@
     <string name="native_settings_export_success">Settings exported.</string>
     <string name="native_settings_reset_success">Core settings reset.</string>
 
+
+    <string name="native_profile_share">Share</string>
+    <string name="native_profile_share_title">Share %1$s</string>
+    <string name="native_profile_share_summary">Subscription links and configurations contain access credentials. Share them only with people you trust.</string>
+    <string name="native_profile_copy_url">Copy subscription link</string>
+    <string name="native_profile_share_url">Share subscription link</string>
+    <string name="native_profile_show_qr">Subscription QR code</string>
+    <string name="native_profile_copy_config">Copy source configuration</string>
+    <string name="native_profile_export_config">Save source configuration to file</string>
+    <string name="native_profile_copied">Copied to clipboard</string>
+    <string name="native_profile_exported">Configuration saved</string>
+    <string name="native_profile_share_failed">Could not open the share menu</string>
+    <string name="native_profile_clipboard_too_large">Configuration is too large for the clipboard. Save it to a file instead.</string>
+    <string name="native_profile_scan_qr">Scan QR</string>
+    <string name="native_profile_qr_image">QR from image</string>
+    <string name="native_profile_qr_prompt">Point the camera at a subscription or VPN configuration QR code</string>
+    <string name="native_profile_qr_not_found">Could not read a QR code in this image. Try a clearer image.</string>
+    <string name="native_profile_qr_too_large">This link cannot be displayed as a QR code. Copy or share the link instead.</string>
+    <string name="native_profile_qr_camera_failed">Could not open the camera. You can import a QR image instead.</string>
+    <string name="native_profile_export_busy">Wait for the current profile operation to finish, then export again.</string>
 </resources>

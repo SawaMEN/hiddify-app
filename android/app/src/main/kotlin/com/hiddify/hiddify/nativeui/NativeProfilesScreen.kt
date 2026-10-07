@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -27,6 +29,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -35,6 +39,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
+import com.hiddify.hiddify.nativeprofile.NativeProfileTransfer
+import com.hiddify.hiddify.nativeprofile.NativeQrImages
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import com.hiddify.hiddify.nativeprofile.NativeProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -52,8 +60,11 @@ fun NativeProfilesScreen(
     onRefresh: (NativeProfile) -> Unit,
     onEdit: (NativeProfile) -> Unit,
     onImport: (raw: String, name: String?, intervalHours: Int?, disableAutoUpdate: Boolean) -> Unit,
+    onCopyConfig: (NativeProfile) -> Unit,
+    onExportConfig: (NativeProfile) -> Unit,
 ) {
-    var addOpen by remember { mutableStateOf(false) }
+    var addOpen by rememberSaveable { mutableStateOf(false) }
+    var shareCandidate by remember { mutableStateOf<NativeProfile?>(null) }
     var deleteCandidate by remember { mutableStateOf<NativeProfile?>(null) }
 
     Column(
@@ -71,7 +82,7 @@ fun NativeProfilesScreen(
                 fontWeight = FontWeight.Bold,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = { addOpen = true }) {
+                TextButton(onClick = { addOpen = true }, enabled = busyProfileId == null) {
                     Text(stringResource(R.string.native_profile_add))
                 }
                 TextButton(onClick = onBack) {
@@ -96,7 +107,7 @@ fun NativeProfilesScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Button(onClick = { addOpen = true }) {
+                    Button(onClick = { addOpen = true }, enabled = busyProfileId == null) {
                         Text(stringResource(R.string.native_profile_add))
                     }
                 }
@@ -109,7 +120,8 @@ fun NativeProfilesScreen(
                 items(profiles, key = { it.id }) { profile ->
                     ProfileCard(
                         profile = profile,
-                        busy = busyProfileId == profile.id,
+                        busy = busyProfileId != null,
+                        onShare = { shareCandidate = profile },
                         onSelect = { onSelect(profile) },
                         onDelete = { deleteCandidate = profile },
                         onRefresh = { onRefresh(profile) },
@@ -126,6 +138,21 @@ fun NativeProfilesScreen(
             onImport = { raw, name, interval, disabled ->
                 onImport(raw, name, interval, disabled)
                 addOpen = false
+            },
+        )
+    }
+
+    shareCandidate?.let { profile ->
+        NativeProfileShareDialog(
+            profile = profile,
+            onDismiss = { shareCandidate = null },
+            onCopyConfig = {
+                onCopyConfig(profile)
+                shareCandidate = null
+            },
+            onExportConfig = {
+                onExportConfig(profile)
+                shareCandidate = null
             },
         )
     }
@@ -162,6 +189,7 @@ private fun ProfileCard(
     onDelete: () -> Unit,
     onRefresh: () -> Unit,
     onEdit: () -> Unit,
+    onShare: () -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -252,6 +280,14 @@ private fun ProfileCard(
                         )
                     }
                 }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                TextButton(onClick = onShare, enabled = !busy) {
+                    Text(stringResource(R.string.native_profile_share))
+                }
                 TextButton(onClick = onDelete, enabled = !busy) {
                     Text(stringResource(R.string.native_profile_delete))
                 }
@@ -267,25 +303,34 @@ private fun AddProfileDialog(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var raw by remember { mutableStateOf("") }
-    var name by remember { mutableStateOf("") }
-    var interval by remember { mutableStateOf("") }
-    var disableAutoUpdate by remember { mutableStateOf(false) }
+    // QR/link drafts survive the scanner Activity. Large imported files must not go into the
+    // saved-instance Bundle, whose Binder limit is smaller than our profile size limit.
+    var raw by rememberSaveable(
+        stateSaver = Saver<String, String>(
+            save = { it.takeIf { value -> value.toByteArray(Charsets.UTF_8).size <= 64 * 1024 } ?: "" },
+            restore = { it },
+        ),
+    ) { mutableStateOf("") }
+    var name by rememberSaveable { mutableStateOf("") }
+    var interval by rememberSaveable { mutableStateOf("") }
+    var disableAutoUpdate by rememberSaveable { mutableStateOf(false) }
+    var fileBusy by remember { mutableStateOf(false) }
     var importError by remember { mutableStateOf<String?>(null) }
 
     val filePicker =
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri == null) return@rememberLauncherForActivityResult
+            fileBusy = true
             scope.launch {
                 val result =
                     withContext(Dispatchers.IO) {
                         runCatching {
                             context.contentResolver.openInputStream(uri)
-                                ?.bufferedReader(Charsets.UTF_8)
-                                ?.use { it.readText() }
+                                ?.use(NativeProfileTransfer::readText)
                                 ?: throw java.io.FileNotFoundException(uri.toString())
                         }
                     }
+                fileBusy = false
                 result.fold(
                     onSuccess = { text ->
                         if (text.isBlank()) {
@@ -305,6 +350,31 @@ private fun AddProfileDialog(
                 )
             }
         }
+
+    val qrScanner = rememberLauncherForActivityResult(ScanContract()) { result ->
+        if (result.contents != null) {
+            raw = result.contents
+            importError = null
+        }
+    }
+    val qrImagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            fileBusy = true
+            scope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    runCatching { NativeQrImages.read(context.contentResolver, uri) }
+                }
+                fileBusy = false
+                result.fold(
+                    onSuccess = {
+                        raw = it
+                        importError = null
+                    },
+                    onFailure = { importError = context.getString(R.string.native_profile_qr_not_found) },
+                )
+            }
+        }
+    }
 
     fun pasteFromClipboard() {
         val clipboard = context.getSystemService(ClipboardManager::class.java)
@@ -328,23 +398,53 @@ private fun AddProfileDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.native_profile_add_title)) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     OutlinedButton(
                         onClick = ::pasteFromClipboard,
+                        enabled = !fileBusy,
                         modifier = Modifier.weight(1f),
                     ) {
                         Text(stringResource(R.string.native_profile_paste_clipboard))
                     }
                     OutlinedButton(
                         onClick = { filePicker.launch(arrayOf("*/*")) },
+                        enabled = !fileBusy,
                         modifier = Modifier.weight(1f),
                     ) {
                         Text(stringResource(R.string.native_profile_choose_file))
                     }
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        enabled = !fileBusy,
+                        modifier = Modifier.weight(1f),
+                        onClick = {
+                            runCatching {
+                                qrScanner.launch(
+                                    ScanOptions()
+                                        .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                                        .setPrompt(context.getString(R.string.native_profile_qr_prompt))
+                                        .setBeepEnabled(false)
+                                        .setOrientationLocked(false),
+                                )
+                            }.onFailure {
+                                importError = context.getString(R.string.native_profile_qr_camera_failed)
+                            }
+                        },
+                    ) { Text(stringResource(R.string.native_profile_scan_qr)) }
+                    OutlinedButton(
+                        enabled = !fileBusy,
+                        modifier = Modifier.weight(1f),
+                        onClick = { qrImagePicker.launch(arrayOf("image/*")) },
+                    ) { Text(stringResource(R.string.native_profile_qr_image)) }
                 }
 
                 OutlinedTextField(
@@ -409,7 +509,7 @@ private fun AddProfileDialog(
         },
         confirmButton = {
             Button(
-                enabled = raw.isNotBlank(),
+                enabled = raw.isNotBlank() && !fileBusy,
                 onClick = {
                     onImport(
                         raw,
