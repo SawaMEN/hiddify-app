@@ -15,7 +15,7 @@ Seven workstreams remain; a stream can contain multiple implementation/review it
 | --- | --- | --- |
 | Home/profile state | Exact empty-state shield artwork; connection color/reconnect state | Same state, data and action targets as Dart HomePage/ProfileTile/ConnectionButton |
 | Profile flows | Match import/add/detail/editor/QR sheets and dialogs, list container/navigation, sorting/filtering and confirmation behavior | Compare each original flow and round-trip identical profiles |
-| Proxy presentation | Original circular country/provider artwork; proxy modal and primary-group-only overview; IP visibility lifetime/haptics; live stream timing and URL-test error/inspection sequence | Same selected/active proxy, operations, layout and state transitions |
+| Proxy presentation | Original circular country/provider artwork; IP visibility lifetime/haptics; stream recovery and active URL-test inspection sequence | Same selected/active proxy, operations, layout and state transitions |
 | Settings/navigation | Quick-settings rendering/dialog details; preference pages and picker/input/confirmation dialogs; back/deep-link behavior | One-to-one route/action/preferences audit against original widgets |
 | Shared visual system | Exact Material/Fluent/provider icons, Emoji font where used, blur, shimmer and motion; theme/spacing refinements across remaining screens | Device screenshot comparisons in light/dark/black themes, matching font scale |
 | Functional edge cases | Audit IP auto-check/manual refresh, notices/consent, subscriptions/errors, profile upgrades and stored preferences; reconnect/network switching/background operation/root/sharing | Reproduce original user-visible behavior without changing persisted settings |
@@ -181,3 +181,26 @@ Markdown styling, feature icons, dynamic sheet extents and same-device screensho
 parity work. JVM regression tests cover feed schema/localization/regions and override precedence,
 isolation and merging. Resource/source and whitespace checks pass; local Gradle tests remain
 blocked by the unavailable Gradle download. APK compilation is not awaited.
+
+
+## Proxy overview modal and live group updates
+
+The home proxy footer now opens a draggable 900 dp maximum-width bottom sheet with an
+85%-screen-height body, matching ProxiesModal instead of navigating to a full page. Its
+overview consumes only the first OutboundsInfo group and keeps that group's full item list,
+as in Dart watchGroup. Smart-selection/history consumers keep their existing snapshot API.
+A shared mapper preserves selected child, traffic, test timestamps and IP metadata.
+
+The sheet holds one live stream while its lifecycle is Started; closing/backgrounding cancels
+the Wire call and its reader. Updates are conflated to retain the latest snapshot. Loading,
+disconnected, empty, read failure and explicit Retry are separate states. Search follows
+Dart tag/type matching; sorting keeps groups first and unknown delays last. Detail dialogs
+resolve the current item by tag. Errors from actions use a Snackbar while the sheet is open.
+Manual selection persists smart-selection=false before requesting the new outbound, including
+when that request fails. Selection and URL-test RPCs have eight-second deadlines.
+
+Country/provider artwork, stream reconnection/backoff, exact sheet insets and same-device
+visual/interaction comparison still need work. NativeOutboundPresentationTest exercises raw
+ordering/search, group precedence, unknown-delay ordering and usage overflow against the
+production model. Native/resource and whitespace checks pass. JVM execution remains blocked
+by the Gradle distribution download; no APK build is awaited.

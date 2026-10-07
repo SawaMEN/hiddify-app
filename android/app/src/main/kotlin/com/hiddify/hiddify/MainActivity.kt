@@ -453,7 +453,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 logBusy = logBusy.value,
                 chainOptions = chainOptions.value,
                 chainBusy = chainBusy.value,
-                outboundGroups = outboundGroups.value,
                 activeOutbound = activeOutbound.value,
                 requiresReconnect = requiresReconnect.value,
                 reconnectBusy = reconnectBusy.value,
@@ -502,10 +501,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onRefreshLogs = ::refreshLogs,
                 onClearLogs = ::clearLogs,
                 onSaveChainOptions = ::saveChainOptions,
-                onRefreshOutbounds = { refreshOutbounds(showError = true) },
                 onSelectOutbound = ::selectOutbound,
                 onTestOutbound = ::testOutbound,
-                onTestActiveOutbounds = ::testActiveOutbounds,
                 onRefreshWifiSharingDetails = ::refreshWifiSharingDetails,
                 onImportSettingsClipboard = ::importSettingsFromClipboard,
                 onImportSettingsFile = ::importSettingsFromFile,
@@ -769,15 +766,15 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun selectOutbound(groupTag: String, outboundTag: String) {
         runOutboundOperation(outboundTag) {
-            outboundsRepository.select(groupTag, outboundTag)
             val preferences = generalPreferencesRepository.saveSmartSelection(false)
-            runOnUiThread { generalPreferences.value = preferences; connectionHaptic(stopping = false) }
-            runOnUiThread { restartHealthMonitor() }
+            runOnUiThread { generalPreferences.value = preferences; connectionHaptic(stopping = false); restartHealthMonitor() }
+            outboundsRepository.select(groupTag, outboundTag)
         }
     }
 
     private fun testOutbound(tag: String) {
         runOutboundOperation(tag) {
+            runOnUiThread { connectionHaptic(stopping = false) }
             outboundsRepository.test(tag)
         }
     }

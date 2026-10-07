@@ -70,7 +70,6 @@ import com.hiddify.hiddify.R
 import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
 import com.hiddify.hiddify.nativecore.NativeChainOptions
-import com.hiddify.hiddify.nativecore.NativeOutboundGroup
 import com.hiddify.hiddify.nativecore.NativeSystemStats
 import com.hiddify.hiddify.nativecore.NativeWifiSharingDetails
 import com.hiddify.hiddify.nativeprofile.NativeProfile
@@ -94,7 +93,6 @@ private const val PAGE_PER_APP_BACKUP = "per_app_backup"
 private const val PAGE_PROFILE_DETAILS = "profile_details"
 private const val PAGE_LOGS = "logs"
 private const val PAGE_CORE_OPTIONS = "core_options"
-private const val PAGE_OUTBOUNDS = "outbounds"
 private const val PAGE_WIFI_GUIDE = "wifi_guide"
 private const val PAGE_ABOUT = "about"
 private const val PAGE_CHAIN = "chain"
@@ -183,7 +181,6 @@ fun NativeApp(
     logBusy: Boolean,
     chainOptions: NativeChainOptions,
     chainBusy: Boolean,
-    outboundGroups: List<NativeOutboundGroup>,
     activeOutbound: com.hiddify.hiddify.nativecore.NativeOutbound?,
     requiresReconnect: Boolean,
     reconnectBusy: Boolean,
@@ -230,10 +227,8 @@ fun NativeApp(
     onRefreshLogs: () -> Unit,
     onClearLogs: () -> Unit,
     onSaveChainOptions: (NativeChainOptions) -> Unit,
-    onRefreshOutbounds: () -> Unit,
     onSelectOutbound: (String, String) -> Unit,
     onTestOutbound: (String) -> Unit,
-    onTestActiveOutbounds: () -> Unit,
     onRefreshWifiSharingDetails: () -> Unit,
     onImportSettingsClipboard: () -> Unit,
     onImportSettingsFile: () -> Unit,
@@ -271,6 +266,7 @@ fun NativeApp(
     var observedImportRevision by remember { mutableStateOf(profileImportRevision) }
     var observedSelectionRevision by remember { mutableStateOf(profileSelectionRevision) }
     var quickSettingsOpen by rememberSaveable { mutableStateOf(false) }
+    var outboundsOpen by rememberSaveable { mutableStateOf(false) }
     var page by rememberSaveable { mutableStateOf(PAGE_HOME) }
     var regionalAppKind by rememberSaveable { mutableStateOf(NativeRegionalAppKind.DIRECT.name) }
 
@@ -325,11 +321,11 @@ fun NativeApp(
                         .fillMaxSize()
                         .statusBarsPadding()
                         .navigationBarsPadding()
-                        .padding(top = if (page == PAGE_OUTBOUNDS || page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS) 0.dp else 8.dp),
+                        .padding(top = if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS) 0.dp else 8.dp),
             ) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    Box((if (page == PAGE_OUTBOUNDS || page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS) Modifier else Modifier.widthIn(max = 680.dp))
-                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_OUTBOUNDS, PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
+                    Box((if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS) Modifier else Modifier.widthIn(max = 680.dp))
+                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
                         when (page) {
                             PAGE_DIAGNOSTICS ->
                                 NativeDiagnosticsScreen(
@@ -457,24 +453,6 @@ fun NativeApp(
                                     onBack = { goBack() },
                                     onRefresh = onRefreshLogs,
                                     onClear = onClearLogs,
-                                )
-
-                            PAGE_OUTBOUNDS ->
-                                NativeOutboundsScreen(
-                                    groups = outboundGroups,
-                                    connected = status == Status.Started,
-                                    sort = generalPreferences.outboundSort,
-                                    onChangeSort = onChangeOutboundSort,
-                                    busyTag = outboundBusyTag,
-                                    smartSelection = generalPreferences.smartSelection,
-                                    smartSelectionBusy = generalPreferencesBusy,
-                                    adaptiveNetwork = connectionOptions.adaptiveNetwork,
-                                    onChangeSmartSelection = onChangeSmartSelection,
-                                    onBack = { goBack() },
-                                    onRefresh = onRefreshOutbounds,
-                                    onSelect = onSelectOutbound,
-                                    onTest = onTestOutbound,
-                                    onTestActive = onTestActiveOutbounds,
                                 )
 
                             PAGE_WIFI_GUIDE ->
@@ -685,8 +663,7 @@ fun NativeApp(
                                     onOpenSettings = { onRefreshWifiSharingDetails(); quickSettingsOpen = true },
                                     onOpenDiagnostics = { openPage(PAGE_DIAGNOSTICS) },
                                     onOpenOutbounds = {
-                                        onRefreshOutbounds()
-                                        openPage(PAGE_OUTBOUNDS)
+                                        outboundsOpen = true
                                     },
                                 )
                         }
@@ -710,6 +687,16 @@ fun NativeApp(
             }
         }
 
+        if (outboundsOpen) {
+            NativeOutboundsSheet(
+                connected = status == Status.Started, sort = generalPreferences.outboundSort,
+                onChangeSort = onChangeOutboundSort, busyTag = outboundBusyTag,
+                smartSelection = generalPreferences.smartSelection, smartSelectionBusy = generalPreferencesBusy,
+                adaptiveNetwork = connectionOptions.adaptiveNetwork, onChangeSmartSelection = onChangeSmartSelection,
+                operationError = errorMessage, onDismissOperationError = onDismissError,
+                onDismiss = { outboundsOpen = false }, onSelect = onSelectOutbound, onTest = onTestOutbound,
+            )
+        }
         if (profilesSheetOpen) {
             NativeProfilesSheet(profiles = profiles, busyProfileId = busyProfileId,
                 loading = profilesLoading, loadFailed = profilesLoadFailed,
@@ -743,7 +730,7 @@ fun NativeApp(
                 onDismiss = { quickSettingsOpen = false },
             )
         }
-        if (errorMessage != null) {
+        if (errorMessage != null && !outboundsOpen) {
             AlertDialog(
                 onDismissRequest = onDismissError,
                 confirmButton = {
