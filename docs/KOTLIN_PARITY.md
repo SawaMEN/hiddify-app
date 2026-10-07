@@ -13,7 +13,7 @@ Seven workstreams remain; a stream can contain multiple implementation/review it
 
 | Workstream | Known work remaining | Acceptance evidence |
 | --- | --- | --- |
-| Home/profile state | Exact empty-state shield artwork; free-provider feed/consent in the add sheet; connection color/reconnect state | Same state, data and action targets as Dart HomePage/ProfileTile/ConnectionButton |
+| Home/profile state | Exact empty-state shield artwork; connection color/reconnect state | Same state, data and action targets as Dart HomePage/ProfileTile/ConnectionButton |
 | Profile flows | Match import/add/detail/editor/QR sheets and dialogs, list container/navigation, sorting/filtering and confirmation behavior | Compare each original flow and round-trip identical profiles |
 | Proxy presentation | Original circular country/provider artwork; proxy modal and primary-group-only overview; IP visibility lifetime/haptics; live stream timing and URL-test error/inspection sequence | Same selected/active proxy, operations, layout and state transitions |
 | Settings/navigation | Quick-settings rendering/dialog details; preference pages and picker/input/confirmation dialogs; back/deep-link behavior | One-to-one route/action/preferences audit against original widgets |
@@ -78,8 +78,7 @@ profile reads show the original 56 dp progress area; an empty database shows the
 successful repository operation, preserving the draft after validation/network failures. A
 successful profile selection returns from the list; rejected/failed selections leave it open.
 
-The add form now uses native options/manual bottom sheets. Free-provider feed/consent,
-QR scanner styling, exact empty-state artwork and exact sheet drag extents remain outstanding.
+The add form now uses native options/manual bottom sheets. QR scanner styling, exact empty-state artwork and exact sheet drag extents remain outstanding.
 Initial read-error/retry states are implemented. Source/resource checks alone do not establish
 measured visual parity.
 
@@ -99,8 +98,8 @@ a discrete 0–96 hour slider and an Auto value that leaves subscription timing 
 Selecting Auto explicitly clears a previous manual interval when reimporting the same URL.
 Manual drafts survive rotation; large configuration contents are excluded from saved state.
 The close icon returns to options. Help and the home empty-state paragraph use the original
-EN/RU text and help destination. Free providers and their consent/feature overrides still
-need implementation; the current image action occupies the footer where Dart has Free.
+EN/RU text and help destination. The footer now has the Free switch; camera QR offers
+both scanning and image import.
 
 Home profile selection opens a bottom sheet; settings retains the full list page. Both use
 12 dp list spacing, shared tiles, a last-update/name sort with direction, and Update subscriptions.
@@ -160,3 +159,25 @@ array mutation, failed collision atomicity, strict parsing, search, template iso
 nesting. The JVM suite compiles the production model directly. Native/resource and whitespace
 checks pass. Local tests could not start because the Gradle distribution download reports
 Network is unreachable. Per user instruction, APK compilation is not awaited for this step.
+
+
+## Free providers and profile launch overrides
+
+The Free switch loads the same remote feed as Dart, filters providers by the selected region,
+and displays localized titles/tags with English fallback. Loading, empty, error and Retry
+states are explicit. Each provider opens its consent dialog before importing, with a 12-hour
+update interval and its requested WARP/Psiphon/Fragment flags. Missing feature lists retain
+header fallback; empty lists explicitly disable those flags. Feed downloads have bounded
+timeouts and the existing 8 MiB limit; closing the pane cancels its request.
+
+Selected profile overrides now merge into the effective core options on startup in both
+normal and root mode, without saving them into global preferences. Only the original allowed
+configuration keys pass through; explicit user flags override header flags and Psiphon wins
+when both security stages are requested. Deep merging retains unrelated security/TLS fields.
+Refreshing a subscription retains the user's feature choices.
+
+Consent rendering supports links, bold text, inline code, headings and basic bullets. Full
+Markdown styling, feature icons, dynamic sheet extents and same-device screenshots remain
+parity work. JVM regression tests cover feed schema/localization/regions and override precedence,
+isolation and merging. Resource/source and whitespace checks pass; local Gradle tests remain
+blocked by the unavailable Gradle download. APK compilation is not awaited.

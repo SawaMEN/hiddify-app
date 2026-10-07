@@ -428,6 +428,8 @@ class NativeProfileRepository(private val context: Context) {
         disableAutoUpdate: Boolean = false,
         existingId: String? = null,
         existingOverride: String? = null,
+        replaceFeatures: Boolean = false,
+        neededFeatures: Set<String>? = null,
     ): NativeProfile {
         require(isHttpUrl(url)) { "Only HTTP and HTTPS subscription URLs are supported natively" }
 
@@ -446,7 +448,7 @@ class NativeProfileRepository(private val context: Context) {
                 name = requestedName,
                 updateIntervalHours = updateIntervalHours,
                 disableAutoUpdate = disableAutoUpdate,
-            )
+            ).let { if (replaceFeatures) NativeProfileOverrides.withFeatures(it, neededFeatures) else it }
         val resolvedName =
             userOverrideName(override)
                 ?: parseProfileTitle(mergedHeaders["profile-title"])

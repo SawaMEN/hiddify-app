@@ -655,4 +655,9 @@ Don’t have a VPN server yet? No worries—just follow the tutorial below to se
     <string name="native_editor_last_update">Last update</string>
     <string name="native_editor_traffic">↑ %1$s     ↓ %2$s     ↕ %3$s</string>
     <string name="native_editor_expiry">Expiry: %1$s</string>
+    <string name="native_free_title">Free</string>
+    <string name="native_free_load_failed">Failed to load free profiles</string>
+    <string name="native_free_empty">No free profiles found</string>
+    <string name="native_free_region_empty">No free profiles found for this region</string>
+    <string name="native_free_continue">Continue</string>
 </resources>

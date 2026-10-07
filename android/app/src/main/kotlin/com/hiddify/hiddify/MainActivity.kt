@@ -487,6 +487,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onOpenProfileEditor = ::openProfileEditor,
                 onSaveProfileEditor = ::saveProfileEditor,
                 onImportProfile = ::importProfile,
+                onImportFreeProfile = ::importFreeProfile,
                 onCopyProfileConfig = ::copyProfileConfig,
                 onExportProfileConfig = ::exportProfileConfig,
                 onPerAppModeChanged = ::setPerAppMode,
@@ -1124,6 +1125,14 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             }
             // Keep successful updates even if another subscription failed, and publish that snapshot.
             if (failures.isNotEmpty()) throw IllegalStateException(failures.distinct().joinToString("\n"))
+        }
+    }
+
+    private fun importFreeProfile(profile: com.hiddify.hiddify.nativeprofile.NativeFreeProfile, title: String) {
+        runProfileOperation(IMPORT_BUSY_ID, requireDisconnected = true,
+            onSuccess = { profileImportRevision.value += 1 }) {
+            profileRepository.importRemote(profile.url, requestedName = title, updateIntervalHours = 12,
+                replaceFeatures = true, neededFeatures = profile.neededFeatures)
         }
     }
 

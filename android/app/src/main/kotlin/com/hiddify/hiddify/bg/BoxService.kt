@@ -249,7 +249,7 @@ class BoxService(
                     return
                 }
                 try {
-                    NativeCoreControl.applyStoredSettings()
+                    NativeCoreControl.applyStoredSettings(service)
                 } catch (error: Exception) {
                     stopAndAlert(Alert.CreateService, "Unable to apply core settings: ${error.message ?: error.javaClass.simpleName}")
                     return

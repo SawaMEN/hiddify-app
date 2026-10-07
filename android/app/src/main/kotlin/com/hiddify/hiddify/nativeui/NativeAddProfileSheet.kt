@@ -39,9 +39,11 @@ internal fun NativeAddProfileSheet(
     busy: Boolean,
     onDismiss: () -> Unit,
     onImport: (String, String?, Int?, Boolean) -> Unit,
+    onImportFree: (com.hiddify.hiddify.nativeprofile.NativeFreeProfile, String) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var freeEnabled by rememberSaveable { mutableStateOf(false) }
     var manual by rememberSaveable { mutableStateOf(false) }
     // File contents can exceed the saved-instance Binder budget. Keep only small drafts there.
     var raw by rememberSaveable(stateSaver = Saver<String, String>(
@@ -145,7 +147,7 @@ internal fun NativeAddProfileSheet(
                         AddSourceTile(R.string.native_add_file, R.drawable.native_file, tileSize,
                             Modifier.weight(1f), { filePicker.launch(arrayOf("text/*", "application/json", "application/octet-stream")) })
                         AddSourceTile(R.string.native_add_scan, R.drawable.native_qr, tileSize,
-                            Modifier.weight(1f), ::scan)
+                            Modifier.weight(1f), { qrOptions = true })
                         AddSourceTile(R.string.native_add_manual, R.drawable.native_add, tileSize,
                             Modifier.weight(1f), { manual = true; importError = null })
                     }
@@ -156,9 +158,12 @@ internal fun NativeAddProfileSheet(
                 if (raw.isNotBlank()) TextButton(onClick = { importSource(raw) }, modifier = Modifier.padding(horizontal = 16.dp)) {
                     Text(stringResource(R.string.native_profiles_retry))
                 }
+                if (freeEnabled) NativeFreeProfilesPane(onImportFree)
                 Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 4.dp),
                     verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { qrOptions = true }) { Text(stringResource(R.string.native_profile_qr_image)) }
+                    Text(stringResource(R.string.native_free_title), style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.width(8.dp))
+                    Switch(freeEnabled, { freeEnabled = it })
                     Spacer(Modifier.weight(1f))
                     AssistChip(onClick = { helpOpen = true }, label = { Text(stringResource(R.string.native_add_help)) },
                         leadingIcon = { Icon(painterResource(R.drawable.native_info), null, Modifier.size(18.dp)) })
