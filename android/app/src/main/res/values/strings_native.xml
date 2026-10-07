@@ -491,4 +491,16 @@
     <string name="native_proxy_wifi_exception">VPN sharing without root requires a local proxy listener. The saved restriction stays enabled and applies again when sharing is disabled.</string>
     <string name="native_proxy_core_summary">Configure HTTP/SOCKS ports, the Clash API port and LAN access.</string>
     <string name="native_proxy_saved">Proxy settings saved. Reconnect the VPN to apply.</string>
+    <string name="native_inbound_title">Inbound options</string>
+    <string name="native_inbound_strict_summary">Use strict tunnel routing. Changes apply on the next connection.</string>
+    <string name="native_inbound_mixed_summary">Local HTTP and SOCKS listener. VPN privacy settings may suppress this listener.</string>
+    <string name="native_inbound_direct_summary">Direct proxy listener. VPN privacy settings may suppress this listener.</string>
+    <string name="native_inbound_lan">Allow connections from LAN</string>
+    <string name="native_inbound_lan_summary">Allow other devices to access enabled proxy listeners. Wi-Fi VPN sharing is managed separately.</string>
+    <string name="native_inbound_password">LAN proxy password</string>
+    <string name="native_inbound_password_hint">An empty password is generated securely when LAN access is enabled.</string>
+    <string name="native_inbound_disconnect">Disconnect the VPN before saving inbound settings.</string>
+    <string name="native_inbound_invalid">Use ports 1–65535; enabled listeners must use different ports. The password must contain no control characters.</string>
+    <string name="native_inbound_save">Save inbound settings</string>
+    <string name="native_inbound_saved">Inbound settings saved. Connect the VPN to apply.</string>
 </resources>

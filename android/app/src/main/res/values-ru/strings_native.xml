@@ -491,4 +491,16 @@
     <string name="native_proxy_wifi_exception">Раздаче VPN без root нужен локальный прокси. Сохранённое ограничение остаётся включённым и снова действует после отключения раздачи.</string>
     <string name="native_proxy_core_summary">Настройка портов HTTP/SOCKS, порта Clash API и доступа из локальной сети.</string>
     <string name="native_proxy_saved">Настройки прокси сохранены. Переподключите VPN для применения.</string>
+    <string name="native_inbound_title">Входящие подключения</string>
+    <string name="native_inbound_strict_summary">Использовать строгую маршрутизацию туннеля. Изменения применяются при следующем подключении.</string>
+    <string name="native_inbound_mixed_summary">Локальный слушатель HTTP и SOCKS. Настройки скрытия VPN могут отключить этот слушатель.</string>
+    <string name="native_inbound_direct_summary">Слушатель прямого прокси. Настройки скрытия VPN могут отключить этот слушатель.</string>
+    <string name="native_inbound_lan">Разрешить подключения из локальной сети</string>
+    <string name="native_inbound_lan_summary">Разрешить другим устройствам подключаться к включённым прокси. Раздача VPN по Wi-Fi управляется отдельно.</string>
+    <string name="native_inbound_password">Пароль прокси в локальной сети</string>
+    <string name="native_inbound_password_hint">При включённом доступе из локальной сети пустой пароль будет сгенерирован автоматически.</string>
+    <string name="native_inbound_disconnect">Отключите VPN перед сохранением входящих подключений.</string>
+    <string name="native_inbound_invalid">Используйте порты 1–65535. Включённым слушателям нужны разные порты. Пароль не должен содержать управляющих символов.</string>
+    <string name="native_inbound_save">Сохранить входящие подключения</string>
+    <string name="native_inbound_saved">Настройки входящих подключений сохранены. Подключите VPN для применения.</string>
 </resources>

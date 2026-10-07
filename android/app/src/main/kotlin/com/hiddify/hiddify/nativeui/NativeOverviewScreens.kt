@@ -66,6 +66,7 @@ internal fun NativeSettingsOverviewScreen(
     onOpenLogs: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenLegacy: () -> Unit,
+    onOpenInbound: () -> Unit = {},
 ) {
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -75,6 +76,7 @@ internal fun NativeSettingsOverviewScreen(
             Triple(R.string.native_settings_general, R.drawable.native_layers, { onOpenCategory(NativeSettingsCategory.APP) }),
             Triple(R.string.native_chain_open, R.drawable.native_route, onOpenChain),
             Triple(R.string.native_settings_dns, R.drawable.native_dns, { onOpenCategory(NativeSettingsCategory.DNS) }),
+            Triple(R.string.native_inbound_title, R.drawable.native_route, onOpenInbound),
             Triple(R.string.native_settings_vpn, R.drawable.native_shield, { onOpenCategory(NativeSettingsCategory.VPN) }),
             Triple(R.string.native_core_options_title, R.drawable.native_settings, onOpenCoreOptions),
             Triple(R.string.native_settings_custom_routing, R.drawable.native_route, { onOpenCategory(NativeSettingsCategory.ROUTING) }),

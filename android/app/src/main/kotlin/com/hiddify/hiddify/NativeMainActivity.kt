@@ -123,6 +123,10 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val logBusy = mutableStateOf(false)
     private val serviceLogLines = ArrayDeque<String>()
     private val coreOptions = mutableStateOf(NativeCoreOptionsRepository().load())
+    private val inboundRepository by lazy { com.hiddify.hiddify.nativecore.NativeInboundOptionsRepository(applicationContext) }
+    private val inboundOptions = mutableStateOf(com.hiddify.hiddify.nativecore.NativeInboundOptions())
+    private val inboundBusy = mutableStateOf(false)
+    private var inboundSnapshotJob: Job? = null
     private val coreOptionsBusy = mutableStateOf(false)
     private val chainOptions = mutableStateOf(NativeChainRepository().load())
     private val chainBusy = mutableStateOf(false)
@@ -343,6 +347,9 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
             }
             NativeApp(
+                inboundOptions = inboundOptions.value,
+                inboundBusy = inboundBusy.value,
+                onSaveInboundOptions = ::saveInboundOptions,
                 proxyPrivacy = proxyPrivacy.value,
                 proxyPrivacyBusy = proxyPrivacyBusy.value,
                 onSaveProxyPrivacy = ::saveProxyPrivacy,
@@ -1243,7 +1250,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun applyPrivacySetup(restore: Boolean) {
-        if (privacySetupBusy.value || proxyPrivacyBusy.value || regionalBusy.value || connectionOptionsBusy.value || wifiSharingBusy.value) return
+        if (privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value || regionalBusy.value || connectionOptionsBusy.value || wifiSharingBusy.value) return
         if (serviceStatus.value != Status.Stopped || pendingStartAfterVpnPermission || nativeStartPending) {
             errorMessage.value = getString(R.string.native_privacy_setup_disconnect)
             return
@@ -1339,7 +1346,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun scheduleRecovery() {
         if (!nativeForeground || recoveryJob != null || !connectionOptions.value.recoveryEnabled ||
             !Settings.connectionDesired || !Settings.startedByUser || serviceStatus.value != Status.Stopped ||
-            pendingStartAfterVpnPermission || nativeStartPending || wifiSharingBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value) return
+            pendingStartAfterVpnPermission || nativeStartPending || wifiSharingBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value || inboundBusy.value) return
         stableConnectionJob?.cancel()
         recoveryJob = lifecycleScope.launch(start = kotlinx.coroutines.CoroutineStart.LAZY) {
             try {
@@ -1371,7 +1378,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                         val decision = NativeRecoveryPolicy.decision(
                             Settings.connectionDesired && Settings.startedByUser,
                             connectionOptions.value.recoveryEnabled, nativeForeground, permission,
-                            pendingStartAfterVpnPermission || nativeStartPending || wifiSharingBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value ||
+                            pendingStartAfterVpnPermission || nativeStartPending || wifiSharingBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value ||
                                 serviceStatus.value != Status.Stopped,
                             adaptive, network, BoxService.hasActiveCore(),
                         )
@@ -1538,7 +1545,49 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    private fun refreshInboundOptions() {
+        inboundSnapshotJob?.cancel()
+        inboundSnapshotJob = lifecycleScope.launch {
+            try {
+                inboundOptions.value = withContext(Dispatchers.IO) { inboundRepository.load() }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            }
+        }
+    }
+
+    private fun saveInboundOptions(value: com.hiddify.hiddify.nativecore.NativeInboundOptions) {
+        if (inboundBusy.value || coreOptionsBusy.value || chainBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || wifiSharingBusy.value) return
+        if (serviceStatus.value != Status.Stopped || pendingStartAfterVpnPermission || nativeStartPending) {
+            errorMessage.value = getString(R.string.native_inbound_disconnect)
+            return
+        }
+        inboundBusy.value = true
+        inboundSnapshotJob?.cancel()
+        cancelRecovery()
+        lifecycleScope.launch {
+            try {
+                inboundOptions.value = BoxService.withNativeLifecycle {
+                    check(serviceStatus.value == Status.Stopped && !BoxService.hasActiveCore() && !nativeStartPending &&
+                        !pendingStartAfterVpnPermission) { getString(R.string.native_inbound_disconnect) }
+                    withContext(Dispatchers.IO) { inboundRepository.save(value) }
+                }
+                refreshImportedSettingsSnapshots()
+                Toast.makeText(this@NativeMainActivity, R.string.native_inbound_saved, Toast.LENGTH_LONG).show()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                inboundBusy.value = false
+            }
+        }
+    }
+
     private fun refreshCoreOptions() {
+        refreshInboundOptions()
         coreOptions.value = coreOptionsRepository.load()
     }
 
@@ -1547,7 +1596,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun saveChainOptions(value: NativeChainOptions) {
-        if (chainBusy.value) return
+        if (chainBusy.value || inboundBusy.value || privacySetupBusy.value || coreOptionsBusy.value || wifiSharingBusy.value) return
         chainBusy.value = true
         lifecycleScope.launch {
             try {
@@ -1570,7 +1619,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun changeWifiSharing(enabled: Boolean) {
-        if (wifiSharingBusy.value || serviceStatus.value == Status.Starting || serviceStatus.value == Status.Stopping) return
+        if (wifiSharingBusy.value || inboundBusy.value || coreOptionsBusy.value || chainBusy.value || privacySetupBusy.value ||
+            serviceStatus.value == Status.Starting || serviceStatus.value == Status.Stopping) return
         wifiSharingBusy.value = true
         lifecycleScope.launch {
             var startupRequested = false
@@ -1790,7 +1840,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun saveCoreOptions(value: NativeCoreOptions) {
-        if (coreOptionsBusy.value) return
+        if (coreOptionsBusy.value || inboundBusy.value || privacySetupBusy.value || chainBusy.value || wifiSharingBusy.value) return
         coreOptionsBusy.value = true
         lifecycleScope.launch {
             try {
@@ -1813,7 +1863,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun toggleConnection() {
-        if (privacySetupBusy.value || proxyPrivacyBusy.value) return
+        if (privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value) return
         if (recoveryJob != null || recoveryAttempt.value > 0) {
             Settings.connectionDesired = false
             Settings.startedByUser = false
@@ -1836,7 +1886,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun requestStart() {
-        if (privacySetupBusy.value || proxyPrivacyBusy.value) return
+        if (privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value) return
         cancelRecovery()
         recoveryPolicy.reset()
         nativeStartPending = false

@@ -55,9 +55,9 @@ class NativeCoreOptionsRepository {
             directDnsStrategy = root.optString("direct-dns-domain-strategy", ""),
             fakeDns = root.optBoolean("enable-fake-dns", false),
             strictRoute = root.optBoolean("strict-route", true),
-            tunImplementation = root.optString("tun-implementation", "mixed"),
-            mixedPort = root.optInt("mixed-port", 12334).takeIf { it in 1..65535 } ?: 0,
-            directPort = root.optInt("direct-port", 12337).takeIf { it in 1..65535 } ?: 0,
+            tunImplementation = root.optString("tun-implementation", "gvisor"),
+            mixedPort = if (root.optBoolean("enable-mixed-port", true)) root.optInt("mixed-port", 12334).takeIf { it in 1..65535 } ?: 0 else 0,
+            directPort = if (root.optBoolean("enable-direct-port", true)) root.optInt("direct-port", 12337).takeIf { it in 1..65535 } ?: 0 else 0,
             mtu = root.optInt("mtu", 9000).coerceIn(1280, 65535),
             tlsFragment = tls.optBoolean("enable-fragment", false),
             tlsFragmentSize = tls.optString("fragment-size", "10-100"),
@@ -92,7 +92,9 @@ class NativeCoreOptionsRepository {
 
             root.put("strict-route", options.strictRoute)
             root.put("tun-implementation", options.tunImplementation.takeIf(tunChoices::contains) ?: "mixed")
+            root.put("enable-mixed-port", options.mixedPort > 0)
             root.put("mixed-port", options.mixedPort.takeIf { it in 1..65535 } ?: 0)
+            root.put("enable-direct-port", options.directPort > 0)
             root.put("direct-port", options.directPort.takeIf { it in 1..65535 } ?: 0)
             root.put("mtu", options.mtu.coerceIn(1280, 65535))
 
@@ -153,10 +155,10 @@ class NativeCoreOptionsRepository {
         update { it.put("tun-implementation", value.takeIf(tunChoices::contains) ?: "mixed") }
 
     fun setMixedPort(enabled: Boolean, port: Int) =
-        update { it.put("mixed-port", if (enabled) port.validPortOr(12334) else 0) }
+        update { it.put("enable-mixed-port", enabled); it.put("mixed-port", if (enabled) port.validPortOr(12334) else 0) }
 
     fun setDirectPort(enabled: Boolean, port: Int) =
-        update { it.put("direct-port", if (enabled) port.validPortOr(12337) else 0) }
+        update { it.put("enable-direct-port", enabled); it.put("direct-port", if (enabled) port.validPortOr(12337) else 0) }
 
     fun setMtu(value: Int) = update { it.put("mtu", value.coerceIn(1280, 65535)) }
 

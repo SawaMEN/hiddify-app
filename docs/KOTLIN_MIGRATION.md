@@ -235,6 +235,27 @@ local-listener rule: non-root sharing keeps that listener available, while root 
 restriction. Native saves and automatic setup exclude each other, and navigation/start/recovery are
 blocked during the short write. Reload after returning from the compatibility UI runs on IO.
 
+## Native inbound settings
+
+The settings overview now opens a dedicated inbound page matching the Android Dart scope: strict
+route, TUN implementation, HTTP/SOCKS mixed and direct ports with enable switches, LAN access and
+LAN authentication. Desktop-only TProxy/redirect controls are not exposed. Service/root selection
+opens the existing native VPN controls. The page uses shared glass/cards, icon rows and accessible
+switches; draft values survive Activity recreation.
+
+The repository merges only inbound fields into the core JSON and writes compatible Flutter keys in
+one IO commit. Disabled listeners keep their chosen Flutter port and use both the enable flag and
+legacy native port zero in the core cache. Existing native core editors now align those flags too.
+Ports must be 1–65535 and enabled listeners must differ. Empty LAN credentials are securely generated
+on enabling LAN access, while disabling access preserves existing credentials. Other DNS, TLS and
+chain fields remain intact. Core ownership and pending starts are rechecked under the lifecycle
+barrier; saves require a stopped VPN and conflicting core/chain/hotspot/setup writes are blocked.
+
+No new tests were added or run for this step, following the current migration preference. XML,
+resource references and patch formatting are checked; full Android compilation remains a CI check.
+The existing CI workflow is unchanged and may run its configured checks automatically; this step
+does not add tests or manually invoke them.
+
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and
