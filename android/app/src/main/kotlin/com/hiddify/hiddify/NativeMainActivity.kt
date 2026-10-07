@@ -28,6 +28,8 @@ import com.hiddify.hiddify.nativelog.NativeLogRepository
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
 import com.hiddify.hiddify.nativecore.NativeCoreOptions
 import com.hiddify.hiddify.nativecore.NativeCoreOptionsRepository
+import com.hiddify.hiddify.nativecore.NativeOutboundGroup
+import com.hiddify.hiddify.nativecore.NativeOutboundsRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
 import com.hiddify.hiddify.nativeui.NativeApp
@@ -79,6 +81,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val serviceLogLines = ArrayDeque<String>()
     private val coreOptions = mutableStateOf(NativeCoreOptionsRepository().load())
     private val coreOptionsBusy = mutableStateOf(false)
+    private val outboundGroups = mutableStateOf<List<NativeOutboundGroup>>(emptyList())
+    private val outboundBusyTag = mutableStateOf<String?>(null)
     private val errorMessage = mutableStateOf<String?>(null)
     private val nativeSettings = mutableStateOf(readNativeSettings())
 
@@ -86,6 +90,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val perAppRepository by lazy { NativePerAppRepository(applicationContext) }
     private val logRepository by lazy { NativeLogRepository(applicationContext) }
     private val coreOptionsRepository by lazy { NativeCoreOptionsRepository() }
+    private val outboundsRepository by lazy { NativeOutboundsRepository() }
     private val profileOperationMutex = Mutex()
     private val connection = ServiceConnection(this, this)
 
@@ -150,6 +155,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 logBusy = logBusy.value,
                 coreOptions = coreOptions.value,
                 coreOptionsBusy = coreOptionsBusy.value,
+                outboundGroups = outboundGroups.value,
+                outboundBusyTag = outboundBusyTag.value,
                 errorMessage = errorMessage.value,
                 onDismissError = { errorMessage.value = null },
                 onToggleConnection = ::toggleConnection,
@@ -165,6 +172,10 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onRefreshLogs = ::refreshLogs,
                 onClearLogs = ::clearLogs,
                 onSaveCoreOptions = ::saveCoreOptions,
+                onRefreshOutbounds = { refreshOutbounds(showError = true) },
+                onSelectOutbound = ::selectOutbound,
+                onTestOutbound = ::testOutbound,
+                onTestActiveOutbounds = ::testActiveOutbounds,
                 onOpenLegacy = ::openLegacyUi,
                 onProxyOnlyChanged = { proxyOnly ->
                     if (serviceStatus.value != Status.Stopped) {
@@ -220,6 +231,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshCoreOptions()
         refreshProfiles()
         refreshPerApp()
+        if (serviceStatus.value == Status.Started) refreshOutbounds(showError = false)
         startProfileUpdateLoop()
         startLogRefreshLoop()
         connection.connect()
@@ -233,6 +245,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshProfiles()
         refreshPerApp()
         if (serviceStatus.value == Status.Started) {
+            refreshOutbounds(showError = false)
             maybeRequestNotificationPermission()
             maybePromptBatteryOptimization()
         }
@@ -302,6 +315,79 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
                 logBusy.value = false
+            }
+        }
+    }
+
+    private fun refreshOutbounds(showError: Boolean) {
+        if (serviceStatus.value != Status.Started) {
+            outboundGroups.value = emptyList()
+            outboundBusyTag.value = null
+            return
+        }
+        if (outboundBusyTag.value != null) return
+
+        outboundBusyTag.value = "__refresh__"
+        lifecycleScope.launch {
+            try {
+                outboundGroups.value =
+                    withContext(Dispatchers.IO) {
+                        outboundsRepository.load()
+                    }
+            } catch (error: Exception) {
+                if (showError) {
+                    errorMessage.value = error.message ?: error.javaClass.simpleName
+                } else {
+                    Log.w(TAG, "failed to refresh native outbounds", error)
+                }
+            } finally {
+                outboundBusyTag.value = null
+            }
+        }
+    }
+
+    private fun selectOutbound(groupTag: String, outboundTag: String) {
+        runOutboundOperation(outboundTag) {
+            outboundsRepository.select(groupTag, outboundTag)
+        }
+    }
+
+    private fun testOutbound(tag: String) {
+        runOutboundOperation(tag) {
+            outboundsRepository.test(tag)
+        }
+    }
+
+    private fun testActiveOutbounds() {
+        runOutboundOperation("__test_active__") {
+            outboundsRepository.testActive()
+        }
+    }
+
+    private fun runOutboundOperation(
+        busyTag: String,
+        operation: () -> Unit,
+    ) {
+        if (serviceStatus.value != Status.Started) {
+            errorMessage.value = getString(R.string.native_outbounds_disconnected)
+            outboundGroups.value = emptyList()
+            return
+        }
+        if (outboundBusyTag.value != null) return
+
+        outboundBusyTag.value = busyTag
+        lifecycleScope.launch {
+            try {
+                val refreshed =
+                    withContext(Dispatchers.IO) {
+                        operation()
+                        outboundsRepository.load()
+                    }
+                outboundGroups.value = refreshed
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                outboundBusyTag.value = null
             }
         }
     }
@@ -768,8 +854,12 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         runOnUiThread {
             serviceStatus.value = status
             if (status == Status.Started) {
+                refreshOutbounds(showError = false)
                 maybeRequestNotificationPermission()
                 maybePromptBatteryOptimization()
+            } else if (status == Status.Stopped) {
+                outboundGroups.value = emptyList()
+                outboundBusyTag.value = null
             }
         }
     }
