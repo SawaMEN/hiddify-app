@@ -459,4 +459,6 @@
     <string name="native_battery_settings">Ограничения батареи Android</string>
     <string name="native_battery_settings_summary">Проверьте ограничения батареи для приложения, если Android прерывает работу VPN в фоне.</string>
     <string name="native_general_settings_failed">Не удалось открыть настройки приложения Android</string>
+    <string name="native_home">Главная</string>
+    <string name="native_quick_settings">Быстрые настройки</string>
 </resources>

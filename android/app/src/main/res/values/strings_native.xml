@@ -459,4 +459,6 @@
     <string name="native_battery_settings">Android battery restrictions</string>
     <string name="native_battery_settings_summary">Review battery restrictions for this app if Android interrupts background VPN operation.</string>
     <string name="native_general_settings_failed">Could not open Android application settings</string>
+    <string name="native_home">Home</string>
+    <string name="native_quick_settings">Quick settings</string>
 </resources>

@@ -168,7 +168,7 @@ a restart. The home screen shows the pending attempt and offers Cancel recovery.
 The Kotlin app now applies system, light, dark and black theme choices to the whole Compose
 interface. The settings picker saves the existing `flutter.theme_mode` value on IO so the
 compatibility UI sees the same choice. Missing, unknown or incorrectly typed values follow the
-system theme. Black mode uses a black background and surface; cards retain dark-theme contrast.
+system theme. Black mode uses a black canvas with dark-theme surfaces; cards retain contrast.
 System bar icon appearance follows the selected theme, including a forced dark theme on a light
 system. Theme changes do not restart or reconfigure the VPN.
 
@@ -177,6 +177,23 @@ battery optimization settings. Both use the application's own package details as
 the device lacks a specialized settings Activity. No Flutter method channel is needed for these
 native actions. Refreshing the native settings snapshot also reloads theme choices made in the
 compatibility UI.
+
+## Dart visual parity
+
+Compose now uses the palette and typography from `lib/core/theme/app_theme.dart`, the original
+Manrope font and app logo, Android 12+ wallpaper colors just like Flutter DynamicColorBuilder, 24dp outlined cards, 20dp buttons, 28dp dialogs, and the static cyan/
+magenta atmosphere with its 64dp grid from `cyber_background.dart`. Black mode skips the atmosphere.
+The shared native components apply these tokens across profile, settings, routing and utility screens.
+Glass regions use the source gradient and accent border without a full-screen blur.
+
+Home restores the compact logo header, selectable profile, 176dp circular power control with a 64dp
+power icon, centered status, paired speed readings, glass quick-settings entry and rounded 72dp
+bottom navigation. Pending connection operations remain disabled; cancellation of automatic
+recovery remains available. Existing native actions remain accessible below the primary controls.
+Dark, light and black home previews are available in Android Studio. The protection tab currently
+opens the native Android VPN protection screen; the broader Flutter privacy hub and identical
+settings row grouping remain migration work. Android device screenshot comparison is still required
+before claiming pixel-for-pixel equivalence.
 
 ## Validation
 
