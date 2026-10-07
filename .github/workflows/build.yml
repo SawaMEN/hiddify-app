@@ -283,7 +283,7 @@ jobs:
             --target="${BUILD_TARGET}" \
             --target-platform android-arm64
 
-      - name: Test native Kotlin profile transfer and QR processing
+      - name: Test native Kotlin profiles, QR and diagnostics
         if: ${{ inputs.run-tests }}
         working-directory: android
         run: ./gradlew :app:testReleaseUnitTest --console=plain

@@ -78,6 +78,8 @@ class BoxService(
 
         fun isRunning(): Boolean = coreOwner?.status?.value in listOf(Status.Started, Status.Starting)
 
+        fun isStarted(): Boolean = coreOwner?.status?.value == Status.Started
+
         // Unlike Activity/AIDL state, ownership is set before Mobile.setup() and cleared only
         // after Mobile.close() finishes. Use it as the native lifecycle barrier.
         fun hasActiveCore(): Boolean = coreOwner != null

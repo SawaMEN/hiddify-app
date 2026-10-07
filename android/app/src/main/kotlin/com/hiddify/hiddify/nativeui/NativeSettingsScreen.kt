@@ -53,6 +53,7 @@ fun NativeSettingsScreen(
     canChangeServiceMode: Boolean,
     onBack: () -> Unit,
     onOpenPerAppRouting: () -> Unit,
+    onOpenVpnProtection: () -> Unit,
     onOpenCoreOptions: () -> Unit,
     onOpenChain: () -> Unit,
     onOpenWifiSharingGuide: () -> Unit,
@@ -104,6 +105,9 @@ fun NativeSettingsScreen(
         }
 
         SettingsSection(title = stringResource(R.string.native_settings_vpn)) {
+            OutlinedButton(onClick = onOpenVpnProtection, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.native_protection_title))
+            }
             SettingSwitch(
                 title = stringResource(R.string.native_setting_proxy_only),
                 summary = stringResource(R.string.native_setting_proxy_only_summary),

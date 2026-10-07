@@ -24,6 +24,10 @@ import com.hiddify.hiddify.bg.ServiceConnection
 import com.hiddify.hiddify.constant.Alert
 import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
+import com.hiddify.hiddify.nativediagnostics.NativeDiagnosticSnapshot
+import com.hiddify.hiddify.nativediagnostics.NativeDiagnosticReport
+import com.hiddify.hiddify.nativediagnostics.NativeDiagnosticsRepository
+import com.hiddify.hiddify.nativediagnostics.NativeVpnProtection
 import com.hiddify.hiddify.nativeprofile.NativeProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
 import com.hiddify.hiddify.nativeprofile.NativeProfileTransfer
@@ -104,6 +108,9 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val updateChecking = mutableStateOf(false)
     private val updateMessage = mutableStateOf<String?>(null)
     private val updateUrl = mutableStateOf<String?>(null)
+    private val diagnosticSnapshot = mutableStateOf<NativeDiagnosticSnapshot?>(null)
+    private val diagnosticBusy = mutableStateOf(false)
+    private val vpnProtection = mutableStateOf(NativeVpnProtection())
     private val errorMessage = mutableStateOf<String?>(null)
     private val nativeSettings = mutableStateOf(readNativeSettings())
 
@@ -117,9 +124,11 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val wifiSharingRepository by lazy { NativeWifiSharingRepository() }
     private val settingsTransferRepository by lazy { NativeSettingsTransferRepository() }
     private val updateRepository by lazy { NativeUpdateRepository() }
+    private val diagnosticsRepository by lazy { NativeDiagnosticsRepository() }
     private val profileOperationMutex = Mutex()
     private val connection = ServiceConnection(this, this)
 
+    private var diagnosticJob: Job? = null
     private var profileUpdateJob: Job? = null
     private var logRefreshJob: Job? = null
     private var statsRefreshJob: Job? = null
@@ -259,6 +268,17 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 updateChecking = updateChecking.value,
                 updateMessage = updateMessage.value,
                 updateUrl = updateUrl.value,
+                diagnosticSnapshot = diagnosticSnapshot.value,
+                diagnosticBusy = diagnosticBusy.value,
+                diagnosticReport = diagnosticSnapshot.value?.let {
+                    NativeDiagnosticReport.create(BuildConfig.VERSION_NAME, it, vpnProtection.value)
+                }.orEmpty(),
+                vpnProtection = vpnProtection.value,
+                onRunDiagnostics = ::runDiagnostics,
+                onCancelDiagnostics = ::cancelDiagnostics,
+                onShareDiagnosticReport = ::shareDiagnosticReport,
+                onRefreshVpnProtection = ::refreshVpnProtection,
+                onOpenVpnSettings = ::openVpnSettings,
                 errorMessage = errorMessage.value,
                 onDismissError = { errorMessage.value = null },
                 onToggleConnection = ::toggleConnection,
@@ -364,6 +384,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     override fun onResume() {
         super.onResume()
+        refreshVpnProtection()
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
         refreshCoreOptions()
@@ -383,6 +404,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     override fun onStop() {
+        cancelDiagnostics()
         profileUpdateJob?.cancel()
         profileUpdateJob = null
         logRefreshJob?.cancel()
@@ -391,6 +413,58 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         statsRefreshJob = null
         connection.disconnect()
         super.onStop()
+    }
+
+    private fun refreshVpnProtection() {
+        vpnProtection.value = diagnosticsRepository.protection()
+    }
+
+    private fun openVpnSettings() {
+        try {
+            val intent = Intent(AndroidSettings.ACTION_VPN_SETTINGS)
+            startActivity(if (intent.resolveActivity(packageManager) != null) intent else Intent(AndroidSettings.ACTION_SETTINGS))
+        } catch (_: Exception) {
+            errorMessage.value = getString(R.string.native_protection_open_failed)
+        }
+    }
+
+    private fun runDiagnostics() {
+        if (diagnosticBusy.value) return
+        diagnosticBusy.value = true
+        diagnosticSnapshot.value = null
+        refreshVpnProtection()
+        diagnosticJob = lifecycleScope.launch {
+            try {
+                diagnosticSnapshot.value = diagnosticsRepository.run { progress ->
+                    diagnosticSnapshot.value = progress
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                errorMessage.value = getString(R.string.native_diagnostics_error)
+            } finally {
+                diagnosticBusy.value = false
+                diagnosticJob = null
+            }
+        }
+    }
+
+    private fun cancelDiagnostics() {
+        diagnosticJob?.cancel()
+    }
+
+    private fun shareDiagnosticReport(report: String) {
+        runCatching {
+            startActivity(Intent.createChooser(
+                Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, report)
+                },
+                getString(R.string.native_diagnostics_title),
+            ))
+        }.onFailure {
+            errorMessage.value = getString(R.string.native_profile_share_failed)
+        }
     }
 
     private fun refreshProfileSnapshot() {
@@ -1225,6 +1299,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     override fun onServiceStatusChanged(status: Status) {
         runOnUiThread {
             serviceStatus.value = status
+            refreshVpnProtection()
+            if (status != Status.Started) cancelDiagnostics()
             if (status == Status.Started) {
                 refreshOutbounds(showError = false)
                 maybeRequestNotificationPermission()

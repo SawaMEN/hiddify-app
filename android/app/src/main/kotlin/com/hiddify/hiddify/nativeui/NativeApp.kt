@@ -1,6 +1,8 @@
 package com.hiddify.hiddify.nativeui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -29,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.hiddify.hiddify.nativediagnostics.NativeDiagnosticSnapshot
+import com.hiddify.hiddify.nativediagnostics.NativeVpnProtection
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
@@ -53,6 +57,8 @@ private const val PAGE_OUTBOUNDS = "outbounds"
 private const val PAGE_WIFI_GUIDE = "wifi_guide"
 private const val PAGE_ABOUT = "about"
 private const val PAGE_CHAIN = "chain"
+private const val PAGE_DIAGNOSTICS = "diagnostics"
+private const val PAGE_PROTECTION = "protection"
 
 @Composable
 fun NativeApp(
@@ -81,7 +87,16 @@ fun NativeApp(
     updateChecking: Boolean,
     updateMessage: String?,
     updateUrl: String?,
+    diagnosticSnapshot: NativeDiagnosticSnapshot?,
+    diagnosticBusy: Boolean,
+    diagnosticReport: String,
+    vpnProtection: NativeVpnProtection,
     errorMessage: String?,
+    onRunDiagnostics: () -> Unit,
+    onCancelDiagnostics: () -> Unit,
+    onShareDiagnosticReport: (String) -> Unit,
+    onRefreshVpnProtection: () -> Unit,
+    onOpenVpnSettings: () -> Unit,
     onDismissError: () -> Unit,
     onToggleConnection: () -> Unit,
     onSelectProfile: (NativeProfile) -> Unit,
@@ -136,6 +151,7 @@ fun NativeApp(
     var page by rememberSaveable { mutableStateOf(PAGE_HOME) }
 
     BackHandler(enabled = page != PAGE_HOME) {
+        if (page == PAGE_DIAGNOSTICS) onCancelDiagnostics()
         page =
             when (page) {
                 PAGE_PER_APP -> PAGE_SETTINGS
@@ -143,6 +159,7 @@ fun NativeApp(
                 PAGE_CORE_OPTIONS -> PAGE_SETTINGS
                 PAGE_CHAIN -> PAGE_SETTINGS
                 PAGE_WIFI_GUIDE -> PAGE_SETTINGS
+                PAGE_PROTECTION -> PAGE_SETTINGS
                 else -> PAGE_HOME
             }
     }
@@ -158,6 +175,28 @@ fun NativeApp(
                         .padding(horizontal = 20.dp, vertical = 16.dp),
             ) {
                 when (page) {
+                    PAGE_DIAGNOSTICS ->
+                        NativeDiagnosticsScreen(
+                            snapshot = diagnosticSnapshot,
+                            busy = diagnosticBusy,
+                            report = diagnosticReport,
+                            onBack = {
+                                onCancelDiagnostics()
+                                page = PAGE_HOME
+                            },
+                            onRun = onRunDiagnostics,
+                            onCancel = onCancelDiagnostics,
+                            onShareReport = onShareDiagnosticReport,
+                        )
+
+                    PAGE_PROTECTION ->
+                        NativeVpnProtectionScreen(
+                            protection = vpnProtection,
+                            onBack = { page = PAGE_SETTINGS },
+                            onRefresh = onRefreshVpnProtection,
+                            onOpenSettings = onOpenVpnSettings,
+                        )
+
                     PAGE_PROFILES ->
                         NativeProfilesScreen(
                             profiles = profiles,
@@ -261,6 +300,10 @@ fun NativeApp(
                             state = settingsState,
                             canChangeServiceMode = status == Status.Stopped,
                             onBack = { page = PAGE_HOME },
+                            onOpenVpnProtection = {
+                                onRefreshVpnProtection()
+                                page = PAGE_PROTECTION
+                            },
                             onOpenPerAppRouting = { page = PAGE_PER_APP },
                             onOpenCoreOptions = { page = PAGE_CORE_OPTIONS },
                             onOpenChain = { page = PAGE_CHAIN },
@@ -304,6 +347,7 @@ fun NativeApp(
                             onOpenProfiles = { page = PAGE_PROFILES },
                             onOpenSettings = { page = PAGE_SETTINGS },
                             onOpenLogs = { page = PAGE_LOGS },
+                            onOpenDiagnostics = { page = PAGE_DIAGNOSTICS },
                             onOpenAbout = { page = PAGE_ABOUT },
                             onOpenOutbounds = {
                                 onRefreshOutbounds()
@@ -343,12 +387,13 @@ private fun HomeScreen(
     onOpenProfiles: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenLogs: () -> Unit,
+    onOpenDiagnostics: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenOutbounds: () -> Unit,
     onOpenLegacy: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Text(
@@ -442,7 +487,11 @@ private fun HomeScreen(
             Text(stringResource(R.string.native_about_open))
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        OutlinedButton(onClick = onOpenDiagnostics, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.native_diagnostics_title))
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = stringResource(R.string.native_migration_note),
             style = MaterialTheme.typography.bodySmall,

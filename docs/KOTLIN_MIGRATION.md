@@ -27,11 +27,35 @@ file contents must be selected again after recreation.
 The native core options screen is now connected to its settings navigation route.
 English and Russian strings cover the new actions and errors.
 
+## Connection diagnostics and VPN protection
+
+The native home screen opens connection diagnostics. The checks inspect Android's underlying
+Internet-capable networks, presence of the selected profile file, the authenticated local core RPC,
+and an HTTP request through the selected core outbound. No direct DNS/socket/HTTP fallback is
+used for the tunnel check. The RPC schema matches the pinned core's `ProbeConnection` messages.
+`generate_204` and `generate204` paths require HTTP 204; a captive portal returning HTTP 200
+cannot pass those checks. Redirects are not counted as success.
+
+Each RPC has a deadline, and the coroutine cancels its RPC on exit. Checks can be cancelled
+manually and are cancelled when leaving diagnostics, backgrounding the Activity, or stopping the
+service. The diagnostics client supports the core's 30-second adaptive probe budget without
+changing normal UI RPC timeouts.
+
+Reports show a preview before Android's share sheet. They contain only fixed stage/result codes,
+HTTP status codes, version, timestamp, service state and protection booleans. They do not contain
+raw exception messages, profiles, logs, URLs, IP addresses or subscription credentials.
+
+The settings screen opens native VPN protection controls. Always-on and lockdown status are
+read from the active Android VPN service; unavailable status remains unknown, rather than being
+shown as disabled. The system settings button opens Android VPN settings, with a general settings
+fallback if the device does not expose that action. Status refreshes on resume.
+
 ## Validation
 
-`NativeProfileTransferTest` and `NativeQrCodecTest` cover UTF-8, byte-order marks, size limits,
+`NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and
+`NativeDiagnosticReportTest` cover UTF-8, byte-order marks, size limits,
 encoded URL tokens, custom ports, IPv6, QR round trips, inverted QR images and oversized QR
-payloads. Run with the configured Android/Flutter SDK and prepared core:
+payloads, captive portal responses, probe URL validation and the diagnostic report allowlist. Run with the configured Android/Flutter SDK and prepared core:
 
 ```sh
 cd android
