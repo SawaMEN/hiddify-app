@@ -30,6 +30,8 @@ import com.hiddify.hiddify.nativecore.NativeCoreOptions
 import com.hiddify.hiddify.nativecore.NativeCoreOptionsRepository
 import com.hiddify.hiddify.nativecore.NativeOutboundGroup
 import com.hiddify.hiddify.nativecore.NativeOutboundsRepository
+import com.hiddify.hiddify.nativecore.NativeStatsRepository
+import com.hiddify.hiddify.nativecore.NativeSystemStats
 import com.hiddify.hiddify.nativerouting.NativePerAppRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
 import com.hiddify.hiddify.nativeui.NativeApp
@@ -83,6 +85,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val coreOptionsBusy = mutableStateOf(false)
     private val outboundGroups = mutableStateOf<List<NativeOutboundGroup>>(emptyList())
     private val outboundBusyTag = mutableStateOf<String?>(null)
+    private val systemStats = mutableStateOf(NativeSystemStats())
     private val errorMessage = mutableStateOf<String?>(null)
     private val nativeSettings = mutableStateOf(readNativeSettings())
 
@@ -91,11 +94,13 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val logRepository by lazy { NativeLogRepository(applicationContext) }
     private val coreOptionsRepository by lazy { NativeCoreOptionsRepository() }
     private val outboundsRepository by lazy { NativeOutboundsRepository() }
+    private val statsRepository by lazy { NativeStatsRepository() }
     private val profileOperationMutex = Mutex()
     private val connection = ServiceConnection(this, this)
 
     private var profileUpdateJob: Job? = null
     private var logRefreshJob: Job? = null
+    private var statsRefreshJob: Job? = null
     private var pendingStartAfterVpnPermission = false
     private var notificationRequestInFlight = false
     private var batteryPromptOpen = false
@@ -157,6 +162,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 coreOptionsBusy = coreOptionsBusy.value,
                 outboundGroups = outboundGroups.value,
                 outboundBusyTag = outboundBusyTag.value,
+                systemStats = systemStats.value,
                 errorMessage = errorMessage.value,
                 onDismissError = { errorMessage.value = null },
                 onToggleConnection = ::toggleConnection,
@@ -234,6 +240,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         if (serviceStatus.value == Status.Started) refreshOutbounds(showError = false)
         startProfileUpdateLoop()
         startLogRefreshLoop()
+        startStatsRefreshLoop()
         connection.connect()
     }
 
@@ -262,6 +269,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         profileUpdateJob = null
         logRefreshJob?.cancel()
         logRefreshJob = null
+        statsRefreshJob?.cancel()
+        statsRefreshJob = null
         connection.disconnect()
         super.onStop()
     }
@@ -399,6 +408,28 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 while (isActive) {
                     refreshLogs()
                     delay(LOG_REFRESH_INTERVAL_MS)
+                }
+            }
+    }
+
+    private fun startStatsRefreshLoop() {
+        if (statsRefreshJob?.isActive == true) return
+        statsRefreshJob =
+            lifecycleScope.launch {
+                while (isActive) {
+                    if (serviceStatus.value == Status.Started) {
+                        try {
+                            systemStats.value =
+                                withContext(Dispatchers.IO) {
+                                    statsRepository.load()
+                                }
+                        } catch (error: Exception) {
+                            Log.w(TAG, "failed to refresh native core statistics", error)
+                        }
+                    } else if (systemStats.value != NativeSystemStats()) {
+                        systemStats.value = NativeSystemStats()
+                    }
+                    delay(1_000L)
                 }
             }
     }
@@ -860,6 +891,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
             } else if (status == Status.Stopped) {
                 outboundGroups.value = emptyList()
                 outboundBusyTag.value = null
+                systemStats.value = NativeSystemStats()
             }
         }
     }
