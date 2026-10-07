@@ -172,6 +172,8 @@
     <string name="native_core_tls_padding_size">Диапазон размера padding</string>
     <string name="native_core_reconnect_note">Настройки сохраняются сразу и применяются hiddify-core при следующем запуске или переподключении VPN.</string>
     <string name="native_outbounds_title">Прокси-узлы</string>
+    <string name="native_outbounds_open">Прокси-узлы и задержка</string>
+    <string name="native_outbounds_disconnected">Подключите VPN перед выбором или проверкой прокси-узлов.</string>
     <string name="native_outbounds_empty">Данные об узлах пока недоступны</string>
     <string name="native_outbounds_empty_summary">Подключите VPN и обновите список, чтобы получить группы узлов из hiddify-core.</string>
     <string name="native_outbounds_test_active">Проверить активные узлы</string>
