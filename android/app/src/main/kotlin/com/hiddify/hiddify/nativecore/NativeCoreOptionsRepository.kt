@@ -5,19 +5,11 @@ import org.json.JSONObject
 import java.security.SecureRandom
 
 data class NativeCoreOptions(
-    val balancerStrategy: String,
-    val resolveDestination: Boolean,
-    val logLevel: String,
-    val connectionTestUrl: String,
-    val urlTestIntervalSeconds: Int,
-    val clashApiPort: Int,
-    val useXrayCoreWhenPossible: Boolean,
     val strictRoute: Boolean,
     val tunImplementation: String,
     val mixedPort: Int,
     val directPort: Int,
     val mtu: Int,
-
 )
 
 class NativeCoreOptionsRepository {
@@ -31,13 +23,6 @@ class NativeCoreOptionsRepository {
     fun load(): NativeCoreOptions {
         val root = root()
         return NativeCoreOptions(
-            balancerStrategy = root.optString("balancer-strategy", "round-robin"),
-            resolveDestination = root.optBoolean("resolve-destination", false),
-            logLevel = root.optString("log-level", "warn"),
-            connectionTestUrl = root.optString("connection-test-url", "http://cp.cloudflare.com/"),
-            urlTestIntervalSeconds = root.optInt("url-test-interval", 600).coerceAtLeast(1),
-            clashApiPort = root.optInt("clash-api-port", 16756).validPortOr(16756),
-            useXrayCoreWhenPossible = root.optBoolean("use-xray-core-when-possible", false),
             strictRoute = root.optBoolean("strict-route", true),
             tunImplementation = root.optString("tun-implementation", "gvisor"),
             mixedPort = if (root.optBoolean("enable-mixed-port", true)) root.optInt("mixed-port", 12334).takeIf { it in 1..65535 } ?: 0 else 0,
@@ -48,14 +33,6 @@ class NativeCoreOptionsRepository {
 
     fun save(options: NativeCoreOptions): NativeCoreOptions =
         update { root ->
-            root.put("balancer-strategy", options.balancerStrategy.takeIf(balancerChoices::contains) ?: "round-robin")
-            root.put("resolve-destination", options.resolveDestination)
-            root.put("log-level", options.logLevel.takeIf(logLevelChoices::contains) ?: "warn")
-            root.put("connection-test-url", options.connectionTestUrl.trim())
-            root.put("url-test-interval", options.urlTestIntervalSeconds.coerceIn(60, 86_400))
-            root.put("clash-api-port", options.clashApiPort.validPortOr(16756))
-            root.put("use-xray-core-when-possible", options.useXrayCoreWhenPossible)
-
             root.put("strict-route", options.strictRoute)
             root.put("tun-implementation", options.tunImplementation.takeIf(tunChoices::contains) ?: "mixed")
             root.put("enable-mixed-port", options.mixedPort > 0)
@@ -63,8 +40,6 @@ class NativeCoreOptionsRepository {
             root.put("enable-direct-port", options.directPort > 0)
             root.put("direct-port", options.directPort.takeIf { it in 1..65535 } ?: 0)
             root.put("mtu", options.mtu.coerceIn(1280, 65535))
-
-
         }
 
     fun update(transform: (JSONObject) -> Unit): NativeCoreOptions {
@@ -73,26 +48,6 @@ class NativeCoreOptionsRepository {
         Settings.configOptions = root.toString()
         return load()
     }
-
-    fun setBalancerStrategy(value: String) =
-        update { it.put("balancer-strategy", value.takeIf(balancerChoices::contains) ?: "round-robin") }
-
-    fun setResolveDestination(value: Boolean) = update { it.put("resolve-destination", value) }
-
-    fun setLogLevel(value: String) =
-        update { it.put("log-level", value.takeIf(logLevelChoices::contains) ?: "warn") }
-
-    fun setConnectionTestUrl(value: String) =
-        update { it.put("connection-test-url", value.trim()) }
-
-    fun setUrlTestIntervalMinutes(minutes: Int) =
-        update { it.put("url-test-interval", minutes.coerceIn(1, 1440) * 60) }
-
-    fun setClashApiPort(port: Int) =
-        update { it.put("clash-api-port", port.validPortOr(16756)) }
-
-    fun setUseXrayCoreWhenPossible(value: Boolean) =
-        update { it.put("use-xray-core-when-possible", value) }
 
     fun setStrictRoute(value: Boolean) = update { it.put("strict-route", value) }
 

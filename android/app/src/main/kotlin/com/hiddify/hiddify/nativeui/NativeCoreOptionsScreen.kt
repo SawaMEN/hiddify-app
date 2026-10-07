@@ -40,6 +40,7 @@ fun NativeCoreOptionsScreen(
     onSave: (NativeCoreOptions) -> Unit,
     onOpenDns: () -> Unit,
     onOpenTls: () -> Unit,
+    onOpenGeneralOptions: () -> Unit,
 ) {
     var value by remember(options) { mutableStateOf(options) }
 
@@ -70,54 +71,8 @@ fun NativeCoreOptionsScreen(
                     .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            SectionCard(stringResource(R.string.native_core_general)) {
-                ChoiceSetting(
-                    title = stringResource(R.string.native_core_balancer),
-                    selected = value.balancerStrategy,
-                    choices = NativeCoreOptionsRepository.balancerChoices,
-                    label = ::balancerLabel,
-                    enabled = !busy,
-                ) { value = value.copy(balancerStrategy = it) }
-
-                SwitchSetting(
-                    title = stringResource(R.string.native_core_resolve_destination),
-                    checked = value.resolveDestination,
-                    enabled = !busy,
-                ) { value = value.copy(resolveDestination = it) }
-
-                ChoiceSetting(
-                    title = stringResource(R.string.native_core_log_level),
-                    selected = value.logLevel,
-                    choices = NativeCoreOptionsRepository.logLevelChoices,
-                    label = { it.uppercase() },
-                    enabled = !busy,
-                ) { value = value.copy(logLevel = it) }
-
-                TextSetting(
-                    title = stringResource(R.string.native_core_test_url),
-                    value = value.connectionTestUrl,
-                    enabled = !busy,
-                ) { value = value.copy(connectionTestUrl = it) }
-
-                IntSetting(
-                    title = stringResource(R.string.native_core_test_interval_minutes),
-                    value = (value.urlTestIntervalSeconds / 60).coerceAtLeast(1),
-                    enabled = !busy,
-                    range = 1..1440,
-                ) { value = value.copy(urlTestIntervalSeconds = it * 60) }
-
-                IntSetting(
-                    title = stringResource(R.string.native_core_clash_api_port),
-                    value = value.clashApiPort,
-                    enabled = !busy,
-                    range = 1..65535,
-                ) { value = value.copy(clashApiPort = it) }
-
-                SwitchSetting(
-                    title = stringResource(R.string.native_core_use_xray),
-                    checked = value.useXrayCoreWhenPossible,
-                    enabled = !busy,
-                ) { value = value.copy(useXrayCoreWhenPossible = it) }
+            NativeGlass(Modifier.fillMaxWidth(), radius = 24) {
+                NativeSettingsLink(R.string.native_general_options_title, R.drawable.native_route, onOpenGeneralOptions, enabled = !busy)
             }
 
             NativeGlass(Modifier.fillMaxWidth(), radius = 24) {
@@ -339,11 +294,3 @@ private fun ChoiceSetting(
         )
     }
 }
-
-@Composable
-private fun balancerLabel(value: String): String =
-    when (value) {
-        "consistent-hashing" -> stringResource(R.string.native_core_balancer_consistent)
-        "sticky-sessions" -> stringResource(R.string.native_core_balancer_sticky)
-        else -> stringResource(R.string.native_core_balancer_round_robin)
-    }

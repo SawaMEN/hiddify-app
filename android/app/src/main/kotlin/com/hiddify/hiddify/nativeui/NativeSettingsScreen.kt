@@ -64,6 +64,7 @@ fun NativeSettingsScreen(
     generalPreferencesBusy: Boolean,
     onChangeLanguage: (com.hiddify.hiddify.nativepreferences.NativeLanguage) -> Unit,
     onChangeHapticFeedback: (Boolean) -> Unit,
+    onOpenGeneralOptions: () -> Unit,
     state: NativeSettingsState,
     category: NativeSettingsCategory? = null,
     themeMode: NativeThemeMode,
@@ -285,6 +286,7 @@ fun NativeSettingsScreen(
             if (!themeBusy) NativeSettingsLink(R.string.native_theme_title, R.drawable.native_layers,
                 { themePickerOpen = true }, themeTitle(themeMode))
             else Text(stringResource(R.string.native_theme_title) + ": " + stringResource(themeTitle(themeMode)))
+            NativeSettingsLink(R.string.native_general_options_title, R.drawable.native_route, onOpenGeneralOptions)
             NativeSettingsLink(R.string.native_notification_settings, R.drawable.native_settings,
                 onOpenNotificationSettings, R.string.native_notification_settings_summary)
             NativeSettingsLink(R.string.native_battery_settings, R.drawable.native_settings,

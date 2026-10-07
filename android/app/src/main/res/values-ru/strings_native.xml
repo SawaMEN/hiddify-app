@@ -523,4 +523,15 @@
     <string name="native_language_available">Нативный интерфейс пока поддерживает русский и английский. Другие сохранённые языки используют язык системы и сохраняются до выбора языка здесь.</string>
     <string name="native_haptic_title">Виброотклик</string>
     <string name="native_haptic_summary">Вибрация при подключении и отключении. Учитывает настройки виброотклика Android.</string>
+    <string name="native_general_options_title">Параметры соединения</string>
+    <string name="native_general_resolve_summary">Разрешать имена назначений перед применением правил маршрутизации.</string>
+    <string name="native_general_xray_summary">Использовать Xray для поддерживаемых профилей, когда он доступен. Требуется переподключение.</string>
+    <string name="native_general_interval">Интервал проверки соединения</string>
+    <string name="native_general_seconds">%1$d секунд</string>
+    <string name="native_general_minutes">%1$d минут</string>
+    <string name="native_general_reset_interval">Сбросить до 10 минут</string>
+    <string name="native_general_disconnect">Отключите VPN перед сохранением параметров соединения.</string>
+    <string name="native_general_invalid">Проверьте HTTP/HTTPS URL проверки, порт API (1–65535) и интервал проверки соединения.</string>
+    <string name="native_general_save">Сохранить параметры соединения</string>
+    <string name="native_general_saved">Параметры соединения сохранены. Подключите VPN для применения.</string>
 </resources>

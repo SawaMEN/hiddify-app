@@ -523,4 +523,15 @@
     <string name="native_language_available">The native interface currently supports English and Russian. Other saved languages follow the system and are preserved until you select a language here.</string>
     <string name="native_haptic_title">Haptic feedback</string>
     <string name="native_haptic_summary">Vibration when you connect or disconnect. Respects Android haptic settings.</string>
+    <string name="native_general_options_title">Connection settings</string>
+    <string name="native_general_resolve_summary">Resolve destination names before applying routing rules.</string>
+    <string name="native_general_xray_summary">Use Xray for supported profiles when available. Requires reconnecting.</string>
+    <string name="native_general_interval">Connection test interval</string>
+    <string name="native_general_seconds">%1$d seconds</string>
+    <string name="native_general_minutes">%1$d minutes</string>
+    <string name="native_general_reset_interval">Reset to 10 minutes</string>
+    <string name="native_general_disconnect">Disconnect the VPN before saving connection settings.</string>
+    <string name="native_general_invalid">Check the HTTP/HTTPS test URL, API port (1–65535) and connection test interval.</string>
+    <string name="native_general_save">Save connection settings</string>
+    <string name="native_general_saved">Connection settings saved. Connect the VPN to apply.</string>
 </resources>

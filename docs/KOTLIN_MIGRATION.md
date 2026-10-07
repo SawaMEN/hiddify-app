@@ -326,6 +326,27 @@ remain silent. Both preferences save on IO, report failures, and serialize their
 Resource and patch checks are performed. No tests are added or manually run; full Android compilation
 and device language/recreation checks remain CI/device verification work.
 
+## Native general connection options
+
+General application settings and core options open a dedicated connection-options page. It restores
+Dart's balancing choice, destination resolution, selectable TRACE/DEBUG/INFO/WARN log levels, original
+test URL presets, 1–60 minute interval slider with a 10-minute reset, Clash API port and Xray switch.
+Existing ERROR/FATAL/PANIC values remain intact until explicitly changed. Shared preference rows,
+radio dialogs, glass/cards and saved drafts retain the established native appearance.
+
+A typed repository reads core JSON with Flutter-key fallback and Dart defaults, including Apple's
+captive-portal test URL. Validation bounds URLs to 2048 characters and requires an HTTP(S) host and
+valid port. Intervals already stored outside the slider range remain intact up to 86400 seconds;
+opening the slider does not change them until confirmation. One IO commit writes the seven core
+fields and compatible Flutter keys while preserving DNS, TLS, listeners and chain options.
+The older core editor no longer rewrites those seven fields. Diagnostics and foreground health use
+the new typed URL snapshot; a successful snapshot reload restarts health monitoring.
+
+Saving requires a stopped VPN and rechecks pending starts and core ownership under the lifecycle
+barrier. Conflicting general/DNS/TLS/inbound/core/chain/hotspot/setup writes, language changes and
+recovery are excluded. No tests are added or manually run. Resource/patch checks are performed;
+full Android compilation and device rendering remain CI/device verification work.
+
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and

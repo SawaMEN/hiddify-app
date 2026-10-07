@@ -27,7 +27,9 @@ class NativeDiagnosticsRepository {
         val startedAt = Instant.now()
         val running = BoxService.isStarted()
         val profilePath = Settings.activeConfigPath
-        val testUrl = com.hiddify.hiddify.nativecore.NativeCoreOptionsRepository().load().connectionTestUrl
+        val testUrl = withContext(Dispatchers.IO) {
+            com.hiddify.hiddify.nativecore.NativeGeneralOptionsRepository(com.hiddify.hiddify.VpnApplication.application).load().testUrl
+        }
         val checks = mutableListOf<NativeDiagnosticCheck>()
         suspend fun add(check: NativeDiagnosticCheck) {
             currentCoroutineContext().ensureActive()
