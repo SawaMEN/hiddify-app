@@ -7,6 +7,12 @@ import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,6 +35,7 @@ import com.hiddify.hiddify.nativepreferences.NativeOutboundSort
 @Composable
 fun NativeOutboundsScreen(
     groups: List<NativeOutboundGroup>,
+    connected: Boolean,
     sort: NativeOutboundSort,
     onChangeSort: (NativeOutboundSort) -> Unit,
     busyTag: String?,
@@ -42,9 +49,16 @@ fun NativeOutboundsScreen(
     onTest: (String) -> Unit,
     onTestActive: () -> Unit,
 ) {
+    val lifecycleOwner = LocalContext.current as? LifecycleOwner
+    val refresh by rememberUpdatedState(onRefresh)
+    LaunchedEffect(lifecycleOwner, connected) {
+        if (connected) lifecycleOwner?.lifecycle?.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (isActive) { refresh(); delay(3000) }
+        }
+    }
     var query by rememberSaveable { mutableStateOf("") }
     var sortOpen by remember { mutableStateOf(false) }
-    var details by remember { mutableStateOf<NativeOutbound?>(null) }
+    var details by remember { mutableStateOf<Pair<String, String>?>(null) }
     val clearLabel = stringResource(R.string.native_outbounds_clear_search)
     val presented = remember(groups, query, sort) {
         groups.map { it.copy(items = presentNativeOutbounds(it.items, query, sort)) }.filter { it.items.isNotEmpty() }
@@ -116,23 +130,18 @@ fun NativeOutboundsScreen(
                         items(group.items, key = { listOf("outbound", group.tag, it.tag) }) { outbound ->
                             OutboundTile(outbound, group.selectedTag == outbound.tag, group.selectable && busyTag == null,
                                 busyTag == null, busyTag == outbound.tag, { onSelect(group.tag, outbound.tag) },
-                                { onTest(outbound.tag) }, { details = outbound })
+                                { onTest(outbound.tag) }, { details = group.tag to outbound.tag })
                         }
                     }
                 }
             }
         }
     }
-    details?.let { outbound ->
-        AlertDialog(onDismissRequest = { details = null }, title = { Text(outbound.name) },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(outbound.type)
-                if (outbound.host.isNotBlank()) Text(if (outbound.port > 0) "${outbound.host}:${outbound.port}" else outbound.host)
-                outbound.selectedChild?.takeIf { it.isNotBlank() }?.let { Text(it) }
-                Text(stringResource(R.string.native_outbounds_traffic,
-                    java.text.NumberFormat.getIntegerInstance().format(outbound.upload),
-                    java.text.NumberFormat.getIntegerInstance().format(outbound.download)))
-            } }, confirmButton = { TextButton(onClick = { details = null }) { Text(stringResource(R.string.native_back)) } })
+    details?.let { (groupTag, tag) ->
+        val group = groups.firstOrNull { it.tag == groupTag }
+        group?.items?.firstOrNull { it.tag == tag }?.let { outbound ->
+            NativeOutboundInfoDialog(outbound.copy(selected = group.selectedTag == tag), onDismiss = { details = null })
+        }
     }
 }
 
@@ -148,6 +157,8 @@ private fun OutboundTile(outbound: NativeOutbound, selected: Boolean, selectable
             .combinedClickable(role = Role.RadioButton, onClick = { if (selectable) onSelect() }, onLongClick = onInfo)
             .padding(start = 16.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically) {
+            NativeOutboundCountryBadge(outbound.ipInfo?.countryCode.orEmpty())
+            Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(outbound.name, style = MaterialTheme.typography.bodyLarge,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, maxLines = 2, overflow = TextOverflow.Ellipsis)

@@ -456,6 +456,26 @@ restart. Tap selects a server, long press or the information button opens detail
 retains its delay-test action. No-match searches have their own empty message. Headers and
 search/sort actions use compact icon controls with localized accessibility labels.
 
-Country flags, the full Dart proxy-info dialog fields, and device screenshot comparison remain
+Pixel matching of the Dart flag/provider artwork and device screenshot comparison remain
 migration work. EN/RU resource parity, XML parsing, reference checks and whitespace checks pass.
 No tests were added or run manually; APK compilation is handled by the existing GitHub workflow.
+
+## Server IP information and details
+
+Outbound snapshots now carry the core's optional IP information (IP, country, region, city,
+ASN, organization, coordinates and postal code), plus the secure flag. The scrollable,
+selectable information dialog includes the Dart fields: full tag, protocol, local test time,
+delay, uploaded/downloaded binary byte units, selection/group/secure flags, host and port.
+Empty optional values are omitted; invalid/out-of-range coordinates do not open a map.
+The coordinates link opens the same Apple Maps URL as Dart, only after an explicit tap.
+No extra IP lookup is issued from the native page.
+
+A 40 dp country slot uses the Android regional-indicator flag glyph with a localized country
+accessibility label and an unknown-country fallback. This keeps the Dart tile layout, but
+its custom CircleFlag artwork (including the Iran variant) and organization logo overlay
+are still migration work. The dialog resolves its server from refreshed group data and uses
+the actual parent group's selected tag. While the server page is visible and the Activity is
+STARTED, it refreshes every three seconds, including when smart selection is off; this shows
+completed asynchronous delay tests. Polling stops off-screen/background and uses the existing
+outbound busy guard. No tests were added or run manually. Static resource and whitespace
+checks pass; ARM64 build confirmation remains pending the GitHub workflow.

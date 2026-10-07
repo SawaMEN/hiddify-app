@@ -7,6 +7,12 @@ import com.hiddify.core.api.v2.hcore.SelectOutboundRequest
 import com.hiddify.core.api.v2.hcore.UrlTestRequest
 import com.hiddify.hiddify.utils.GrpcClientProvider
 
+data class NativeOutboundIpInfo(
+    val ip: String = "", val countryCode: String = "", val region: String = "", val city: String = "",
+    val asn: Int = 0, val organization: String = "", val latitude: Double = 0.0, val longitude: Double = 0.0,
+    val postalCode: String = "",
+)
+
 data class NativeOutbound(
     val tag: String,
     val name: String,
@@ -22,6 +28,8 @@ data class NativeOutbound(
     val isGroup: Boolean = false,
     val selectedChildTag: String? = null,
     val testTimestampMs: Long = 0,
+    val secure: Boolean = false,
+    val ipInfo: NativeOutboundIpInfo? = null,
 )
 
 data class NativeOutboundGroup(
@@ -71,6 +79,11 @@ class NativeOutboundsRepository {
                                         isGroup = outbound.is_group,
                                         selectedChildTag = outbound.group_selected_tag,
                                         testTimestampMs = outbound.url_test_time?.toEpochMilli() ?: 0,
+                                        secure = outbound.is_secure,
+                                        ipInfo = outbound.ipinfo?.let { info ->
+                                            NativeOutboundIpInfo(info.ip, info.country_code, info.region, info.city,
+                                                info.asn, info.org, info.latitude, info.longitude, info.postal_code)
+                                        },
                                     )
                                 },
                     )

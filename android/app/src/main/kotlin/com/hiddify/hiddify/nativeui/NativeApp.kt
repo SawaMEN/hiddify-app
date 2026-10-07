@@ -404,6 +404,7 @@ fun NativeApp(
                             PAGE_OUTBOUNDS ->
                                 NativeOutboundsScreen(
                                     groups = outboundGroups,
+                                    connected = status == Status.Started,
                                     sort = generalPreferences.outboundSort,
                                     onChangeSort = onChangeOutboundSort,
                                     busyTag = outboundBusyTag,
