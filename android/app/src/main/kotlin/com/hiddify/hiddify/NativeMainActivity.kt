@@ -374,6 +374,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onChangeLanguage = ::saveLanguage,
                 onChangeHapticFeedback = ::saveHapticFeedback,
                 onChangeSmartSelection = ::saveSmartSelection,
+                onChangeOutboundSort = ::saveOutboundSort,
                 tunnelOptions = tunnelOptions.value,
                 tunnelBusy = tunnelBusy.value,
                 onSaveTunnelOptions = ::saveTunnelOptions,
@@ -1352,6 +1353,18 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
             } finally {
                 generalPreferencesBusy.value = false
             }
+        }
+    }
+
+    private fun saveOutboundSort(sort: com.hiddify.hiddify.nativepreferences.NativeOutboundSort) {
+        if (generalPreferencesBusy.value) return
+        generalPreferencesBusy.value = true
+        lifecycleScope.launch {
+            try {
+                generalPreferences.value = withContext(Dispatchers.IO) { generalPreferencesRepository.saveOutboundSort(sort) }
+            } catch (error: CancellationException) { throw error }
+            catch (error: Exception) { errorMessage.value = error.message ?: error.javaClass.simpleName }
+            finally { generalPreferencesBusy.value = false }
         }
     }
 

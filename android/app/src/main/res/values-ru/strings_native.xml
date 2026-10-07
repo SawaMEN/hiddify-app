@@ -548,4 +548,14 @@
     <string name="native_smart_selection_title">Умный выбор сервера</string>
     <string name="native_smart_selection_summary">Автоматически выбирать стабильный сервер с меньшей задержкой.</string>
     <string name="native_smart_selection_adaptive">Адаптивная сеть также включает автоматический выбор сервера.</string>
+    <string name="native_outbounds_search">Поиск серверов</string>
+    <string name="native_outbounds_clear_search">Очистить поиск</string>
+    <string name="native_outbounds_sort">Сортировка серверов</string>
+    <string name="native_outbounds_sort_unsorted">Исходный порядок</string>
+    <string name="native_outbounds_sort_name">Имя</string>
+    <string name="native_outbounds_sort_delay">Задержка</string>
+    <string name="native_outbounds_sort_usage">Трафик</string>
+    <string name="native_outbounds_no_matches">По запросу серверы не найдены</string>
+    <string name="native_outbounds_info">Информация о сервере</string>
+    <string name="native_outbounds_traffic">Отправлено: %1$s байт\nПолучено: %2$s байт</string>
 </resources>

@@ -548,4 +548,14 @@
     <string name="native_smart_selection_title">Smart server selection</string>
     <string name="native_smart_selection_summary">Automatically choose a stable server with lower latency.</string>
     <string name="native_smart_selection_adaptive">Adaptive network also enables automatic server selection.</string>
+    <string name="native_outbounds_search">Search servers</string>
+    <string name="native_outbounds_clear_search">Clear search</string>
+    <string name="native_outbounds_sort">Sort servers</string>
+    <string name="native_outbounds_sort_unsorted">Original order</string>
+    <string name="native_outbounds_sort_name">Name</string>
+    <string name="native_outbounds_sort_delay">Delay</string>
+    <string name="native_outbounds_sort_usage">Traffic</string>
+    <string name="native_outbounds_no_matches">No servers match your search</string>
+    <string name="native_outbounds_info">Server information</string>
+    <string name="native_outbounds_traffic">Uploaded: %1$s bytes\nDownloaded: %2$s bytes</string>
 </resources>

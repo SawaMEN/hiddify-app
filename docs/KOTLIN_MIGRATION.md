@@ -439,3 +439,23 @@ The ARM64 build of c94d725 exposed two Kotlin compile errors: Wire maps the prot
 to `java.time.Instant` (use `toEpochMilli()`), and diagnostics referenced a nonexistent
 `VpnApplication` (use `Application.application`). Both are corrected here. No new tests were
 added or run manually; static checks pass. APK/device confirmation remains pending CI.
+
+## Server search, ordering and glass tiles
+
+The Compose server page now filters tags, display names and types without changing core
+snapshots. Its four sort modes use Dart's `flutter.proxies_sort_mode` key and default to delay.
+Sorted modes place groups first; zero/unknown delay sorts last, traffic sorts descending,
+and original ordering remains untouched. Traffic comparisons handle totals exceeding signed
+Long range. Preference writes run on IO and share the general-settings busy guard.
+
+The old eagerly composed group contents have been replaced with individually lazy glass tiles,
+with the Dart 20 dp radius, selection accent and delay colors. Narrow screens use one column;
+600 dp and wider layouts use approximately 268 dp columns. Tiles grow for larger fonts rather
+than clipping to a fixed height. Search survives Activity recreation; sorting survives app
+restart. Tap selects a server, long press or the information button opens details, and each tile
+retains its delay-test action. No-match searches have their own empty message. Headers and
+search/sort actions use compact icon controls with localized accessibility labels.
+
+Country flags, the full Dart proxy-info dialog fields, and device screenshot comparison remain
+migration work. EN/RU resource parity, XML parsing, reference checks and whitespace checks pass.
+No tests were added or run manually; APK compilation is handled by the existing GitHub workflow.

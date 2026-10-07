@@ -8,10 +8,13 @@ enum class NativeLanguage(val value: String?) {
     SYSTEM(null), ENGLISH("en"), RUSSIAN("ru");
 }
 
+enum class NativeOutboundSort(val value: String) { UNSORTED("unsorted"), NAME("name"), DELAY("delay"), USAGE("usage") }
+
 data class NativeGeneralPreferences(
     val language: NativeLanguage = NativeLanguage.SYSTEM,
     val hapticFeedback: Boolean = true,
     val smartSelection: Boolean = false,
+    val outboundSort: NativeOutboundSort = NativeOutboundSort.DELAY,
 )
 
 class NativeGeneralPreferencesRepository(context: Context) {
@@ -23,6 +26,7 @@ class NativeGeneralPreferencesRepository(context: Context) {
             language = NativeLanguage.entries.firstOrNull { it.value == values["flutter.locale"] } ?: NativeLanguage.SYSTEM,
             hapticFeedback = (values["flutter.haptic_feedback"] as? Boolean) ?: true,
             smartSelection = values["flutter.smart_server_selection"] == true,
+            outboundSort = NativeOutboundSort.entries.firstOrNull { it.value == values["flutter.proxies_sort_mode"] } ?: NativeOutboundSort.DELAY,
         )
     }
 
@@ -40,6 +44,11 @@ class NativeGeneralPreferencesRepository(context: Context) {
 
     fun saveSmartSelection(enabled: Boolean): NativeGeneralPreferences {
         check(preferences.edit().putBoolean("flutter.smart_server_selection", enabled).commit()) { "Could not save server selection preference" }
+        return load()
+    }
+
+    fun saveOutboundSort(sort: NativeOutboundSort): NativeGeneralPreferences {
+        check(preferences.edit().putString("flutter.proxies_sort_mode", sort.value).commit()) { "Could not save server sort mode" }
         return load()
     }
 

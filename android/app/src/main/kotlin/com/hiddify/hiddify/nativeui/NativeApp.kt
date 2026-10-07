@@ -109,6 +109,7 @@ fun NativeApp(
     onChangeLanguage: (com.hiddify.hiddify.nativepreferences.NativeLanguage) -> Unit,
     onChangeHapticFeedback: (Boolean) -> Unit,
     onChangeSmartSelection: (Boolean) -> Unit,
+    onChangeOutboundSort: (com.hiddify.hiddify.nativepreferences.NativeOutboundSort) -> Unit,
     tlsOptions: com.hiddify.hiddify.nativecore.NativeTlsOptions?,
     tlsBusy: Boolean,
     onSaveTlsOptions: (com.hiddify.hiddify.nativecore.NativeTlsOptions) -> Unit,
@@ -403,6 +404,8 @@ fun NativeApp(
                             PAGE_OUTBOUNDS ->
                                 NativeOutboundsScreen(
                                     groups = outboundGroups,
+                                    sort = generalPreferences.outboundSort,
+                                    onChangeSort = onChangeOutboundSort,
                                     busyTag = outboundBusyTag,
                                     smartSelection = generalPreferences.smartSelection,
                                     smartSelectionBusy = generalPreferencesBusy,
