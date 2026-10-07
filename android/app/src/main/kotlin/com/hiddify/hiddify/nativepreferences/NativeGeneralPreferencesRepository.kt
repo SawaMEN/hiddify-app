@@ -1,0 +1,66 @@
+package com.hiddify.hiddify.nativepreferences
+
+import android.content.Context
+import android.content.res.Configuration
+import java.util.Locale
+
+enum class NativeLanguage(val value: String?) {
+    SYSTEM(null), ENGLISH("en"), RUSSIAN("ru");
+}
+
+enum class NativeOutboundSort(val value: String) { UNSORTED("unsorted"), NAME("name"), DELAY("delay"), USAGE("usage") }
+
+data class NativeGeneralPreferences(
+    val language: NativeLanguage = NativeLanguage.SYSTEM,
+    val hapticFeedback: Boolean = true,
+    val smartSelection: Boolean = false,
+    val outboundSort: NativeOutboundSort = NativeOutboundSort.DELAY,
+)
+
+class NativeGeneralPreferencesRepository(context: Context) {
+    private val preferences = context.applicationContext.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+
+    fun load(): NativeGeneralPreferences {
+        val values = preferences.all
+        return NativeGeneralPreferences(
+            language = NativeLanguage.entries.firstOrNull { it.value == values["flutter.locale"] } ?: NativeLanguage.SYSTEM,
+            hapticFeedback = (values["flutter.haptic_feedback"] as? Boolean) ?: true,
+            smartSelection = values["flutter.smart_server_selection"] == true,
+            outboundSort = NativeOutboundSort.entries.firstOrNull { it.value == values["flutter.proxies_sort_mode"] } ?: NativeOutboundSort.DELAY,
+        )
+    }
+
+    fun saveLanguage(language: NativeLanguage): NativeGeneralPreferences {
+        val editor = preferences.edit()
+        if (language.value == null) editor.remove("flutter.locale") else editor.putString("flutter.locale", language.value)
+        check(editor.commit()) { "Could not save language" }
+        return load()
+    }
+
+    fun saveHapticFeedback(enabled: Boolean): NativeGeneralPreferences {
+        check(preferences.edit().putBoolean("flutter.haptic_feedback", enabled).commit()) { "Could not save haptic preference" }
+        return load()
+    }
+
+    fun saveSmartSelection(enabled: Boolean): NativeGeneralPreferences {
+        check(preferences.edit().putBoolean("flutter.smart_server_selection", enabled).commit()) { "Could not save server selection preference" }
+        return load()
+    }
+
+    fun saveOutboundSort(sort: NativeOutboundSort): NativeGeneralPreferences {
+        check(preferences.edit().putString("flutter.proxies_sort_mode", sort.value).commit()) { "Could not save server sort mode" }
+        return load()
+    }
+
+    companion object {
+        /** Scope resources to this Activity; leave the running VPN service and process locale intact. */
+        fun localizedContext(base: Context, language: NativeLanguage): Context {
+            val tag = language.value ?: return base
+            val locale = Locale.forLanguageTag(tag)
+            val config = Configuration(base.resources.configuration)
+            config.setLocale(locale)
+            config.setLayoutDirection(locale)
+            return base.createConfigurationContext(config)
+        }
+    }
+}

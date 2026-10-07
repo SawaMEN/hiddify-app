@@ -9,27 +9,16 @@
 *.ipr
 *.iws
 
-# Flutter / Dart / Pub
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-.pub-cache/
-.pub/
+# Build artifacts
 /build/
 /dist/
 /out/
-
-# Generated Dart files
-**/*.g.dart
-**/*.freezed.dart
-**/*.mapper.dart
-**/*.gen.dart
 
 # Android / Gradle
 .gradle/
 .cxx/
 /local.properties
+/android/local.properties
 /android/key.properties
 /android/key.jks
 /android/app/debug

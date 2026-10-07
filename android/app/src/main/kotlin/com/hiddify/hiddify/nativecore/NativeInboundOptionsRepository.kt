@@ -52,7 +52,7 @@ class NativeInboundOptionsRepository(context: Context) {
         val value = input.validated()
         val root = root(preferences.all)
         val password = if (value.allowLan && value.lanPassword.isBlank()) {
-            Base64.getUrlEncoder().withoutPadding().encodeToString(ByteArray(18).also { SecureRandom().nextBytes(it) })
+            generatePassword()
         } else value.lanPassword
         val fields = mapOf<String, Any>(
             "strict-route" to value.strictRoute, "tun-implementation" to value.tunImplementation,
@@ -78,6 +78,24 @@ class NativeInboundOptionsRepository(context: Context) {
         check(editor.commit()) { "Could not save inbound settings" }
         return load()
     }
+
+    /** Hotspot transaction: merge only LAN fields, including Flutter compatibility preferences. */
+    fun setLanSharing(enabled: Boolean) {
+        val values = preferences.all
+        val root = root(values)
+        val stored = (root.opt("lan-sharing-password") as? String)
+            ?: (values["flutter.lan_sharing_password"] as? String) ?: ""
+        val password = if (enabled && stored.isBlank()) generatePassword() else stored
+        if (enabled) require(password.length <= 128 && password.none { it.isISOControl() }) { "Invalid LAN password" }
+        root.put("allow-connection-from-lan", enabled)
+        root.put("lan-sharing-password", password)
+        check(preferences.edit().putString("config_options_json", root.toString())
+            .putBoolean("flutter.allow-connection-from-lan", enabled)
+            .putString("flutter.lan_sharing_password", password).commit()) { "Could not save LAN sharing settings" }
+    }
+
+    private fun generatePassword(): String = Base64.getUrlEncoder().withoutPadding()
+        .encodeToString(ByteArray(18).also { SecureRandom().nextBytes(it) })
 
     private fun root(values: Map<String, *>): JSONObject {
         val text = values["config_options_json"] as? String ?: ""

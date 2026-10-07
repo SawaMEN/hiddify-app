@@ -31,7 +31,7 @@ Ordinary mode still exposes `VpnService`, `TRANSPORT_VPN` and the tunnel interfa
 
 Core tests: `go test -ldflags=-checklinkname=0 ./v2/config ./v2/hcore ./platform/mobile` (the linker flag is already used by the core build).
 
-Binary XML tests: compile `android/app/src/main/java/com/hiddify/hiddify/privacy/BinaryXml.java` and `tool/tests/BinaryXmlTest.java`, then run `BinaryXmlTest`. Fixtures cover UTF-8/UTF-16, Unicode, resizing, authorities and preserved node indexes.
+Binary XML tests: compile `android/app/src/main/kotlin/com/hiddify/hiddify/privacy/BinaryXml.kt` and `tool/tests/BinaryXmlTest.kt` with `kotlinc -include-runtime -d /tmp/binary-xml.jar`, then run `java -jar /tmp/binary-xml.jar`. Fixtures cover UTF-8/UTF-16, Unicode, resizing, authorities and preserved node indexes.
 
 Flutter navigation and policy tests: `flutter test test/reliability/navigation_test.dart test/reliability/vpn_privacy_policy_test.dart`.
 

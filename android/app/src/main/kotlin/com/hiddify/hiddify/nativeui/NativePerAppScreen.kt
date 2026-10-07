@@ -12,7 +12,7 @@ import androidx.compose.foundation.lazy.items
 import com.hiddify.hiddify.nativeui.NativeCard as Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
+import com.hiddify.hiddify.nativeui.NativeTextField as OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton

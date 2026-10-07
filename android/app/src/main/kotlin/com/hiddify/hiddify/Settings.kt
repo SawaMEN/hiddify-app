@@ -180,7 +180,7 @@ object Settings {
             }
         }
 
-    private fun encodeListString(values: List<String>): String {
+    internal fun encodeListString(values: List<String>): String {
         val bytes = ByteArrayOutputStream()
         ObjectOutputStream(bytes).use { stream ->
             stream.writeObject(ArrayList(values))

@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -65,7 +66,8 @@ internal fun NativeSettingsOverviewScreen(
     onOpenChain: () -> Unit,
     onOpenLogs: () -> Unit,
     onOpenAbout: () -> Unit,
-    onOpenLegacy: () -> Unit,
+    onOpenDns: () -> Unit = {},
+    onOpenTls: () -> Unit = {},
     onOpenInbound: () -> Unit = {},
 ) {
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
@@ -75,7 +77,8 @@ internal fun NativeSettingsOverviewScreen(
             Triple(R.string.native_profiles, R.drawable.native_list, onOpenProfiles),
             Triple(R.string.native_settings_general, R.drawable.native_layers, { onOpenCategory(NativeSettingsCategory.APP) }),
             Triple(R.string.native_chain_open, R.drawable.native_route, onOpenChain),
-            Triple(R.string.native_settings_dns, R.drawable.native_dns, { onOpenCategory(NativeSettingsCategory.DNS) }),
+            Triple(R.string.native_core_dns, R.drawable.native_dns, onOpenDns),
+            Triple(R.string.native_core_tls, R.drawable.native_shield, onOpenTls),
             Triple(R.string.native_inbound_title, R.drawable.native_route, onOpenInbound),
             Triple(R.string.native_settings_vpn, R.drawable.native_shield, { onOpenCategory(NativeSettingsCategory.VPN) }),
             Triple(R.string.native_core_options_title, R.drawable.native_settings, onOpenCoreOptions),
@@ -83,7 +86,6 @@ internal fun NativeSettingsOverviewScreen(
             Triple(R.string.native_settings_transfer, R.drawable.native_logs, { onOpenCategory(NativeSettingsCategory.BACKUP) }),
             Triple(R.string.native_logs_title, R.drawable.native_logs, onOpenLogs),
             Triple(R.string.native_about_open, R.drawable.native_info, onOpenAbout),
-            Triple(R.string.native_advanced_legacy, R.drawable.native_layers, onOpenLegacy),
         ).forEach { (title, icon, open) ->
             NativeGlass(Modifier.fillMaxWidth(), radius = 24) { NativeSettingsLink(title, icon, open) }
         }
@@ -128,6 +130,8 @@ internal fun NativePrivacyOverviewScreen(
     onOpenRegional: () -> Unit,
     onOpenPerApp: () -> Unit,
     onOpenPolicy: () -> Unit,
+    onOpenTunnel: () -> Unit = {},
+    onOpenDns: () -> Unit = {},
     onOpenProxyPrivacy: () -> Unit = {},
     onOpenProtection: () -> Unit,
     onOpenFilters: () -> Unit,
@@ -165,13 +169,15 @@ internal fun NativePrivacyOverviewScreen(
         }
         PrivacyCategory(R.string.native_privacy_connection, R.string.native_privacy_connection_summary, R.drawable.native_shield,
             "connection" in expandedCategories, { onToggleCategory("connection") }) {
+            NativeSettingsLink(R.string.native_tunnel_title, R.drawable.native_route, onOpenTunnel)
             NativeSettingsLink(R.string.native_connection_policy_title, R.drawable.native_shield, onOpenPolicy)
             NativeSettingsLink(R.string.native_settings_vpn, R.drawable.native_settings, { onOpenCategory(NativeSettingsCategory.VPN) })
             NativeSettingsLink(R.string.native_protection_title, R.drawable.native_shield, onOpenProtection)
         }
         PrivacyCategory(R.string.native_privacy_dns, R.string.native_privacy_dns_summary, R.drawable.native_dns,
             "dns" in expandedCategories, { onToggleCategory("dns") }) {
-            NativeSettingsLink(R.string.native_settings_dns, R.drawable.native_dns, { onOpenCategory(NativeSettingsCategory.DNS) })
+            NativeSettingsLink(R.string.native_core_dns, R.drawable.native_dns, onOpenDns)
+            NativeSettingsLink(R.string.native_settings_dns, R.drawable.native_shield, { onOpenCategory(NativeSettingsCategory.DNS) })
         }
         PrivacyCategory(R.string.native_privacy_interfaces, R.string.native_privacy_interfaces_summary, R.drawable.native_settings,
             "interfaces" in expandedCategories, { onToggleCategory("interfaces") }) {
@@ -209,5 +215,19 @@ private fun PrivacyOverviewPreview() {
                     onOpenProtection = {}, onOpenFilters = {}, onOpenCoreOptions = {}, onOpenCategory = {})
             }
         }
+    }
+}
+
+@Composable
+internal fun NativePreferenceValueRow(title: Int, value: String, enabled: Boolean, icon: Int = R.drawable.native_dns, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().alpha(if (enabled) 1f else .38f).clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+        .padding(horizontal = 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Icon(painterResource(icon), null, tint = MaterialTheme.colorScheme.primary)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
+            Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(painterResource(R.drawable.native_chevron), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

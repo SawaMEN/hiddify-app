@@ -1,7 +1,39 @@
 # Android Kotlin migration
 
-The `kotlin-rewrite` branch launches `NativeMainActivity` and uses Compose for Android.
-Flutter remains a temporary compatibility UI and build dependency; the migration is not complete.
+The `kotlin-rewrite` branch is a standalone Kotlin/Compose Android project, launched by
+`MainActivity`. Dart application/test sources, the Flutter compatibility Activity and method/event
+channels, pubspec/code generators and Flutter build plugins have been removed. The APK is built
+by Gradle directly, and CI rejects Flutter engine/snapshot assets in the APK. The pinned native
+Go VPN engine remains unchanged; it is not Dart application code.
+
+Existing storage names and schemas remain compatible with installed versions. The old
+`NativeMainActivity` component is retained as an Android manifest alias to the new entry point.
+Version metadata is now in `version.properties`. The app retains the migrated Compose visual
+style, but exact country/provider artwork and device screenshot parity are still outstanding.
+No tests were run manually for the standalone conversion. The standalone ARM64 APK was successfully built and verified in
+GitHub Actions run `37671458891`; earlier sections below document the incremental migration history.
+
+## Visual parity with the Dart version
+
+The Dart UI at commit `8d8655916b115417e1f736966108c29ca87ba530` is the visual reference;
+source removal does not change the requirement to preserve its appearance. Native input fields
+now share its filled `surfaceContainerLow` background, 16 dp corners and outline colors.
+The proxy screen restores the 56 dp app bar, search padding, plain smart-selection switch,
+80 dp tiles (scaling up with accessibility font size), 12 dp grid spacing and bottom-right delay
+button. Tile selection colors, one-line titles/subtitles, delay colors and download marker follow
+the Dart widget. English/Russian proxy labels are copied from the existing translations.
+The native screen retains all core groups, without additional group headings.
+
+The home app bar now stays outside the scroll area, with a 56 dp height, 28 dp logo,
+version badge and tonal add button. The scroll body uses the original 680 dp maximum width
+and profile/connection section insets. Health text uses the original translations and opens
+diagnostics, with live-region semantics. Quick settings restores the single title, tune/up icons
+and 16 dp gap after the compact speed card. Profile content, active-proxy footer, empty-profile
+state, latency indicator and quick-settings sheet still need further parity work.
+
+These are source-based corrections, not a claim of verified pixel parity. Country/provider
+artwork, remaining screen layouts and screenshot comparisons on the same device, theme,
+locale and font scale still need completion. No manual tests were added or run.
 
 ## Profile transfer and QR
 
@@ -256,6 +288,137 @@ resource references and patch formatting are checked; full Android compilation r
 The existing CI workflow is unchanged and may run its configured checks automatically; this step
 does not add tests or manually invoke them.
 
+## Native DNS settings
+
+The settings overview, core options and privacy DNS category open a dedicated Compose resolver page.
+The old general core form no longer edits or rewrites DNS fields. This prevents a stale core draft
+from overwriting resolver choices. The dedicated page follows
+Dart's row order: remote resolver, its domain strategy, FakeDNS, direct resolver and its strategy.
+Address dialogs offer the original resolver presets and accept custom nonempty addresses; strategy
+dialogs use localized single-choice rows. Shared Manrope typography, glass/cards, icons and themed
+dialogs retain the native Dart appearance. The separate DNS/system-proxy privacy controls remain
+accessible from this page. Drafts and open address dialogs survive Activity recreation.
+
+A typed repository reads the core JSON first and falls back to existing Flutter preference keys,
+using the Dart defaults (`tcp://8.8.8.8`, `udp://1.1.1.1`). Saving validates bounded addresses and
+strategy keys, then updates just the five DNS fields and their Flutter preferences in one IO commit.
+Resolver schemes are not restricted beyond Dart's nonempty validation; control characters and
+addresses over 2048 characters are rejected. Malformed core JSON fails without replacing unrelated
+settings. TLS, listener, chain and other options remain intact.
+
+Saving requires a stopped VPN and rechecks core ownership and pending starts under the lifecycle
+barrier. Conflicting native option/setup writes, navigation, manual start and recovery are blocked
+during the commit. Snapshots refresh after import, compatibility UI return and native core changes.
+No new tests are added or manually run. Resource and patch checks are performed; Android compilation
+and device screenshot comparison remain required for full build and visual verification.
+
+## Native TLS settings
+
+The settings overview and core options now open a dedicated TLS page. It follows the Dart order:
+fragmentation, fragment size, sleep, mixed SNI case, padding and padding size. Subordinate controls
+remain visible and become editable with fragmentation, including padding size regardless of the
+padding switch. Turning off switches preserves subordinate values. Shared value rows, glass/card
+surfaces, Manrope and themed edit dialogs retain the established appearance. Drafts and an open
+range dialog survive Activity recreation; Android Studio includes a dark preview.
+
+Kotlin reads the nested core TLS object first, then existing Flutter keys. Missing values use Dart's
+10–30 fragment size, 2–8 sleep and 1–1500 padding defaults. Range parsing accepts a nonnegative
+integer or an ordered pair and normalizes leading zeros; empty legacy stored ranges are retained.
+Integers are bounded to 2147483647 and input to 21 characters. Corrupt JSON/TLS objects and invalid
+ranges fail without replacing other configuration. One IO commit merges only the six TLS fields
+and compatible Flutter keys, preserving unexposed packet selection and all other core options.
+The general core editor opens this page and no longer rewrites TLS values from a stale draft.
+
+Saving requires a stopped service, rechecks core ownership and pending starts under the lifecycle
+barrier, and excludes DNS/inbound/core/chain/hotspot/setup writes and connection recovery. Snapshots
+reload after imports and returning from the compatibility UI. Resource and patch checks are performed;
+no tests are added or manually run. Android compilation and device screenshot comparison remain
+separate verification steps.
+
+## Native language and haptic preferences
+
+The general settings page now starts with a native language picker and includes the Dart haptic
+switch. Shared preference rows, localized radio dialogs and card styling retain the established
+appearance. English, Russian and system mode are available; other native translations are still
+migration work. Unsupported saved Dart locales follow the system in native UI but remain stored
+until an explicit language selection. Choosing system removes the Flutter locale override, matching
+Dart's device-locale fallback. Haptic changes never rewrite the locale.
+
+Language uses Activity-scoped configuration resources, including alerts and Compose strings,
+without mutating the process locale or running service. An IO preference commit precedes Activity
+recreation; existing saved native navigation and connection intent are restored. Returning from
+compatibility UI detects a changed supported language and recreates the Activity. Pending starts
+and core option writes prevent a manual language change during those operations.
+
+Haptic feedback reads the existing `flutter.haptic_feedback` key with Dart's true default. Native
+manual connect uses a light virtual-key pulse; disconnect and recovery cancellation use a context
+click. Android's own haptic settings are respected. Automatic recovery and background observations
+remain silent. Both preferences save on IO, report failures, and serialize their writes.
+
+Resource and patch checks are performed. No tests are added or manually run; full Android compilation
+and device language/recreation checks remain CI/device verification work.
+
+## Native general connection options
+
+General application settings and core options open a dedicated connection-options page. It restores
+Dart's balancing choice, destination resolution, selectable TRACE/DEBUG/INFO/WARN log levels, original
+test URL presets, 1–60 minute interval slider with a 10-minute reset, Clash API port and Xray switch.
+Existing ERROR/FATAL/PANIC values remain intact until explicitly changed. Shared preference rows,
+radio dialogs, glass/cards and saved drafts retain the established native appearance.
+
+A typed repository reads core JSON with Flutter-key fallback and Dart defaults, including Apple's
+captive-portal test URL. Validation bounds URLs to 2048 characters and requires an HTTP(S) host and
+valid port. Intervals already stored outside the slider range remain intact up to 86400 seconds;
+opening the slider does not change them until confirmation. One IO commit writes the seven core
+fields and compatible Flutter keys while preserving DNS, TLS, listeners and chain options.
+The older core editor no longer rewrites those seven fields. Diagnostics and foreground health use
+the new typed URL snapshot; a successful snapshot reload restarts health monitoring.
+
+Saving requires a stopped VPN and rechecks pending starts and core ownership under the lifecycle
+barrier. Conflicting general/DNS/TLS/inbound/core/chain/hotspot/setup writes, language changes and
+recovery are excluded. No tests are added or manually run. Resource/patch checks are performed;
+full Android compilation and device rendering remain CI/device verification work.
+
+## Native IPv6 and MTU controls
+
+VPN settings, the privacy connection category and core options now open a dedicated tunnel page.
+It restores all four Dart IPv6 choices: disable, enable/prefer IPv4, prefer IPv6 and IPv6 only, plus
+an MTU edit dialog. Shared preference rows, localized radio choices, glass/cards and saved dialog
+state retain the established appearance. The old two-state IPv6 switch and general core MTU field
+are replaced by links, so they cannot write contradictory or stale tunnel choices.
+
+The typed repository reads core JSON first and falls back to the Flutter keys, with IPv4-only and
+9000 MTU defaults. Legacy native `auto` maps to Dart's enable/prefer-IPv4 mode. Valid IPv4-only
+MTUs from 576 are preserved; IPv6 saves require at least 1280. Values above 65535 fail. Switching
+from a low IPv4 MTU to IPv6 asks the user to correct MTU before saving rather than silently changing
+it. Both fields and their Flutter preferences are written together on IO, preserving all unrelated
+core settings and leaving malformed JSON untouched. This keeps the VPN service IPv6 builder flags
+and the core IPv6 mode aligned after a native save.
+
+Saves require a stopped VPN and recheck core ownership and pending starts under the lifecycle
+barrier. Tunnel writes exclude general/DNS/TLS/inbound/core/chain/hotspot/setup changes, language
+recreation and recovery. Imports and compatibility UI returns reload the snapshot. Resource/patch
+checks are performed; no tests are added or manually run. Android build and on-device IPv6/MTU
+verification remain pending.
+
+## Scoped core settings and native LAN sharing
+
+The former general core form is now a glass-row navigation hub for the dedicated connection, DNS,
+inbound, tunnel and TLS pages. TUN/port controls no longer have a second editor with different defaults,
+port-zero behavior or a broad Save action. The obsolete NativeCoreOptions model, repository and
+Activity save state are removed; shared wire choices live in NativeConfigChoices. Each page retains
+its own typed validation, Flutter-compatible transaction and stopped-service lifecycle checks.
+
+Hotspot changes now use the inbound repository's focused LAN transaction on IO under the native core
+lifecycle barrier. It writes only LAN permission and authentication to core JSON and Flutter keys,
+preserving listener ports, IPv6, MTU, DNS, TLS and other options. Missing credentials are generated
+with the same secure native generator used by the inbound editor; existing credentials survive
+disabling/re-enabling sharing. Invalid/corrupt JSON fails without resetting configuration. Rollback
+also uses this transaction, and the inbound snapshot refreshes after hotspot operations.
+
+The hub retains shared glass/cards, icons, Manrope and page history. Resource/reference and patch
+checks are performed; no tests are added or manually run. Full Android compilation remains pending.
+
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and
@@ -274,3 +437,94 @@ relying on the Android unit-test task unavailable in the current Flutter/AGP con
 as a CI artifact. A full Android build
 still requires Flutter, Android SDK/NDK, generated RPC sources and the native core; JVM tests
 alone do not validate Compose layout or camera/document-picker behavior on a device.
+
+## Smart server selection
+
+The native settings and server pages expose the existing `smart_server_selection` preference,
+using the shared glass controls and English/Russian labels. Adaptive network mode also enables
+selection, matching Dart. The foreground controller observes the first outbound group, prefers
+its core `lowest` balancer, and leaves that balancer for its current direct server when both
+automatic modes are disabled. Manual selection clears the explicit smart preference and emits
+the configured haptic feedback; adaptive network remains independent.
+
+Raw profiles use the Dart ranking thresholds: EWMA 0.7/0.3, three successful samples, three
+candidate wins from distinct measurements, at least 50 ms and 20% improvement (or three current
+failures), ten-minute freshness and a two-minute switch cooldown. Ranking resets on profile
+changes. The Kotlin fallback persists per-profile health history in Dart's preference keys and JSON format. The core balancer continues to work while the UI is
+closed, whereas Kotlin fallback observation and selection stop with the Activity.
+
+Selections share the UI outbound-operation guard and native service lifecycle barrier, validate
+the active profile again before RPC, and use a cancellable eight-second RPC. Outbound snapshots
+also have an eight-second timeout and close/cancel their stream. No tests were added or run.
+Static resource/reference and whitespace checks were performed; APK/device validation is pending.
+
+## Persistent server health history and build fixes
+
+Kotlin loads `flutter.server_health_<profile ID>` samples from the same profile IDs as Dart.
+Restoration accepts up to 128 valid entries less than 24 hours old; invalid entries are ignored
+individually. Changed samples are saved on IO at intervals of at least ten seconds, with a final
+flush when the controller closes or changes profiles. The cache retains at most 16 profiles and
+writes the legacy Flutter string-list index. Existing records reconstruct that index without
+Java deserialization. The outbound-operation guard covers history loading as well as selection.
+
+The ARM64 build of c94d725 exposed two Kotlin compile errors: Wire maps the protobuf timestamp
+to `java.time.Instant` (use `toEpochMilli()`), and diagnostics referenced a nonexistent
+`VpnApplication` (use `Application.application`). Both are corrected here. No new tests were
+added or run manually; static checks pass. APK/device confirmation remains pending CI.
+
+## Server search, ordering and glass tiles
+
+The Compose server page now filters tags, display names and types without changing core
+snapshots. Its four sort modes use Dart's `flutter.proxies_sort_mode` key and default to delay.
+Sorted modes place groups first; zero/unknown delay sorts last, traffic sorts descending,
+and original ordering remains untouched. Traffic comparisons handle totals exceeding signed
+Long range. Preference writes run on IO and share the general-settings busy guard.
+
+The old eagerly composed group contents have been replaced with individually lazy glass tiles,
+with the Dart 20 dp radius, selection accent and delay colors. Narrow screens use one column;
+600 dp and wider layouts use approximately 268 dp columns. Tiles grow for larger fonts rather
+than clipping to a fixed height. Search survives Activity recreation; sorting survives app
+restart. Tap selects a server, long press or the information button opens details, and each tile
+retains its delay-test action. No-match searches have their own empty message. Headers and
+search/sort actions use compact icon controls with localized accessibility labels.
+
+Pixel matching of the Dart flag/provider artwork and device screenshot comparison remain
+migration work. EN/RU resource parity, XML parsing, reference checks and whitespace checks pass.
+No tests were added or run manually; APK compilation is handled by the existing GitHub workflow.
+
+## Server IP information and details
+
+Outbound snapshots now carry the core's optional IP information (IP, country, region, city,
+ASN, organization, coordinates and postal code), plus the secure flag. The scrollable,
+selectable information dialog includes the Dart fields: full tag, protocol, local test time,
+delay, uploaded/downloaded binary byte units, selection/group/secure flags, host and port.
+Empty optional values are omitted; invalid/out-of-range coordinates do not open a map.
+The coordinates link opens the same Apple Maps URL as Dart, only after an explicit tap.
+No extra IP lookup is issued from the native page.
+
+A 40 dp country slot uses the Android regional-indicator flag glyph with a localized country
+accessibility label and an unknown-country fallback. This keeps the Dart tile layout, but
+its custom CircleFlag artwork (including the Iran variant) and organization logo overlay
+are still migration work. The dialog resolves its server from refreshed group data and uses
+the actual parent group's selected tag. While the server page is visible and the Activity is
+STARTED, it refreshes every three seconds, including when smart selection is off; this shows
+completed asynchronous delay tests. Polling stops off-screen/background and uses the existing
+outbound busy guard. No tests were added or run manually. Static resource and whitespace
+checks pass; ARM64 build confirmation remains pending the GitHub workflow.
+
+## Standalone Kotlin cutover
+
+Removed all 370 tracked Dart files, including tests and generator shims, and removed the Flutter
+SDK plugins and source generation from Gradle, Make and GitHub Actions. All handwritten Android
+application source is Kotlin, including the binary XML/resource-table rewriter previously in
+Java. The existing binary XML fixture has also been translated to Kotlin without new scenarios.
+Database schema references were moved from the removed `lib` source tree into
+`docs/database-schemas`. The app keeps its package, signing behavior, deep links, shortcuts,
+notification actions, VPN services and profile paths. Advanced settings navigate only to native
+Compose pages; the compatibility UI link is removed.
+
+CI checks native source/resource boundaries, assembles directly with `:app:assembleRelease`,
+and verifies the ARM64 core/root companion and application metadata. Existing Kotlin/core
+checks are still available to CI through its `run-tests` option; Dart tests are gone. Stable
+release feeds and tag checks read the same version properties as the Android build. Local
+Gradle execution was blocked while downloading the pinned distribution (`Network is unreachable`).

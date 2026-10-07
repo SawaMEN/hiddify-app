@@ -3,26 +3,15 @@ include dependencies.properties
 MKDIR := mkdir -p
 ANDROID_OUT=android/app/libs
 
-ifeq ($(CHANNEL),prod)
-TARGET=lib/main_prod.dart
-else
-TARGET=lib/main.dart
-endif
-
-.PHONY: get gen translate common-prepare android-prepare android-apk-prepare \
+.PHONY: get common-prepare android-prepare android-apk-prepare \
         android-install-deps android-apk-install-deps android-libs android-apk-libs \
         android-release android-apk-release clean
 
 get:
-	flutter pub get
+	cd android && ./gradlew :app:dependencies --console=plain
 
-gen:
-	dart run build_runner build
-
-translate:
-	dart run slang
-
-common-prepare: get translate gen
+common-prepare:
+	python3 tool/check_native_project.py
 
 android-install-deps:
 	@echo "No additional Android build tools are required"
@@ -48,13 +37,9 @@ android-apk-prepare: android-prepare
 android-release: android-apk-release
 
 android-apk-release:
-	flutter build apk \
-	  --release \
-	  --target=$(TARGET) \
-	  --target-platform android-arm64
-	@echo "Android ARM64-v8a APK output:"
-	@find build/app/outputs/flutter-apk -maxdepth 1 -type f \( -name 'app-release.apk' -o -name '*arm64-v8a*.apk' \) -print
+	cd android && ./gradlew :app:assembleRelease --console=plain
+	@echo "Android ARM64-v8a APK output: build/app/outputs/apk/release/app-release.apk"
 
 clean:
-	flutter clean
+	cd android && ./gradlew clean --console=plain
 	rm -rf dist out

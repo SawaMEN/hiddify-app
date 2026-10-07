@@ -22,125 +22,46 @@ on:
 env:
   IS_GITHUB_ACTIONS: 1
   CHANNEL: "${{ inputs.channel }}"
-  FLUTTER_VERSION: '3.47.6'
-  BUILD_TARGET: "${{ inputs.channel == 'prod' && 'lib/main_prod.dart' || 'lib/main.dart' }}"
   APK_NAME: "${{ inputs.channel == 'dev' && 'vetroff-Android-arm64-v8a-dev.apk' || 'vetroff-Android-arm64-v8a.apk' }}"
 
 jobs:
   analyze:
     if: ${{ inputs.run-checks }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2.23.0
-        env:
-          CHANNEL: stable
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-
-      - name: Cache generated Dart state
-        uses: actions/cache@v6.1.0
-        with:
-          path: |
-            .dart_tool/build
-            lib/gen/assets.gen.dart
-            lib/gen/fonts.gen.dart
-          key: build-runner-v2-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock', 'pubspec.yaml', 'build.yaml', 'tool/flag_builder_compat/**', 'assets/**') }}
-
-      - name: Generate Dart sources
-        run: |
-          flutter pub get
-          dart run slang
-          dart run build_runner build
-
-      - name: Check async runtime regressions
-        run: dart tool/check_async_runtime.dart
-
-      - name: Analyze Dart errors
-        id: analyze
-        shell: bash
-        run: |
-          set +e
-          flutter analyze --no-fatal-warnings --no-fatal-infos 2>&1 | tee analyze.log
-          status=${PIPESTATUS[0]}
-          echo "status=$status" >> "$GITHUB_OUTPUT"
-          exit 0
-
-      - name: Upload Dart analyzer log
-        if: always()
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: dart-analyze-log
-          path: analyze.log
-          retention-days: 1
-
-      - name: Fail on Dart analyzer errors
-        if: ${{ steps.analyze.outputs.status != '0' }}
-        run: exit "${{ steps.analyze.outputs.status }}"
+      - name: Check standalone Kotlin sources and resources
+        run: python3 tool/check_native_project.py
 
   test:
     if: ${{ inputs.run-tests }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
-
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2.23.0
-        env:
-          CHANNEL: stable
+      - name: Setup Java
+        uses: actions/setup-java@v6.0.1
         with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-
-      - name: Cache generated Dart state
-        uses: actions/cache@v6.1.0
-        with:
-          path: |
-            .dart_tool/build
-            lib/gen/assets.gen.dart
-            lib/gen/fonts.gen.dart
-          key: build-runner-v2-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock', 'pubspec.yaml', 'build.yaml', 'tool/flag_builder_compat/**', 'assets/**') }}
-
-      - name: Generate Dart sources
+          distribution: zulu
+          java-version: 17
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6.4.0
+      - name: Run existing native and release-tool tests
         run: |
-          flutter pub get
-          dart run slang
-          dart run build_runner build
-
-      - name: Run tests
-        run: |
-          flutter test
+          ./android/gradlew -p tool/kotlin-tests test --console=plain
           python3 tool/test_appcast.py
           python3 tool/test_app_version.py
-
-      - name: Upload client screen previews
+      - name: Upload native Kotlin test reports
         if: always()
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: client-ui-previews
-          path: test/failures/*preview.png
+          name: native-kotlin-test-reports
+          path: tool/kotlin-tests/build/reports/tests/test/
           if-no-files-found: ignore
           retention-days: 7
-
-      - name: Upload visual test failures
-        if: failure()
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: flutter-golden-diffs
-          path: test/failures/
-          if-no-files-found: ignore
-          retention-days: 3
 
   build-android-arm64:
     runs-on: ubuntu-latest
@@ -161,41 +82,6 @@ jobs:
             hiddify-core/go.sum
             hiddify-core/hiddify-sing-box/go.sum
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2.23.0
-        env:
-          CHANNEL: stable
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-
-      - name: Configure Flutter Maven Central mirror
-        run: |
-          python3 - <<'PY'
-          import os
-          from pathlib import Path
-
-          path = Path(os.environ["FLUTTER_ROOT"]) / 'packages/flutter_tools/gradle/settings.gradle.kts'
-          text = path.read_text()
-          needle = '''repositories {
-                  google()
-                  mavenCentral()
-              }'''
-          mirror = 'maven { url = uri("https://maven-central.storage-download.googleapis.com/maven2/") }'
-          replacement = f'''repositories {{
-                  {mirror}
-                  google()
-                  mavenCentral()
-              }}'''
-          if mirror in text:
-              print(f"Flutter Maven Central mirror already configured: {path}")
-          elif needle in text:
-              path.write_text(text.replace(needle, replacement, 1))
-          else:
-              raise SystemExit(f"Unexpected Flutter Gradle settings format: {path}")
-          PY
-
       - name: Setup Java
         uses: actions/setup-java@v6.0.1
         with:
@@ -204,15 +90,6 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6.4.0
-
-      - name: Cache generated Dart state
-        uses: actions/cache@v6.1.0
-        with:
-          path: |
-            .dart_tool/build
-            lib/gen/assets.gen.dart
-            lib/gen/fonts.gen.dart
-          key: build-runner-v2-${{ runner.os }}-${{ env.FLUTTER_VERSION }}-${{ hashFiles('pubspec.lock', 'pubspec.yaml', 'build.yaml', 'tool/flag_builder_compat/**', 'assets/**') }}
 
       - name: Install build dependencies
         run: make android-apk-install-deps
@@ -269,41 +146,30 @@ jobs:
       - name: Check app and release version
         run: python3 tool/check_app_version.py --tag "${{ inputs.tag-name }}" --channel "${{ inputs.channel }}"
 
-      - name: Generate app sources and build the pinned core
+      - name: Build the pinned VPN core
         run: make android-apk-prepare
 
       - name: Check core privacy and adaptive connection policies
+        if: ${{ inputs.run-tests }}
         working-directory: hiddify-core
         run: go test -ldflags=-checklinkname=0 -tags with_quic,with_utls,with_gvisor,with_wireguard,with_clash_api ./v2/config ./v2/hcore
 
-      - name: Build Android ARM64 APK
-        run: |
-          flutter build apk \
-            --release \
-            --target="${BUILD_TARGET}" \
-            --target-platform android-arm64
-
-      - name: Test native Kotlin profiles, QR, diagnostics and routing backups
-        if: ${{ inputs.run-tests }}
+      - name: Build standalone Kotlin Android ARM64 APK
         working-directory: android
-        run: ./gradlew -p ../tool/kotlin-tests test --console=plain
-
-      - name: Upload native Kotlin test reports
-        if: ${{ always() && inputs.run-tests }}
-        uses: actions/upload-artifact@v7.0.1
-        with:
-          name: native-kotlin-test-reports
-          path: tool/kotlin-tests/build/reports/tests/test/
-          if-no-files-found: ignore
-          retention-days: 7
+        run: ./gradlew :app:assembleRelease --console=plain
 
       - name: Collect and verify ARM64 APK
         run: |
           mkdir -p out
-          APK_PATH="$(find build/app/outputs/flutter-apk -maxdepth 1 -type f \( -name 'app-release.apk' -o -name '*arm64-v8a*.apk' \) | head -n 1)"
+          APK_PATH="$(find build/app/outputs/apk/release -maxdepth 1 -type f \( -name 'app-release.apk' -o -name '*arm64-v8a*.apk' \) | head -n 1)"
           if [ -z "$APK_PATH" ]; then
             echo "Android release APK was not produced"
             find build/app/outputs -maxdepth 4 -type f -print || true
+            exit 1
+          fi
+
+          if unzip -Z1 "$APK_PATH" | grep -Eq '(^lib/[^/]+/libflutter\.so$|^lib/[^/]+/libapp\.so$|^assets/flutter_assets/)'; then
+            echo "Standalone Kotlin APK must not package a Flutter engine or Dart snapshot"
             exit 1
           fi
 
@@ -356,7 +222,7 @@ jobs:
           version, build = declared_version()
           actual = re.search(r"package:.*versionCode='([^']+)'.*versionName='([^']+)'", metadata)
           if actual is None or actual.groups() != (build, version):
-              raise SystemExit('APK version does not match pubspec.yaml')
+              raise SystemExit('APK version does not match version.properties')
           minimum = apk_minimum_sdk(metadata)
           if minimum != 29:
               raise SystemExit(f'APK must require Android 10 / API 29; actual minSdk={minimum}')
