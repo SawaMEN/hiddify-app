@@ -40,7 +40,12 @@ data class NativeProfile(
     val userOverride: String?,
 ) {
     val isRemote: Boolean get() = type == "remote"
-    val consumed: Long? get() = if (upload != null && download != null) upload + download else null
+    val consumed: Long? get() {
+        val sent = upload ?: return null
+        val received = download ?: return null
+        // Do not wrap large subscription counters into a negative amount.
+        return if (sent >= 0 && received >= 0 && sent > Long.MAX_VALUE - received) Long.MAX_VALUE else sent + received
+    }
 }
 
 data class NativeProfileEditor(

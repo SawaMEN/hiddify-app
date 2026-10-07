@@ -98,6 +98,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val activeProfileName = mutableStateOf("")
     private val activeProfilePath = mutableStateOf("")
     private val profiles = mutableStateOf<List<NativeProfile>>(emptyList())
+    private val profilesLoading = mutableStateOf(true)
+    private val profileImportRevision = mutableStateOf(0)
+    private val profileSelectionRevision = mutableStateOf(0)
     private val busyProfileId = mutableStateOf<String?>(null)
     private val profileEditor = mutableStateOf<NativeProfileEditor?>(null)
     private val profileEditorBusy = mutableStateOf(false)
@@ -423,6 +426,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 trafficFiltersBusy = trafficFiltersBusy.value,
                 onSaveTrafficFilters = ::saveTrafficFilters,
                 profiles = profiles.value,
+                profilesLoading = profilesLoading.value,
+                profileImportRevision = profileImportRevision.value,
+                profileSelectionRevision = profileSelectionRevision.value,
                 busyProfileId = busyProfileId.value,
                 profileEditor = profileEditor.value,
                 profileEditorBusy = profileEditorBusy.value,
@@ -678,6 +684,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 if (syncActive) {
                     errorMessage.value = error.message ?: error.javaClass.simpleName
                 }
+            } finally {
+                profilesLoading.value = false
             }
         }
     }
@@ -1055,7 +1063,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun selectProfile(profile: NativeProfile) {
-        runProfileOperation(profile.id, requireDisconnected = true) {
+        runProfileOperation(profile.id, requireDisconnected = true,
+            onSuccess = { profileSelectionRevision.value += 1 }) {
             profileRepository.setActive(profile.id)
         }
     }
@@ -1079,7 +1088,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         intervalHours: Int?,
         disableAutoUpdate: Boolean,
     ) {
-        runProfileOperation(IMPORT_BUSY_ID, requireDisconnected = true) {
+        runProfileOperation(IMPORT_BUSY_ID, requireDisconnected = true,
+            onSuccess = { profileImportRevision.value += 1 }) {
             profileRepository.importInput(
                 rawInput = raw,
                 name = name,
@@ -1092,6 +1102,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun runProfileOperation(
         operationId: String,
         requireDisconnected: Boolean,
+        onSuccess: () -> Unit = {},
         operation: () -> Unit,
     ) {
         if (busyProfileId.value != null) return
@@ -1113,6 +1124,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     }
                 profiles.value = loaded
                 refreshProfileSnapshot()
+                onSuccess()
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {

@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
 import com.hiddify.hiddify.nativeui.NativeButton as Button
 import com.hiddify.hiddify.nativeui.NativeCard as Card
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import com.hiddify.hiddify.nativeui.NativeOutlinedButton as OutlinedButton
 import com.hiddify.hiddify.nativeui.NativeTextField as OutlinedTextField
@@ -36,7 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativeprofile.NativeProfileTransfer
@@ -47,23 +45,20 @@ import com.hiddify.hiddify.nativeprofile.NativeProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.math.ln
-import kotlin.math.pow
 
 @Composable
 fun NativeProfilesScreen(
     profiles: List<NativeProfile>,
     busyProfileId: String?,
     onBack: () -> Unit,
+    onAdd: () -> Unit,
     onSelect: (NativeProfile) -> Unit,
     onDelete: (NativeProfile) -> Unit,
     onRefresh: (NativeProfile) -> Unit,
     onEdit: (NativeProfile) -> Unit,
-    onImport: (raw: String, name: String?, intervalHours: Int?, disableAutoUpdate: Boolean) -> Unit,
     onCopyConfig: (NativeProfile) -> Unit,
     onExportConfig: (NativeProfile) -> Unit,
 ) {
-    var addOpen by rememberSaveable { mutableStateOf(false) }
     var shareCandidate by remember { mutableStateOf<NativeProfile?>(null) }
     var deleteCandidate by remember { mutableStateOf<NativeProfile?>(null) }
 
@@ -82,7 +77,7 @@ fun NativeProfilesScreen(
                 fontWeight = FontWeight.Bold,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                TextButton(onClick = { addOpen = true }, enabled = busyProfileId == null) {
+                TextButton(onClick = onAdd, enabled = busyProfileId == null) {
                     Text(stringResource(R.string.native_profile_add))
                 }
                 TextButton(onClick = onBack) {
@@ -107,7 +102,7 @@ fun NativeProfilesScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Button(onClick = { addOpen = true }, enabled = busyProfileId == null) {
+                    Button(onClick = onAdd, enabled = busyProfileId == null) {
                         Text(stringResource(R.string.native_profile_add))
                     }
                 }
@@ -118,11 +113,11 @@ fun NativeProfilesScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(profiles, key = { it.id }) { profile ->
-                    ProfileCard(
+                    NativeProfileTile(
                         profile = profile,
                         busy = busyProfileId != null,
                         onShare = { shareCandidate = profile },
-                        onSelect = { onSelect(profile) },
+                        onClick = { onSelect(profile) },
                         onDelete = { deleteCandidate = profile },
                         onRefresh = { onRefresh(profile) },
                         onEdit = { onEdit(profile) },
@@ -130,16 +125,6 @@ fun NativeProfilesScreen(
                 }
             }
         }
-    }
-
-    if (addOpen) {
-        AddProfileDialog(
-            onDismiss = { addOpen = false },
-            onImport = { raw, name, interval, disabled ->
-                onImport(raw, name, interval, disabled)
-                addOpen = false
-            },
-        )
     }
 
     shareCandidate?.let { profile ->
@@ -182,122 +167,8 @@ fun NativeProfilesScreen(
 }
 
 @Composable
-private fun ProfileCard(
-    profile: NativeProfile,
+internal fun NativeAddProfileDialog(
     busy: Boolean,
-    onSelect: () -> Unit,
-    onDelete: () -> Unit,
-    onRefresh: () -> Unit,
-    onEdit: () -> Unit,
-    onShare: () -> Unit,
-) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = profile.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        text =
-                            if (profile.active) {
-                                stringResource(R.string.native_profile_active)
-                            } else if (profile.isRemote) {
-                                stringResource(R.string.native_profile_remote)
-                            } else {
-                                stringResource(R.string.native_profile_local)
-                            },
-                        style = MaterialTheme.typography.bodySmall,
-                        color =
-                            if (profile.active) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            },
-                    )
-                }
-                if (!profile.active) {
-                    OutlinedButton(onClick = onSelect, enabled = !busy) {
-                        Text(stringResource(R.string.native_profile_use))
-                    }
-                }
-            }
-
-            if (profile.isRemote && !profile.url.isNullOrBlank()) {
-                Text(
-                    text = profile.url,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-
-            val total = profile.total
-            val consumed = profile.consumed
-            if (total != null && consumed != null) {
-                val remaining = (total - consumed).coerceAtLeast(0)
-                Text(
-                    text =
-                        stringResource(
-                            R.string.native_profile_traffic,
-                            formatBytes(consumed),
-                            formatBytes(total),
-                            formatBytes(remaining),
-                        ),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-
-            HorizontalDivider()
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                TextButton(onClick = onEdit, enabled = !busy) {
-                    Text(stringResource(R.string.native_profile_edit))
-                }
-                if (profile.isRemote) {
-                    TextButton(onClick = onRefresh, enabled = !busy) {
-                        Text(
-                            if (busy) {
-                                stringResource(R.string.native_profile_updating)
-                            } else {
-                                stringResource(R.string.native_profile_update)
-                            },
-                        )
-                    }
-                }
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                TextButton(onClick = onShare, enabled = !busy) {
-                    Text(stringResource(R.string.native_profile_share))
-                }
-                TextButton(onClick = onDelete, enabled = !busy) {
-                    Text(stringResource(R.string.native_profile_delete))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AddProfileDialog(
     onDismiss: () -> Unit,
     onImport: (String, String?, Int?, Boolean) -> Unit,
 ) {
@@ -408,14 +279,14 @@ private fun AddProfileDialog(
                 ) {
                     OutlinedButton(
                         onClick = ::pasteFromClipboard,
-                        enabled = !fileBusy,
+                        enabled = !fileBusy && !busy,
                         modifier = Modifier.weight(1f),
                     ) {
                         Text(stringResource(R.string.native_profile_paste_clipboard))
                     }
                     OutlinedButton(
                         onClick = { filePicker.launch(arrayOf("*/*")) },
-                        enabled = !fileBusy,
+                        enabled = !fileBusy && !busy,
                         modifier = Modifier.weight(1f),
                     ) {
                         Text(stringResource(R.string.native_profile_choose_file))
@@ -424,7 +295,7 @@ private fun AddProfileDialog(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(
-                        enabled = !fileBusy,
+                        enabled = !fileBusy && !busy,
                         modifier = Modifier.weight(1f),
                         onClick = {
                             runCatching {
@@ -441,7 +312,7 @@ private fun AddProfileDialog(
                         },
                     ) { Text(stringResource(R.string.native_profile_scan_qr)) }
                     OutlinedButton(
-                        enabled = !fileBusy,
+                        enabled = !fileBusy && !busy,
                         modifier = Modifier.weight(1f),
                         onClick = { qrImagePicker.launch(arrayOf("image/*")) },
                     ) { Text(stringResource(R.string.native_profile_qr_image)) }
@@ -449,6 +320,7 @@ private fun AddProfileDialog(
 
                 OutlinedTextField(
                     value = raw,
+                    enabled = !busy && !fileBusy,
                     onValueChange = {
                         raw = it
                         importError = null
@@ -470,6 +342,7 @@ private fun AddProfileDialog(
 
                 OutlinedTextField(
                     value = name,
+                    enabled = !busy && !fileBusy,
                     onValueChange = { name = it },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text(stringResource(R.string.native_profile_name_optional)) },
@@ -490,12 +363,14 @@ private fun AddProfileDialog(
                     }
                     Switch(
                         checked = disableAutoUpdate,
+                        enabled = !busy && !fileBusy,
                         onCheckedChange = { disableAutoUpdate = it },
                     )
                 }
                 if (!disableAutoUpdate) {
                     OutlinedTextField(
                         value = interval,
+                        enabled = !busy && !fileBusy,
                         onValueChange = { value ->
                             if (value.all(Char::isDigit) && value.length <= 4) interval = value
                         },
@@ -509,7 +384,7 @@ private fun AddProfileDialog(
         },
         confirmButton = {
             Button(
-                enabled = raw.isNotBlank() && !fileBusy,
+                enabled = raw.isNotBlank() && !fileBusy && !busy,
                 onClick = {
                     onImport(
                         raw,
@@ -528,16 +403,4 @@ private fun AddProfileDialog(
             }
         },
     )
-}
-
-private fun formatBytes(value: Long): String {
-    if (value <= 0L) return "0 B"
-    val units = arrayOf("B", "KiB", "MiB", "GiB", "TiB", "PiB")
-    val group = (ln(value.toDouble()) / ln(1024.0)).toInt().coerceIn(0, units.lastIndex)
-    val scaled = value / 1024.0.pow(group.toDouble())
-    return if (scaled >= 100 || group == 0) {
-        "%.0f %s".format(scaled, units[group])
-    } else {
-        "%.1f %s".format(scaled, units[group])
-    }
 }

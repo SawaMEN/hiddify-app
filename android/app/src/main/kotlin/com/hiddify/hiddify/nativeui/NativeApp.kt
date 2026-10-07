@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -17,6 +18,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -160,6 +163,9 @@ fun NativeApp(
     trafficFiltersBusy: Boolean,
     onSaveTrafficFilters: (NativeTrafficFilters) -> Unit,
     profiles: List<NativeProfile>,
+    profilesLoading: Boolean,
+    profileImportRevision: Int,
+    profileSelectionRevision: Int,
     busyProfileId: String?,
     profileEditor: NativeProfileEditor?,
     profileEditorBusy: Boolean,
@@ -249,6 +255,9 @@ fun NativeApp(
     onDebugModeChanged: (Boolean) -> Unit,
     onDisableMemoryLimitChanged: (Boolean) -> Unit,
 ) {
+    var addProfileOpen by rememberSaveable { mutableStateOf(false) }
+    var observedImportRevision by remember { mutableStateOf(profileImportRevision) }
+    var observedSelectionRevision by remember { mutableStateOf(profileSelectionRevision) }
     var quickSettingsOpen by rememberSaveable { mutableStateOf(false) }
     var page by rememberSaveable { mutableStateOf(PAGE_HOME) }
     var regionalAppKind by rememberSaveable { mutableStateOf(NativeRegionalAppKind.DIRECT.name) }
@@ -272,6 +281,19 @@ fun NativeApp(
     fun openCategory(category: NativeSettingsCategory) {
         settingsCategory = category.name
         openPage(PAGE_PREFERENCES)
+    }
+
+    LaunchedEffect(profileImportRevision) {
+        if (profileImportRevision != observedImportRevision) {
+            observedImportRevision = profileImportRevision
+            addProfileOpen = false
+        }
+    }
+    LaunchedEffect(profileSelectionRevision) {
+        if (profileSelectionRevision != observedSelectionRevision) {
+            observedSelectionRevision = profileSelectionRevision
+            if (page == PAGE_PROFILES) goBack()
+        }
     }
 
     BackHandler(enabled = privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy || generalOptionsBusy || tunnelBusy || generalPreferencesBusy || page != PAGE_HOME) { goBack() }
@@ -358,6 +380,7 @@ fun NativeApp(
                                     profiles = profiles,
                                     busyProfileId = busyProfileId,
                                     onBack = { goBack() },
+                                    onAdd = { addProfileOpen = true },
                                     onSelect = onSelectProfile,
                                     onDelete = onDeleteProfile,
                                     onRefresh = onRefreshProfile,
@@ -365,7 +388,6 @@ fun NativeApp(
                                         onOpenProfileEditor(profile)
                                         openPage(PAGE_PROFILE_DETAILS)
                                     },
-                                    onImport = onImportProfile,
                                     onCopyConfig = onCopyProfileConfig,
                                     onExportConfig = onExportProfileConfig,
                                 )
@@ -621,6 +643,12 @@ fun NativeApp(
                                     recoveryAttempt = recoveryAttempt,
                                     activeProfileName = activeProfileName,
                                     hasActiveProfile = hasActiveProfile,
+                                    activeProfile = profiles.firstOrNull { it.active },
+                                    hasProfiles = profiles.isNotEmpty(),
+                                    profilesLoading = profilesLoading,
+                                    busyProfileId = busyProfileId,
+                                    onRefreshProfile = onRefreshProfile,
+                                    onAddProfile = { addProfileOpen = true },
                                     systemStats = systemStats,
                                     activeOutbound = activeOutbound,
                                     outboundBusy = outboundBusyTag != null,
@@ -657,6 +685,15 @@ fun NativeApp(
             }
         }
 
+        if (addProfileOpen) {
+            NativeAddProfileDialog(
+                busy = busyProfileId != null,
+                onDismiss = { addProfileOpen = false },
+                onImport = { raw, name, interval, disabled ->
+                    onImportProfile(raw, name, interval, disabled)
+                },
+            )
+        }
         if (quickSettingsOpen) {
             NativeQuickSettingsSheet(
                 serviceMode = settingsState.serviceMode, wifiSharing = settingsState.wifiSharing,
@@ -692,6 +729,12 @@ private fun HomeScreen(
     recoveryAttempt: Int,
     activeProfileName: String,
     hasActiveProfile: Boolean,
+    activeProfile: NativeProfile? = null,
+    hasProfiles: Boolean = hasActiveProfile,
+    profilesLoading: Boolean = false,
+    busyProfileId: String? = null,
+    onRefreshProfile: (NativeProfile) -> Unit = {},
+    onAddProfile: () -> Unit = {},
     systemStats: NativeSystemStats,
     activeOutbound: com.hiddify.hiddify.nativecore.NativeOutbound? = null,
     outboundBusy: Boolean = false,
@@ -722,17 +765,44 @@ private fun HomeScreen(
             IconButton(onClick = onOpenDiagnostics) {
                 Icon(painterResource(R.drawable.native_shield), stringResource(R.string.native_diagnostics_title))
             }
-            FilledTonalIconButton(onClick = onOpenProfiles) {
-                Icon(painterResource(R.drawable.native_add), stringResource(R.string.native_profiles))
+            FilledTonalIconButton(onClick = onAddProfile, enabled = busyProfileId == null) {
+                Icon(painterResource(R.drawable.native_add), stringResource(R.string.native_profile_add))
             }
+        }
+        if (!hasProfiles && !hasActiveProfile && !profilesLoading) {
+            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Icon(painterResource(R.drawable.native_shield), null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(24.dp))
+                Text(stringResource(R.string.native_no_profile_selected), style = MaterialTheme.typography.titleMedium,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                Spacer(Modifier.height(16.dp))
+                androidx.compose.material3.Button(onClick = onAddProfile, enabled = busyProfileId == null) {
+                    Icon(painterResource(R.drawable.native_add), null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.native_profile_add))
+                }
+            }
+            return@Column
         }
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             Column(Modifier.widthIn(max = 680.dp).fillMaxWidth().verticalScroll(rememberScrollState())) {
-                NativeGlass(Modifier.fillMaxWidth().padding(start = 20.dp, top = 12.dp, end = 20.dp)
-                    .clickable(onClick = onOpenProfiles), radius = 24) {
-                    Text(if (hasActiveProfile) activeProfileName.ifBlank { stringResource(R.string.native_active_profile_unnamed) }
-                        else stringResource(R.string.native_no_profile_selected),
-                        style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(20.dp))
+                Box(Modifier.fillMaxWidth().padding(start = 20.dp, top = 12.dp, end = 20.dp)) {
+                    when {
+                        profilesLoading -> Box(Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                        activeProfile != null -> NativeProfileTile(profile = activeProfile, isMain = true,
+                            busy = busyProfileId != null,
+                            onClick = onOpenProfiles, onRefresh = { onRefreshProfile(activeProfile) })
+                        else -> Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(R.string.native_no_profile_selected), Modifier.weight(1f))
+                            IconButton(onClick = onOpenProfiles) {
+                                Icon(painterResource(R.drawable.native_list), stringResource(R.string.native_profiles))
+                            }
+                        }
+                    }
                 }
                 Column(Modifier.fillMaxWidth().padding(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 20.dp)) {
                     Column(Modifier.fillMaxWidth().padding(vertical = 24.dp),

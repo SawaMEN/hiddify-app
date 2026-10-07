@@ -609,4 +609,9 @@
     <string name="native_quick_not_set">Не задано</string>
     <string name="native_quick_reset">Сброс</string>
     <string name="native_quick_reconnect">Переподключить</string>
+    <string name="native_profile_actions">Действия с профилем</string>
+    <string name="native_subscription_expired">Истек</string>
+    <string name="native_subscription_no_traffic">Квота исчерпана</string>
+    <string name="native_subscription_remaining_days">осталось %1$s дней</string>
+    <string name="native_subscription_traffic_semantics">израсходовано %1$s из %2$s трафика</string>
 </resources>

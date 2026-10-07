@@ -609,4 +609,9 @@
     <string name="native_quick_not_set">Not set</string>
     <string name="native_quick_reset">Reset</string>
     <string name="native_quick_reconnect">Reconnect</string>
+    <string name="native_profile_actions">Profile actions</string>
+    <string name="native_subscription_expired">Expired</string>
+    <string name="native_subscription_no_traffic">Out of quota</string>
+    <string name="native_subscription_remaining_days">%1$s days remaining</string>
+    <string name="native_subscription_traffic_semantics">%1$s of %2$s traffic consumed</string>
 </resources>

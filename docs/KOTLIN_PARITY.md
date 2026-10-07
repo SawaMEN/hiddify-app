@@ -13,8 +13,8 @@ Seven workstreams remain; a stream can contain multiple implementation/review it
 
 | Workstream | Known work remaining | Acceptance evidence |
 | --- | --- | --- |
-| Home/profile state | Subscription content/actions on the profile card; empty/loading/error states; add action opening the original import sheet; connection color/reconnect state | Same state, data and action targets as Dart HomePage/ProfileTile/ConnectionButton |
-| Profile flows | Match import/add/list/detail/editor/QR sheets and dialogs, subscription metadata presentation, sorting/filtering and confirmation behavior | Compare each original flow and round-trip identical profiles |
+| Home/profile state | Initial load error/retry semantics; exact empty-state shield artwork; original add/options/free-provider sheet; connection color/reconnect state | Same state, data and action targets as Dart HomePage/ProfileTile/ConnectionButton |
+| Profile flows | Match import/add/detail/editor/QR sheets and dialogs, list container/navigation, sorting/filtering and confirmation behavior | Compare each original flow and round-trip identical profiles |
 | Proxy presentation | Original circular country/provider artwork; proxy modal and primary-group-only overview; IP visibility lifetime/haptics; live stream timing and URL-test error/inspection sequence | Same selected/active proxy, operations, layout and state transitions |
 | Settings/navigation | Quick-settings rendering/dialog details; preference pages and picker/input/confirmation dialogs; back/deep-link behavior | One-to-one route/action/preferences audit against original widgets |
 | Shared visual system | Exact Material/Fluent/provider icons, Emoji font where used, blur, shimmer and motion; theme/spacing refinements across remaining screens | Device screenshot comparisons in light/dark/black themes, matching font scale |
@@ -57,3 +57,28 @@ Language/runtime cutover is complete. UI and behavior parity require at least th
 above; no defensible completion percentage or calendar duration is available before the full
 route/preference/scenario inventory and device comparison. Do not equate build success with
 an indistinguishable application. Use this checklist to report concrete completed items.
+
+## Shared profile tile and home states
+
+NativeProfileTile now follows the actual HomePage ProfileTile (not the unused ProfileTileMain):
+24 dp radius, surfaceContainerLow, active primary border at 55% opacity, 48 dp leading action,
+active divider, 16/12 dp content padding, two-line name, home dropdown indicator and 6 dp
+consumption progress. Home uses the persisted active profile object and connects the leading
+update action independently of the overview action. List tiles use the same content and expose
+update/share/edit/delete through an overflow menu instead of four permanent button rows.
+
+Subscription text restores consumed/total GiB, the 10 TiB infinity threshold, expired/quota
+precedence and remaining days, including the >365-day infinity label. Expiry parsing accepts
+legacy local ISO dates and offset/UTC dates. Labels refresh every minute without downloading
+the subscription; counter addition saturates on overflow. EN/RU labels follow Dart translations.
+
+The home plus and the empty-state Add button now open the shared import form directly. Initial
+profile reads show the original 56 dp progress area; an empty database shows the centered
+72 dp icon/message/Add layout and hides connection controls. Import closes only after a
+successful repository operation, preserving the draft after validation/network failures. A
+successful profile selection returns from the list; rejected/failed selections leave it open.
+
+The import form still uses the existing native dialog. The original options/manual bottom sheet,
+free-provider feed/consent, QR scanner styling, exact empty-state artwork, list modal, and initial
+read-error semantics remain outstanding. No build or tests were run for this step. Source review,
+XML/resource references and whitespace inspection do not establish measured visual parity.
