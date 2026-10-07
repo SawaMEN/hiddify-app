@@ -449,4 +449,14 @@
     <string name="native_recovery_cancel">Отменить восстановление</string>
     <string name="native_recovery_exhausted">Попытки переподключения исчерпаны. Проверьте профиль и сеть, затем подключитесь снова.</string>
     <string name="native_recovery_permission">Необходимо VPN-разрешение. Нажмите «Подключить», чтобы запросить его снова.</string>
+    <string name="native_theme_title">Тема приложения</string>
+    <string name="native_theme_system">Как в системе</string>
+    <string name="native_theme_light">Светлая</string>
+    <string name="native_theme_dark">Тёмная</string>
+    <string name="native_theme_black">Чёрная</string>
+    <string name="native_notification_settings">Настройки уведомлений Android</string>
+    <string name="native_notification_settings_summary">Управление уведомлениями VPN и их видимостью в настройках Android.</string>
+    <string name="native_battery_settings">Ограничения батареи Android</string>
+    <string name="native_battery_settings_summary">Проверьте ограничения батареи для приложения, если Android прерывает работу VPN в фоне.</string>
+    <string name="native_general_settings_failed">Не удалось открыть настройки приложения Android</string>
 </resources>

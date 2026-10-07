@@ -12,6 +12,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.hiddify.hiddify.nativepreferences.NativeThemeMode
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.constant.ServiceMode
 
@@ -50,6 +52,11 @@ data class NativeSettingsState(
 @Composable
 fun NativeSettingsScreen(
     state: NativeSettingsState,
+    themeMode: NativeThemeMode,
+    themeBusy: Boolean,
+    onChangeTheme: (NativeThemeMode) -> Unit,
+    onOpenNotificationSettings: () -> Unit,
+    onOpenBatterySettings: () -> Unit,
     canChangeServiceMode: Boolean,
     wifiSharingBusy: Boolean,
     wifiSharingDetails: com.hiddify.hiddify.nativecore.NativeWifiSharingDetails,
@@ -84,6 +91,7 @@ fun NativeSettingsScreen(
     onDebugModeChanged: (Boolean) -> Unit,
     onDisableMemoryLimitChanged: (Boolean) -> Unit,
 ) {
+    var themePickerOpen by rememberSaveable { mutableStateOf(false) }
     var includePrivateExport by rememberSaveable { mutableStateOf(false) }
     var resetSettingsOpen by rememberSaveable { mutableStateOf(false) }
 
@@ -298,6 +306,18 @@ fun NativeSettingsScreen(
         }
 
         SettingsSection(title = stringResource(R.string.native_settings_app)) {
+            OutlinedButton(onClick = { themePickerOpen = true }, enabled = !themeBusy,
+                modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.native_theme_title) + ": " + stringResource(themeTitle(themeMode)))
+            }
+            OutlinedButton(onClick = onOpenNotificationSettings, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.native_notification_settings))
+            }
+            Text(stringResource(R.string.native_notification_settings_summary), style = MaterialTheme.typography.bodySmall)
+            OutlinedButton(onClick = onOpenBatterySettings, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.native_battery_settings))
+            }
+            Text(stringResource(R.string.native_battery_settings_summary), style = MaterialTheme.typography.bodySmall)
             SettingSwitch(
                 title = stringResource(R.string.native_setting_dynamic_notification),
                 summary = stringResource(R.string.native_setting_dynamic_notification_summary),
@@ -331,6 +351,30 @@ fun NativeSettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+
+    if (themePickerOpen) {
+        AlertDialog(
+            onDismissRequest = { themePickerOpen = false },
+            title = { Text(stringResource(R.string.native_theme_title)) },
+            text = {
+                Column {
+                    NativeThemeMode.entries.forEach { mode ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val choose = {
+                                themePickerOpen = false
+                                onChangeTheme(mode)
+                            }
+                            RadioButton(selected = mode == themeMode, enabled = !themeBusy, onClick = choose)
+                            TextButton(enabled = !themeBusy, onClick = choose) { Text(stringResource(themeTitle(mode))) }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { themePickerOpen = false }) { Text(stringResource(android.R.string.cancel)) }
+            },
+        )
     }
 
     if (resetSettingsOpen) {
@@ -407,4 +451,11 @@ private fun SettingSwitch(
             enabled = enabled,
         )
     }
+}
+
+private fun themeTitle(mode: NativeThemeMode): Int = when (mode) {
+    NativeThemeMode.SYSTEM -> R.string.native_theme_system
+    NativeThemeMode.LIGHT -> R.string.native_theme_light
+    NativeThemeMode.DARK -> R.string.native_theme_dark
+    NativeThemeMode.BLACK -> R.string.native_theme_black
 }

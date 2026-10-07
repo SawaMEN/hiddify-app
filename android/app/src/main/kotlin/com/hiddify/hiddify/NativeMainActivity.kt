@@ -11,6 +11,9 @@ import android.os.Build
 import android.provider.Settings as AndroidSettings
 import android.util.Log
 import android.widget.Toast
+import androidx.activity.SystemBarStyle
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.LaunchedEffect
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -50,6 +53,8 @@ import com.hiddify.hiddify.nativerouting.NativePerAppBackup
 import com.hiddify.hiddify.nativerouting.NativePerAppBackupCodec
 import com.hiddify.hiddify.nativerouting.NativePerAppRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
+import com.hiddify.hiddify.nativepreferences.NativeAppearanceRepository
+import com.hiddify.hiddify.nativepreferences.NativeThemeMode
 import com.hiddify.hiddify.nativeconnection.NativeRecoveryPolicy
 import com.hiddify.hiddify.nativeconnection.NativeRecoveryDecision
 import com.hiddify.hiddify.nativeconnection.NativeConnectionOptions
@@ -147,6 +152,9 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val diagnosticBusy = mutableStateOf(false)
     private val vpnProtection = mutableStateOf(NativeVpnProtection())
     private val errorMessage = mutableStateOf<String?>(null)
+    private val themeMode = mutableStateOf(NativeThemeMode.SYSTEM)
+    private val themeBusy = mutableStateOf(false)
+    private val appearanceRepository by lazy { NativeAppearanceRepository(applicationContext) }
     private val connectionOptions = mutableStateOf(NativeConnectionOptions())
     private val connectionOptionsBusy = mutableStateOf(false)
     private val internetHealth = mutableStateOf(NativeInternetHealth.UNCHECKED)
@@ -320,7 +328,18 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshPerApp()
 
         setContent {
+            val dark = themeMode.value.isDark(isSystemInDarkTheme())
+            LaunchedEffect(dark) {
+                val bars = if (dark) SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                    else SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
+            }
             NativeApp(
+                themeMode = themeMode.value,
+                themeBusy = themeBusy.value,
+                onChangeTheme = ::saveTheme,
+                onOpenNotificationSettings = { openSystemSettings(com.hiddify.hiddify.bg.ServiceNotification.settingsIntent()) },
+                onOpenBatterySettings = { openSystemSettings(Intent(AndroidSettings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) },
                 status = serviceStatus.value,
                 connectionOptions = connectionOptions.value,
                 connectionOptionsBusy = connectionOptionsBusy.value,
@@ -1158,9 +1177,36 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun refreshSettingsSnapshot() {
         nativeSettings.value = readNativeSettings()
+        themeMode.value = appearanceRepository.load()
         connectionOptions.value = NetworkPrivacySettings.loadConnection(this)
         regionalOptions.value = regionalRepository.load()
         trafficFilters.value = NetworkPrivacySettings.loadFilters(this)
+    }
+
+    private fun saveTheme(mode: NativeThemeMode) {
+        if (themeBusy.value) return
+        themeBusy.value = true
+        lifecycleScope.launch {
+            try {
+                themeMode.value = withContext(Dispatchers.IO) { appearanceRepository.save(mode) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                themeBusy.value = false
+            }
+        }
+    }
+
+    private fun openSystemSettings(preferred: Intent) {
+        try {
+            val fallback = Intent(AndroidSettings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName"))
+            val intent = if (preferred.resolveActivity(packageManager) != null) preferred else fallback
+            try { startActivity(intent) } catch (_: android.content.ActivityNotFoundException) { startActivity(fallback) }
+        } catch (error: Exception) {
+            errorMessage.value = error.message ?: getString(R.string.native_general_settings_failed)
+        }
     }
 
     private fun saveConnectionOptions(options: NativeConnectionOptions) {

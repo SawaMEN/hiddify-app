@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.nativediagnostics.NativeDiagnosticSnapshot
 import com.hiddify.hiddify.nativediagnostics.NativeVpnProtection
+import com.hiddify.hiddify.nativepreferences.NativeThemeMode
 import com.hiddify.hiddify.nativeconnection.NativeConnectionOptions
 import com.hiddify.hiddify.nativeconnection.NativeInternetHealth
 import com.hiddify.hiddify.privacy.NativeRegionalAppKind
@@ -74,6 +75,11 @@ private const val PAGE_PROTECTION = "protection"
 
 @Composable
 fun NativeApp(
+    themeMode: NativeThemeMode,
+    themeBusy: Boolean,
+    onChangeTheme: (NativeThemeMode) -> Unit,
+    onOpenNotificationSettings: () -> Unit,
+    onOpenBatterySettings: () -> Unit,
     status: Status,
     connectionOptions: NativeConnectionOptions,
     connectionOptionsBusy: Boolean,
@@ -207,7 +213,7 @@ fun NativeApp(
             }
     }
 
-    MaterialTheme {
+    NativeAppTheme(themeMode) {
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier =
@@ -403,6 +409,11 @@ fun NativeApp(
                     PAGE_SETTINGS ->
                         NativeSettingsScreen(
                             state = settingsState,
+                            themeMode = themeMode,
+                            themeBusy = themeBusy,
+                            onChangeTheme = onChangeTheme,
+                            onOpenNotificationSettings = onOpenNotificationSettings,
+                            onOpenBatterySettings = onOpenBatterySettings,
                             canChangeServiceMode = status == Status.Stopped && !wifiSharingBusy,
                             wifiSharingBusy = wifiSharingBusy || status == Status.Starting || status == Status.Stopping,
                             wifiSharingDetails = wifiSharingDetails,

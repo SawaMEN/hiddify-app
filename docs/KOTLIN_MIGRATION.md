@@ -163,6 +163,21 @@ binder observation. A running core is rebound instead. Permission loss asks for 
 without opening permission dialogs from a retry. Health-check failures alone still do not trigger
 a restart. The home screen shows the pending attempt and offers Cancel recovery.
 
+## Native appearance and Android settings
+
+The Kotlin app now applies system, light, dark and black theme choices to the whole Compose
+interface. The settings picker saves the existing `flutter.theme_mode` value on IO so the
+compatibility UI sees the same choice. Missing, unknown or incorrectly typed values follow the
+system theme. Black mode uses a black background and surface; cards retain dark-theme contrast.
+System bar icon appearance follows the selected theme, including a forced dark theme on a light
+system. Theme changes do not restart or reconfigure the VPN.
+
+The application settings section opens the shared VPN notification settings intent and Android's
+battery optimization settings. Both use the application's own package details as a fallback if
+the device lacks a specialized settings Activity. No Flutter method channel is needed for these
+native actions. Refreshing the native settings snapshot also reloads theme choices made in the
+compatibility UI.
+
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and
