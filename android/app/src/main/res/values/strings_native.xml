@@ -534,4 +534,15 @@
     <string name="native_general_invalid">Check the HTTP/HTTPS test URL, API port (1–65535) and connection test interval.</string>
     <string name="native_general_save">Save connection settings</string>
     <string name="native_general_saved">Connection settings saved. Connect the VPN to apply.</string>
+    <string name="native_tunnel_title">IPv6 and MTU</string>
+    <string name="native_tunnel_ipv6">IPv6 mode</string>
+    <string name="native_tunnel_ipv4_only">Disable IPv6 (IPv4 only)</string>
+    <string name="native_tunnel_prefer_ipv4">Enable IPv6, prefer IPv4</string>
+    <string name="native_tunnel_prefer_ipv6">Prefer IPv6</string>
+    <string name="native_tunnel_ipv6_only">IPv6 only</string>
+    <string name="native_tunnel_summary">IPv6 modes require IPv6 connectivity. IPv6 needs an MTU of at least 1280; IPv4-only mode also accepts legacy MTUs from 576.</string>
+    <string name="native_tunnel_disconnect">Disconnect the VPN before saving tunnel settings.</string>
+    <string name="native_tunnel_invalid">MTU must be 1280–65535 with IPv6, or 576–65535 with IPv4 only.</string>
+    <string name="native_tunnel_save">Save tunnel settings</string>
+    <string name="native_tunnel_saved">Tunnel settings saved. Connect the VPN to apply.</string>
 </resources>

@@ -534,4 +534,15 @@
     <string name="native_general_invalid">Проверьте HTTP/HTTPS URL проверки, порт API (1–65535) и интервал проверки соединения.</string>
     <string name="native_general_save">Сохранить параметры соединения</string>
     <string name="native_general_saved">Параметры соединения сохранены. Подключите VPN для применения.</string>
+    <string name="native_tunnel_title">IPv6 и MTU</string>
+    <string name="native_tunnel_ipv6">Режим IPv6</string>
+    <string name="native_tunnel_ipv4_only">Отключить IPv6 (только IPv4)</string>
+    <string name="native_tunnel_prefer_ipv4">Включить IPv6, предпочитать IPv4</string>
+    <string name="native_tunnel_prefer_ipv6">Предпочитать IPv6</string>
+    <string name="native_tunnel_ipv6_only">Только IPv6</string>
+    <string name="native_tunnel_summary">Для режимов IPv6 нужна поддержка IPv6 в сети. Для IPv6 требуется MTU не менее 1280; режим только IPv4 также принимает ранее сохранённые MTU от 576.</string>
+    <string name="native_tunnel_disconnect">Отключите VPN перед сохранением параметров туннеля.</string>
+    <string name="native_tunnel_invalid">MTU должен быть 1280–65535 при IPv6 или 576–65535 в режиме только IPv4.</string>
+    <string name="native_tunnel_save">Сохранить параметры туннеля</string>
+    <string name="native_tunnel_saved">Параметры туннеля сохранены. Подключите VPN для применения.</string>
 </resources>

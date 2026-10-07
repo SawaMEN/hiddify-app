@@ -41,6 +41,7 @@ fun NativeCoreOptionsScreen(
     onOpenDns: () -> Unit,
     onOpenTls: () -> Unit,
     onOpenGeneralOptions: () -> Unit,
+    onOpenTunnel: () -> Unit,
 ) {
     var value by remember(options) { mutableStateOf(options) }
 
@@ -126,12 +127,10 @@ fun NativeCoreOptionsScreen(
                     ) { value = value.copy(directPort = it) }
                 }
 
-                IntSetting(
-                    title = stringResource(R.string.native_core_mtu),
-                    value = value.mtu,
-                    enabled = !busy,
-                    range = 1280..65535,
-                ) { value = value.copy(mtu = it) }
+            }
+
+            NativeGlass(Modifier.fillMaxWidth(), radius = 24) {
+                NativeSettingsLink(R.string.native_tunnel_title, R.drawable.native_route, onOpenTunnel, enabled = !busy)
             }
 
             NativeGlass(Modifier.fillMaxWidth(), radius = 24) {

@@ -65,6 +65,7 @@ fun NativeSettingsScreen(
     onChangeLanguage: (com.hiddify.hiddify.nativepreferences.NativeLanguage) -> Unit,
     onChangeHapticFeedback: (Boolean) -> Unit,
     onOpenGeneralOptions: () -> Unit,
+    onOpenTunnel: () -> Unit,
     state: NativeSettingsState,
     category: NativeSettingsCategory? = null,
     themeMode: NativeThemeMode,
@@ -155,12 +156,8 @@ fun NativeSettingsScreen(
                 checked = state.fullTunnel,
                 onCheckedChange = onFullTunnelChanged,
             )
-            SettingSwitch(
-                title = stringResource(R.string.native_setting_ipv4_only),
-                summary = stringResource(R.string.native_setting_ipv4_only_summary),
-                checked = state.disableIpv6,
-                onCheckedChange = onDisableIpv6Changed,
-            )
+            NativeSettingsLink(R.string.native_tunnel_title, R.drawable.native_route, onOpenTunnel)
+
         }
 
         if (category == null || category == NativeSettingsCategory.DNS) SettingsSection(title = stringResource(R.string.native_settings_dns)) {

@@ -347,6 +347,28 @@ barrier. Conflicting general/DNS/TLS/inbound/core/chain/hotspot/setup writes, la
 recovery are excluded. No tests are added or manually run. Resource/patch checks are performed;
 full Android compilation and device rendering remain CI/device verification work.
 
+## Native IPv6 and MTU controls
+
+VPN settings, the privacy connection category and core options now open a dedicated tunnel page.
+It restores all four Dart IPv6 choices: disable, enable/prefer IPv4, prefer IPv6 and IPv6 only, plus
+an MTU edit dialog. Shared preference rows, localized radio choices, glass/cards and saved dialog
+state retain the established appearance. The old two-state IPv6 switch and general core MTU field
+are replaced by links, so they cannot write contradictory or stale tunnel choices.
+
+The typed repository reads core JSON first and falls back to the Flutter keys, with IPv4-only and
+9000 MTU defaults. Legacy native `auto` maps to Dart's enable/prefer-IPv4 mode. Valid IPv4-only
+MTUs from 576 are preserved; IPv6 saves require at least 1280. Values above 65535 fail. Switching
+from a low IPv4 MTU to IPv6 asks the user to correct MTU before saving rather than silently changing
+it. Both fields and their Flutter preferences are written together on IO, preserving all unrelated
+core settings and leaving malformed JSON untouched. This keeps the VPN service IPv6 builder flags
+and the core IPv6 mode aligned after a native save.
+
+Saves require a stopped VPN and recheck core ownership and pending starts under the lifecycle
+barrier. Tunnel writes exclude general/DNS/TLS/inbound/core/chain/hotspot/setup changes, language
+recreation and recovery. Imports and compatibility UI returns reload the snapshot. Resource/patch
+checks are performed; no tests are added or manually run. Android build and on-device IPv6/MTU
+verification remain pending.
+
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and

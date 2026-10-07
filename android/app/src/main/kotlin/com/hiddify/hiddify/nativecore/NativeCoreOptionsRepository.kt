@@ -9,7 +9,6 @@ data class NativeCoreOptions(
     val tunImplementation: String,
     val mixedPort: Int,
     val directPort: Int,
-    val mtu: Int,
 )
 
 class NativeCoreOptionsRepository {
@@ -27,7 +26,6 @@ class NativeCoreOptionsRepository {
             tunImplementation = root.optString("tun-implementation", "gvisor"),
             mixedPort = if (root.optBoolean("enable-mixed-port", true)) root.optInt("mixed-port", 12334).takeIf { it in 1..65535 } ?: 0 else 0,
             directPort = if (root.optBoolean("enable-direct-port", true)) root.optInt("direct-port", 12337).takeIf { it in 1..65535 } ?: 0 else 0,
-            mtu = root.optInt("mtu", 9000).coerceIn(1280, 65535),
         )
     }
 
@@ -39,7 +37,6 @@ class NativeCoreOptionsRepository {
             root.put("mixed-port", options.mixedPort.takeIf { it in 1..65535 } ?: 0)
             root.put("enable-direct-port", options.directPort > 0)
             root.put("direct-port", options.directPort.takeIf { it in 1..65535 } ?: 0)
-            root.put("mtu", options.mtu.coerceIn(1280, 65535))
         }
 
     fun update(transform: (JSONObject) -> Unit): NativeCoreOptions {
@@ -59,8 +56,6 @@ class NativeCoreOptionsRepository {
 
     fun setDirectPort(enabled: Boolean, port: Int) =
         update { it.put("enable-direct-port", enabled); it.put("direct-port", if (enabled) port.validPortOr(12337) else 0) }
-
-    fun setMtu(value: Int) = update { it.put("mtu", value.coerceIn(1280, 65535)) }
 
     fun setLanSharing(enabled: Boolean): NativeCoreOptions =
         update { root ->

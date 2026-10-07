@@ -132,6 +132,7 @@ internal fun NativePrivacyOverviewScreen(
     onOpenRegional: () -> Unit,
     onOpenPerApp: () -> Unit,
     onOpenPolicy: () -> Unit,
+    onOpenTunnel: () -> Unit = {},
     onOpenDns: () -> Unit = {},
     onOpenProxyPrivacy: () -> Unit = {},
     onOpenProtection: () -> Unit,
@@ -170,6 +171,7 @@ internal fun NativePrivacyOverviewScreen(
         }
         PrivacyCategory(R.string.native_privacy_connection, R.string.native_privacy_connection_summary, R.drawable.native_shield,
             "connection" in expandedCategories, { onToggleCategory("connection") }) {
+            NativeSettingsLink(R.string.native_tunnel_title, R.drawable.native_route, onOpenTunnel)
             NativeSettingsLink(R.string.native_connection_policy_title, R.drawable.native_shield, onOpenPolicy)
             NativeSettingsLink(R.string.native_settings_vpn, R.drawable.native_settings, { onOpenCategory(NativeSettingsCategory.VPN) })
             NativeSettingsLink(R.string.native_protection_title, R.drawable.native_shield, onOpenProtection)
