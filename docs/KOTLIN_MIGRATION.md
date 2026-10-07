@@ -256,6 +256,30 @@ resource references and patch formatting are checked; full Android compilation r
 The existing CI workflow is unchanged and may run its configured checks automatically; this step
 does not add tests or manually invoke them.
 
+## Native DNS settings
+
+The settings overview, core options and privacy DNS category open a dedicated Compose resolver page.
+The old general core form no longer edits or rewrites DNS fields. This prevents a stale core draft
+from overwriting resolver choices. The dedicated page follows
+Dart's row order: remote resolver, its domain strategy, FakeDNS, direct resolver and its strategy.
+Address dialogs offer the original resolver presets and accept custom nonempty addresses; strategy
+dialogs use localized single-choice rows. Shared Manrope typography, glass/cards, icons and themed
+dialogs retain the native Dart appearance. The separate DNS/system-proxy privacy controls remain
+accessible from this page. Drafts and open address dialogs survive Activity recreation.
+
+A typed repository reads the core JSON first and falls back to existing Flutter preference keys,
+using the Dart defaults (`tcp://8.8.8.8`, `udp://1.1.1.1`). Saving validates bounded addresses and
+strategy keys, then updates just the five DNS fields and their Flutter preferences in one IO commit.
+Resolver schemes are not restricted beyond Dart's nonempty validation; control characters and
+addresses over 2048 characters are rejected. Malformed core JSON fails without replacing unrelated
+settings. TLS, listener, chain and other options remain intact.
+
+Saving requires a stopped VPN and rechecks core ownership and pending starts under the lifecycle
+barrier. Conflicting native option/setup writes, navigation, manual start and recovery are blocked
+during the commit. Snapshots refresh after import, compatibility UI return and native core changes.
+No new tests are added or manually run. Resource and patch checks are performed; Android compilation
+and device screenshot comparison remain required for full build and visual verification.
+
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and

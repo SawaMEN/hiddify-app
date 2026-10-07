@@ -12,11 +12,6 @@ data class NativeCoreOptions(
     val urlTestIntervalSeconds: Int,
     val clashApiPort: Int,
     val useXrayCoreWhenPossible: Boolean,
-    val remoteDnsAddress: String,
-    val remoteDnsStrategy: String,
-    val directDnsAddress: String,
-    val directDnsStrategy: String,
-    val fakeDns: Boolean,
     val strictRoute: Boolean,
     val tunImplementation: String,
     val mixedPort: Int,
@@ -49,11 +44,6 @@ class NativeCoreOptionsRepository {
             urlTestIntervalSeconds = root.optInt("url-test-interval", 600).coerceAtLeast(1),
             clashApiPort = root.optInt("clash-api-port", 16756).validPortOr(16756),
             useXrayCoreWhenPossible = root.optBoolean("use-xray-core-when-possible", false),
-            remoteDnsAddress = root.optString("remote-dns-address", "1.1.1.1"),
-            remoteDnsStrategy = root.optString("remote-dns-domain-strategy", ""),
-            directDnsAddress = root.optString("direct-dns-address", "1.1.1.1"),
-            directDnsStrategy = root.optString("direct-dns-domain-strategy", ""),
-            fakeDns = root.optBoolean("enable-fake-dns", false),
             strictRoute = root.optBoolean("strict-route", true),
             tunImplementation = root.optString("tun-implementation", "gvisor"),
             mixedPort = if (root.optBoolean("enable-mixed-port", true)) root.optInt("mixed-port", 12334).takeIf { it in 1..65535 } ?: 0 else 0,
@@ -77,18 +67,6 @@ class NativeCoreOptionsRepository {
             root.put("url-test-interval", options.urlTestIntervalSeconds.coerceIn(60, 86_400))
             root.put("clash-api-port", options.clashApiPort.validPortOr(16756))
             root.put("use-xray-core-when-possible", options.useXrayCoreWhenPossible)
-
-            root.put("remote-dns-address", options.remoteDnsAddress.trim())
-            root.put(
-                "remote-dns-domain-strategy",
-                options.remoteDnsStrategy.takeIf(domainStrategyChoices::contains) ?: "",
-            )
-            root.put("direct-dns-address", options.directDnsAddress.trim())
-            root.put(
-                "direct-dns-domain-strategy",
-                options.directDnsStrategy.takeIf(domainStrategyChoices::contains) ?: "",
-            )
-            root.put("enable-fake-dns", options.fakeDns)
 
             root.put("strict-route", options.strictRoute)
             root.put("tun-implementation", options.tunImplementation.takeIf(tunChoices::contains) ?: "mixed")
@@ -134,20 +112,6 @@ class NativeCoreOptionsRepository {
 
     fun setUseXrayCoreWhenPossible(value: Boolean) =
         update { it.put("use-xray-core-when-possible", value) }
-
-    fun setRemoteDnsAddress(value: String) =
-        update { it.put("remote-dns-address", value.trim()) }
-
-    fun setRemoteDnsStrategy(value: String) =
-        update { it.put("remote-dns-domain-strategy", value.takeIf(domainStrategyChoices::contains) ?: "") }
-
-    fun setDirectDnsAddress(value: String) =
-        update { it.put("direct-dns-address", value.trim()) }
-
-    fun setDirectDnsStrategy(value: String) =
-        update { it.put("direct-dns-domain-strategy", value.takeIf(domainStrategyChoices::contains) ?: "") }
-
-    fun setFakeDns(value: Boolean) = update { it.put("enable-fake-dns", value) }
 
     fun setStrictRoute(value: Boolean) = update { it.put("strict-route", value) }
 

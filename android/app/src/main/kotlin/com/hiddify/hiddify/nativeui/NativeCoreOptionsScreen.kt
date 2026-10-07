@@ -38,6 +38,7 @@ fun NativeCoreOptionsScreen(
     busy: Boolean,
     onBack: () -> Unit,
     onSave: (NativeCoreOptions) -> Unit,
+    onOpenDns: () -> Unit,
 ) {
     var value by remember(options) { mutableStateOf(options) }
 
@@ -118,40 +119,8 @@ fun NativeCoreOptionsScreen(
                 ) { value = value.copy(useXrayCoreWhenPossible = it) }
             }
 
-            SectionCard(stringResource(R.string.native_core_dns)) {
-                TextSetting(
-                    title = stringResource(R.string.native_core_remote_dns),
-                    value = value.remoteDnsAddress,
-                    enabled = !busy,
-                ) { value = value.copy(remoteDnsAddress = it) }
-
-                ChoiceSetting(
-                    title = stringResource(R.string.native_core_remote_dns_strategy),
-                    selected = value.remoteDnsStrategy,
-                    choices = NativeCoreOptionsRepository.domainStrategyChoices,
-                    label = ::domainStrategyLabel,
-                    enabled = !busy,
-                ) { value = value.copy(remoteDnsStrategy = it) }
-
-                SwitchSetting(
-                    title = stringResource(R.string.native_core_fake_dns),
-                    checked = value.fakeDns,
-                    enabled = !busy,
-                ) { value = value.copy(fakeDns = it) }
-
-                TextSetting(
-                    title = stringResource(R.string.native_core_direct_dns),
-                    value = value.directDnsAddress,
-                    enabled = !busy,
-                ) { value = value.copy(directDnsAddress = it) }
-
-                ChoiceSetting(
-                    title = stringResource(R.string.native_core_direct_dns_strategy),
-                    selected = value.directDnsStrategy,
-                    choices = NativeCoreOptionsRepository.domainStrategyChoices,
-                    label = ::domainStrategyLabel,
-                    enabled = !busy,
-                ) { value = value.copy(directDnsStrategy = it) }
+            NativeGlass(Modifier.fillMaxWidth(), radius = 24) {
+                NativeSettingsLink(R.string.native_core_dns, R.drawable.native_dns, onOpenDns, enabled = !busy)
             }
 
             SectionCard(stringResource(R.string.native_core_inbound)) {
@@ -414,14 +383,4 @@ private fun balancerLabel(value: String): String =
         "consistent-hashing" -> stringResource(R.string.native_core_balancer_consistent)
         "sticky-sessions" -> stringResource(R.string.native_core_balancer_sticky)
         else -> stringResource(R.string.native_core_balancer_round_robin)
-    }
-
-@Composable
-private fun domainStrategyLabel(value: String): String =
-    when (value) {
-        "prefer_ipv4" -> stringResource(R.string.native_core_strategy_prefer_ipv4)
-        "prefer_ipv6" -> stringResource(R.string.native_core_strategy_prefer_ipv6)
-        "ipv4_only" -> stringResource(R.string.native_core_strategy_ipv4_only)
-        "ipv6_only" -> stringResource(R.string.native_core_strategy_ipv6_only)
-        else -> stringResource(R.string.native_core_strategy_auto)
     }

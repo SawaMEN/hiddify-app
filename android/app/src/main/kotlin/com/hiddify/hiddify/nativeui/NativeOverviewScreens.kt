@@ -66,6 +66,7 @@ internal fun NativeSettingsOverviewScreen(
     onOpenLogs: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenLegacy: () -> Unit,
+    onOpenDns: () -> Unit = {},
     onOpenInbound: () -> Unit = {},
 ) {
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
@@ -75,7 +76,7 @@ internal fun NativeSettingsOverviewScreen(
             Triple(R.string.native_profiles, R.drawable.native_list, onOpenProfiles),
             Triple(R.string.native_settings_general, R.drawable.native_layers, { onOpenCategory(NativeSettingsCategory.APP) }),
             Triple(R.string.native_chain_open, R.drawable.native_route, onOpenChain),
-            Triple(R.string.native_settings_dns, R.drawable.native_dns, { onOpenCategory(NativeSettingsCategory.DNS) }),
+            Triple(R.string.native_core_dns, R.drawable.native_dns, onOpenDns),
             Triple(R.string.native_inbound_title, R.drawable.native_route, onOpenInbound),
             Triple(R.string.native_settings_vpn, R.drawable.native_shield, { onOpenCategory(NativeSettingsCategory.VPN) }),
             Triple(R.string.native_core_options_title, R.drawable.native_settings, onOpenCoreOptions),
@@ -128,6 +129,7 @@ internal fun NativePrivacyOverviewScreen(
     onOpenRegional: () -> Unit,
     onOpenPerApp: () -> Unit,
     onOpenPolicy: () -> Unit,
+    onOpenDns: () -> Unit = {},
     onOpenProxyPrivacy: () -> Unit = {},
     onOpenProtection: () -> Unit,
     onOpenFilters: () -> Unit,
@@ -171,7 +173,8 @@ internal fun NativePrivacyOverviewScreen(
         }
         PrivacyCategory(R.string.native_privacy_dns, R.string.native_privacy_dns_summary, R.drawable.native_dns,
             "dns" in expandedCategories, { onToggleCategory("dns") }) {
-            NativeSettingsLink(R.string.native_settings_dns, R.drawable.native_dns, { onOpenCategory(NativeSettingsCategory.DNS) })
+            NativeSettingsLink(R.string.native_core_dns, R.drawable.native_dns, onOpenDns)
+            NativeSettingsLink(R.string.native_settings_dns, R.drawable.native_shield, { onOpenCategory(NativeSettingsCategory.DNS) })
         }
         PrivacyCategory(R.string.native_privacy_interfaces, R.string.native_privacy_interfaces_summary, R.drawable.native_settings,
             "interfaces" in expandedCategories, { onToggleCategory("interfaces") }) {

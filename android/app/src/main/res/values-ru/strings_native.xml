@@ -503,4 +503,9 @@
     <string name="native_inbound_invalid">Используйте порты 1–65535. Включённым слушателям нужны разные порты. Пароль не должен содержать управляющих символов.</string>
     <string name="native_inbound_save">Сохранить входящие подключения</string>
     <string name="native_inbound_saved">Настройки входящих подключений сохранены. Подключите VPN для применения.</string>
+    <string name="native_dns_fake_summary">Использовать синтетические адреса для DNS-имён через прокси. Изменения применятся при следующем подключении.</string>
+    <string name="native_dns_disconnect">Отключите VPN перед сохранением настроек DNS.</string>
+    <string name="native_dns_invalid">Адреса DNS должны быть непустыми, не длиннее 2048 символов и без управляющих символов.</string>
+    <string name="native_dns_save">Сохранить настройки DNS</string>
+    <string name="native_dns_saved">Настройки DNS сохранены. Подключите VPN для применения.</string>
 </resources>

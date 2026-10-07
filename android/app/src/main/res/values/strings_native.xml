@@ -503,4 +503,9 @@
     <string name="native_inbound_invalid">Use ports 1–65535; enabled listeners must use different ports. The password must contain no control characters.</string>
     <string name="native_inbound_save">Save inbound settings</string>
     <string name="native_inbound_saved">Inbound settings saved. Connect the VPN to apply.</string>
+    <string name="native_dns_fake_summary">Use synthetic addresses for proxied DNS names. Changes apply on the next connection.</string>
+    <string name="native_dns_disconnect">Disconnect the VPN before saving DNS settings.</string>
+    <string name="native_dns_invalid">DNS addresses must be nonempty, at most 2048 characters, and contain no control characters.</string>
+    <string name="native_dns_save">Save DNS settings</string>
+    <string name="native_dns_saved">DNS settings saved. Connect the VPN to apply.</string>
 </resources>

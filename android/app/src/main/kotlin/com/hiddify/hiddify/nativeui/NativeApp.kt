@@ -76,6 +76,7 @@ private const val PAGE_SETTINGS = "settings"
 private const val PAGE_PREFERENCES = "preferences"
 private const val PAGE_PRIVACY = "privacy"
 private const val PAGE_PROXY_PRIVACY = "proxy_privacy"
+private const val PAGE_DNS = "dns"
 private const val PAGE_INBOUND = "inbound"
 private const val PAGE_PER_APP = "per_app"
 private const val PAGE_PER_APP_BACKUP = "per_app_backup"
@@ -95,6 +96,9 @@ private const val PAGE_PROTECTION = "protection"
 
 @Composable
 fun NativeApp(
+    dnsOptions: com.hiddify.hiddify.nativecore.NativeDnsOptions?,
+    dnsBusy: Boolean,
+    onSaveDnsOptions: (com.hiddify.hiddify.nativecore.NativeDnsOptions) -> Unit,
     inboundOptions: com.hiddify.hiddify.nativecore.NativeInboundOptions,
     inboundBusy: Boolean,
     onSaveInboundOptions: (com.hiddify.hiddify.nativecore.NativeInboundOptions) -> Unit,
@@ -229,12 +233,12 @@ fun NativeApp(
     var pageTrail by rememberSaveable { mutableStateOf("") }
     var settingsCategory by rememberSaveable { mutableStateOf(NativeSettingsCategory.APP.name) }
     fun openPage(destination: String) {
-        if (privacySetupBusy || proxyPrivacyBusy || inboundBusy) return
+        if (privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy) return
         pageTrail += "|$page"
         page = destination
     }
     fun goBack() {
-        if (privacySetupBusy || proxyPrivacyBusy || inboundBusy) return
+        if (privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy) return
         if (page == PAGE_DIAGNOSTICS) onCancelDiagnostics()
         if (page == PAGE_PER_APP_BACKUP) onDismissPerAppImport()
         page = pageTrail.substringAfterLast('|', PAGE_HOME)
@@ -245,7 +249,7 @@ fun NativeApp(
         openPage(PAGE_PREFERENCES)
     }
 
-    BackHandler(enabled = privacySetupBusy || proxyPrivacyBusy || inboundBusy || page != PAGE_HOME) { goBack() }
+    BackHandler(enabled = privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || page != PAGE_HOME) { goBack() }
 
     NativeAppTheme(themeMode) {
         NativeAtmosphere {
@@ -425,6 +429,7 @@ fun NativeApp(
                                     busy = coreOptionsBusy,
                                     onBack = { goBack() },
                                     onSave = onSaveCoreOptions,
+                                    onOpenDns = { openPage(PAGE_DNS) },
                                 )
 
                             PAGE_CHAIN ->
@@ -440,6 +445,7 @@ fun NativeApp(
                                 onOpenProfiles = { openPage(PAGE_PROFILES) },
                                 onOpenCategory = { openCategory(it) },
                                 onOpenCoreOptions = { openPage(PAGE_CORE_OPTIONS) },
+                                onOpenDns = { openPage(PAGE_DNS) },
                                 onOpenInbound = { openPage(PAGE_INBOUND) },
                                 onOpenChain = { openPage(PAGE_CHAIN) },
                                 onOpenLogs = { openPage(PAGE_LOGS) },
@@ -447,9 +453,16 @@ fun NativeApp(
                                 onOpenLegacy = onOpenLegacy,
                             )
 
+                            PAGE_DNS -> NativeDnsOptionsScreen(
+                                options = dnsOptions, busy = dnsBusy,
+                                canSave = status == Status.Stopped && !wifiSharingBusy && !coreOptionsBusy && !chainBusy && !inboundBusy,
+                                onBack = { goBack() }, onSave = onSaveDnsOptions,
+                                onOpenPrivacy = { openCategory(NativeSettingsCategory.DNS) },
+                            )
+
                             PAGE_INBOUND -> NativeInboundOptionsScreen(
                                 options = inboundOptions, busy = inboundBusy,
-                                canSave = status == Status.Stopped && !wifiSharingBusy && !coreOptionsBusy && !chainBusy,
+                                canSave = status == Status.Stopped && !wifiSharingBusy && !coreOptionsBusy && !chainBusy && !dnsBusy,
                                 onBack = { goBack() }, onSave = onSaveInboundOptions,
                                 onOpenVpnOptions = { openCategory(NativeSettingsCategory.VPN) },
                             )
@@ -486,6 +499,7 @@ fun NativeApp(
                                     openPage(PAGE_PROTECTION)
                                 },
                                 onOpenFilters = { openPage(PAGE_TRAFFIC_FILTERS) },
+                                onOpenDns = { openPage(PAGE_DNS) },
                                 onOpenCoreOptions = { openPage(PAGE_CORE_OPTIONS) },
                                 onOpenCategory = { openCategory(it) },
                             )
@@ -571,7 +585,7 @@ fun NativeApp(
                                 Triple(PAGE_PRIVACY, R.drawable.native_shield, R.string.native_privacy_title),
                                 Triple(PAGE_SETTINGS, R.drawable.native_settings, R.string.native_settings),
                             ).forEach { (destination, icon, label) ->
-                                NavigationBarItem(selected = page == destination, enabled = !privacySetupBusy && !proxyPrivacyBusy && !inboundBusy, onClick = { pageTrail = ""; page = destination },
+                                NavigationBarItem(selected = page == destination, enabled = !privacySetupBusy && !proxyPrivacyBusy && !inboundBusy && !dnsBusy, onClick = { pageTrail = ""; page = destination },
                                     icon = { Icon(painterResource(icon), contentDescription = null) },
                                     label = { Text(stringResource(label), maxLines = 1) })
                             }
