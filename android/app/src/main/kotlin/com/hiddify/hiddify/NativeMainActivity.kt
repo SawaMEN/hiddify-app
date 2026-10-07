@@ -1030,6 +1030,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         if (wifiSharingBusy.value || serviceStatus.value == Status.Starting || serviceStatus.value == Status.Stopping) return
         wifiSharingBusy.value = true
         lifecycleScope.launch {
+            var startupRequested = false
             try {
                 profileOperationMutex.withLock {
                     if (enabled) {
@@ -1060,6 +1061,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                     if (enabled) Settings.serviceMode = ServiceMode.VPN
                     if (enabled || wasRunning) {
                         connection.reconnect()
+                        startupRequested = true
                         requestStart()
                         withTimeout(60_000) {
                             while (serviceStatus.value != Status.Started) {
@@ -1071,6 +1073,13 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                     if (enabled) check(AutomaticHotspot.snapshot()["active"] == true) { getString(R.string.native_wifi_vpn_failed) }
                 }
             } catch (error: Exception) {
+                if (startupRequested) {
+                    pendingStartAfterVpnPermission = false
+                    if (serviceStatus.value != Status.Started) {
+                        Settings.connectionDesired = false
+                        BoxService.stop()
+                    }
+                }
                 withContext(NonCancellable) {
                     runCatching { AutomaticHotspot.stop() }
                     Settings.setWifiVpnSharing(false)
