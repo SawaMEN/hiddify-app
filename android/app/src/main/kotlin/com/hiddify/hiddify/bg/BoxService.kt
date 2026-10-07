@@ -275,6 +275,8 @@ class BoxService(
             }
 
             if (destroyed) return
+            Settings.nativeAppliedQuickSettings = Settings.quickSettingsSignature(service)
+            Settings.nativeReconnectRequired = false
             status.postValue(Status.Started)
             withContext(Dispatchers.Main) {
                 if (destroyed) return@withContext

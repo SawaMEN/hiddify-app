@@ -589,4 +589,24 @@
     <string name="native_active_delay_timeout">Delay test timeout</string>
     <string name="native_active_delay_testing">Delay: testing...</string>
     <string name="native_active_delay_result">Delay: %1$dms</string>
+    <string name="native_quick_proxy">Proxy</string>
+    <string name="native_quick_vpn">VPN</string>
+    <string name="native_quick_lan">VPN sharing</string>
+    <string name="native_quick_password_empty">Password not set</string>
+    <string name="native_quick_password">VPN sharing password</string>
+    <string name="native_quick_copy_link">Copy link</string>
+    <string name="native_quick_qr">QR Code</string>
+    <string name="native_quick_lan_error">Failed to get local IP address</string>
+    <string name="native_quick_chain">Chain</string>
+    <string name="native_quick_app">App</string>
+    <string name="native_quick_filtering">Filtering</string>
+    <string name="native_quick_main_profile">Main profile</string>
+    <string name="native_quick_extra">Extra security</string>
+    <string name="native_quick_unblocker">Unblocker</string>
+    <string name="native_quick_final_ip">Final IP</string>
+    <string name="native_quick_disable">Disable</string>
+    <string name="native_quick_configuration">Configuration</string>
+    <string name="native_quick_not_set">Not set</string>
+    <string name="native_quick_reset">Reset</string>
+    <string name="native_quick_reconnect">Reconnect</string>
 </resources>

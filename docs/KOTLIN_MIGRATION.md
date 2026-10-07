@@ -34,7 +34,10 @@ revealing, delay testing with an empty UrlTest tag and proxy inspection are conn
 The native foreground poll uses a separate job every three seconds and an eight-second RPC
 deadline; it stops on backgrounding and clears data when disconnected. User URL-test operations
 refresh the active item before releasing the busy state. Profile content, empty-profile state,
-quick-settings sheet and the visual/interaction details listed in KOTLIN_PARITY.md remain.
+and the visual/interaction details listed in KOTLIN_PARITY.md remain. The quick-settings sheet
+now exposes the original Proxy/VPN, LAN/password/link/QR and chain controls. Quick edits
+are persisted for reconnect; the connection button indicates pending changes and safely
+stops/rebinds the service on explicit reconnect.
 
 The remaining work is tracked in [KOTLIN_PARITY.md](KOTLIN_PARITY.md).
 

@@ -79,6 +79,18 @@ class NativeInboundOptionsRepository(context: Context) {
         return load()
     }
 
+    /** Quick sheet changes only the LAN fields; a running core applies them on reconnect. */
+    fun saveLanFields(enabled: Boolean, password: String): NativeInboundOptions {
+        require(password.length <= 128 && password.none { it.isISOControl() }) { "Invalid LAN password" }
+        val root = root(preferences.all)
+        root.put("allow-connection-from-lan", enabled)
+        root.put("lan-sharing-password", password)
+        check(preferences.edit().putString("config_options_json", root.toString())
+            .putBoolean("flutter.allow-connection-from-lan", enabled)
+            .putString("flutter.lan_sharing_password", password).commit()) { "Could not save LAN sharing settings" }
+        return load()
+    }
+
     /** Hotspot transaction: merge only LAN fields, including Flutter compatibility preferences. */
     fun setLanSharing(enabled: Boolean) {
         val values = preferences.all

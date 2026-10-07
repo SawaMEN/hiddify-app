@@ -35,8 +35,10 @@ class NativeWifiSharingRepository {
                 .takeIf { it in 1..65535 }
                 ?: 12334
         val password = root.optString("lan-sharing-password").trim()
-        val host = hotspot["ip"] as? String ?: runCatching {
-                client().GetLANIP().executeBlocking(Empty()).ip.trim()
+        val host = (hotspot["ip"] as? String)?.takeIf { hotspot["active"] == true && it.isNotBlank() } ?: runCatching {
+                val call = client().GetLANIP()
+                call.timeout.timeout(8, java.util.concurrent.TimeUnit.SECONDS)
+                try { call.executeBlocking(Empty()).ip.trim() } finally { call.cancel() }
             }.getOrDefault("")
 
         return NativeWifiSharingDetails(
