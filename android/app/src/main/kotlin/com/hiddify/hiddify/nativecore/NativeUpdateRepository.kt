@@ -32,7 +32,7 @@ class NativeUpdateRepository {
 
         try {
             check(connection.responseCode in 200..299) {
-                "GitHub returned HTTP \${connection.responseCode}"
+                "GitHub returned HTTP ${connection.responseCode}"
             }
             val body = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
             val releases = JSONArray(body)
