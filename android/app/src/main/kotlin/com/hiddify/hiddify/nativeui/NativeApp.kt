@@ -44,12 +44,14 @@ import com.hiddify.hiddify.nativecore.NativeSystemStats
 import com.hiddify.hiddify.nativecore.NativeWifiSharingDetails
 import com.hiddify.hiddify.nativeprofile.NativeProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
+import com.hiddify.hiddify.nativerouting.NativePerAppBackup
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
 
 private const val PAGE_HOME = "home"
 private const val PAGE_PROFILES = "profiles"
 private const val PAGE_SETTINGS = "settings"
 private const val PAGE_PER_APP = "per_app"
+private const val PAGE_PER_APP_BACKUP = "per_app_backup"
 private const val PAGE_PROFILE_DETAILS = "profile_details"
 private const val PAGE_LOGS = "logs"
 private const val PAGE_CORE_OPTIONS = "core_options"
@@ -73,6 +75,7 @@ fun NativeApp(
     profileEditorBusy: Boolean,
     perAppSnapshot: NativePerAppSnapshot,
     perAppBusy: Boolean,
+    pendingPerAppImport: NativePerAppBackup?,
     logSnapshot: NativeLogSnapshot,
     logBusy: Boolean,
     coreOptions: NativeCoreOptions,
@@ -110,6 +113,12 @@ fun NativeApp(
     onPerAppModeChanged: (String) -> Unit,
     onTogglePerAppPackage: (String) -> Unit,
     onClearPerApp: () -> Unit,
+    onImportPerAppClipboard: () -> Unit,
+    onImportPerAppFile: () -> Unit,
+    onExportPerAppClipboard: () -> Unit,
+    onExportPerAppFile: () -> Unit,
+    onConfirmPerAppImport: () -> Unit,
+    onDismissPerAppImport: () -> Unit,
     onRefreshLogs: () -> Unit,
     onClearLogs: () -> Unit,
     onSaveCoreOptions: (NativeCoreOptions) -> Unit,
@@ -152,9 +161,11 @@ fun NativeApp(
 
     BackHandler(enabled = page != PAGE_HOME) {
         if (page == PAGE_DIAGNOSTICS) onCancelDiagnostics()
+        if (page == PAGE_PER_APP_BACKUP) onDismissPerAppImport()
         page =
             when (page) {
                 PAGE_PER_APP -> PAGE_SETTINGS
+                PAGE_PER_APP_BACKUP -> PAGE_PER_APP
                 PAGE_PROFILE_DETAILS -> PAGE_PROFILES
                 PAGE_CORE_OPTIONS -> PAGE_SETTINGS
                 PAGE_CHAIN -> PAGE_SETTINGS
@@ -222,6 +233,23 @@ fun NativeApp(
                             onSave = onSaveProfileEditor,
                         )
 
+                    PAGE_PER_APP_BACKUP ->
+                        NativePerAppBackupScreen(
+                            busy = perAppBusy,
+                            canImport = status == Status.Stopped,
+                            pendingImport = pendingPerAppImport,
+                            onBack = {
+                                onDismissPerAppImport()
+                                page = PAGE_PER_APP
+                            },
+                            onImportClipboard = onImportPerAppClipboard,
+                            onImportFile = onImportPerAppFile,
+                            onExportClipboard = onExportPerAppClipboard,
+                            onExportFile = onExportPerAppFile,
+                            onConfirmImport = onConfirmPerAppImport,
+                            onDismissImport = onDismissPerAppImport,
+                        )
+
                     PAGE_PER_APP ->
                         NativePerAppScreen(
                             snapshot = perAppSnapshot,
@@ -231,6 +259,7 @@ fun NativeApp(
                             onModeChanged = onPerAppModeChanged,
                             onTogglePackage = onTogglePerAppPackage,
                             onClear = onClearPerApp,
+                            onOpenBackup = { page = PAGE_PER_APP_BACKUP },
                         )
 
                     PAGE_LOGS ->

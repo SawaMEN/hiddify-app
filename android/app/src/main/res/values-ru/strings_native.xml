@@ -357,4 +357,19 @@
     <string name="native_protection_unknown_hint">Подключитесь в режиме Android VPN, чтобы узнать состояние защиты. Режимы root и прокси не предоставляют состояние системной защиты VPN.</string>
     <string name="native_protection_open_settings">Открыть настройки VPN Android</string>
     <string name="native_protection_open_failed">Не удалось открыть настройки Android.</string>
+    <string name="native_per_app_backup_title">Копия маршрутизации приложений</string>
+    <string name="native_per_app_backup_summary">Сохранение и восстановление ручного выбора в обоих списках приложений. Поддерживаются JSON-копии Flutter, включая старые файлы с двойным кодированием.</string>
+    <string name="native_per_app_import_clipboard">Импорт из буфера обмена</string>
+    <string name="native_per_app_import_file">Импорт из файла</string>
+    <string name="native_per_app_export_clipboard">Копировать резервную копию</string>
+    <string name="native_per_app_export_file">Сохранить резервную копию в файл</string>
+    <string name="native_per_app_restore_title">Восстановить выбор приложений?</string>
+    <string name="native_per_app_restore_summary">Ручной выбор в обоих списках будет заменён. Автоматический выбор и текущий режим сохранятся. Выбор для неустановленных приложений сохранится для повторной установки.</string>
+    <string name="native_per_app_restore_include">Список включения: выбрано %1$d, исключено %2$d</string>
+    <string name="native_per_app_restore_exclude">Список исключения: выбрано %1$d, исключено %2$d</string>
+    <string name="native_per_app_restore">Восстановить</string>
+    <string name="native_per_app_backup_exported">Копия маршрутизации приложений сохранена</string>
+    <string name="native_per_app_backup_invalid">Некорректная копия маршрутизации приложений</string>
+    <string name="native_per_app_backup_clipboard_large">Копия слишком велика для буфера обмена. Сохраните её в файл.</string>
+    <string name="native_per_app_backup_busy">Дождитесь завершения операции с маршрутизацией приложений и повторите попытку.</string>
 </resources>

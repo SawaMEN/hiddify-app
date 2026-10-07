@@ -357,4 +357,19 @@
     <string name="native_protection_unknown_hint">Connect in Android VPN mode to read the protection status. Root and proxy modes do not expose Android VPN protection status.</string>
     <string name="native_protection_open_settings">Open Android VPN settings</string>
     <string name="native_protection_open_failed">Could not open Android settings.</string>
+    <string name="native_per_app_backup_title">Application routing backup</string>
+    <string name="native_per_app_backup_summary">Save or restore manual choices for both application lists. Compatible with Flutter JSON backups, including older double-encoded files.</string>
+    <string name="native_per_app_import_clipboard">Import from clipboard</string>
+    <string name="native_per_app_import_file">Import from file</string>
+    <string name="native_per_app_export_clipboard">Copy backup to clipboard</string>
+    <string name="native_per_app_export_file">Save backup to file</string>
+    <string name="native_per_app_restore_title">Restore application choices?</string>
+    <string name="native_per_app_restore_summary">This replaces manual choices in both lists. Automatic selections and the current routing mode remain. Choices for uninstalled apps are kept for later reinstalls.</string>
+    <string name="native_per_app_restore_include">Include list: %1$d selected, %2$d deselected</string>
+    <string name="native_per_app_restore_exclude">Exclude list: %1$d selected, %2$d deselected</string>
+    <string name="native_per_app_restore">Restore</string>
+    <string name="native_per_app_backup_exported">Application routing backup saved</string>
+    <string name="native_per_app_backup_invalid">Invalid application routing backup</string>
+    <string name="native_per_app_backup_clipboard_large">This backup is too large for the clipboard. Save it to a file instead.</string>
+    <string name="native_per_app_backup_busy">Wait for the current application routing operation to finish and try again.</string>
 </resources>

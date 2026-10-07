@@ -50,18 +50,41 @@ read from the active Android VPN service; unavailable status remains unknown, ra
 shown as disabled. The system settings button opens Android VPN settings, with a general settings
 fallback if the device does not expose that action. Status refreshes on resume.
 
+## Application routing backups
+
+The native per-app page opens a Compose backup screen with clipboard and document import/export.
+The JSON format matches Flutter's `include`/`exclude` objects and `selected`/`deselected` arrays;
+legacy double-encoded JSON is also accepted. A restore preview shows counts for both modes and
+requires confirmation before replacing manual choices. Restore keeps automatic policy bits and
+the currently selected routing mode. It retains choices for apps not installed on this device in
+the database, while the VPN settings receive only installed packages.
+
+Imports are validated before the database transaction. Conflicting selections, invalid package
+names, wrong data types and unrelated JSON documents are rejected. File reads are bounded to
+1 MiB, with at most 10,000 choices across both modes. Large backups can use document export
+instead of the clipboard. Database/package-manager operations run on IO and are serialized;
+mutations also use the core lifecycle barrier and require the VPN to be stopped.
+
+Native two-state checkboxes now change effective selection in one click, including automatically
+selected apps and forced deselections restored from backups. Unknown flag bits are preserved but
+cannot accidentally make an application selected. The per-app page uses one lazy scrolling list
+for controls and applications, so the controls remain accessible on small screens.
+
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and
-`NativeDiagnosticReportTest` cover UTF-8, byte-order marks, size limits,
+`NativeDiagnosticReportTest`, `NativePerAppBackupTest` and `NativePerAppFlagsTest` cover UTF-8, byte-order marks, size limits,
 encoded URL tokens, custom ports, IPv6, QR round trips, inverted QR images and oversized QR
-payloads, captive portal responses, probe URL validation and the diagnostic report allowlist. Run with the configured Android/Flutter SDK and prepared core:
+payloads, captive portal responses, probe URL validation and the diagnostic report allowlist, legacy routing backups, validation limits and manual/automatic flag transitions. Run with the configured Android/Flutter SDK and prepared core:
 
 ```sh
 cd android
-./gradlew :app:testReleaseUnitTest
+./gradlew -p ../tool/kotlin-tests test
 ```
 
-The Android build workflow runs these tests when `run-tests` is enabled. A full Android build
+The Android build workflow runs these tests when `run-tests` is enabled, using a separate JVM
+Gradle project in `tool/kotlin-tests`. This compiles the production Kotlin files directly and avoids
+relying on the Android unit-test task unavailable in the current Flutter/AGP configuration. Test reports are uploaded
+as a CI artifact. A full Android build
 still requires Flutter, Android SDK/NDK, generated RPC sources and the native core; JVM tests
 alone do not validate Compose layout or camera/document-picker behavior on a device.

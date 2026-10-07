@@ -33,12 +33,6 @@ data class NativePerAppSnapshot(
  */
 class NativePerAppRepository(private val context: Context) {
 
-    companion object {
-        private const val USER_SELECTION = 1 shl 0
-        private const val FORCE_DESELECTION = 1 shl 1
-        private const val AUTO_SELECTION = 1 shl 2
-    }
-
     private val databaseFile: File
         get() {
             val flutterDatabase = File(context.getDir("flutter", Context.MODE_PRIVATE), "db.sqlite")
@@ -100,40 +94,20 @@ class NativePerAppRepository(private val context: Context) {
                         if (cursor.moveToFirst()) cursor.getInt(0) else null
                     }
 
-                if (existingFlags == null) {
-                    db.insertOrThrow(
+                val newFlags = NativePerAppFlags.toggle(existingFlags ?: 0)
+                if (newFlags == 0) {
+                    db.delete("app_proxy_entries", "mode = ? AND pkg_name = ?", arrayOf(mode, packageName))
+                } else {
+                    db.insertWithOnConflict(
                         "app_proxy_entries",
                         null,
                         ContentValues().apply {
                             put("mode", mode)
                             put("pkg_name", packageName)
-                            put("flags", USER_SELECTION)
+                            put("flags", newFlags)
                         },
-                    )
-                } else if ((existingFlags and AUTO_SELECTION) == 0) {
-                    db.delete(
-                        "app_proxy_entries",
-                        "mode = ? AND pkg_name = ?",
-                        arrayOf(mode, packageName),
-                    )
-                } else {
-                    val newFlags =
-                        when {
-                            (existingFlags and FORCE_DESELECTION) != 0 ->
-                                existingFlags and FORCE_DESELECTION.inv() and USER_SELECTION.inv()
-
-                            (existingFlags and USER_SELECTION) != 0 ->
-                                (existingFlags and USER_SELECTION.inv()) or FORCE_DESELECTION
-
-                            else ->
-                                (existingFlags and FORCE_DESELECTION.inv()) or USER_SELECTION
-                        }
-                    db.update(
-                        "app_proxy_entries",
-                        ContentValues().apply { put("flags", newFlags) },
-                        "mode = ? AND pkg_name = ?",
-                        arrayOf(mode, packageName),
-                    )
+                        SQLiteDatabase.CONFLICT_REPLACE,
+                    ).also { check(it != -1L) { "Unable to save application selection" } }
                 }
                 db.setTransactionSuccessful()
             } finally {
@@ -157,6 +131,62 @@ class NativePerAppRepository(private val context: Context) {
         return snapshot()
     }
 
+    fun exportBackup(): String = openDatabase().use { db ->
+        fun modeBackup(mode: String): NativePerAppModeBackup {
+            val selected = linkedSetOf<String>()
+            val deselected = linkedSetOf<String>()
+            db.rawQuery("SELECT pkg_name, flags FROM app_proxy_entries WHERE mode = ? ORDER BY pkg_name", arrayOf(mode)).use { cursor ->
+                while (cursor.moveToNext()) {
+                    val pkg = cursor.getString(0)
+                    val flags = cursor.getInt(1)
+                    if (flags and NativePerAppFlags.FORCE_DESELECTION != 0) deselected += pkg
+                    else if (flags and NativePerAppFlags.USER_SELECTION != 0) selected += pkg
+                }
+            }
+            return NativePerAppModeBackup(selected, deselected)
+        }
+        NativePerAppBackupCodec.encode(NativePerAppBackup(
+            include = modeBackup(PerAppProxyMode.INCLUDE),
+            exclude = modeBackup(PerAppProxyMode.EXCLUDE),
+        ))
+    }
+
+    fun importBackup(backup: NativePerAppBackup): NativePerAppSnapshot {
+        NativePerAppBackupCodec.validate(backup)
+        openDatabase().use { db ->
+            db.beginTransaction()
+            try {
+                // Replace manual choices in both modes while retaining automatic policy bits.
+                db.execSQL("UPDATE app_proxy_entries SET flags = flags & ? WHERE mode IN (?, ?)",
+                    arrayOf(NativePerAppFlags.MANUAL_MASK.inv(), PerAppProxyMode.INCLUDE, PerAppProxyMode.EXCLUDE))
+                db.execSQL("DELETE FROM app_proxy_entries WHERE flags = 0 AND mode IN (?, ?)",
+                    arrayOf(PerAppProxyMode.INCLUDE, PerAppProxyMode.EXCLUDE))
+                fun apply(mode: String, packages: Set<String>, selected: Boolean) {
+                    for (pkg in packages) {
+                        val existing = db.rawQuery("SELECT flags FROM app_proxy_entries WHERE mode = ? AND pkg_name = ?", arrayOf(mode, pkg)).use { cursor ->
+                            if (cursor.moveToFirst()) cursor.getInt(0) else 0
+                        }
+                        db.insertWithOnConflict("app_proxy_entries", null, ContentValues().apply {
+                            put("mode", mode)
+                            put("pkg_name", pkg)
+                            put("flags", NativePerAppFlags.restoreManual(existing, selected))
+                        }, SQLiteDatabase.CONFLICT_REPLACE).also { check(it != -1L) { "Unable to restore application selection" } }
+                    }
+                }
+                apply(PerAppProxyMode.INCLUDE, backup.include.selected, true)
+                apply(PerAppProxyMode.INCLUDE, backup.include.deselected, false)
+                apply(PerAppProxyMode.EXCLUDE, backup.exclude.selected, true)
+                apply(PerAppProxyMode.EXCLUDE, backup.exclude.deselected, false)
+                db.setTransactionSuccessful()
+            } finally {
+                db.endTransaction()
+            }
+        }
+        // Keep the current routing mode; retain uninstalled package choices in the database for
+        // later reinstalls, but publish only installed applications to the VPN service.
+        return snapshot()
+    }
+
     private fun activePackages(mode: String): Set<String> =
         openDatabase().use { db ->
             db.rawQuery(
@@ -171,7 +201,7 @@ class NativePerAppRepository(private val context: Context) {
                 buildSet {
                     while (cursor.moveToNext()) {
                         val flags = cursor.getInt(1)
-                        if ((flags and FORCE_DESELECTION) == 0 && flags != 0) {
+                        if (NativePerAppFlags.selected(flags)) {
                             add(cursor.getString(0))
                         }
                     }

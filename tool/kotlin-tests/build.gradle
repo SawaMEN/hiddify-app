@@ -1,0 +1,43 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '2.4.20'
+}
+
+repositories {
+    maven { url = uri("https://maven-central.storage-download.googleapis.com/maven2/") }
+    mavenCentral()
+}
+
+kotlin {
+    jvmToolchain(17)
+}
+
+// Compile the production files directly; no copied implementations or Android stubs.
+// This suite is independent of Android test variants unavailable in the current Flutter build.
+sourceSets {
+    main {
+        kotlin {
+            srcDir '../../android/app/src/main/kotlin'
+            include 'com/hiddify/hiddify/nativeprofile/NativeProfileTransfer.kt'
+            include 'com/hiddify/hiddify/nativeprofile/NativeQrCodec.kt'
+            include 'com/hiddify/hiddify/nativediagnostics/NativeDiagnosticModels.kt'
+            include 'com/hiddify/hiddify/nativerouting/NativePerAppBackup.kt'
+        }
+    }
+    test {
+        kotlin.srcDir '../../android/app/src/test/kotlin'
+    }
+}
+
+dependencies {
+    implementation 'com.google.code.gson:gson:2.14.0'
+    implementation 'com.google.zxing:core:3.5.3'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+test {
+    useJUnit()
+    testLogging {
+        events 'failed', 'skipped'
+        exceptionFormat 'full'
+    }
+}

@@ -283,10 +283,19 @@ jobs:
             --target="${BUILD_TARGET}" \
             --target-platform android-arm64
 
-      - name: Test native Kotlin profiles, QR and diagnostics
+      - name: Test native Kotlin profiles, QR, diagnostics and routing backups
         if: ${{ inputs.run-tests }}
         working-directory: android
-        run: ./gradlew :app:testReleaseUnitTest --console=plain
+        run: ./gradlew -p ../tool/kotlin-tests test --console=plain
+
+      - name: Upload native Kotlin test reports
+        if: ${{ always() && inputs.run-tests }}
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: native-kotlin-test-reports
+          path: tool/kotlin-tests/build/reports/tests/test/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Collect and verify ARM64 APK
         run: |
