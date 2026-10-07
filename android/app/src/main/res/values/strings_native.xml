@@ -284,4 +284,20 @@
     <string name="native_chain_range_hint">Range such as 1-3. Leave the existing value if unsure.</string>
     <string name="native_chain_reconnect_note">Reconnect the VPN after saving so hiddify-core rebuilds the chain. WARP and Psiphon remain subject to their own service terms and availability.</string>
 
+
+    <string name="native_settings_transfer">Settings backup</string>
+    <string name="native_settings_transfer_summary">Import, export or reset the core settings JSON used by VetrOFF. Profile files are managed separately.</string>
+    <string name="native_settings_import_clipboard">Import from clipboard</string>
+    <string name="native_settings_import_file">Import JSON file</string>
+    <string name="native_settings_include_private">Include private credentials</string>
+    <string name="native_settings_include_private_summary">Include WARP license keys and the LAN sharing password in exports.</string>
+    <string name="native_settings_export_clipboard">Export to clipboard</string>
+    <string name="native_settings_export_file">Export JSON file</string>
+    <string name="native_settings_reset">Reset core settings</string>
+    <string name="native_settings_reset_title">Reset core settings?</string>
+    <string name="native_settings_reset_message">Core, DNS, inbound, TLS and chain options will return to defaults. Profiles are not deleted.</string>
+    <string name="native_settings_import_success">Settings imported.</string>
+    <string name="native_settings_export_success">Settings exported.</string>
+    <string name="native_settings_reset_success">Core settings reset.</string>
+
 </resources>
