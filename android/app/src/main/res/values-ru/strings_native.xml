@@ -297,6 +297,8 @@
     <string name="native_settings_reset_title">Сбросить настройки ядра?</string>
     <string name="native_settings_reset_message">Настройки ядра, DNS, входящих подключений, TLS и цепочки вернутся к значениям по умолчанию. Профили не удаляются.</string>
     <string name="native_settings_import_success">Настройки импортированы.</string>
+    <string name="native_settings_clipboard_empty">В буфере обмена нет JSON с настройками.</string>
+    <string name="native_settings_import_disconnect">Отключите VPN перед импортом или сбросом настроек ядра.</string>
     <string name="native_settings_export_success">Настройки экспортированы.</string>
     <string name="native_settings_reset_success">Настройки ядра сброшены.</string>
 
