@@ -183,4 +183,9 @@
     <string name="native_outbounds_testing">Testing…</string>
     <string name="native_outbounds_test">Test</string>
     <string name="native_outbounds_delay">%1$d ms</string>
+    <string name="native_stats_title">Live connection</string>
+    <string name="native_stats_outbound">Outbound: %1$s</string>
+    <string name="native_stats_speed">↑ %1$s/s · ↓ %2$s/s</string>
+    <string name="native_stats_total">Total ↑ %1$s · ↓ %2$s</string>
+    <string name="native_stats_connections">Connections: %1$d in · %2$d out</string>
 </resources>
