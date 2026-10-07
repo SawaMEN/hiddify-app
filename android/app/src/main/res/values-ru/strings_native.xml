@@ -430,4 +430,17 @@
     <string name="native_wifi_credentials">Подключитесь к этой сети Wi-Fi</string>
     <string name="native_wifi_ssid">Название сети</string>
     <string name="native_wifi_password">Пароль Wi-Fi</string>
+    <string name="native_connection_policy_title">Политика подключения</string>
+    <string name="native_connection_masked">Только протоколы с маскировкой</string>
+    <string name="native_connection_masked_summary">TCP: AnyTLS и Naive с проверкой TLS. VLESS/VMess и непроверяемые цепочки исключаются. Нужны совместимые серверы, иначе подключение остановится. Маскировка не гарантирует обход ТСПУ или блокировки IP/SNI.</string>
+    <string name="native_connection_udp">Разрешить транспорты UDP / QUIC</string>
+    <string name="native_connection_udp_summary">Добавляет Hysteria 2, TUIC и Naive HTTP/3 в выбор маскируемых протоколов. Отключите, если UDP заблокирован. Обфускация Hysteria должна совпадать с сервером. Эта настройка независима от блокировки QUIC-трафика приложений.</string>
+    <string name="native_connection_adaptive">Адаптация к нестабильному интернету</string>
+    <string name="native_connection_adaptive_summary">Включает адаптивную скорость ядра, выбор сервера и увеличенные сроки проверки. Нативная проверка соединения допускает медленные ответы и делает паузу, если базовая сеть недоступна.</string>
+    <string name="native_connection_probe_summary">Главный экран проверяет интернет через выбранный маршрут ядра, пока приложение видно. Неудачная проверка не останавливает и не перезапускает VPN автоматически.</string>
+    <string name="native_connection_saved">Политика подключения сохранена. Переподключите VPN для применения изменений ядра.</string>
+    <string name="native_health_unchecked">Интернет через VPN: не проверен</string>
+    <string name="native_health_checking">Интернет через VPN: проверяется…</string>
+    <string name="native_health_available">Интернет через VPN: доступен</string>
+    <string name="native_health_unavailable">Интернет через VPN: проверка не пройдена</string>
 </resources>

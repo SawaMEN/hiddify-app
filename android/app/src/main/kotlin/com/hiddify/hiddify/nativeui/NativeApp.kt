@@ -33,6 +33,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.nativediagnostics.NativeDiagnosticSnapshot
 import com.hiddify.hiddify.nativediagnostics.NativeVpnProtection
+import com.hiddify.hiddify.nativeconnection.NativeConnectionOptions
+import com.hiddify.hiddify.nativeconnection.NativeInternetHealth
 import com.hiddify.hiddify.privacy.NativeRegionalAppKind
 import com.hiddify.hiddify.privacy.NativeRegionalAppSnapshot
 import com.hiddify.hiddify.privacy.NativeRegionalOptions
@@ -64,6 +66,7 @@ private const val PAGE_WIFI_GUIDE = "wifi_guide"
 private const val PAGE_ABOUT = "about"
 private const val PAGE_CHAIN = "chain"
 private const val PAGE_DIAGNOSTICS = "diagnostics"
+private const val PAGE_CONNECTION_POLICY = "connection_policy"
 private const val PAGE_REGIONAL_APPS = "regional_apps"
 private const val PAGE_REGIONAL = "regional"
 private const val PAGE_TRAFFIC_FILTERS = "traffic_filters"
@@ -72,6 +75,10 @@ private const val PAGE_PROTECTION = "protection"
 @Composable
 fun NativeApp(
     status: Status,
+    connectionOptions: NativeConnectionOptions,
+    connectionOptionsBusy: Boolean,
+    internetHealth: NativeInternetHealth,
+    onSaveConnectionOptions: (NativeConnectionOptions) -> Unit,
     activeProfileName: String,
     hasActiveProfile: Boolean,
     rootMode: Boolean,
@@ -190,6 +197,7 @@ fun NativeApp(
                 PAGE_CORE_OPTIONS -> PAGE_SETTINGS
                 PAGE_CHAIN -> PAGE_SETTINGS
                 PAGE_WIFI_GUIDE -> PAGE_SETTINGS
+                PAGE_CONNECTION_POLICY -> PAGE_SETTINGS
                 PAGE_REGIONAL_APPS -> PAGE_REGIONAL
                 PAGE_REGIONAL -> PAGE_SETTINGS
                 PAGE_TRAFFIC_FILTERS -> PAGE_SETTINGS
@@ -222,6 +230,13 @@ fun NativeApp(
                             onCancel = onCancelDiagnostics,
                             onShareReport = onShareDiagnosticReport,
                         )
+
+                    PAGE_CONNECTION_POLICY -> NativeConnectionPolicyScreen(
+                        options = connectionOptions,
+                        busy = connectionOptionsBusy,
+                        onBack = { page = PAGE_SETTINGS },
+                        onSave = onSaveConnectionOptions,
+                    )
 
                     PAGE_REGIONAL_APPS -> {
                         val kind = NativeRegionalAppKind.valueOf(regionalAppKind)
@@ -395,6 +410,7 @@ fun NativeApp(
                                 onRefreshVpnProtection()
                                 page = PAGE_PROTECTION
                             },
+                            onOpenConnectionPolicy = { page = PAGE_CONNECTION_POLICY },
                             onOpenRegionalRouting = { page = PAGE_REGIONAL },
                             onOpenTrafficFilters = { page = PAGE_TRAFFIC_FILTERS },
                             onOpenPerAppRouting = { page = PAGE_PER_APP },
@@ -430,6 +446,7 @@ fun NativeApp(
                     else ->
                         HomeScreen(
                             status = status,
+                            internetHealth = internetHealth,
                             activeProfileName = activeProfileName,
                             hasActiveProfile = hasActiveProfile,
                             serviceMode = settingsState.serviceMode,
@@ -470,6 +487,7 @@ fun NativeApp(
 @Composable
 private fun HomeScreen(
     status: Status,
+    internetHealth: NativeInternetHealth,
     activeProfileName: String,
     hasActiveProfile: Boolean,
     serviceMode: String,
@@ -503,6 +521,12 @@ private fun HomeScreen(
         )
 
         if (status == Status.Started) {
+            Text(stringResource(when (internetHealth) {
+                NativeInternetHealth.UNCHECKED -> R.string.native_health_unchecked
+                NativeInternetHealth.CHECKING -> R.string.native_health_checking
+                NativeInternetHealth.AVAILABLE -> R.string.native_health_available
+                NativeInternetHealth.UNAVAILABLE -> R.string.native_health_unavailable
+            }), style = MaterialTheme.typography.bodyMedium)
             ConnectionStatsCard(systemStats)
         }
 

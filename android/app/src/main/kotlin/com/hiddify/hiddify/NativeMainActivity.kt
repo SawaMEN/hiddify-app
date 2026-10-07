@@ -50,6 +50,10 @@ import com.hiddify.hiddify.nativerouting.NativePerAppBackup
 import com.hiddify.hiddify.nativerouting.NativePerAppBackupCodec
 import com.hiddify.hiddify.nativerouting.NativePerAppRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
+import com.hiddify.hiddify.nativeconnection.NativeConnectionOptions
+import com.hiddify.hiddify.nativeconnection.NativeHealthProbePolicy
+import com.hiddify.hiddify.nativeconnection.NativeHealthRepository
+import com.hiddify.hiddify.nativeconnection.NativeInternetHealth
 import com.hiddify.hiddify.privacy.NativeRegionalAppKind
 import com.hiddify.hiddify.privacy.NativeRegionalAppSnapshot
 import com.hiddify.hiddify.privacy.NativeRegionalOptions
@@ -64,6 +68,8 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -139,6 +145,12 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val diagnosticBusy = mutableStateOf(false)
     private val vpnProtection = mutableStateOf(NativeVpnProtection())
     private val errorMessage = mutableStateOf<String?>(null)
+    private val connectionOptions = mutableStateOf(NativeConnectionOptions())
+    private val connectionOptionsBusy = mutableStateOf(false)
+    private val internetHealth = mutableStateOf(NativeInternetHealth.UNCHECKED)
+    private val healthRepository = NativeHealthRepository()
+    private var healthJob: Job? = null
+    private var nativeForeground = false
     private val regionalAppsRevision = mutableStateOf(0)
     private val regionalApps = mutableStateOf<NativeRegionalAppSnapshot?>(null)
     private val regionalOperationMutex = Mutex()
@@ -301,6 +313,10 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         setContent {
             NativeApp(
                 status = serviceStatus.value,
+                connectionOptions = connectionOptions.value,
+                connectionOptionsBusy = connectionOptionsBusy.value,
+                internetHealth = internetHealth.value,
+                onSaveConnectionOptions = ::saveConnectionOptions,
                 activeProfileName = activeProfileName.value,
                 hasActiveProfile = activeProfilePath.value.isNotBlank(),
                 rootMode = Settings.privacyUseRoot,
@@ -433,6 +449,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     override fun onStart() {
         super.onStart()
+        nativeForeground = true
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
         refreshCoreOptions()
@@ -444,6 +461,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         startLogRefreshLoop()
         startStatsRefreshLoop()
         connection.connect()
+        restartHealthMonitor()
     }
 
     override fun onResume() {
@@ -459,6 +477,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
             maybeRequestNotificationPermission()
             maybePromptBatteryOptimization()
         }
+        restartHealthMonitor()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -468,6 +487,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     override fun onStop() {
+        nativeForeground = false
+        stopHealthMonitor()
         cancelDiagnostics()
         profileUpdateJob?.cancel()
         profileUpdateJob = null
@@ -614,6 +635,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun selectOutbound(groupTag: String, outboundTag: String) {
         runOutboundOperation(outboundTag) {
             outboundsRepository.select(groupTag, outboundTag)
+            runOnUiThread { restartHealthMonitor() }
         }
     }
 
@@ -1124,8 +1146,59 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun refreshSettingsSnapshot() {
         nativeSettings.value = readNativeSettings()
+        connectionOptions.value = NetworkPrivacySettings.loadConnection(this)
         regionalOptions.value = regionalRepository.load()
         trafficFilters.value = NetworkPrivacySettings.loadFilters(this)
+    }
+
+    private fun saveConnectionOptions(options: NativeConnectionOptions) {
+        if (connectionOptionsBusy.value) return
+        connectionOptionsBusy.value = true
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) { NetworkPrivacySettings.saveConnection(applicationContext, options) }
+                connectionOptions.value = NetworkPrivacySettings.loadConnection(applicationContext)
+                restartHealthMonitor()
+                Toast.makeText(this@NativeMainActivity, R.string.native_connection_saved, Toast.LENGTH_SHORT).show()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                connectionOptionsBusy.value = false
+            }
+        }
+    }
+
+    private fun stopHealthMonitor() {
+        healthJob?.cancel()
+        healthJob = null
+        internetHealth.value = NativeInternetHealth.UNCHECKED
+    }
+
+    private fun restartHealthMonitor() {
+        stopHealthMonitor()
+        if (!nativeForeground || serviceStatus.value != Status.Started) return
+        val policy = NativeHealthProbePolicy(connectionOptions.value.adaptiveNetwork)
+        val url = coreOptions.value.connectionTestUrl
+        healthJob = lifecycleScope.launch {
+            delay(3_000)
+            while (isActive && nativeForeground && serviceStatus.value == Status.Started) {
+                val network = withContext(Dispatchers.IO) { healthRepository.underlyingNetworkAvailable() }
+                if (policy.adaptive && !network) {
+                    internetHealth.value = NativeInternetHealth.UNAVAILABLE
+                    delay(15_000)
+                    continue
+                }
+                internetHealth.value = NativeInternetHealth.CHECKING
+                val started = android.os.SystemClock.elapsedRealtime()
+                val healthy = healthRepository.probe(url, policy.timeoutSeconds)
+                currentCoroutineContext().ensureActive()
+                policy.record(healthy, android.os.SystemClock.elapsedRealtime() - started)
+                internetHealth.value = if (healthy) NativeInternetHealth.AVAILABLE else NativeInternetHealth.UNAVAILABLE
+                delay(policy.intervalSeconds * 1_000)
+            }
+        }
     }
 
     private fun loadRegionalApps(kind: NativeRegionalAppKind) {
@@ -1465,6 +1538,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                     withContext(Dispatchers.IO) {
                         coreOptionsRepository.save(value)
                     }
+                restartHealthMonitor()
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
@@ -1599,6 +1673,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     override fun onServiceStatusChanged(status: Status) {
         runOnUiThread {
             serviceStatus.value = status
+            restartHealthMonitor()
             refreshVpnProtection()
             if (status != Status.Started) cancelDiagnostics()
             if (status == Status.Started) {

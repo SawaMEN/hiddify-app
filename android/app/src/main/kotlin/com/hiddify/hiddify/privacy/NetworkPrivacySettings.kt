@@ -1,18 +1,19 @@
 package com.hiddify.hiddify.privacy
 
 import android.content.Context
-import android.util.Log
+import com.hiddify.hiddify.nativeconnection.NativeConnectionOptions
 
 /** Shared traffic policy for both Kotlin and the compatibility UI. */
 object NetworkPrivacySettings {
-    private const val TAG = "A/NetworkPrivacy"
+    fun loadConnection(context: Context): NativeConnectionOptions =
+        NativeConnectionOptions.fromPreferences(
+            context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE).all,
+        )
 
-    private fun boolean(context: Context, key: String): Boolean {
-        val preferences = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-        val value = preferences.all["flutter.$key"] ?: return false
-        if (value is Boolean) return value
-        Log.w(TAG, "ignoring privacy preference with invalid type: $key (${value.javaClass.simpleName})")
-        return false
+    fun saveConnection(context: Context, options: NativeConnectionOptions) {
+        val editor = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE).edit()
+        options.preferences().forEach { (key, value) -> editor.putBoolean(key, value) }
+        check(editor.commit()) { "Could not save connection policy" }
     }
 
     fun loadFilters(context: Context): NativeTrafficFilters = NativeTrafficFilters.fromPreferences(
@@ -26,11 +27,8 @@ object NetworkPrivacySettings {
         check(editor.commit()) { "Could not save traffic filters" }
     }
 
-    fun policy(context: Context): Map<String, Boolean> = mapOf(
-        "privacy-modern-allow-udp" to boolean(context, "privacy-modern-allow-udp"),
-        "privacy-modern-protocols-only" to boolean(context, "privacy-modern-protocols-only"),
-        "adaptive-network" to boolean(context, "adaptive_network"),
-    ) + loadFilters(context).let { filters ->
-        NativeTrafficFilter.entries.associate { it.key to (it in filters.enabled) }
-    }
+    fun policy(context: Context): Map<String, Boolean> = loadConnection(context).corePolicy() +
+        loadFilters(context).let { filters ->
+            NativeTrafficFilter.entries.associate { it.key to (it in filters.enabled) }
+        }
 }

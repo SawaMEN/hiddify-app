@@ -55,6 +55,7 @@ fun NativeSettingsScreen(
     wifiSharingDetails: com.hiddify.hiddify.nativecore.NativeWifiSharingDetails,
     onBack: () -> Unit,
     onOpenPerAppRouting: () -> Unit,
+    onOpenConnectionPolicy: () -> Unit,
     onOpenRegionalRouting: () -> Unit,
     onOpenTrafficFilters: () -> Unit,
     onOpenVpnProtection: () -> Unit,
@@ -111,6 +112,9 @@ fun NativeSettingsScreen(
         SettingsSection(title = stringResource(R.string.native_settings_vpn)) {
             OutlinedButton(onClick = onOpenVpnProtection, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.native_protection_title))
+            }
+            OutlinedButton(onClick = onOpenConnectionPolicy, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.native_connection_policy_title))
             }
             OutlinedButton(onClick = onOpenTrafficFilters, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.native_filters_title))

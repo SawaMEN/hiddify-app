@@ -118,10 +118,34 @@ Both native per-app editors now share a package loader without routing/database 
 The policy and editor share manual-package parsing and encoding. Package identifiers preserve
 case for exact PackageManager lookup, while domain names are still normalized to lowercase.
 
+## Native connection policy and internet health
+
+The Kotlin settings page now opens protocol and network adaptation controls. The three switches
+use existing Flutter keys and opt-in defaults, preserve UDP preference when the protocol restriction
+is disabled, and write together on IO. The core policy uses the same typed model. The screen
+explains required server compatibility and that core changes apply after reconnecting.
+
+While the native Activity is visible and the service is started, a coroutine checks internet through
+the selected core outbound and displays unchecked/checking/available/failed on the home screen.
+It waits three seconds after starting, serializes probes, uses a 12-second normal deadline and
+30-second interval, and cancels RPCs and timers when the service stops or the Activity backgrounds.
+Core options and selected outbound changes restart the check. Captive portals and redirects use
+the existing diagnostic response policy; no direct HTTP or DNS fallback is added.
+
+Adaptive mode starts with a 30-second deadline, requires three successes before reducing it,
+and bounds its latency-based deadline to 12–30 seconds. A failure restores the longer deadline.
+Successful adaptive checks use a 60-second interval; failures use 30 seconds. With no underlying
+Internet-capable non-VPN network, it waits 15 seconds without starting a probe or incrementing
+failure counters. Timing uses a monotonic clock. A failed health check does not restart the VPN;
+automatic recovery/backoff remains a separate migration step.
+
+The standalone JVM suite now includes the pure hotspot helpers needed by the Wi-Fi-sharing tests
+merged into main, as well as the new connection models and adaptive timing tests.
+
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and
-`NativeDiagnosticReportTest`, `NativePerAppBackupTest`, `NativePerAppFlagsTest` `NativeTrafficFiltersTest` `NativeRegionalOptionsTest` and `NativeRegionalPackagesTest` cover UTF-8, byte-order marks, size limits,
+`NativeDiagnosticReportTest`, `NativePerAppBackupTest`, `NativePerAppFlagsTest` `NativeTrafficFiltersTest` `NativeRegionalOptionsTest` and `NativeRegionalPackagesTest`, `NativeConnectionOptionsTest`, `NativeHealthProbePolicyTest` and `HotspotSharingTest` cover UTF-8, byte-order marks, size limits,
 encoded URL tokens, custom ports, IPv6, QR round trips, inverted QR images and oversized QR
 payloads, captive portal responses, probe URL validation and the diagnostic report allowlist, legacy routing backups, validation limits and manual/automatic flag transitions, typed privacy preferences and bulk filter round trips, regional routing modes, override precedence, domain normalization and merged catalogue limits, automatic/manual empty selections, package case preservation, cross-list conflict removal, reset isolation and package limits. Run with the configured Android/Flutter SDK and prepared core:
 

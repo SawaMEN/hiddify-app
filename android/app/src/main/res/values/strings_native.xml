@@ -430,4 +430,17 @@
     <string name="native_wifi_credentials">Connect to this Wi-Fi network</string>
     <string name="native_wifi_ssid">Network name</string>
     <string name="native_wifi_password">Wi-Fi password</string>
+    <string name="native_connection_policy_title">Connection policy</string>
+    <string name="native_connection_masked">Masked protocols only</string>
+    <string name="native_connection_masked_summary">TCP: AnyTLS and Naive with verified TLS. VLESS/VMess and unverifiable chains are excluded. Requires compatible servers; otherwise connection stops. Masking cannot guarantee bypass of DPI or IP/SNI blocks.</string>
+    <string name="native_connection_udp">Allow UDP / QUIC transports</string>
+    <string name="native_connection_udp_summary">Adds Hysteria 2, TUIC and Naive HTTP/3 to the masked protocol selection. Disable if UDP is blocked. Hysteria obfuscation must match the server. This setting is separate from blocking app QUIC traffic.</string>
+    <string name="native_connection_adaptive">Adapt to unstable internet</string>
+    <string name="native_connection_adaptive_summary">Enables adaptive core bandwidth, server selection and longer probe deadlines. The native health check tolerates slower responses and pauses while the underlying network is offline.</string>
+    <string name="native_connection_probe_summary">The home screen checks internet through the selected core outbound while the app is visible. A failed check does not automatically stop or restart the VPN.</string>
+    <string name="native_connection_saved">Connection policy saved. Reconnect the VPN to apply core changes.</string>
+    <string name="native_health_unchecked">Internet through VPN: not checked</string>
+    <string name="native_health_checking">Internet through VPN: checking…</string>
+    <string name="native_health_available">Internet through VPN: available</string>
+    <string name="native_health_unavailable">Internet through VPN: check failed</string>
 </resources>
