@@ -16,9 +16,14 @@ object NativeCoreControl {
     private fun client(): CoreClient =
         GrpcClientProvider.grpcClient.create(CoreClient::class)
 
-    fun applyStoredSettings() {
-        val json = Settings.configOptions.trim()
-        if (json.isEmpty()) return
+    fun effectiveOptions(context: android.content.Context): String {
+        val profile = com.hiddify.hiddify.nativeprofile.NativeProfileRepository(context).activeProfile()
+        return com.hiddify.hiddify.nativeprofile.NativeProfileOverrides.apply(Settings.configOptions,
+            profile?.populatedHeaders, profile?.userOverride)
+    }
+
+    fun applyStoredSettings(context: android.content.Context) {
+        val json = effectiveOptions(context)
         client()
             .ChangeHiddifySettings()
             .executeBlocking(ChangeHiddifySettingsRequest(hiddify_settings_json = json))

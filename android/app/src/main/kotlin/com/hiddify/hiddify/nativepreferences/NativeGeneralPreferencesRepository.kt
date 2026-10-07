@@ -8,8 +8,6 @@ enum class NativeLanguage(val value: String?) {
     SYSTEM(null), ENGLISH("en"), RUSSIAN("ru");
 }
 
-enum class NativeOutboundSort(val value: String) { UNSORTED("unsorted"), NAME("name"), DELAY("delay"), USAGE("usage") }
-
 data class NativeGeneralPreferences(
     val language: NativeLanguage = NativeLanguage.SYSTEM,
     val hapticFeedback: Boolean = true,

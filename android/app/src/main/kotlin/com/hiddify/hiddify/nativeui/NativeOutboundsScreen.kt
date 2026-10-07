@@ -10,11 +10,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.compose.ui.platform.LocalContext
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.collect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,13 +28,13 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.Role
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativecore.NativeOutbound
+import com.hiddify.hiddify.nativecore.NativeOutboundsRepository
 import com.hiddify.hiddify.nativecore.NativeOutboundGroup
 import com.hiddify.hiddify.nativecore.presentNativeOutbounds
 import com.hiddify.hiddify.nativepreferences.NativeOutboundSort
 
 @Composable
-fun NativeOutboundsScreen(
-    groups: List<NativeOutboundGroup>,
+internal fun NativeOutboundsScreen(
     connected: Boolean,
     sort: NativeOutboundSort,
     onChangeSort: (NativeOutboundSort) -> Unit,
@@ -45,24 +44,39 @@ fun NativeOutboundsScreen(
     adaptiveNetwork: Boolean,
     onChangeSmartSelection: (Boolean) -> Unit,
     onBack: () -> Unit,
-    onRefresh: () -> Unit,
     onSelect: (String, String) -> Unit,
     onTest: (String) -> Unit,
-    onTestActive: () -> Unit,
+    operationError: String?,
+    onDismissOperationError: () -> Unit,
 ) {
-    val lifecycleOwner = LocalContext.current as? LifecycleOwner
-    val refresh by rememberUpdatedState(onRefresh)
-    LaunchedEffect(lifecycleOwner, connected) {
-        if (connected) lifecycleOwner?.lifecycle?.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (isActive) { refresh(); delay(3000) }
+    val snackbar = remember { SnackbarHostState() }
+    val dismissError by rememberUpdatedState(onDismissOperationError)
+    LaunchedEffect(operationError) {
+        if (operationError != null) { snackbar.showSnackbar(operationError); dismissError() }
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val repository = remember { NativeOutboundsRepository() }
+    var group by remember { mutableStateOf<NativeOutboundGroup?>(null) }
+    var loading by remember { mutableStateOf(connected) }
+    var failure by remember { mutableStateOf<String?>(null) }
+    var retry by remember { mutableIntStateOf(0) }
+    LaunchedEffect(lifecycleOwner, connected, retry) {
+        group = null; failure = null; loading = connected
+        if (connected) lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            loading = true; failure = null
+            try {
+                repository.watchPrimary().collect { value -> group = value; loading = false; failure = null }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                loading = false; failure = error.message ?: error.javaClass.simpleName
+            }
         }
     }
     var query by rememberSaveable { mutableStateOf("") }
     var sortOpen by remember { mutableStateOf(false) }
-    var details by remember { mutableStateOf<Pair<String, String>?>(null) }
-    val presented = remember(groups, query, sort) {
-        groups.map { it.copy(items = presentNativeOutbounds(it.items, query, sort)) }.filter { it.items.isNotEmpty() }
-    }
+    var detailsTag by rememberSaveable { mutableStateOf<String?>(null) }
+    val presented = remember(group, query, sort) { presentNativeOutbounds(group?.items.orEmpty(), query, sort) }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -100,34 +114,41 @@ fun NativeOutboundsScreen(
                 Switch(checked = smartSelection, onCheckedChange = onChangeSmartSelection,
                     enabled = !smartSelectionBusy && busyTag == null)
             }
-            if (groups.isEmpty()) {
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            when {
+                !connected -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    Text(stringResource(R.string.native_outbounds_disconnected))
+                }
+                loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                failure != null -> Column(Modifier.weight(1f).fillMaxWidth().padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                    Text(failure.orEmpty(), style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = { retry++ }) { Text(stringResource(R.string.native_profiles_retry)) }
+                }
+                group == null -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Text(stringResource(R.string.native_outbounds_empty))
                 }
-            } else BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                val columns = if (maxWidth < 600.dp) 1 else (maxWidth.value / 268).toInt().coerceAtLeast(1)
-                LazyVerticalGrid(columns = GridCells.Fixed(columns), modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 100.dp)) {
-                    presented.forEach { group ->
-                        items(group.items, key = { listOf("outbound", group.tag, it.tag) }) { outbound ->
-                            OutboundTile(outbound, group.selectedTag == outbound.tag, group.selectable && busyTag == null,
-                                { onSelect(group.tag, outbound.tag) }, { details = group.tag to outbound.tag })
+                else -> BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                    val columns = if (maxWidth < 600.dp) 1 else (maxWidth.value / 268).toInt().coerceAtLeast(1)
+                    LazyVerticalGrid(columns = GridCells.Fixed(columns), modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 100.dp)) {
+                        items(presented, key = { it.tag }) { outbound ->
+                            OutboundTile(outbound, group?.selectedTag == outbound.tag,
+                                group?.selectable == true && busyTag == null && !smartSelectionBusy,
+                                { group?.let { onSelect(it.tag, outbound.tag) } }, { detailsTag = outbound.tag })
                         }
                     }
                 }
             }
         }
-        FloatingActionButton(onClick = { if (busyTag == null) groups.firstOrNull()?.let { onTest(it.tag) } },
+        FloatingActionButton(onClick = { if (connected && !loading && failure == null && busyTag == null) group?.let { onTest(it.tag) } },
             modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)) {
             Icon(painterResource(R.drawable.native_flash), stringResource(R.string.native_outbounds_test))
         }
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(16.dp))
     }
-    details?.let { (groupTag, tag) ->
-        val group = groups.firstOrNull { it.tag == groupTag }
-        group?.items?.firstOrNull { it.tag == tag }?.let { outbound ->
-            NativeOutboundInfoDialog(outbound.copy(selected = group.selectedTag == tag), onDismiss = { details = null })
-        }
+    group?.items?.firstOrNull { it.tag == detailsTag }?.let { outbound ->
+        NativeOutboundInfoDialog(outbound.copy(selected = group?.selectedTag == outbound.tag), onDismiss = { detailsTag = null })
     }
 }
 
