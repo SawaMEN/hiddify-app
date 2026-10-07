@@ -34,6 +34,7 @@ import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
 import com.hiddify.hiddify.nativecore.NativeCoreOptions
+import com.hiddify.hiddify.nativecore.NativeOutboundGroup
 import com.hiddify.hiddify.nativeprofile.NativeProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
@@ -45,6 +46,7 @@ private const val PAGE_PER_APP = "per_app"
 private const val PAGE_PROFILE_DETAILS = "profile_details"
 private const val PAGE_LOGS = "logs"
 private const val PAGE_CORE_OPTIONS = "core_options"
+private const val PAGE_OUTBOUNDS = "outbounds"
 
 @Composable
 fun NativeApp(
@@ -63,6 +65,8 @@ fun NativeApp(
     logBusy: Boolean,
     coreOptions: NativeCoreOptions,
     coreOptionsBusy: Boolean,
+    outboundGroups: List<NativeOutboundGroup>,
+    outboundBusyTag: String?,
     errorMessage: String?,
     onDismissError: () -> Unit,
     onToggleConnection: () -> Unit,
@@ -78,6 +82,10 @@ fun NativeApp(
     onRefreshLogs: () -> Unit,
     onClearLogs: () -> Unit,
     onSaveCoreOptions: (NativeCoreOptions) -> Unit,
+    onRefreshOutbounds: () -> Unit,
+    onSelectOutbound: (String, String) -> Unit,
+    onTestOutbound: (String) -> Unit,
+    onTestActiveOutbounds: () -> Unit,
     onOpenLegacy: () -> Unit,
     onProxyOnlyChanged: (Boolean) -> Unit,
     onRootModeChanged: (Boolean) -> Unit,
@@ -162,6 +170,17 @@ fun NativeApp(
                             onClear = onClearLogs,
                         )
 
+                    PAGE_OUTBOUNDS ->
+                        NativeOutboundsScreen(
+                            groups = outboundGroups,
+                            busyTag = outboundBusyTag,
+                            onBack = { page = PAGE_HOME },
+                            onRefresh = onRefreshOutbounds,
+                            onSelect = onSelectOutbound,
+                            onTest = onTestOutbound,
+                            onTestActive = onTestActiveOutbounds,
+                        )
+
                     PAGE_SETTINGS ->
                         NativeSettingsScreen(
                             state = settingsState,
@@ -199,6 +218,10 @@ fun NativeApp(
                             onOpenProfiles = { page = PAGE_PROFILES },
                             onOpenSettings = { page = PAGE_SETTINGS },
                             onOpenLogs = { page = PAGE_LOGS },
+                            onOpenOutbounds = {
+                                onRefreshOutbounds()
+                                page = PAGE_OUTBOUNDS
+                            },
                             onOpenLegacy = onOpenLegacy,
                         )
                 }
@@ -232,6 +255,7 @@ private fun HomeScreen(
     onOpenProfiles: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenLogs: () -> Unit,
+    onOpenOutbounds: () -> Unit,
     onOpenLegacy: () -> Unit,
 ) {
     Column(
@@ -301,6 +325,14 @@ private fun HomeScreen(
             ) {
                 Text(stringResource(R.string.native_settings))
             }
+        }
+
+        OutlinedButton(
+            onClick = onOpenOutbounds,
+            enabled = status == Status.Started,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.native_outbounds_open))
         }
 
         OutlinedButton(
