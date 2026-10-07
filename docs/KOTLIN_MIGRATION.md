@@ -369,6 +369,24 @@ recreation and recovery. Imports and compatibility UI returns reload the snapsho
 checks are performed; no tests are added or manually run. Android build and on-device IPv6/MTU
 verification remain pending.
 
+## Scoped core settings and native LAN sharing
+
+The former general core form is now a glass-row navigation hub for the dedicated connection, DNS,
+inbound, tunnel and TLS pages. TUN/port controls no longer have a second editor with different defaults,
+port-zero behavior or a broad Save action. The obsolete NativeCoreOptions model, repository and
+Activity save state are removed; shared wire choices live in NativeConfigChoices. Each page retains
+its own typed validation, Flutter-compatible transaction and stopped-service lifecycle checks.
+
+Hotspot changes now use the inbound repository's focused LAN transaction on IO under the native core
+lifecycle barrier. It writes only LAN permission and authentication to core JSON and Flutter keys,
+preserving listener ports, IPv6, MTU, DNS, TLS and other options. Missing credentials are generated
+with the same secure native generator used by the inbound editor; existing credentials survive
+disabling/re-enabling sharing. Invalid/corrupt JSON fails without resetting configuration. Rollback
+also uses this transaction, and the inbound snapshot refreshes after hotspot operations.
+
+The hub retains shared glass/cards, icons, Manrope and page history. Resource/reference and patch
+checks are performed; no tests are added or manually run. Full Android compilation remains pending.
+
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and

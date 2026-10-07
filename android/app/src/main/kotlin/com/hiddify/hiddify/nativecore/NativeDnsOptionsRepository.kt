@@ -14,8 +14,8 @@ data class NativeDnsOptions(
         fun address(value: String): String = value.trim().also {
             require(it.isNotEmpty() && it.length <= 2048 && it.none(Char::isISOControl)) { "Invalid DNS address" }
         }
-        require(remoteStrategy in NativeCoreOptionsRepository.domainStrategyChoices &&
-            directStrategy in NativeCoreOptionsRepository.domainStrategyChoices) { "Invalid DNS strategy" }
+        require(remoteStrategy in NativeConfigChoices.domainStrategyChoices &&
+            directStrategy in NativeConfigChoices.domainStrategyChoices) { "Invalid DNS strategy" }
         // Match Dart's nonempty-address validator; do not restrict core-supported resolver schemes.
         return copy(remoteAddress = address(remoteAddress), directAddress = address(directAddress))
     }
@@ -29,7 +29,7 @@ class NativeDnsOptionsRepository(context: Context) {
         val root = root(values)
         fun text(key: String, fallback: String): String = (root.opt(key) as? String)
             ?: (values["flutter.$key"] as? String) ?: fallback
-        fun strategy(key: String) = text(key, "").takeIf { it in NativeCoreOptionsRepository.domainStrategyChoices } ?: ""
+        fun strategy(key: String) = text(key, "").takeIf { it in NativeConfigChoices.domainStrategyChoices } ?: ""
         return NativeDnsOptions(
             remoteAddress = text("remote-dns-address", "tcp://8.8.8.8"),
             remoteStrategy = strategy("remote-dns-domain-strategy"),

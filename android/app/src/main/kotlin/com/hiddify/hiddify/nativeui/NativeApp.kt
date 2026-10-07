@@ -61,7 +61,6 @@ import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
 import com.hiddify.hiddify.nativecore.NativeChainOptions
-import com.hiddify.hiddify.nativecore.NativeCoreOptions
 import com.hiddify.hiddify.nativecore.NativeOutboundGroup
 import com.hiddify.hiddify.nativecore.NativeSystemStats
 import com.hiddify.hiddify.nativecore.NativeWifiSharingDetails
@@ -161,8 +160,6 @@ fun NativeApp(
     pendingPerAppImport: NativePerAppBackup?,
     logSnapshot: NativeLogSnapshot,
     logBusy: Boolean,
-    coreOptions: NativeCoreOptions,
-    coreOptionsBusy: Boolean,
     chainOptions: NativeChainOptions,
     chainBusy: Boolean,
     outboundGroups: List<NativeOutboundGroup>,
@@ -205,7 +202,6 @@ fun NativeApp(
     onDismissPerAppImport: () -> Unit,
     onRefreshLogs: () -> Unit,
     onClearLogs: () -> Unit,
-    onSaveCoreOptions: (NativeCoreOptions) -> Unit,
     onSaveChainOptions: (NativeChainOptions) -> Unit,
     onRefreshOutbounds: () -> Unit,
     onSelectOutbound: (String, String) -> Unit,
@@ -441,13 +437,11 @@ fun NativeApp(
 
                             PAGE_CORE_OPTIONS ->
                                 NativeCoreOptionsScreen(
-                                    options = coreOptions,
-                                    busy = coreOptionsBusy,
                                     onBack = { goBack() },
-                                    onSave = onSaveCoreOptions,
                                     onOpenDns = { openPage(PAGE_DNS) },
                                     onOpenTls = { openPage(PAGE_TLS) },
                                     onOpenTunnel = { openPage(PAGE_TUNNEL) },
+                                    onOpenInbound = { openPage(PAGE_INBOUND) },
                                     onOpenGeneralOptions = { openPage(PAGE_GENERAL_OPTIONS) },
                                 )
 
@@ -475,32 +469,32 @@ fun NativeApp(
 
                             PAGE_TUNNEL -> NativeTunnelOptionsScreen(
                                 options = tunnelOptions, busy = tunnelBusy,
-                                canSave = status == Status.Stopped && !wifiSharingBusy && !coreOptionsBusy && !chainBusy && !inboundBusy && !dnsBusy && !tlsBusy && !generalOptionsBusy,
+                                canSave = status == Status.Stopped && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy && !tlsBusy && !generalOptionsBusy,
                                 onBack = { goBack() }, onSave = onSaveTunnelOptions,
                             )
 
                             PAGE_GENERAL_OPTIONS -> NativeGeneralOptionsScreen(
                                 options = generalOptions, busy = generalOptionsBusy,
-                                canSave = status == Status.Stopped && !wifiSharingBusy && !coreOptionsBusy && !chainBusy && !inboundBusy && !dnsBusy && !tlsBusy,
+                                canSave = status == Status.Stopped && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy && !tlsBusy,
                                 onBack = { goBack() }, onSave = onSaveGeneralOptions,
                             )
 
                             PAGE_TLS -> NativeTlsOptionsScreen(
                                 options = tlsOptions, busy = tlsBusy,
-                                canSave = status == Status.Stopped && !wifiSharingBusy && !coreOptionsBusy && !chainBusy && !inboundBusy && !dnsBusy,
+                                canSave = status == Status.Stopped && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy,
                                 onBack = { goBack() }, onSave = onSaveTlsOptions,
                             )
 
                             PAGE_DNS -> NativeDnsOptionsScreen(
                                 options = dnsOptions, busy = dnsBusy,
-                                canSave = status == Status.Stopped && !wifiSharingBusy && !coreOptionsBusy && !chainBusy && !inboundBusy && !tlsBusy,
+                                canSave = status == Status.Stopped && !wifiSharingBusy && !chainBusy && !inboundBusy && !tlsBusy,
                                 onBack = { goBack() }, onSave = onSaveDnsOptions,
                                 onOpenPrivacy = { openCategory(NativeSettingsCategory.DNS) },
                             )
 
                             PAGE_INBOUND -> NativeInboundOptionsScreen(
                                 options = inboundOptions, busy = inboundBusy,
-                                canSave = status == Status.Stopped && !wifiSharingBusy && !coreOptionsBusy && !chainBusy && !dnsBusy && !tlsBusy && !generalOptionsBusy && !tunnelBusy && !generalPreferencesBusy,
+                                canSave = status == Status.Stopped && !wifiSharingBusy && !chainBusy && !dnsBusy && !tlsBusy && !generalOptionsBusy && !tunnelBusy && !generalPreferencesBusy,
                                 onBack = { goBack() }, onSave = onSaveInboundOptions,
                                 onOpenVpnOptions = { openCategory(NativeSettingsCategory.VPN) },
                             )

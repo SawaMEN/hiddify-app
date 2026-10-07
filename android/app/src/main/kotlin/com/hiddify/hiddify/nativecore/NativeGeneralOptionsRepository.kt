@@ -14,7 +14,7 @@ data class NativeGeneralOptions(
     val useXray: Boolean = false,
 ) {
     fun validated(): NativeGeneralOptions {
-        require(balancer in NativeCoreOptionsRepository.balancerChoices) { "Invalid balancing strategy" }
+        require(balancer in NativeConfigChoices.balancerChoices) { "Invalid balancing strategy" }
         require(logLevel in listOf("trace", "debug", "info", "warn", "error", "fatal", "panic")) { "Invalid log level" }
         require(intervalSeconds in 1..86400 && clashPort in 1..65535) { "Invalid interval or API port" }
         val url = testUrl.trim()
@@ -40,7 +40,7 @@ class NativeGeneralOptionsRepository(context: Context) {
         val url = text("connection-test-url", "http://captive.apple.com/hotspot-detect.html")
         require(url.length <= 2048) { "Connection test URL is too large" }
         return NativeGeneralOptions(
-            balancer = text("balancer-strategy", "round-robin").takeIf { it in NativeCoreOptionsRepository.balancerChoices } ?: "round-robin",
+            balancer = text("balancer-strategy", "round-robin").takeIf { it in NativeConfigChoices.balancerChoices } ?: "round-robin",
             resolveDestination = flag("resolve-destination"),
             logLevel = text("log-level", "warn").takeIf { it in listOf("trace", "debug", "info", "warn", "error", "fatal", "panic") } ?: "warn",
             testUrl = url, intervalSeconds = number("url-test-interval", 600, 1..86400),
