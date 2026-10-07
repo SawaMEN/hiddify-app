@@ -35,6 +35,7 @@ import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
 import com.hiddify.hiddify.nativecore.NativeCoreOptions
 import com.hiddify.hiddify.nativecore.NativeOutboundGroup
+import com.hiddify.hiddify.nativecore.NativeSystemStats
 import com.hiddify.hiddify.nativeprofile.NativeProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
@@ -67,6 +68,7 @@ fun NativeApp(
     coreOptionsBusy: Boolean,
     outboundGroups: List<NativeOutboundGroup>,
     outboundBusyTag: String?,
+    systemStats: NativeSystemStats,
     errorMessage: String?,
     onDismissError: () -> Unit,
     onToggleConnection: () -> Unit,
@@ -214,6 +216,7 @@ fun NativeApp(
                             serviceMode = settingsState.serviceMode,
                             rootMode = rootMode,
                             wifiSharing = settingsState.wifiSharing,
+                            systemStats = systemStats,
                             onToggleConnection = onToggleConnection,
                             onOpenProfiles = { page = PAGE_PROFILES },
                             onOpenSettings = { page = PAGE_SETTINGS },
@@ -251,6 +254,7 @@ private fun HomeScreen(
     serviceMode: String,
     rootMode: Boolean,
     wifiSharing: Boolean,
+    systemStats: NativeSystemStats,
     onToggleConnection: () -> Unit,
     onOpenProfiles: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -274,6 +278,10 @@ private fun HomeScreen(
             hasActiveProfile = hasActiveProfile,
             onToggleConnection = onToggleConnection,
         )
+
+        if (status == Status.Started) {
+            ConnectionStatsCard(systemStats)
+        }
 
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(
@@ -354,6 +362,75 @@ private fun HomeScreen(
         ) {
             Text(stringResource(R.string.native_advanced_legacy))
         }
+    }
+}
+
+@Composable
+private fun ConnectionStatsCard(stats: NativeSystemStats) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.native_stats_title),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            if (stats.currentOutbound.isNotBlank()) {
+                Text(
+                    text = stringResource(R.string.native_stats_outbound, stats.currentOutbound),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            if (stats.trafficAvailable) {
+                Text(
+                    text =
+                        stringResource(
+                            R.string.native_stats_speed,
+                            formatTraffic(stats.uplink),
+                            formatTraffic(stats.downlink),
+                        ),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Text(
+                    text =
+                        stringResource(
+                            R.string.native_stats_total,
+                            formatTraffic(stats.uplinkTotal),
+                            formatTraffic(stats.downlinkTotal),
+                        ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Text(
+                text =
+                    stringResource(
+                        R.string.native_stats_connections,
+                        stats.connectionsIn,
+                        stats.connectionsOut,
+                    ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+private fun formatTraffic(value: Long): String {
+    val safe = value.coerceAtLeast(0)
+    val units = arrayOf("B", "KiB", "MiB", "GiB", "TiB")
+    var scaled = safe.toDouble()
+    var unit = 0
+    while (scaled >= 1024.0 && unit < units.lastIndex) {
+        scaled /= 1024.0
+        unit++
+    }
+    return if (unit == 0 || scaled >= 100.0) {
+        "%.0f %s".format(scaled, units[unit])
+    } else {
+        "%.1f %s".format(scaled, units[unit])
     }
 }
 
