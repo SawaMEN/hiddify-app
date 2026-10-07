@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -15,6 +16,10 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -51,6 +56,11 @@ fun NativeSettingsScreen(
     onOpenCoreOptions: () -> Unit,
     onOpenChain: () -> Unit,
     onOpenWifiSharingGuide: () -> Unit,
+    onImportSettingsClipboard: () -> Unit,
+    onImportSettingsFile: () -> Unit,
+    onExportSettingsClipboard: (Boolean) -> Unit,
+    onExportSettingsFile: (Boolean) -> Unit,
+    onResetSettings: () -> Unit,
     onProxyOnlyChanged: (Boolean) -> Unit,
     onRootModeChanged: (Boolean) -> Unit,
     onWifiSharingChanged: (Boolean) -> Unit,
@@ -68,6 +78,9 @@ fun NativeSettingsScreen(
     onDebugModeChanged: (Boolean) -> Unit,
     onDisableMemoryLimitChanged: (Boolean) -> Unit,
 ) {
+    var includePrivateExport by rememberSaveable { mutableStateOf(false) }
+    var resetSettingsOpen by rememberSaveable { mutableStateOf(false) }
+
     Column(
         modifier =
             Modifier
@@ -220,6 +233,50 @@ fun NativeSettingsScreen(
             }
         }
 
+        SettingsSection(title = stringResource(R.string.native_settings_transfer)) {
+            Text(
+                text = stringResource(R.string.native_settings_transfer_summary),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            OutlinedButton(
+                onClick = onImportSettingsClipboard,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.native_settings_import_clipboard))
+            }
+            OutlinedButton(
+                onClick = onImportSettingsFile,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.native_settings_import_file))
+            }
+            SettingSwitch(
+                title = stringResource(R.string.native_settings_include_private),
+                summary = stringResource(R.string.native_settings_include_private_summary),
+                checked = includePrivateExport,
+                onCheckedChange = { includePrivateExport = it },
+            )
+            OutlinedButton(
+                onClick = { onExportSettingsClipboard(includePrivateExport) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.native_settings_export_clipboard))
+            }
+            OutlinedButton(
+                onClick = { onExportSettingsFile(includePrivateExport) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.native_settings_export_file))
+            }
+            TextButton(
+                onClick = { resetSettingsOpen = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.native_settings_reset))
+            }
+        }
+
         SettingsSection(title = stringResource(R.string.native_settings_app)) {
             SettingSwitch(
                 title = stringResource(R.string.native_setting_dynamic_notification),
@@ -254,6 +311,29 @@ fun NativeSettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+
+    if (resetSettingsOpen) {
+        AlertDialog(
+            onDismissRequest = { resetSettingsOpen = false },
+            title = { Text(stringResource(R.string.native_settings_reset_title)) },
+            text = { Text(stringResource(R.string.native_settings_reset_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        resetSettingsOpen = false
+                        onResetSettings()
+                    },
+                ) {
+                    Text(stringResource(R.string.native_settings_reset))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { resetSettingsOpen = false }) {
+                    Text(stringResource(android.R.string.cancel))
+                }
+            },
+        )
     }
 }
 
