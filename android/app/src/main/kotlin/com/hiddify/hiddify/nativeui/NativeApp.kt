@@ -33,6 +33,7 @@ import com.hiddify.hiddify.R
 import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
+import com.hiddify.hiddify.nativecore.NativeChainOptions
 import com.hiddify.hiddify.nativecore.NativeCoreOptions
 import com.hiddify.hiddify.nativecore.NativeOutboundGroup
 import com.hiddify.hiddify.nativecore.NativeSystemStats
@@ -51,6 +52,7 @@ private const val PAGE_CORE_OPTIONS = "core_options"
 private const val PAGE_OUTBOUNDS = "outbounds"
 private const val PAGE_WIFI_GUIDE = "wifi_guide"
 private const val PAGE_ABOUT = "about"
+private const val PAGE_CHAIN = "chain"
 
 @Composable
 fun NativeApp(
@@ -69,6 +71,8 @@ fun NativeApp(
     logBusy: Boolean,
     coreOptions: NativeCoreOptions,
     coreOptionsBusy: Boolean,
+    chainOptions: NativeChainOptions,
+    chainBusy: Boolean,
     outboundGroups: List<NativeOutboundGroup>,
     outboundBusyTag: String?,
     systemStats: NativeSystemStats,
@@ -92,6 +96,7 @@ fun NativeApp(
     onRefreshLogs: () -> Unit,
     onClearLogs: () -> Unit,
     onSaveCoreOptions: (NativeCoreOptions) -> Unit,
+    onSaveChainOptions: (NativeChainOptions) -> Unit,
     onRefreshOutbounds: () -> Unit,
     onSelectOutbound: (String, String) -> Unit,
     onTestOutbound: (String) -> Unit,
@@ -129,6 +134,7 @@ fun NativeApp(
                 PAGE_PER_APP -> PAGE_SETTINGS
                 PAGE_PROFILE_DETAILS -> PAGE_PROFILES
                 PAGE_CORE_OPTIONS -> PAGE_SETTINGS
+                PAGE_CHAIN -> PAGE_SETTINGS
                 PAGE_WIFI_GUIDE -> PAGE_SETTINGS
                 else -> PAGE_HOME
             }
@@ -224,6 +230,15 @@ fun NativeApp(
                             onOpenPrivacy = onOpenPrivacy,
                         )
 
+                    PAGE_CHAIN ->
+                        NativeChainScreen(
+                            options = chainOptions,
+                            profiles = profiles,
+                            busy = chainBusy,
+                            onBack = { page = PAGE_SETTINGS },
+                            onSave = onSaveChainOptions,
+                        )
+
                     PAGE_SETTINGS ->
                         NativeSettingsScreen(
                             state = settingsState,
@@ -231,6 +246,7 @@ fun NativeApp(
                             onBack = { page = PAGE_HOME },
                             onOpenPerAppRouting = { page = PAGE_PER_APP },
                             onOpenCoreOptions = { page = PAGE_CORE_OPTIONS },
+                            onOpenChain = { page = PAGE_CHAIN },
                             onOpenWifiSharingGuide = {
                                 onRefreshWifiSharingDetails()
                                 page = PAGE_WIFI_GUIDE
