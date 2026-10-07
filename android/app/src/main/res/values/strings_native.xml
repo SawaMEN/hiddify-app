@@ -484,4 +484,11 @@
     <string name="native_privacy_setup_apply_note">The previous settings are saved once. Changes apply on the next connection. Root, custom lists and traffic filters are preserved.</string>
     <string name="native_privacy_setup_saved">Automatic settings saved. Connect the VPN to apply.</string>
     <string name="native_privacy_setup_restored">Previous settings restored. Connect the VPN to apply.</string>
+    <string name="native_proxy_hide_local">Disable local proxy</string>
+    <string name="native_proxy_hide_local_summary">Avoids extra HTTP/SOCKS/direct listeners in VPN mode.</string>
+    <string name="native_proxy_hide_clash">Disable Clash API</string>
+    <string name="native_proxy_hide_clash_summary">Does not expose the external REST control port; internal statistics remain available.</string>
+    <string name="native_proxy_wifi_exception">VPN sharing without root requires a local proxy listener. The saved restriction stays enabled and applies again when sharing is disabled.</string>
+    <string name="native_proxy_core_summary">Configure HTTP/SOCKS ports, the Clash API port and LAN access.</string>
+    <string name="native_proxy_saved">Proxy settings saved. Reconnect the VPN to apply.</string>
 </resources>

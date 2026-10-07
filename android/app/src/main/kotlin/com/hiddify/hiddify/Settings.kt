@@ -8,6 +8,7 @@ import com.hiddify.hiddify.bg.VPNService
 import com.hiddify.hiddify.constant.PerAppProxyMode
 import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.SettingsKey
+import com.hiddify.hiddify.privacy.NativeProxyPrivacy
 import com.hiddify.hiddify.privacy.VpnServiceVisibility
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -40,11 +41,13 @@ object Settings {
             return table
         }
     val privacyFullTunnel get() = getBoolean("flutter.privacy-full-tunnel", false)
-    val privacyHideLocalProxy get() = (!wifiVpnSharing || privacyUseRoot) && getBoolean("flutter.privacy-hide-local-proxy", true)
-    val privacyHideClashApi get() = getBoolean("flutter.privacy-hide-clash-api", true)
+    val privacyHideLocalProxy get() = NativeProxyPrivacy.hideLocalProxyForCore(
+        getBoolean(NativeProxyPrivacy.HIDE_LOCAL_PROXY_KEY, true), wifiVpnSharing, privacyUseRoot,
+    )
+    val privacyHideClashApi get() = getBoolean(NativeProxyPrivacy.HIDE_CLASH_API_KEY, true)
     val privacyEncryptedDns get() = getBoolean("flutter.privacy-encrypted-dns", true)
     val privacyPublicDns get() = getBoolean("flutter.privacy-public-dns", false)
-    val privacyDisableSystemProxy get() = getBoolean("flutter.privacy-disable-system-proxy", true)
+    val privacyDisableSystemProxy get() = getBoolean(NativeProxyPrivacy.DISABLE_SYSTEM_PROXY_KEY, true)
     val privacyDisableIpv6 get() = getString("flutter.ipv6-mode", "ipv4_only") == "ipv4_only"
     val privacyUseRootRequested get() = getBoolean("flutter.privacy-use-root", false)
 
@@ -70,7 +73,7 @@ object Settings {
     }
 
     fun setPrivacyDisableSystemProxy(disabled: Boolean) {
-        preferences.edit().putBoolean("flutter.privacy-disable-system-proxy", disabled).apply()
+        preferences.edit().putBoolean(NativeProxyPrivacy.DISABLE_SYSTEM_PROXY_KEY, disabled).apply()
     }
 
     fun setPrivacyDisableIpv6(disabled: Boolean) {

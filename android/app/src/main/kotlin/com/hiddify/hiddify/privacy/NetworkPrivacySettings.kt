@@ -5,6 +5,16 @@ import com.hiddify.hiddify.nativeconnection.NativeConnectionOptions
 
 /** Shared traffic policy for both Kotlin and the compatibility UI. */
 object NetworkPrivacySettings {
+    fun loadProxyPrivacy(context: Context): NativeProxyPrivacy = NativeProxyPrivacy.fromPreferences(
+        context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE).all,
+    )
+
+    fun saveProxyPrivacy(context: Context, options: NativeProxyPrivacy) {
+        val editor = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE).edit()
+        options.preferenceValues().forEach { (key, value) -> editor.putBoolean(key, value) }
+        check(editor.commit()) { "Could not save proxy privacy settings" }
+    }
+
     fun loadConnection(context: Context): NativeConnectionOptions =
         NativeConnectionOptions.fromPreferences(
             context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE).all,

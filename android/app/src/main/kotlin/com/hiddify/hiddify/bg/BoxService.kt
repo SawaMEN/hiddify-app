@@ -254,8 +254,10 @@ class BoxService(
                     stopAndAlert(Alert.CreateService, "Unable to apply core settings: ${error.message ?: error.javaClass.simpleName}")
                     return
                 }
-                Mobile.applyDevicePrivacy(Settings.privacyFullTunnel, Settings.privacyHideLocalProxy,
-                    Settings.privacyHideClashApi, Settings.privacyDisableSystemProxy, Settings.privacyEncryptedDns)
+                val proxyPrivacy = com.hiddify.hiddify.privacy.NetworkPrivacySettings.loadProxyPrivacy(service)
+                Mobile.applyDevicePrivacy(Settings.privacyFullTunnel,
+                    proxyPrivacy.effectiveHideLocalProxy(Settings.wifiVpnSharing, Settings.privacyUseRoot),
+                    proxyPrivacy.hideClashApi, proxyPrivacy.disableSystemProxy, Settings.privacyEncryptedDns)
                 val stored = org.json.JSONObject(Settings.configOptions.ifBlank { "{}" })
                 val policy = org.json.JSONObject()
                 com.hiddify.hiddify.privacy.RegionalRouting.policy(service, stored.optString("region", "other")).forEach { (key, value) ->

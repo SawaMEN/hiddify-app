@@ -484,4 +484,11 @@
     <string name="native_privacy_setup_apply_note">Предыдущие настройки сохраняются один раз. Изменения применяются при следующем подключении. Root, пользовательские списки и фильтры трафика сохраняются.</string>
     <string name="native_privacy_setup_saved">Автоматические настройки сохранены. Подключите VPN для применения.</string>
     <string name="native_privacy_setup_restored">Предыдущие настройки восстановлены. Подключите VPN для применения.</string>
+    <string name="native_proxy_hide_local">Не открывать локальный прокси</string>
+    <string name="native_proxy_hide_local_summary">Не поднимает лишние HTTP/SOCKS/direct listener в режиме VPN.</string>
+    <string name="native_proxy_hide_clash">Не открывать Clash API</string>
+    <string name="native_proxy_hide_clash_summary">Не открывает внешний REST-порт управления; внутренняя статистика сохраняется.</string>
+    <string name="native_proxy_wifi_exception">Раздаче VPN без root нужен локальный прокси. Сохранённое ограничение остаётся включённым и снова действует после отключения раздачи.</string>
+    <string name="native_proxy_core_summary">Настройка портов HTTP/SOCKS, порта Clash API и доступа из локальной сети.</string>
+    <string name="native_proxy_saved">Настройки прокси сохранены. Переподключите VPN для применения.</string>
 </resources>

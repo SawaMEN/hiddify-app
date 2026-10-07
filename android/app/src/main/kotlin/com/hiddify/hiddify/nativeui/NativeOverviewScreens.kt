@@ -126,6 +126,7 @@ internal fun NativePrivacyOverviewScreen(
     onOpenRegional: () -> Unit,
     onOpenPerApp: () -> Unit,
     onOpenPolicy: () -> Unit,
+    onOpenProxyPrivacy: () -> Unit = {},
     onOpenProtection: () -> Unit,
     onOpenFilters: () -> Unit,
     onOpenCoreOptions: () -> Unit,
@@ -172,8 +173,9 @@ internal fun NativePrivacyOverviewScreen(
         }
         PrivacyCategory(R.string.native_privacy_interfaces, R.string.native_privacy_interfaces_summary, R.drawable.native_settings,
             "interfaces" in expandedCategories, { onToggleCategory("interfaces") }) {
+            NativeSettingsLink(R.string.native_privacy_interfaces, R.drawable.native_settings,
+                onOpenProxyPrivacy, R.string.native_privacy_interfaces_summary)
             NativeSettingsLink(R.string.native_core_options_title, R.drawable.native_settings, onOpenCoreOptions, R.string.native_core_options_summary)
-            NativeSettingsLink(R.string.native_settings_dns, R.drawable.native_dns, { onOpenCategory(NativeSettingsCategory.DNS) })
         }
         NativeGlass(Modifier.fillMaxWidth(), radius = 24) {
             NativeSettingsLink(R.string.native_filters_title, R.drawable.native_shield, onOpenFilters)

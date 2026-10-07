@@ -219,10 +219,26 @@ Unlike Flutter's immediate service reconfiguration, the native action currently 
 VPN. The screen explains that changes apply on the next connection. This avoids restarting a VPN
 while switching service/root modes; active-service reconfiguration remains migration work.
 
+## Native proxy and control privacy
+
+The proxy/control category now opens a Compose screen for the remaining Dart privacy switches:
+disable local HTTP/SOCKS/direct listeners, hide the external Clash REST API, and disable the system
+HTTP proxy. It uses the shared glass/card style, accessible whole-row switches and a port/LAN options
+entry. The screen explains that changes apply after reconnecting and shows the non-root Wi-Fi sharing
+exception without changing the saved local-proxy preference.
+
+`NativeProxyPrivacy` reads and writes the existing three Flutter keys, accepting only Boolean values
+and preserving restrictive defaults for missing or malformed values. One IO commit updates only these
+keys; DNS, routing, root and hotspot choices are untouched. Startup reads the three choices as one
+snapshot and applies the same typed model. `Settings` also shares its key constants and the effective
+local-listener rule: non-root sharing keeps that listener available, while root sharing preserves the
+restriction. Native saves and automatic setup exclude each other, and navigation/start/recovery are
+blocked during the short write. Reload after returning from the compatibility UI runs on IO.
+
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and
-`NativeDiagnosticReportTest`, `NativePerAppBackupTest`, `NativePerAppFlagsTest` `NativeTrafficFiltersTest` `NativeRegionalOptionsTest` and `NativeRegionalPackagesTest`, `NativeConnectionOptionsTest`, `NativeHealthProbePolicyTest` `HotspotSharingTest`, `NativeRecoveryPolicyTest` and `NativePrivacySetupTest` cover UTF-8, byte-order marks, size limits,
+`NativeDiagnosticReportTest`, `NativePerAppBackupTest`, `NativePerAppFlagsTest` `NativeTrafficFiltersTest` `NativeRegionalOptionsTest` and `NativeRegionalPackagesTest`, `NativeConnectionOptionsTest`, `NativeHealthProbePolicyTest` `HotspotSharingTest`, `NativeRecoveryPolicyTest` and `NativePrivacySetupTest` and `NativeProxyPrivacyTest` cover UTF-8, byte-order marks, size limits,
 encoded URL tokens, custom ports, IPv6, QR round trips, inverted QR images and oversized QR
 payloads, captive portal responses, probe URL validation and the diagnostic report allowlist, legacy routing backups, validation limits and manual/automatic flag transitions, typed privacy preferences and bulk filter round trips, regional routing modes, override precedence, domain normalization and merged catalogue limits, automatic/manual empty selections, package case preservation, cross-list conflict removal, reset isolation and package limits. Run with the configured Android/Flutter SDK and prepared core:
 

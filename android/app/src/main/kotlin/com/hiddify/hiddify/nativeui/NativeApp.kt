@@ -75,6 +75,7 @@ private const val PAGE_PROFILES = "profiles"
 private const val PAGE_SETTINGS = "settings"
 private const val PAGE_PREFERENCES = "preferences"
 private const val PAGE_PRIVACY = "privacy"
+private const val PAGE_PROXY_PRIVACY = "proxy_privacy"
 private const val PAGE_PER_APP = "per_app"
 private const val PAGE_PER_APP_BACKUP = "per_app_backup"
 private const val PAGE_PROFILE_DETAILS = "profile_details"
@@ -93,6 +94,9 @@ private const val PAGE_PROTECTION = "protection"
 
 @Composable
 fun NativeApp(
+    proxyPrivacy: com.hiddify.hiddify.privacy.NativeProxyPrivacy,
+    proxyPrivacyBusy: Boolean,
+    onSaveProxyPrivacy: (com.hiddify.hiddify.privacy.NativeProxyPrivacy) -> Unit,
     privacySetupBusy: Boolean,
     privacyConfigured: Boolean,
     privacyCanRestore: Boolean,
@@ -221,12 +225,12 @@ fun NativeApp(
     var pageTrail by rememberSaveable { mutableStateOf("") }
     var settingsCategory by rememberSaveable { mutableStateOf(NativeSettingsCategory.APP.name) }
     fun openPage(destination: String) {
-        if (privacySetupBusy) return
+        if (privacySetupBusy || proxyPrivacyBusy) return
         pageTrail += "|$page"
         page = destination
     }
     fun goBack() {
-        if (privacySetupBusy) return
+        if (privacySetupBusy || proxyPrivacyBusy) return
         if (page == PAGE_DIAGNOSTICS) onCancelDiagnostics()
         if (page == PAGE_PER_APP_BACKUP) onDismissPerAppImport()
         page = pageTrail.substringAfterLast('|', PAGE_HOME)
@@ -237,7 +241,7 @@ fun NativeApp(
         openPage(PAGE_PREFERENCES)
     }
 
-    BackHandler(enabled = privacySetupBusy || page != PAGE_HOME) { goBack() }
+    BackHandler(enabled = privacySetupBusy || proxyPrivacyBusy || page != PAGE_HOME) { goBack() }
 
     NativeAppTheme(themeMode) {
         NativeAtmosphere {
@@ -438,11 +442,21 @@ fun NativeApp(
                                 onOpenLegacy = onOpenLegacy,
                             )
 
+                            PAGE_PROXY_PRIVACY -> NativeProxyPrivacyScreen(
+                                options = proxyPrivacy,
+                                busy = proxyPrivacyBusy,
+                                wifiSharing = settingsState.wifiSharing,
+                                rootMode = rootMode,
+                                onBack = { goBack() },
+                                onSave = onSaveProxyPrivacy,
+                                onOpenCoreOptions = { openPage(PAGE_CORE_OPTIONS) },
+                            )
+
                             PAGE_PRIVACY -> NativePrivacyOverviewScreen(
                                 configured = privacyConfigured,
                                 canRestore = privacyCanRestore,
                                 busy = privacySetupBusy,
-                                canApply = status == Status.Stopped && !wifiSharingBusy && !regionalBusy && !connectionOptionsBusy,
+                                canApply = status == Status.Stopped && !wifiSharingBusy && !regionalBusy && !connectionOptionsBusy && !proxyPrivacyBusy,
                                 onConfigure = onConfigurePrivacy,
                                 onRestore = onRestorePrivacy,
                                 expandedCategories = privacyExpanded.split('|').filter { it.isNotEmpty() }.toSet(),
@@ -454,6 +468,7 @@ fun NativeApp(
                                 onOpenRegional = { openPage(PAGE_REGIONAL) },
                                 onOpenPerApp = { openPage(PAGE_PER_APP) },
                                 onOpenPolicy = { openPage(PAGE_CONNECTION_POLICY) },
+                                onOpenProxyPrivacy = { openPage(PAGE_PROXY_PRIVACY) },
                                 onOpenProtection = {
                                     onRefreshVpnProtection()
                                     openPage(PAGE_PROTECTION)
@@ -544,7 +559,7 @@ fun NativeApp(
                                 Triple(PAGE_PRIVACY, R.drawable.native_shield, R.string.native_privacy_title),
                                 Triple(PAGE_SETTINGS, R.drawable.native_settings, R.string.native_settings),
                             ).forEach { (destination, icon, label) ->
-                                NavigationBarItem(selected = page == destination, enabled = !privacySetupBusy, onClick = { pageTrail = ""; page = destination },
+                                NavigationBarItem(selected = page == destination, enabled = !privacySetupBusy && !proxyPrivacyBusy, onClick = { pageTrail = ""; page = destination },
                                     icon = { Icon(painterResource(icon), contentDescription = null) },
                                     label = { Text(stringResource(label), maxLines = 1) })
                             }
