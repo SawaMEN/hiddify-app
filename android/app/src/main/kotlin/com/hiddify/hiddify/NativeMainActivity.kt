@@ -34,6 +34,7 @@ import com.hiddify.hiddify.nativecore.NativeStatsRepository
 import com.hiddify.hiddify.nativecore.NativeSystemStats
 import com.hiddify.hiddify.nativecore.NativeWifiSharingDetails
 import com.hiddify.hiddify.nativecore.NativeWifiSharingRepository
+import com.hiddify.hiddify.nativecore.NativeUpdateRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
 import com.hiddify.hiddify.nativeui.NativeApp
@@ -90,6 +91,9 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val systemStats = mutableStateOf(NativeSystemStats())
     private val wifiSharingDetails = mutableStateOf(NativeWifiSharingDetails())
     private val wifiSharingDetailsBusy = mutableStateOf(false)
+    private val updateChecking = mutableStateOf(false)
+    private val updateMessage = mutableStateOf<String?>(null)
+    private val updateUrl = mutableStateOf<String?>(null)
     private val errorMessage = mutableStateOf<String?>(null)
     private val nativeSettings = mutableStateOf(readNativeSettings())
 
@@ -100,6 +104,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val outboundsRepository by lazy { NativeOutboundsRepository() }
     private val statsRepository by lazy { NativeStatsRepository() }
     private val wifiSharingRepository by lazy { NativeWifiSharingRepository() }
+    private val updateRepository by lazy { NativeUpdateRepository() }
     private val profileOperationMutex = Mutex()
     private val connection = ServiceConnection(this, this)
 
@@ -171,6 +176,9 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 systemStats = systemStats.value,
                 wifiSharingDetails = wifiSharingDetails.value,
                 wifiSharingDetailsBusy = wifiSharingDetailsBusy.value,
+                updateChecking = updateChecking.value,
+                updateMessage = updateMessage.value,
+                updateUrl = updateUrl.value,
                 errorMessage = errorMessage.value,
                 onDismissError = { errorMessage.value = null },
                 onToggleConnection = ::toggleConnection,
@@ -191,6 +199,12 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onTestOutbound = ::testOutbound,
                 onTestActiveOutbounds = ::testActiveOutbounds,
                 onRefreshWifiSharingDetails = ::refreshWifiSharingDetails,
+                onCheckUpdate = ::checkForUpdate,
+                onOpenUpdate = { updateUrl.value?.let(::openExternalUrl) },
+                onOpenFork = { openExternalUrl(NativeUpdateRepository.FORK_URL) },
+                onOpenUpstream = { openExternalUrl(NativeUpdateRepository.UPSTREAM_URL) },
+                onOpenTerms = { openExternalUrl(NativeUpdateRepository.TERMS_URL) },
+                onOpenPrivacy = { openExternalUrl(NativeUpdateRepository.PRIVACY_URL) },
                 onOpenLegacy = ::openLegacyUi,
                 onProxyOnlyChanged = { proxyOnly ->
                     if (serviceStatus.value != Status.Stopped) {
@@ -770,6 +784,57 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
             } finally {
                 wifiSharingDetailsBusy.value = false
             }
+        }
+    }
+
+    private fun checkForUpdate() {
+        if (updateChecking.value) return
+        updateChecking.value = true
+        updateMessage.value = null
+        updateUrl.value = null
+
+        lifecycleScope.launch {
+            try {
+                val release =
+                    withContext(Dispatchers.IO) {
+                        updateRepository.latestCompatible()
+                    }
+                when {
+                    release == null -> {
+                        updateMessage.value = getString(R.string.native_about_update_none)
+                    }
+
+                    updateRepository.isNewer(
+                        release,
+                        BuildConfig.VERSION_NAME,
+                        BuildConfig.VERSION_CODE,
+                    ) -> {
+                        updateMessage.value =
+                            getString(R.string.native_about_update_available, release.version)
+                        updateUrl.value = release.pageUrl
+                    }
+
+                    else -> {
+                        updateMessage.value = getString(R.string.native_about_update_current)
+                    }
+                }
+            } catch (error: Exception) {
+                updateMessage.value =
+                    getString(
+                        R.string.native_about_update_error,
+                        error.message ?: error.javaClass.simpleName,
+                    )
+            } finally {
+                updateChecking.value = false
+            }
+        }
+    }
+
+    private fun openExternalUrl(url: String) {
+        runCatching {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        }.onFailure { error ->
+            errorMessage.value = error.message ?: error.javaClass.simpleName
         }
     }
 
