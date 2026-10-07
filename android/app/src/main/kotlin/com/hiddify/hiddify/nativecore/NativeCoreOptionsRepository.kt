@@ -2,6 +2,7 @@ package com.hiddify.hiddify.nativecore
 
 import com.hiddify.hiddify.Settings
 import org.json.JSONObject
+import java.security.SecureRandom
 
 data class NativeCoreOptions(
     val balancerStrategy: String,
@@ -159,6 +160,17 @@ class NativeCoreOptionsRepository {
 
     fun setMtu(value: Int) = update { it.put("mtu", value.coerceIn(1280, 65535)) }
 
+    fun setLanSharing(enabled: Boolean): NativeCoreOptions =
+        update { root ->
+            root.put("allow-connection-from-lan", enabled)
+            if (enabled && root.optString("lan-sharing-password").isBlank()) {
+                root.put("lan-sharing-password", generateLanPassword())
+            }
+        }
+
+    fun lanSharingPassword(): String =
+        root().optString("lan-sharing-password").trim()
+
     fun updateTls(transform: (JSONObject) -> Unit): NativeCoreOptions =
         update { root ->
             val tls = root.optJSONObject("tls-tricks") ?: JSONObject()
@@ -178,6 +190,13 @@ class NativeCoreOptionsRepository {
             val raw = Settings.configOptions.trim()
             if (raw.isEmpty()) JSONObject() else JSONObject(raw)
         }.getOrElse { JSONObject() }
+
+    private fun generateLanPassword(): String {
+        val bytes = ByteArray(12).also(SecureRandom()::nextBytes)
+        return bytes.joinToString(separator = "") { byte ->
+            "%02x".format(byte.toInt() and 0xff)
+        }
+    }
 
     private fun Int.validPortOr(fallback: Int): Int =
         if (this in 1..65535) this else fallback
