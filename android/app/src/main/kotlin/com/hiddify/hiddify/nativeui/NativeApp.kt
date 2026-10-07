@@ -171,6 +171,10 @@ fun NativeApp(
     profileSelectionRevision: Int,
     busyProfileId: String?,
     profileEditor: NativeProfileEditor?,
+    editorSession: com.hiddify.hiddify.nativeprofile.NativeProfileEditorSession,
+    profileEditorLoadFailed: Boolean,
+    profileEditorSavedRevision: Int,
+    onRetryProfileEditor: () -> Unit,
     profileEditorBusy: Boolean,
     perAppSnapshot: NativePerAppSnapshot,
     perAppBusy: Boolean,
@@ -262,6 +266,7 @@ fun NativeApp(
     var profileSortByName by rememberSaveable { mutableStateOf(false) }
     var profileSortAscending by rememberSaveable { mutableStateOf(false) }
     var addProfileOpen by rememberSaveable { mutableStateOf(false) }
+    var observedEditorSavedRevision by remember { mutableStateOf(profileEditorSavedRevision) }
     var observedImportRevision by remember { mutableStateOf(profileImportRevision) }
     var observedSelectionRevision by remember { mutableStateOf(profileSelectionRevision) }
     var quickSettingsOpen by rememberSaveable { mutableStateOf(false) }
@@ -295,6 +300,12 @@ fun NativeApp(
             addProfileOpen = false
         }
     }
+    LaunchedEffect(profileEditorSavedRevision) {
+        if (profileEditorSavedRevision != observedEditorSavedRevision) {
+            observedEditorSavedRevision = profileEditorSavedRevision
+            if (page == PAGE_PROFILE_DETAILS) goBack()
+        }
+    }
     LaunchedEffect(profileSelectionRevision) {
         if (profileSelectionRevision != observedSelectionRevision) {
             observedSelectionRevision = profileSelectionRevision
@@ -313,11 +324,11 @@ fun NativeApp(
                         .fillMaxSize()
                         .statusBarsPadding()
                         .navigationBarsPadding()
-                        .padding(top = if (page == PAGE_OUTBOUNDS || page == PAGE_HOME || page == PAGE_PROFILES) 0.dp else 8.dp),
+                        .padding(top = if (page == PAGE_OUTBOUNDS || page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS) 0.dp else 8.dp),
             ) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    Box((if (page == PAGE_OUTBOUNDS || page == PAGE_HOME || page == PAGE_PROFILES) Modifier else Modifier.widthIn(max = 680.dp))
-                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_OUTBOUNDS, PAGE_HOME, PAGE_PROFILES -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
+                    Box((if (page == PAGE_OUTBOUNDS || page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS) Modifier else Modifier.widthIn(max = 680.dp))
+                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_OUTBOUNDS, PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
                         when (page) {
                             PAGE_DIAGNOSTICS ->
                                 NativeDiagnosticsScreen(
@@ -406,6 +417,7 @@ fun NativeApp(
                             PAGE_PROFILE_DETAILS ->
                                 NativeProfileDetailsScreen(
                                     editor = profileEditor,
+                                    session = editorSession, loadFailed = profileEditorLoadFailed, onRetry = onRetryProfileEditor,
                                     busy = profileEditorBusy,
                                     onBack = { goBack() },
                                     onSave = onSaveProfileEditor,

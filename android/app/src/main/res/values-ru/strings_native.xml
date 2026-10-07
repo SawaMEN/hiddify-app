@@ -639,4 +639,20 @@
     <string name="native_profiles_load_failed">Не удалось загрузить профили</string>
     <string name="native_profiles_retry">Повторить</string>
     <string name="native_profile_url">URL</string>
+    <string name="native_json_invalid">Некорректная конфигурация JSON</string>
+    <string name="native_json_search">Поиск</string>
+    <string name="native_json_copy">Копировать</string>
+    <string name="native_json_copied">Скопировано</string>
+    <string name="native_json_clipboard_large">Конфигурация слишком большая для буфера обмена. Используйте экспорт в файл.</string>
+    <string name="native_json_format">Форматировать</string>
+    <string name="native_json_expand">Развернуть всё</string>
+    <string name="native_json_collapse">Свернуть всё</string>
+    <string name="native_json_edit_value">Изменить значение</string>
+    <string name="native_json_rename">Переименовать ключ</string>
+    <string name="native_json_value">Значение</string>
+    <string name="native_json_merge_confirm">Применить этот шаблон? Существующие поля, включённые в шаблон, будут заменены.</string>
+    <string name="native_editor_load_failed">Не удалось загрузить конфигурацию профиля</string>
+    <string name="native_editor_last_update">Последнее обновление</string>
+    <string name="native_editor_traffic">↑ %1$s     ↓ %2$s     ↕ %3$s</string>
+    <string name="native_editor_expiry">Срок действия: %1$s</string>
 </resources>

@@ -121,3 +121,42 @@ as an empty database. Profile snapshot reads also use the operation mutex.
 start because the pinned Gradle download reports `Network is unreachable`. CI compilation
 and same-device screenshots remain necessary. The Material partial-sheet anchor currently
 differs from Dart's 35% initial extent; this step does not establish pixel-identical rendering.
+
+
+## Native profile details and JSON editor
+
+Profile details now uses the Dart 56 dp app bar with Save, the name/URL fields at 16 dp
+insets, a selectable full subscription URL, automatic-update switch and interval slider,
+last-update row, subscription counters/expiry, and a configuration editor occupying 70%
+of the screen height. Existing intervals above 96 hours are retained and expand the slider
+range. Save is enabled only for changed, non-empty, valid content; a successful Activity
+save revision returns to the previous page. Load failures have an explicit retry state.
+
+NativeJsonEditor restores tree/text modes, expansion/collapse, key/value search with
+previous/next matches, copy/format, key renaming, primitive editing, adding objects/arrays/
+strings/booleans/numbers/nulls, deleting items, protocol insertion and settings templates.
+The 16 protocol templates, 3 settings-template groups and 14 value-choice lists are copied
+from the Dart reference into an offline asset. Tree rows retain the 18 dp nesting and 30 dp
+base height, with object type/tag summaries. Tree building, parsing, search, formatting and
+mutations run off the main thread. A lazy list composes only visible tree rows. Text edits
+invalidate Save immediately, before the debounced parser publishes its result.
+
+JSON-pointer operations preserve escaped keys, null values and arbitrary numeric precision;
+failed key collisions leave the original document unchanged. Strict parsing rejects trailing
+content and malformed JSON. Existing 8 MiB file limits remain, and nesting is bounded to 128
+levels. Clipboard copying retains the existing 256 KiB budget. Template merges explicitly
+confirm replacement of fields included in the template. Plain configuration formats retain
+a text editor.
+
+A ViewModel retains the editor draft across Activity recreation without putting large
+configuration contents in a Bundle. The Activity restores the editor profile ID and reloads
+its source after recreation/process restart. Unsaved contents survive rotation, but they
+are not persisted across process death. Keys, strings and numbers edit inline on focus loss; booleans use an inline checkbox and
+known string fields use their value-choice dropdowns. Creation/null editing uses dialogs.
+Exact typography/icons/header controls and device comparison remain parity work.
+
+Seven NativeJsonDocumentTest scenarios cover exact number/null round trips, escaped pointers,
+array mutation, failed collision atomicity, strict parsing, search, template isolation and
+nesting. The JVM suite compiles the production model directly. Native/resource and whitespace
+checks pass. Local tests could not start because the Gradle distribution download reports
+Network is unreachable. Per user instruction, APK compilation is not awaited for this step.

@@ -103,6 +103,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val profileImportRevision = mutableStateOf(0)
     private val profileSelectionRevision = mutableStateOf(0)
     private val busyProfileId = mutableStateOf<String?>(null)
+    private val editorSession by lazy { androidx.lifecycle.ViewModelProvider(this)[com.hiddify.hiddify.nativeprofile.NativeProfileEditorSession::class.java] }
+    private var profileEditorId: String? = null
+    private val profileEditorLoadFailed = mutableStateOf(false)
+    private val profileEditorSavedRevision = mutableStateOf(0)
     private val profileEditor = mutableStateOf<NativeProfileEditor?>(null)
     private val profileEditorBusy = mutableStateOf(false)
     private val perAppSnapshot =
@@ -334,6 +338,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     override fun onSaveInstanceState(outState: android.os.Bundle) {
         outState.putInt("native_recovery_attempts", recoveryPolicy.attempts)
         outState.putString("native_profile_export_id", pendingProfileExportId)
+        outState.putString("native_profile_editor_id", profileEditorId)
         super.onSaveInstanceState(outState)
     }
 
@@ -350,6 +355,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         super.onCreate(savedInstanceState)
         AutomaticHotspot.addObserver(hotspotObserver)
         pendingProfileExportId = savedInstanceState?.getString("native_profile_export_id")
+        savedInstanceState?.getString("native_profile_editor_id")?.let(::loadProfileEditor)
         recoveryPolicy = NativeRecoveryPolicy(savedInstanceState?.getInt("native_recovery_attempts") ?: 0)
 
         if (migrationError != null) {
@@ -435,6 +441,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 profileSelectionRevision = profileSelectionRevision.value,
                 busyProfileId = busyProfileId.value,
                 profileEditor = profileEditor.value,
+                editorSession = editorSession,
+                profileEditorLoadFailed = profileEditorLoadFailed.value,
+                profileEditorSavedRevision = profileEditorSavedRevision.value,
+                onRetryProfileEditor = { profileEditorId?.let(::loadProfileEditor) },
                 profileEditorBusy = profileEditorBusy.value,
                 perAppSnapshot = perAppSnapshot.value,
                 perAppBusy = perAppBusy.value,
@@ -986,15 +996,25 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun openProfileEditor(profile: NativeProfile) {
         if (profileEditorBusy.value) return
+        editorSession.reset()
+        loadProfileEditor(profile.id)
+    }
+
+    private fun loadProfileEditor(id: String) {
+        if (profileEditorBusy.value) return
+        profileEditorId = id
         profileEditor.value = null
+        profileEditorLoadFailed.value = false
         profileEditorBusy.value = true
         lifecycleScope.launch {
             try {
                 profileEditor.value =
                     withContext(Dispatchers.IO) {
-                        profileOperationMutex.withLock { profileRepository.loadEditor(profile.id) }
+                        profileOperationMutex.withLock { profileRepository.loadEditor(id) }
                     }
             } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                profileEditorLoadFailed.value = profileEditor.value == null
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
                 profileEditorBusy.value = false
@@ -1030,7 +1050,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 profileEditor.value = result.first
                 profiles.value = result.second
                 refreshProfileSnapshot()
+                profileEditorSavedRevision.value += 1
             } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                profileEditorLoadFailed.value = profileEditor.value == null
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
                 profileEditorBusy.value = false

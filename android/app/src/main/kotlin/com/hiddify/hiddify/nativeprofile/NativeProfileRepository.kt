@@ -54,6 +54,7 @@ data class NativeProfileEditor(
     val name: String,
     val disableAutoUpdate: Boolean,
     val updateIntervalHours: Int?,
+    val isJson: Boolean = false,
 )
 
 /**
@@ -316,6 +317,7 @@ class NativeProfileRepository(private val context: Context) {
         return NativeProfileEditor(
             profile = profile,
             content = content,
+            isJson = runCatching { NativeJsonDocument.parse(content) }.isSuccess,
             name = userOverrideName(profile.userOverride) ?: profile.name,
             disableAutoUpdate = userOverrideAutoUpdateDisabled(profile.userOverride),
             updateIntervalHours =
@@ -338,8 +340,8 @@ class NativeProfileRepository(private val context: Context) {
         require(content.toByteArray(Charsets.UTF_8).size <= MAX_CONFIG_BYTES) {
             "Configuration exceeds 8 MiB"
         }
-        if (content.trimStart().startsWith("{")) {
-            runCatching { JSONObject(content) }
+        if (content.trimStart().startsWith("{") || content.trimStart().startsWith("[")) {
+            runCatching { NativeJsonDocument.parse(content) }
                 .getOrElse { throw IllegalArgumentException("Invalid JSON configuration", it) }
         }
 

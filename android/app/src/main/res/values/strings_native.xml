@@ -639,4 +639,20 @@ Don’t have a VPN server yet? No worries—just follow the tutorial below to se
     <string name="native_profiles_load_failed">Failed to load profiles</string>
     <string name="native_profiles_retry">Retry</string>
     <string name="native_profile_url">URL</string>
+    <string name="native_json_invalid">Invalid JSON configuration</string>
+    <string name="native_json_search">Search</string>
+    <string name="native_json_copy">Copy</string>
+    <string name="native_json_copied">Copied</string>
+    <string name="native_json_clipboard_large">Configuration is too large for the clipboard. Use file export.</string>
+    <string name="native_json_format">Format</string>
+    <string name="native_json_expand">Expand All</string>
+    <string name="native_json_collapse">Collapse All</string>
+    <string name="native_json_edit_value">Edit value</string>
+    <string name="native_json_rename">Rename key</string>
+    <string name="native_json_value">Value</string>
+    <string name="native_json_merge_confirm">Apply this template? Existing fields included in the template will be replaced.</string>
+    <string name="native_editor_load_failed">Failed to load profile configuration</string>
+    <string name="native_editor_last_update">Last update</string>
+    <string name="native_editor_traffic">↑ %1$s     ↓ %2$s     ↕ %3$s</string>
+    <string name="native_editor_expiry">Expiry: %1$s</string>
 </resources>
