@@ -1,5 +1,6 @@
 package com.hiddify.hiddify.nativeui
 
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
@@ -59,6 +60,10 @@ enum class NativeSettingsCategory(val title: Int) {
 
 @Composable
 fun NativeSettingsScreen(
+    generalPreferences: com.hiddify.hiddify.nativepreferences.NativeGeneralPreferences,
+    generalPreferencesBusy: Boolean,
+    onChangeLanguage: (com.hiddify.hiddify.nativepreferences.NativeLanguage) -> Unit,
+    onChangeHapticFeedback: (Boolean) -> Unit,
     state: NativeSettingsState,
     category: NativeSettingsCategory? = null,
     themeMode: NativeThemeMode,
@@ -100,6 +105,7 @@ fun NativeSettingsScreen(
     onDebugModeChanged: (Boolean) -> Unit,
     onDisableMemoryLimitChanged: (Boolean) -> Unit,
 ) {
+    var languagePickerOpen by rememberSaveable { mutableStateOf(false) }
     var themePickerOpen by rememberSaveable { mutableStateOf(false) }
     var includePrivateExport by rememberSaveable { mutableStateOf(false) }
     var resetSettingsOpen by rememberSaveable { mutableStateOf(false) }
@@ -274,6 +280,8 @@ fun NativeSettingsScreen(
         }
 
         if (category == null || category == NativeSettingsCategory.APP) SettingsSection(title = stringResource(R.string.native_settings_app)) {
+            NativePreferenceValueRow(R.string.native_language_title, languageTitle(generalPreferences.language),
+                !generalPreferencesBusy, R.drawable.native_layers) { languagePickerOpen = true }
             if (!themeBusy) NativeSettingsLink(R.string.native_theme_title, R.drawable.native_layers,
                 { themePickerOpen = true }, themeTitle(themeMode))
             else Text(stringResource(R.string.native_theme_title) + ": " + stringResource(themeTitle(themeMode)))
@@ -287,6 +295,8 @@ fun NativeSettingsScreen(
                 checked = state.dynamicNotification,
                 onCheckedChange = onDynamicNotificationChanged,
             )
+            NativePreferenceSwitch(R.string.native_haptic_title, R.string.native_haptic_summary,
+                R.drawable.native_layers, generalPreferences.hapticFeedback, !generalPreferencesBusy, onChangeHapticFeedback)
             SettingSwitch(
                 title = stringResource(R.string.native_setting_disable_memory_limit),
                 summary = stringResource(R.string.native_setting_disable_memory_limit_summary),
@@ -314,6 +324,30 @@ fun NativeSettingsScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+    }
+
+    if (languagePickerOpen) {
+        AlertDialog(onDismissRequest = { languagePickerOpen = false },
+            title = { Text(stringResource(R.string.native_language_title)) },
+            text = {
+                Column {
+                    com.hiddify.hiddify.nativepreferences.NativeLanguage.entries.forEach { language ->
+                        val selected = generalPreferences.language == language
+                        Row(Modifier.fillMaxWidth().selectable(selected = selected, enabled = !generalPreferencesBusy,
+                            role = Role.RadioButton, onClick = {
+                                languagePickerOpen = false
+                                onChangeLanguage(language)
+                            }).padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = selected, onClick = null, enabled = !generalPreferencesBusy)
+                            Text(languageTitle(language), Modifier.padding(start = 12.dp))
+                        }
+                    }
+                    Text(stringResource(R.string.native_language_available), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }, confirmButton = {}, dismissButton = {
+                TextButton(onClick = { languagePickerOpen = false }) { Text(stringResource(android.R.string.cancel)) }
+            })
     }
 
     if (themePickerOpen) {
@@ -421,4 +455,11 @@ private fun themeTitle(mode: NativeThemeMode): Int = when (mode) {
     NativeThemeMode.LIGHT -> R.string.native_theme_light
     NativeThemeMode.DARK -> R.string.native_theme_dark
     NativeThemeMode.BLACK -> R.string.native_theme_black
+}
+
+@Composable
+private fun languageTitle(language: com.hiddify.hiddify.nativepreferences.NativeLanguage): String = when (language) {
+    com.hiddify.hiddify.nativepreferences.NativeLanguage.SYSTEM -> stringResource(R.string.native_language_system)
+    com.hiddify.hiddify.nativepreferences.NativeLanguage.ENGLISH -> "English"
+    com.hiddify.hiddify.nativepreferences.NativeLanguage.RUSSIAN -> "Русский"
 }

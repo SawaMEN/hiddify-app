@@ -97,6 +97,10 @@ private const val PAGE_PROTECTION = "protection"
 
 @Composable
 fun NativeApp(
+    generalPreferences: com.hiddify.hiddify.nativepreferences.NativeGeneralPreferences,
+    generalPreferencesBusy: Boolean,
+    onChangeLanguage: (com.hiddify.hiddify.nativepreferences.NativeLanguage) -> Unit,
+    onChangeHapticFeedback: (Boolean) -> Unit,
     tlsOptions: com.hiddify.hiddify.nativecore.NativeTlsOptions?,
     tlsBusy: Boolean,
     onSaveTlsOptions: (com.hiddify.hiddify.nativecore.NativeTlsOptions) -> Unit,
@@ -237,12 +241,12 @@ fun NativeApp(
     var pageTrail by rememberSaveable { mutableStateOf("") }
     var settingsCategory by rememberSaveable { mutableStateOf(NativeSettingsCategory.APP.name) }
     fun openPage(destination: String) {
-        if (privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy) return
+        if (privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy || generalPreferencesBusy) return
         pageTrail += "|$page"
         page = destination
     }
     fun goBack() {
-        if (privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy) return
+        if (privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy || generalPreferencesBusy) return
         if (page == PAGE_DIAGNOSTICS) onCancelDiagnostics()
         if (page == PAGE_PER_APP_BACKUP) onDismissPerAppImport()
         page = pageTrail.substringAfterLast('|', PAGE_HOME)
@@ -253,7 +257,7 @@ fun NativeApp(
         openPage(PAGE_PREFERENCES)
     }
 
-    BackHandler(enabled = privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy || page != PAGE_HOME) { goBack() }
+    BackHandler(enabled = privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy || generalPreferencesBusy || page != PAGE_HOME) { goBack() }
 
     NativeAppTheme(themeMode) {
         NativeAtmosphere {
@@ -474,7 +478,7 @@ fun NativeApp(
 
                             PAGE_INBOUND -> NativeInboundOptionsScreen(
                                 options = inboundOptions, busy = inboundBusy,
-                                canSave = status == Status.Stopped && !wifiSharingBusy && !coreOptionsBusy && !chainBusy && !dnsBusy && !tlsBusy,
+                                canSave = status == Status.Stopped && !wifiSharingBusy && !coreOptionsBusy && !chainBusy && !dnsBusy && !tlsBusy && !generalPreferencesBusy,
                                 onBack = { goBack() }, onSave = onSaveInboundOptions,
                                 onOpenVpnOptions = { openCategory(NativeSettingsCategory.VPN) },
                             )
@@ -518,6 +522,10 @@ fun NativeApp(
 
                             PAGE_PREFERENCES ->
                                 NativeSettingsScreen(
+                                    generalPreferences = generalPreferences,
+                                    generalPreferencesBusy = generalPreferencesBusy,
+                                    onChangeLanguage = onChangeLanguage,
+                                    onChangeHapticFeedback = onChangeHapticFeedback,
                                     category = NativeSettingsCategory.valueOf(settingsCategory),
                                     state = settingsState,
                                     themeMode = themeMode,
@@ -597,7 +605,7 @@ fun NativeApp(
                                 Triple(PAGE_PRIVACY, R.drawable.native_shield, R.string.native_privacy_title),
                                 Triple(PAGE_SETTINGS, R.drawable.native_settings, R.string.native_settings),
                             ).forEach { (destination, icon, label) ->
-                                NavigationBarItem(selected = page == destination, enabled = !privacySetupBusy && !proxyPrivacyBusy && !inboundBusy && !dnsBusy && !tlsBusy, onClick = { pageTrail = ""; page = destination },
+                                NavigationBarItem(selected = page == destination, enabled = !privacySetupBusy && !proxyPrivacyBusy && !inboundBusy && !dnsBusy && !tlsBusy && !generalPreferencesBusy, onClick = { pageTrail = ""; page = destination },
                                     icon = { Icon(painterResource(icon), contentDescription = null) },
                                     label = { Text(stringResource(label), maxLines = 1) })
                             }

@@ -518,4 +518,9 @@
     <string name="native_tls_not_set">Не задано</string>
     <string name="native_tls_save">Сохранить настройки TLS</string>
     <string name="native_tls_saved">Настройки TLS сохранены. Подключите VPN для применения.</string>
+    <string name="native_language_title">Язык</string>
+    <string name="native_language_system">Как в системе</string>
+    <string name="native_language_available">Нативный интерфейс пока поддерживает русский и английский. Другие сохранённые языки используют язык системы и сохраняются до выбора языка здесь.</string>
+    <string name="native_haptic_title">Виброотклик</string>
+    <string name="native_haptic_summary">Вибрация при подключении и отключении. Учитывает настройки виброотклика Android.</string>
 </resources>

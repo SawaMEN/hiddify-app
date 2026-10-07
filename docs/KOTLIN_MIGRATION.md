@@ -303,6 +303,29 @@ reload after imports and returning from the compatibility UI. Resource and patch
 no tests are added or manually run. Android compilation and device screenshot comparison remain
 separate verification steps.
 
+## Native language and haptic preferences
+
+The general settings page now starts with a native language picker and includes the Dart haptic
+switch. Shared preference rows, localized radio dialogs and card styling retain the established
+appearance. English, Russian and system mode are available; other native translations are still
+migration work. Unsupported saved Dart locales follow the system in native UI but remain stored
+until an explicit language selection. Choosing system removes the Flutter locale override, matching
+Dart's device-locale fallback. Haptic changes never rewrite the locale.
+
+Language uses Activity-scoped configuration resources, including alerts and Compose strings,
+without mutating the process locale or running service. An IO preference commit precedes Activity
+recreation; existing saved native navigation and connection intent are restored. Returning from
+compatibility UI detects a changed supported language and recreates the Activity. Pending starts
+and core option writes prevent a manual language change during those operations.
+
+Haptic feedback reads the existing `flutter.haptic_feedback` key with Dart's true default. Native
+manual connect uses a light virtual-key pulse; disconnect and recovery cancellation use a context
+click. Android's own haptic settings are respected. Automatic recovery and background observations
+remain silent. Both preferences save on IO, report failures, and serialize their writes.
+
+Resource and patch checks are performed. No tests are added or manually run; full Android compilation
+and device language/recreation checks remain CI/device verification work.
+
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and

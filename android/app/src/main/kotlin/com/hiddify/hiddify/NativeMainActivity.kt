@@ -164,6 +164,10 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val diagnosticBusy = mutableStateOf(false)
     private val vpnProtection = mutableStateOf(NativeVpnProtection())
     private val errorMessage = mutableStateOf<String?>(null)
+    private var appliedLanguage = com.hiddify.hiddify.nativepreferences.NativeLanguage.SYSTEM
+    private val generalPreferences = mutableStateOf(com.hiddify.hiddify.nativepreferences.NativeGeneralPreferences())
+    private val generalPreferencesBusy = mutableStateOf(false)
+    private val generalPreferencesRepository by lazy { com.hiddify.hiddify.nativepreferences.NativeGeneralPreferencesRepository(applicationContext) }
     private val themeMode = mutableStateOf(NativeThemeMode.SYSTEM)
     private val themeBusy = mutableStateOf(false)
     private val privacySetupRepository by lazy { com.hiddify.hiddify.nativeprivacy.NativePrivacySetupRepository(applicationContext) }
@@ -326,6 +330,11 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         super.onSaveInstanceState(outState)
     }
 
+    override fun attachBaseContext(newBase: android.content.Context) {
+        appliedLanguage = com.hiddify.hiddify.nativepreferences.NativeGeneralPreferencesRepository(newBase).load().language
+        super.attachBaseContext(com.hiddify.hiddify.nativepreferences.NativeGeneralPreferencesRepository.localizedContext(newBase, appliedLanguage))
+    }
+
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
         val migrationError =
             runCatching { com.hiddify.hiddify.privacy.PackageIdentity.importMigration(this) }
@@ -355,6 +364,10 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
             }
             NativeApp(
+                generalPreferences = generalPreferences.value,
+                generalPreferencesBusy = generalPreferencesBusy.value,
+                onChangeLanguage = ::saveLanguage,
+                onChangeHapticFeedback = ::saveHapticFeedback,
                 tlsOptions = tlsOptions.value,
                 tlsBusy = tlsBusy.value,
                 onSaveTlsOptions = ::saveTlsOptions,
@@ -532,6 +545,12 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     override fun onResume() {
         super.onResume()
+        if (!generalPreferencesBusy.value && !pendingStartAfterVpnPermission && !nativeStartPending &&
+            !tlsBusy.value && !dnsBusy.value && !inboundBusy.value && !privacySetupBusy.value &&
+            generalPreferencesRepository.load().language != appliedLanguage) {
+            recreate()
+            return
+        }
         refreshVpnProtection()
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
@@ -1216,6 +1235,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         nativeSettings.value = readNativeSettings()
         refreshProxyPrivacyState()
         refreshPrivacySetupState()
+        generalPreferences.value = generalPreferencesRepository.load()
         themeMode.value = appearanceRepository.load()
         connectionOptions.value = NetworkPrivacySettings.loadConnection(this)
         regionalOptions.value = regionalRepository.load()
@@ -1302,8 +1322,50 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    private fun saveLanguage(language: com.hiddify.hiddify.nativepreferences.NativeLanguage) {
+        if (generalPreferencesBusy.value || themeBusy.value || proxyPrivacyBusy.value || privacySetupBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value ||
+            coreOptionsBusy.value || chainBusy.value || wifiSharingBusy.value || pendingStartAfterVpnPermission || nativeStartPending) return
+        generalPreferencesBusy.value = true
+        lifecycleScope.launch {
+            try {
+                generalPreferences.value = withContext(Dispatchers.IO) { generalPreferencesRepository.saveLanguage(language) }
+                if (language != appliedLanguage) recreate()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                generalPreferencesBusy.value = false
+            }
+        }
+    }
+
+    private fun saveHapticFeedback(enabled: Boolean) {
+        if (generalPreferencesBusy.value) return
+        generalPreferencesBusy.value = true
+        lifecycleScope.launch {
+            try {
+                generalPreferences.value = withContext(Dispatchers.IO) { generalPreferencesRepository.saveHapticFeedback(enabled) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                generalPreferencesBusy.value = false
+            }
+        }
+    }
+
+    private fun connectionHaptic(stopping: Boolean) {
+        if (!generalPreferences.value.hapticFeedback) return
+        runCatching {
+            window.decorView.performHapticFeedback(if (stopping) android.view.HapticFeedbackConstants.CONTEXT_CLICK
+                else android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+        }
+    }
+
     private fun saveTheme(mode: NativeThemeMode) {
-        if (themeBusy.value) return
+        if (themeBusy.value || generalPreferencesBusy.value) return
         themeBusy.value = true
         lifecycleScope.launch {
             try {
@@ -1963,6 +2025,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun toggleConnection() {
         if (privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value) return
         if (recoveryJob != null || recoveryAttempt.value > 0) {
+            connectionHaptic(stopping = true)
             Settings.connectionDesired = false
             Settings.startedByUser = false
             nativeStartPending = false
@@ -1972,8 +2035,12 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
             return
         }
         when (serviceStatus.value) {
-            Status.Stopped -> requestStart()
+            Status.Stopped -> {
+                connectionHaptic(stopping = false)
+                requestStart()
+            }
             Status.Started -> {
+                connectionHaptic(stopping = true)
                 cancelRecovery()
                 Settings.connectionDesired = false
                 BoxService.stop()
