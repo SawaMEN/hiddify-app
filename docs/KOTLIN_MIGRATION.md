@@ -10,8 +10,23 @@ Existing storage names and schemas remain compatible with installed versions. Th
 `NativeMainActivity` component is retained as an Android manifest alias to the new entry point.
 Version metadata is now in `version.properties`. The app retains the migrated Compose visual
 style, but exact country/provider artwork and device screenshot parity are still outstanding.
-No tests were run manually for the standalone conversion. APK verification is pending the new
-GitHub build; earlier sections below document the incremental migration history.
+No tests were run manually for the standalone conversion. The standalone ARM64 APK was successfully built and verified in
+GitHub Actions run `37671458891`; earlier sections below document the incremental migration history.
+
+## Visual parity with the Dart version
+
+The Dart UI at commit `8d8655916b115417e1f736966108c29ca87ba530` is the visual reference;
+source removal does not change the requirement to preserve its appearance. Native input fields
+now share its filled `surfaceContainerLow` background, 16 dp corners and outline colors.
+The proxy screen restores the 56 dp app bar, search padding, plain smart-selection switch,
+80 dp tiles (scaling up with accessibility font size), 12 dp grid spacing and bottom-right delay
+button. Tile selection colors, one-line titles/subtitles, delay colors and download marker follow
+the Dart widget. English/Russian proxy labels are copied from the existing translations.
+The native screen retains all core groups, without additional group headings.
+
+These are source-based corrections, not a claim of verified pixel parity. Country/provider
+artwork, remaining screen layouts and screenshot comparisons on the same device, theme,
+locale and font scale still need completion. No manual tests were added or run.
 
 ## Profile transfer and QR
 

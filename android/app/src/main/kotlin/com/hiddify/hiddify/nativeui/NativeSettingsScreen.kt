@@ -14,7 +14,7 @@ import androidx.compose.material3.AlertDialog
 import com.hiddify.hiddify.nativeui.NativeCard as Card
 import androidx.compose.material3.MaterialTheme
 import com.hiddify.hiddify.nativeui.NativeOutlinedButton as OutlinedButton
-import androidx.compose.material3.OutlinedTextField
+import com.hiddify.hiddify.nativeui.NativeTextField as OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text

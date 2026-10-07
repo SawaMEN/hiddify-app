@@ -272,10 +272,11 @@ fun NativeApp(
                         .fillMaxSize()
                         .statusBarsPadding()
                         .navigationBarsPadding()
-                        .padding(top = 8.dp),
+                        .padding(top = if (page == PAGE_OUTBOUNDS) 0.dp else 8.dp),
             ) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    Box(Modifier.widthIn(max = 680.dp).fillMaxWidth().padding(horizontal = if (page == PAGE_PRIVACY) 16.dp else 20.dp)) {
+                    Box((if (page == PAGE_OUTBOUNDS) Modifier else Modifier.widthIn(max = 680.dp))
+                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_OUTBOUNDS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
                         when (page) {
                             PAGE_DIAGNOSTICS ->
                                 NativeDiagnosticsScreen(
