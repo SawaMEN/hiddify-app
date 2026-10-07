@@ -102,6 +102,11 @@ fun NativeApp(
     onTestOutbound: (String) -> Unit,
     onTestActiveOutbounds: () -> Unit,
     onRefreshWifiSharingDetails: () -> Unit,
+    onImportSettingsClipboard: () -> Unit,
+    onImportSettingsFile: () -> Unit,
+    onExportSettingsClipboard: (Boolean) -> Unit,
+    onExportSettingsFile: (Boolean) -> Unit,
+    onResetSettings: () -> Unit,
     onCheckUpdate: () -> Unit,
     onOpenUpdate: () -> Unit,
     onOpenFork: () -> Unit,
@@ -251,6 +256,11 @@ fun NativeApp(
                                 onRefreshWifiSharingDetails()
                                 page = PAGE_WIFI_GUIDE
                             },
+                            onImportSettingsClipboard = onImportSettingsClipboard,
+                            onImportSettingsFile = onImportSettingsFile,
+                            onExportSettingsClipboard = onExportSettingsClipboard,
+                            onExportSettingsFile = onExportSettingsFile,
+                            onResetSettings = onResetSettings,
                             onProxyOnlyChanged = onProxyOnlyChanged,
                             onRootModeChanged = onRootModeChanged,
                             onWifiSharingChanged = onWifiSharingChanged,
