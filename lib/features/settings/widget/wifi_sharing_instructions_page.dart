@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:hiddify/features/settings/data/automatic_hotspot.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/hiddifycore/hiddify_core_service_provider.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -19,6 +20,11 @@ class _InstructionsState extends ConsumerState<WifiSharingInstructionsPage> {
   Future<void> _refresh() async {
     setState(() => _loading = true);
     try {
+      final hotspot = ref.read(automaticHotspotProvider);
+      if (hotspot['active'] == true) {
+        setState(() => _ip = hotspot['ip'] as String?);
+        return;
+      }
       final result = await ref.read(hiddifyCoreServiceProvider).getLANIP().run();
       if (mounted) setState(() => _ip = result.fold((_) => null, (value) => value.ip));
     } finally {
@@ -32,8 +38,10 @@ class _InstructionsState extends ConsumerState<WifiSharingInstructionsPage> {
     final port = ref.watch(ConfigOptions.mixedPort);
     final password = ref.watch(ConfigOptions.lanSharingPassword);
     final root = ref.watch(VpnPrivacyPreferences.useRoot);
+    final hotspot = ref.watch(automaticHotspotProvider);
+    final hotspotIp = hotspot['active'] == true ? hotspot['ip'] as String? : null;
     final effectivePort = port > 0 ? port : 12334;
-    final host = _ip ?? (ru ? 'IP раздатчика' : 'Host IP');
+    final host = hotspotIp ?? _ip ?? (ru ? 'IP раздатчика' : 'Host IP');
     return DefaultTabController(
       length: 5,
       child: Scaffold(
@@ -63,6 +71,16 @@ class _InstructionsState extends ConsumerState<WifiSharingInstructionsPage> {
                       : 'This phone runs the app and shares Wi-Fi through VPN. Choose the OS of the device receiving Wi-Fi from this phone. All steps and diagrams below apply to the receiving device.',
                 ),
                 const SizedBox(height: 16),
+                if (hotspot['active'] == true)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: SelectableText(
+                        '${ru ? 'Подключитесь к сети' : 'Join network'}: ${hotspot['ssid']}\n'
+                        '${ru ? 'Пароль Wi-Fi' : 'Wi-Fi password'}: ${hotspot['password']}',
+                      ),
+                    ),
+                  ),
                 if (!root)
                   Card(
                     child: Padding(
@@ -77,8 +95,8 @@ class _InstructionsState extends ConsumerState<WifiSharingInstructionsPage> {
                           const SizedBox(height: 8),
                           SelectableText(
                             ru
-                                ? 'IP: ${_ip ?? 'шлюз Wi-Fi клиента при прямой раздаче'}\nПорт: $effectivePort\nПользователь: hiddify\nПароль прокси: ${password.isEmpty ? 'не установлен — включите раздачу в основных настройках' : password}'
-                                : 'IP: ${_ip ?? 'client Wi-Fi gateway for a direct hotspot'}\nPort: $effectivePort\nUsername: hiddify\nProxy password: ${password.isEmpty ? 'not set — enable sharing in general settings' : password}',
+                                ? 'IP: ${hotspotIp ?? _ip ?? 'шлюз Wi-Fi клиента при прямой раздаче'}\nПорт: $effectivePort\nПользователь: hiddify\nПароль прокси: ${password.isEmpty ? 'не установлен — включите раздачу в основных настройках' : password}'
+                                : 'IP: ${hotspotIp ?? _ip ?? 'client Wi-Fi gateway for a direct hotspot'}\nPort: $effectivePort\nUsername: hiddify\nProxy password: ${password.isEmpty ? 'not set — enable sharing in general settings' : password}',
                           ),
                           TextButton.icon(
                             onPressed: _loading ? null : _refresh,
@@ -87,8 +105,8 @@ class _InstructionsState extends ConsumerState<WifiSharingInstructionsPage> {
                           ),
                           Text(
                             ru
-                                ? 'Пароль Wi-Fi задаётся в настройках точки доступа. Пароль прокси берите отсюда.'
-                                : 'Set the Wi-Fi password in hotspot settings. Use the proxy password shown here.',
+                                ? 'Точка доступа создаётся приложением автоматически. Пароль Wi-Fi показан выше; пароль прокси берите отсюда.'
+                                : 'The app creates the hotspot automatically. The Wi-Fi password is above; use the proxy password shown here.',
                           ),
                         ],
                       ),
@@ -116,6 +134,16 @@ class _InstructionsState extends ConsumerState<WifiSharingInstructionsPage> {
                       ru
                           ? 'На раздатчике и клиенте откройте один и тот же сайт проверки внешнего IP. Для сайта, направленного через VPN, адреса должны совпадать. Выберите сайт без исключения «напрямую», либо временно включите полный туннель. Верните прежний режим после проверки.'
                           : 'Open the same external IP check site on host and client. For a site routed through the VPN the addresses should match. Use a site without a direct exception, or temporarily enable full tunnel. Restore your previous mode after the check.',
+                      if (hotspot['active'] == true)
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: SelectableText(
+                              '${ru ? 'Подключитесь к сети' : 'Join network'}: ${hotspot['ssid']}\n'
+                              '${ru ? 'Пароль Wi-Fi' : 'Wi-Fi password'}: ${hotspot['password']}',
+                            ),
+                          ),
+                        ),
                       if (!root)
                         ru
                             ? 'Если браузер запрашивает пароль, укажите hiddify и пароль прокси. Ошибка 407 означает проблему авторизации; проверьте логин, пароль и поддержку авторизации клиентом.'

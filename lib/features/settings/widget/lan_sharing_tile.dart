@@ -5,6 +5,7 @@ import 'package:hiddify/core/localization/translations.dart';
 import 'package:hiddify/core/notification/in_app_notification_controller.dart';
 import 'package:hiddify/core/router/dialog/dialog_notifier.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
+import 'package:hiddify/features/settings/data/automatic_hotspot.dart';
 import 'package:hiddify/hiddifycore/hiddify_core_service_provider.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_preferences.dart';
@@ -19,8 +20,12 @@ class LanSharingPreferenceWidget extends HookConsumerWidget {
     final sharing = ref.watch(VpnPrivacyPreferences.wifiSharing);
 
     Future<String?> getSharingLink() async {
-      final ipResult = await ref.read(hiddifyCoreServiceProvider).getLANIP().run();
-      final ip = ipResult.fold((_) => null, (r) => r.ip);
+      final hotspot = ref.read(automaticHotspotProvider);
+      String? ip = hotspot['active'] == true ? hotspot['ip'] as String? : null;
+      if (ip == null) {
+        final ipResult = await ref.read(hiddifyCoreServiceProvider).getLANIP().run();
+        ip = ipResult.fold((_) => null, (r) => r.ip);
+      }
       if (ip == null) {
         ref.read(inAppNotificationControllerProvider).showErrorToast(t.pages.settings.inbound.lanIPError);
         return null;
@@ -30,7 +35,7 @@ class LanSharingPreferenceWidget extends HookConsumerWidget {
       return Uri(
         scheme: 'socks',
         host: ip,
-        port: port,
+        port: port > 0 ? port : 12334,
         userInfo: password.isEmpty ? '' : 'hiddify:${Uri.encodeComponent(password)}',
       ).toString();
     }
