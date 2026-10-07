@@ -76,7 +76,7 @@ class NativeSettingsTransferRepository {
     }
 
     fun resetCoreSettings() {
-        Settings.configOptions = ""
+        Settings.configOptions = "{}"
     }
 
     private fun currentRoot(): JSONObject =
