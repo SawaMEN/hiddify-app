@@ -241,4 +241,22 @@
     <string name="native_wifi_guide_finish_proxy">Отключитесь от Wi-Fi телефона и верните Прокси = Нет / Выкл. на получающем устройстве. Сохранённый IP телефона может потом мешать интернету в другой Wi-Fi-сети.</string>
     <string name="native_wifi_guide_finish_root">После использования отключитесь от точки доступа телефона. Очищать настройки прокси не требуется, потому что на получающем устройстве они оставались выключенными.</string>
 
+
+    <string name="native_about_open">О программе и обновления</string>
+    <string name="native_about_title">О VetrOFF Client</string>
+    <string name="native_about_version">Версия %1$s (%2$d)</string>
+    <string name="native_about_fork_description">VetrOFF Client — независимый форк Hiddify с изменённой логикой VPN, настройками приватности и интеграцией с Android.</string>
+    <string name="native_about_updates">Обновления</string>
+    <string name="native_about_check_update">Проверить обновления</string>
+    <string name="native_about_checking_update">Проверка…</string>
+    <string name="native_about_update_available">Доступна версия %1$s.</string>
+    <string name="native_about_update_current">Установлена последняя совместимая версия.</string>
+    <string name="native_about_update_none">Совместимый Android ARM64-релиз не найден.</string>
+    <string name="native_about_update_error">Не удалось проверить обновления: %1$s</string>
+    <string name="native_about_open_release">Открыть релиз</string>
+    <string name="native_about_source">Исходный код этого форка</string>
+    <string name="native_about_upstream">Оригинальный Hiddify</string>
+    <string name="native_about_terms">Условия использования</string>
+    <string name="native_about_privacy">Политика конфиденциальности</string>
+
 </resources>
