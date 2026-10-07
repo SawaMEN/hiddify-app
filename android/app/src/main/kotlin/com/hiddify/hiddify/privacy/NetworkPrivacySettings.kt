@@ -3,7 +3,7 @@ package com.hiddify.hiddify.privacy
 import android.content.Context
 import android.util.Log
 
-/** Reads opt-in experimental traffic filters written by Flutter. */
+/** Shared traffic policy for both Kotlin and the compatibility UI. */
 object NetworkPrivacySettings {
     private const val TAG = "A/NetworkPrivacy"
 
@@ -15,13 +15,22 @@ object NetworkPrivacySettings {
         return false
     }
 
+    fun loadFilters(context: Context): NativeTrafficFilters = NativeTrafficFilters.fromPreferences(
+        context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE).all,
+    )
+
+    /** One disk transaction prevents a partially enabled group of filters. Call on IO. */
+    fun saveFilters(context: Context, filters: NativeTrafficFilters) {
+        val editor = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE).edit()
+        filters.preferenceValues().forEach { (key, value) -> editor.putBoolean(key, value) }
+        check(editor.commit()) { "Could not save traffic filters" }
+    }
+
     fun policy(context: Context): Map<String, Boolean> = mapOf(
         "privacy-modern-allow-udp" to boolean(context, "privacy-modern-allow-udp"),
         "privacy-modern-protocols-only" to boolean(context, "privacy-modern-protocols-only"),
         "adaptive-network" to boolean(context, "adaptive_network"),
-        "privacy-anonymization-block-quic" to boolean(context, "privacy-anonymization-block-quic"),
-        "privacy-anonymization-block-stun" to boolean(context, "privacy-anonymization-block-stun"),
-        "privacy-anonymization-block-plain-http" to boolean(context, "privacy-anonymization-block-plain-http"),
-        "privacy-anonymization-isolate-lan" to boolean(context, "privacy-anonymization-isolate-lan"),
-    )
+    ) + loadFilters(context).let { filters ->
+        NativeTrafficFilter.entries.associate { it.key to (it in filters.enabled) }
+    }
 }

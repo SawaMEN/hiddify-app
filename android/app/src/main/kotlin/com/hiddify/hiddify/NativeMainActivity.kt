@@ -46,8 +46,16 @@ import com.hiddify.hiddify.nativecore.NativeSystemStats
 import com.hiddify.hiddify.nativecore.NativeWifiSharingDetails
 import com.hiddify.hiddify.nativecore.NativeWifiSharingRepository
 import com.hiddify.hiddify.nativecore.NativeUpdateRepository
+import com.hiddify.hiddify.nativerouting.NativePerAppBackup
+import com.hiddify.hiddify.nativerouting.NativePerAppBackupCodec
 import com.hiddify.hiddify.nativerouting.NativePerAppRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
+import com.hiddify.hiddify.privacy.NativeRegionalAppKind
+import com.hiddify.hiddify.privacy.NativeRegionalAppSnapshot
+import com.hiddify.hiddify.privacy.NativeRegionalOptions
+import com.hiddify.hiddify.privacy.NativeRegionalRepository
+import com.hiddify.hiddify.privacy.NativeTrafficFilters
+import com.hiddify.hiddify.privacy.NetworkPrivacySettings
 import com.hiddify.hiddify.nativeui.NativeApp
 import com.hiddify.hiddify.nativeui.NativeSettingsState
 import kotlinx.coroutines.CancellationException
@@ -93,6 +101,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
             ),
         )
     private val perAppBusy = mutableStateOf(false)
+    private val pendingPerAppImport = mutableStateOf<NativePerAppBackup?>(null)
     private val logSnapshot = mutableStateOf(NativeLogSnapshot(emptyList(), emptyList()))
     private val logBusy = mutableStateOf(false)
     private val serviceLogLines = ArrayDeque<String>()
@@ -112,6 +121,14 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val diagnosticBusy = mutableStateOf(false)
     private val vpnProtection = mutableStateOf(NativeVpnProtection())
     private val errorMessage = mutableStateOf<String?>(null)
+    private val regionalAppsRevision = mutableStateOf(0)
+    private val regionalApps = mutableStateOf<NativeRegionalAppSnapshot?>(null)
+    private val regionalOperationMutex = Mutex()
+    private val regionalOptions = mutableStateOf(NativeRegionalOptions())
+    private val regionalBusy = mutableStateOf(false)
+    private val regionalRepository by lazy { NativeRegionalRepository(applicationContext) }
+    private val trafficFilters = mutableStateOf(NativeTrafficFilters())
+    private val trafficFiltersBusy = mutableStateOf(false)
     private val nativeSettings = mutableStateOf(readNativeSettings())
 
     private val profileRepository by lazy { NativeProfileRepository(applicationContext) }
@@ -125,6 +142,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val settingsTransferRepository by lazy { NativeSettingsTransferRepository() }
     private val updateRepository by lazy { NativeUpdateRepository() }
     private val diagnosticsRepository by lazy { NativeDiagnosticsRepository() }
+    private val perAppOperationMutex = Mutex()
     private val profileOperationMutex = Mutex()
     private val connection = ServiceConnection(this, this)
 
@@ -217,6 +235,26 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
             }
         }
 
+    private val perAppImportLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) preparePerAppImport {
+                contentResolver.openInputStream(uri)?.use(NativePerAppBackupCodec::read)
+                    ?: throw java.io.FileNotFoundException(uri.toString())
+            }
+        }
+
+    private val perAppExportLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            if (uri != null) runPerAppTransfer {
+                val text = withContext(Dispatchers.IO) { perAppRepository.exportBackup() }
+                withContext(Dispatchers.IO) {
+                    contentResolver.openOutputStream(uri, "wt")?.bufferedWriter(Charsets.UTF_8)?.use { it.write(text) }
+                        ?: throw java.io.FileNotFoundException(uri.toString())
+                }
+                Toast.makeText(this@NativeMainActivity, R.string.native_per_app_backup_exported, Toast.LENGTH_SHORT).show()
+            }
+        }
+
     override fun onSaveInstanceState(outState: android.os.Bundle) {
         outState.putString("native_profile_export_id", pendingProfileExportId)
         super.onSaveInstanceState(outState)
@@ -248,12 +286,24 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 hasActiveProfile = activeProfilePath.value.isNotBlank(),
                 rootMode = Settings.privacyUseRoot,
                 settingsState = nativeSettings.value,
+                regionalApps = regionalApps.value,
+                regionalAppsRevision = regionalAppsRevision.value,
+                onOpenRegionalApps = ::loadRegionalApps,
+                onSaveRegionalApps = ::saveRegionalApps,
+                onResetRegionalApps = ::resetRegionalApps,
+                regionalOptions = regionalOptions.value,
+                regionalBusy = regionalBusy.value,
+                onSaveRegionalOptions = ::saveRegionalOptions,
+                trafficFilters = trafficFilters.value,
+                trafficFiltersBusy = trafficFiltersBusy.value,
+                onSaveTrafficFilters = ::saveTrafficFilters,
                 profiles = profiles.value,
                 busyProfileId = busyProfileId.value,
                 profileEditor = profileEditor.value,
                 profileEditorBusy = profileEditorBusy.value,
                 perAppSnapshot = perAppSnapshot.value,
                 perAppBusy = perAppBusy.value,
+                pendingPerAppImport = pendingPerAppImport.value,
                 logSnapshot = logSnapshot.value,
                 logBusy = logBusy.value,
                 coreOptions = coreOptions.value,
@@ -293,6 +343,12 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onPerAppModeChanged = ::setPerAppMode,
                 onTogglePerAppPackage = ::togglePerAppPackage,
                 onClearPerApp = ::clearPerAppPackages,
+                onImportPerAppClipboard = ::importPerAppClipboard,
+                onImportPerAppFile = { perAppImportLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
+                onExportPerAppClipboard = ::exportPerAppClipboard,
+                onExportPerAppFile = { perAppExportLauncher.launch("per-app-proxy.json") },
+                onConfirmPerAppImport = ::confirmPerAppImport,
+                onDismissPerAppImport = { pendingPerAppImport.value = null },
                 onRefreshLogs = ::refreshLogs,
                 onClearLogs = ::clearLogs,
                 onSaveCoreOptions = ::saveCoreOptions,
@@ -635,11 +691,77 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun refreshPerApp() {
         if (perAppBusy.value) return
+        perAppBusy.value = true
         lifecycleScope.launch {
             try {
-                perAppSnapshot.value = withContext(Dispatchers.IO) { perAppRepository.snapshot() }
+                perAppSnapshot.value = withContext(Dispatchers.IO) {
+                    perAppOperationMutex.withLock { perAppRepository.snapshot() }
+                }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                perAppBusy.value = false
+            }
+        }
+    }
+
+    private fun importPerAppClipboard() {
+        val clip = getSystemService(ClipboardManager::class.java)?.primaryClip
+        val text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()
+        if (text.isNullOrBlank()) {
+            errorMessage.value = getString(R.string.native_settings_clipboard_empty)
+            return
+        }
+        preparePerAppImport { text }
+    }
+
+    private fun preparePerAppImport(read: () -> String) {
+        if (serviceStatus.value != Status.Stopped) {
+            errorMessage.value = getString(R.string.native_per_app_disconnect)
+            return
+        }
+        pendingPerAppImport.value = null
+        runPerAppTransfer {
+            val backup = withContext(Dispatchers.IO) { NativePerAppBackupCodec.decode(read()) }
+            pendingPerAppImport.value = backup
+        }
+    }
+
+    private fun confirmPerAppImport() {
+        val backup = pendingPerAppImport.value ?: return
+        if (perAppBusy.value) return
+        pendingPerAppImport.value = null
+        runPerAppOperation { perAppRepository.importBackup(backup) }
+    }
+
+    private fun exportPerAppClipboard() {
+        runPerAppTransfer {
+            val text = withContext(Dispatchers.IO) { perAppRepository.exportBackup() }
+            require(text.toByteArray(Charsets.UTF_8).size <= NativeProfileTransfer.MAX_CLIPBOARD_BYTES) {
+                getString(R.string.native_per_app_backup_clipboard_large)
+            }
+            getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("VetrOFF per-app routing", text))
+            Toast.makeText(this@NativeMainActivity, R.string.native_profile_copied, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun runPerAppTransfer(action: suspend () -> Unit) {
+        if (perAppBusy.value) {
+            errorMessage.value = getString(R.string.native_per_app_backup_busy)
+            return
+        }
+        perAppBusy.value = true
+        lifecycleScope.launch {
+            try {
+                perAppOperationMutex.withLock { action() }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: getString(R.string.native_per_app_backup_invalid)
+            } finally {
+                perAppBusy.value = false
             }
         }
     }
@@ -667,7 +789,16 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         perAppBusy.value = true
         lifecycleScope.launch {
             try {
-                perAppSnapshot.value = withContext(Dispatchers.IO) { operation() }
+                perAppSnapshot.value = withContext(Dispatchers.IO) {
+                    perAppOperationMutex.withLock {
+                        BoxService.withNativeLifecycle {
+                            check(!BoxService.hasActiveCore()) { getString(R.string.native_per_app_disconnect) }
+                            operation()
+                        }
+                    }
+                }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
@@ -985,6 +1116,85 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun refreshSettingsSnapshot() {
         nativeSettings.value = readNativeSettings()
+        regionalOptions.value = regionalRepository.load()
+        trafficFilters.value = NetworkPrivacySettings.loadFilters(this)
+    }
+
+    private fun loadRegionalApps(kind: NativeRegionalAppKind) {
+        if (regionalBusy.value) return
+        regionalApps.value = null
+        regionalBusy.value = true
+        lifecycleScope.launch {
+            try {
+                regionalApps.value = withContext(Dispatchers.IO) {
+                    regionalOperationMutex.withLock { regionalRepository.applicationSnapshot(kind) }
+                }
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                regionalBusy.value = false
+            }
+        }
+    }
+
+    private fun saveRegionalApps(kind: NativeRegionalAppKind, selected: Set<String>) {
+        changeRegionalApps(kind, selected)
+    }
+
+    private fun resetRegionalApps(kind: NativeRegionalAppKind) {
+        changeRegionalApps(kind, null)
+    }
+
+    private fun changeRegionalApps(kind: NativeRegionalAppKind, selected: Set<String>?) {
+        if (regionalBusy.value || regionalApps.value?.kind != kind) return
+        regionalBusy.value = true
+        lifecycleScope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    regionalOperationMutex.withLock { regionalRepository.saveApplications(kind, selected) }
+                }
+                regionalApps.value = result
+                regionalAppsRevision.value += 1
+                regionalOptions.value = regionalRepository.load()
+                Toast.makeText(this@NativeMainActivity, R.string.native_regional_apps_saved, Toast.LENGTH_SHORT).show()
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                regionalBusy.value = false
+            }
+        }
+    }
+
+    private fun saveRegionalOptions(value: NativeRegionalOptions) {
+        if (regionalBusy.value) return
+        regionalBusy.value = true
+        lifecycleScope.launch {
+            try {
+                regionalOptions.value = withContext(Dispatchers.IO) { regionalOperationMutex.withLock { regionalRepository.save(value) } }
+                Toast.makeText(this@NativeMainActivity, R.string.native_regional_saved, Toast.LENGTH_SHORT).show()
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                regionalBusy.value = false
+            }
+        }
+    }
+
+    private fun saveTrafficFilters(value: NativeTrafficFilters) {
+        if (trafficFiltersBusy.value) return
+        trafficFiltersBusy.value = true
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    NetworkPrivacySettings.saveFilters(applicationContext, value)
+                }
+                trafficFilters.value = NetworkPrivacySettings.loadFilters(applicationContext)
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                trafficFiltersBusy.value = false
+            }
+        }
     }
 
     private fun refreshCoreOptions() {
