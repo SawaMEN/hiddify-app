@@ -13,7 +13,7 @@ Seven workstreams remain; a stream can contain multiple implementation/review it
 
 | Workstream | Known work remaining | Acceptance evidence |
 | --- | --- | --- |
-| Home/profile state | Initial load error/retry semantics; exact empty-state shield artwork; original add/options/free-provider sheet; connection color/reconnect state | Same state, data and action targets as Dart HomePage/ProfileTile/ConnectionButton |
+| Home/profile state | Initial load error/retry semantics; exact empty-state shield artwork; free-provider feed/consent in the add sheet; connection color/reconnect state | Same state, data and action targets as Dart HomePage/ProfileTile/ConnectionButton |
 | Profile flows | Match import/add/detail/editor/QR sheets and dialogs, list container/navigation, sorting/filtering and confirmation behavior | Compare each original flow and round-trip identical profiles |
 | Proxy presentation | Original circular country/provider artwork; proxy modal and primary-group-only overview; IP visibility lifetime/haptics; live stream timing and URL-test error/inspection sequence | Same selected/active proxy, operations, layout and state transitions |
 | Settings/navigation | Quick-settings rendering/dialog details; preference pages and picker/input/confirmation dialogs; back/deep-link behavior | One-to-one route/action/preferences audit against original widgets |
@@ -79,6 +79,42 @@ successful repository operation, preserving the draft after validation/network f
 successful profile selection returns from the list; rejected/failed selections leave it open.
 
 The import form still uses the existing native dialog. The original options/manual bottom sheet,
-free-provider feed/consent, QR scanner styling, exact empty-state artwork, list modal, and initial
-read-error semantics remain outstanding. No build or tests were run for this step. Source review,
+free-provider feed/consent, QR scanner styling, exact empty-state artwork, exact sheet drag extents remain outstanding. Initial read-error/retry states are now implemented. No build or tests were run for this step. Source review,
 XML/resource references and whitespace inspection do not establish measured visual parity.
+
+
+## Profile options/manual sheets and list controls
+
+The add action now opens a 456 dp maximum-width, 32 dp top-radius bottom sheet with four
+18 dp source tiles: clipboard, file, camera QR and manual. Clipboard/file/QR launch the
+repository import directly, as in Dart, instead of requiring a second submission from a
+multiline input dialog. QR image import remains available as an additional action. File
+reads remain limited to 8 MiB on IO, image processing stays on IO, cancelled pickers do
+nothing, and failed imports retain their source for Retry. The sheet closes only after
+the Activity publishes a successful import revision. Busy operations show adding progress.
+
+Manual import has required name and HTTP(S) URL fields, the disable-auto-update switch,
+a discrete 0–96 hour slider and an Auto value that leaves subscription timing to metadata.
+Manual drafts survive rotation; large configuration contents are excluded from saved state.
+The close icon returns to options. Help and the home empty-state paragraph use the original
+EN/RU text and help destination. Free providers and their consent/feature overrides still
+need implementation; the current image action occupies the footer where Dart has Free.
+
+Home profile selection opens a bottom sheet; settings retains the full list page. Both use
+12 dp list spacing, shared tiles, a last-update/name sort with direction, and Update subscriptions.
+Sorting defaults to newest first and is shared across both views during the Activity session;
+its labels describe the actual comparator rather than reproducing the inverted Dart labels.
+Full-page controls use the 56 dp app bar and add FAB. Selection success closes the sheet;
+failed selections leave it open. An empty list closes the selection sheet. Delete/share dialogs
+save IDs and resolve refreshed profile objects rather than retaining stale snapshots.
+
+Bulk updates process every remote subscription under the existing profile-operation mutex,
+including subscriptions with automatic updates disabled. Failures do not discard successful
+updates: the Activity reloads the database and then displays the failure. Initial database read
+failures have a separate error/Retry state in home, full list and sheet, rather than appearing
+as an empty database. Profile snapshot reads also use the operation mutex.
+
+`tool/check_native_project.py` and `git diff --check` pass. Local Kotlin compilation cannot
+start because the pinned Gradle download reports `Network is unreachable`. CI compilation
+and same-device screenshots remain necessary. The Material partial-sheet anchor currently
+differs from Dart's 35% initial extent; this step does not establish pixel-identical rendering.

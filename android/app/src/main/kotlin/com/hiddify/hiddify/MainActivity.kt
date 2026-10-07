@@ -97,6 +97,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val serviceStatus = mutableStateOf(Status.Stopped)
     private val activeProfileName = mutableStateOf("")
     private val activeProfilePath = mutableStateOf("")
+    private val profilesLoadFailed = mutableStateOf(false)
     private val profiles = mutableStateOf<List<NativeProfile>>(emptyList())
     private val profilesLoading = mutableStateOf(true)
     private val profileImportRevision = mutableStateOf(0)
@@ -427,6 +428,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onSaveTrafficFilters = ::saveTrafficFilters,
                 profiles = profiles.value,
                 profilesLoading = profilesLoading.value,
+                profilesLoadFailed = profilesLoadFailed.value,
+                onRetryProfiles = { profilesLoading.value = true; refreshProfiles() },
+                onUpdateAllProfiles = ::refreshAllRemoteProfiles,
                 profileImportRevision = profileImportRevision.value,
                 profileSelectionRevision = profileSelectionRevision.value,
                 busyProfileId = busyProfileId.value,
@@ -675,12 +679,17 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             try {
                 val loaded =
                     withContext(Dispatchers.IO) {
-                        if (syncActive) profileRepository.synchronizeActiveProfile()
-                        profileRepository.listProfiles()
+                        profileOperationMutex.withLock {
+                            if (syncActive) profileRepository.synchronizeActiveProfile()
+                            profileRepository.listProfiles()
+                        }
                     }
                 profiles.value = loaded
+                profilesLoadFailed.value = false
                 refreshProfileSnapshot()
             } catch (error: Exception) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                profilesLoadFailed.value = true
                 if (syncActive) {
                     errorMessage.value = error.message ?: error.javaClass.simpleName
                 }
@@ -1082,6 +1091,19 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    private fun refreshAllRemoteProfiles() {
+        val remoteIds = profiles.value.filter { it.isRemote }.map { it.id }
+        if (remoteIds.isEmpty()) return
+        runProfileOperation("update-all", requireDisconnected = false) {
+            val failures = mutableListOf<String>()
+            for (id in remoteIds) {
+                runCatching { profileRepository.refreshRemote(id) }.onFailure { failures += it.message ?: it.javaClass.simpleName }
+            }
+            // Keep successful updates even if another subscription failed, and publish that snapshot.
+            if (failures.isNotEmpty()) throw IllegalStateException(failures.distinct().joinToString("\n"))
+        }
+    }
+
     private fun importProfile(
         raw: String,
         name: String?,
@@ -1123,9 +1145,15 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                         }
                     }
                 profiles.value = loaded
+                profilesLoadFailed.value = false
                 refreshProfileSnapshot()
                 onSuccess()
             } catch (error: Exception) {
+                if (error is kotlinx.coroutines.CancellationException) throw error
+                runCatching { withContext(Dispatchers.IO) { profileOperationMutex.withLock {
+                    profileRepository.synchronizeActiveProfile()
+                    profileRepository.listProfiles()
+                } } }.onSuccess { profiles.value = it; profilesLoadFailed.value = false; refreshProfileSnapshot() }
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
                 busyProfileId.value = null

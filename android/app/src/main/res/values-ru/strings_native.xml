@@ -614,4 +614,29 @@
     <string name="native_subscription_no_traffic">Квота исчерпана</string>
     <string name="native_subscription_remaining_days">осталось %1$s дней</string>
     <string name="native_subscription_traffic_semantics">израсходовано %1$s из %2$s трафика</string>
+    <string name="native_add_clipboard">Буфер обмена</string>
+    <string name="native_add_file">Файл</string>
+    <string name="native_add_scan">Сканировать QR</string>
+    <string name="native_add_manual">Вручную</string>
+    <string name="native_add_help">Справка</string>
+    <string name="native_profile_adding">Добавление профиля...</string>
+    <string name="native_profile_name_required">Имя обязательно для заполнения</string>
+    <string name="native_profile_invalid_url">Неверный URL</string>
+    <string name="native_profile_help_title">Выберите профиль</string>
+    <string name="native_profile_help_message">Давайте начнем с добавления профиля подключения, который содержит данные вашего VPN-соединения.
+
+Еще нет VPN-сервера? Не беспокойтесь — просто следуйте руководству ниже, чтобы быстро и бесплатно настроить его.</string>
+    <string name="native_profile_help_link">Покажите, как</string>
+    <string name="native_profile_interval_auto">Авто</string>
+    <string name="native_profiles_sort">Сортировать</string>
+    <string name="native_profiles_sort_name">Имя</string>
+    <string name="native_profiles_sort_updated">Последнее обновление</string>
+    <string name="native_profiles_sort_ascending">По возрастанию</string>
+    <string name="native_profiles_sort_descending">По убыванию</string>
+    <string name="native_profiles_update_all">Обновить подписки</string>
+    <string name="native_profile_interval_hours">%1$d ч</string>
+    <string name="native_profile_interval_days_hours">%1$d д %2$d ч</string>
+    <string name="native_profiles_load_failed">Не удалось загрузить профили</string>
+    <string name="native_profiles_retry">Повторить</string>
+    <string name="native_profile_url">URL</string>
 </resources>

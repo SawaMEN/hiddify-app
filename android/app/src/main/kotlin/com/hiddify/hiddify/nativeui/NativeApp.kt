@@ -164,6 +164,9 @@ fun NativeApp(
     onSaveTrafficFilters: (NativeTrafficFilters) -> Unit,
     profiles: List<NativeProfile>,
     profilesLoading: Boolean,
+    profilesLoadFailed: Boolean,
+    onRetryProfiles: () -> Unit,
+    onUpdateAllProfiles: () -> Unit,
     profileImportRevision: Int,
     profileSelectionRevision: Int,
     busyProfileId: String?,
@@ -255,6 +258,9 @@ fun NativeApp(
     onDebugModeChanged: (Boolean) -> Unit,
     onDisableMemoryLimitChanged: (Boolean) -> Unit,
 ) {
+    var profilesSheetOpen by rememberSaveable { mutableStateOf(false) }
+    var profileSortByName by rememberSaveable { mutableStateOf(false) }
+    var profileSortAscending by rememberSaveable { mutableStateOf(false) }
     var addProfileOpen by rememberSaveable { mutableStateOf(false) }
     var observedImportRevision by remember { mutableStateOf(profileImportRevision) }
     var observedSelectionRevision by remember { mutableStateOf(profileSelectionRevision) }
@@ -292,6 +298,7 @@ fun NativeApp(
     LaunchedEffect(profileSelectionRevision) {
         if (profileSelectionRevision != observedSelectionRevision) {
             observedSelectionRevision = profileSelectionRevision
+            profilesSheetOpen = false
             if (page == PAGE_PROFILES) goBack()
         }
     }
@@ -306,11 +313,11 @@ fun NativeApp(
                         .fillMaxSize()
                         .statusBarsPadding()
                         .navigationBarsPadding()
-                        .padding(top = if (page == PAGE_OUTBOUNDS || page == PAGE_HOME) 0.dp else 8.dp),
+                        .padding(top = if (page == PAGE_OUTBOUNDS || page == PAGE_HOME || page == PAGE_PROFILES) 0.dp else 8.dp),
             ) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    Box((if (page == PAGE_OUTBOUNDS || page == PAGE_HOME) Modifier else Modifier.widthIn(max = 680.dp))
-                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_OUTBOUNDS, PAGE_HOME -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
+                    Box((if (page == PAGE_OUTBOUNDS || page == PAGE_HOME || page == PAGE_PROFILES) Modifier else Modifier.widthIn(max = 680.dp))
+                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_OUTBOUNDS, PAGE_HOME, PAGE_PROFILES -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
                         when (page) {
                             PAGE_DIAGNOSTICS ->
                                 NativeDiagnosticsScreen(
@@ -390,6 +397,10 @@ fun NativeApp(
                                     },
                                     onCopyConfig = onCopyProfileConfig,
                                     onExportConfig = onExportProfileConfig,
+                                    loading = profilesLoading, loadFailed = profilesLoadFailed,
+                                    onRetry = onRetryProfiles, onUpdateAll = onUpdateAllProfiles,
+                                    sortByName = profileSortByName, ascending = profileSortAscending,
+                                    onSort = { byName, ascending -> profileSortByName = byName; profileSortAscending = ascending },
                                 )
 
                             PAGE_PROFILE_DETAILS ->
@@ -646,6 +657,7 @@ fun NativeApp(
                                     activeProfile = profiles.firstOrNull { it.active },
                                     hasProfiles = profiles.isNotEmpty(),
                                     profilesLoading = profilesLoading,
+                                    profilesLoadFailed = profilesLoadFailed, onRetryProfiles = onRetryProfiles,
                                     busyProfileId = busyProfileId,
                                     onRefreshProfile = onRefreshProfile,
                                     onAddProfile = { addProfileOpen = true },
@@ -656,7 +668,7 @@ fun NativeApp(
                                     reconnectBusy = reconnectBusy,
                                     onTestActive = { onTestOutbound("") },
                                     onToggleConnection = onToggleConnection,
-                                    onOpenProfiles = { openPage(PAGE_PROFILES) },
+                                    onOpenProfiles = { profilesSheetOpen = true },
                                     onOpenSettings = { onRefreshWifiSharingDetails(); quickSettingsOpen = true },
                                     onOpenDiagnostics = { openPage(PAGE_DIAGNOSTICS) },
                                     onOpenOutbounds = {
@@ -685,8 +697,18 @@ fun NativeApp(
             }
         }
 
+        if (profilesSheetOpen) {
+            NativeProfilesSheet(profiles = profiles, busyProfileId = busyProfileId,
+                loading = profilesLoading, loadFailed = profilesLoadFailed,
+                sortByName = profileSortByName, ascending = profileSortAscending,
+                onSort = { byName, ascending -> profileSortByName = byName; profileSortAscending = ascending },
+                onDismiss = { profilesSheetOpen = false }, onRetry = onRetryProfiles, onUpdateAll = onUpdateAllProfiles,
+                onSelect = onSelectProfile, onDelete = onDeleteProfile, onRefresh = onRefreshProfile,
+                onEdit = { profile -> profilesSheetOpen = false; onOpenProfileEditor(profile); openPage(PAGE_PROFILE_DETAILS) },
+                onCopyConfig = onCopyProfileConfig, onExportConfig = onExportProfileConfig)
+        }
         if (addProfileOpen) {
-            NativeAddProfileDialog(
+            NativeAddProfileSheet(
                 busy = busyProfileId != null,
                 onDismiss = { addProfileOpen = false },
                 onImport = { raw, name, interval, disabled ->
@@ -732,6 +754,8 @@ private fun HomeScreen(
     activeProfile: NativeProfile? = null,
     hasProfiles: Boolean = hasActiveProfile,
     profilesLoading: Boolean = false,
+    profilesLoadFailed: Boolean = false,
+    onRetryProfiles: () -> Unit = {},
     busyProfileId: String? = null,
     onRefreshProfile: (NativeProfile) -> Unit = {},
     onAddProfile: () -> Unit = {},
@@ -769,12 +793,12 @@ private fun HomeScreen(
                 Icon(painterResource(R.drawable.native_add), stringResource(R.string.native_profile_add))
             }
         }
-        if (!hasProfiles && !hasActiveProfile && !profilesLoading) {
+        if (!hasProfiles && !hasActiveProfile && !profilesLoading && !profilesLoadFailed) {
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Icon(painterResource(R.drawable.native_shield), null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(24.dp))
-                Text(stringResource(R.string.native_no_profile_selected), style = MaterialTheme.typography.titleMedium,
+                Text(stringResource(R.string.native_profile_help_message), style = MaterialTheme.typography.titleMedium,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 Spacer(Modifier.height(16.dp))
                 androidx.compose.material3.Button(onClick = onAddProfile, enabled = busyProfileId == null) {
@@ -791,6 +815,10 @@ private fun HomeScreen(
                     when {
                         profilesLoading -> Box(Modifier.fillMaxWidth().height(56.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator()
+                        }
+                        profilesLoadFailed -> Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(stringResource(R.string.native_profiles_load_failed), color = MaterialTheme.colorScheme.error)
+                            TextButton(onClick = onRetryProfiles) { Text(stringResource(R.string.native_profiles_retry)) }
                         }
                         activeProfile != null -> NativeProfileTile(profile = activeProfile, isMain = true,
                             busy = busyProfileId != null,
