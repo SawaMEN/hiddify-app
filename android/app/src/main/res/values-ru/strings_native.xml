@@ -259,4 +259,29 @@
     <string name="native_about_terms">Условия использования</string>
     <string name="native_about_privacy">Политика конфиденциальности</string>
 
+
+    <string name="native_chain_open">Цепочка подключения</string>
+    <string name="native_chain_title">Цепочка подключения</string>
+    <string name="native_chain_summary">Настройте один дополнительный этап вокруг основного профиля: Extra Security перед ним или Unblocker после него. Параметры сохраняются в том же формате ядра, который использовал прежний интерфейс.</string>
+    <string name="native_chain_active_stage">Активный этап</string>
+    <string name="native_chain_status">Состояние цепочки</string>
+    <string name="native_chain_disabled">Отключено</string>
+    <string name="native_chain_extra_security">Дополнительная защита</string>
+    <string name="native_chain_main_profile">Основной профиль</string>
+    <string name="native_chain_unblocker">Разблокировщик</string>
+    <string name="native_chain_mode">Режим</string>
+    <string name="native_chain_profile_mode">Профиль</string>
+    <string name="native_chain_select_profile">Выбрать профиль</string>
+    <string name="native_chain_warp_license">Лицензионный ключ WARP</string>
+    <string name="native_chain_psiphon_region">Регион Psiphon</string>
+    <string name="native_chain_conduit">Conduit pairing ID</string>
+    <string name="native_chain_clean_ip">Чистый IP WARP</string>
+    <string name="native_chain_clean_port">Порт WARP</string>
+    <string name="native_chain_noise_count">Количество WARP noise</string>
+    <string name="native_chain_noise_mode">Режим WARP noise</string>
+    <string name="native_chain_noise_size">Размер WARP noise</string>
+    <string name="native_chain_noise_delay">Задержка WARP noise</string>
+    <string name="native_chain_range_hint">Диапазон, например 1-3. Если не уверены, оставьте текущее значение.</string>
+    <string name="native_chain_reconnect_note">После сохранения переподключите VPN, чтобы hiddify-core пересобрал цепочку. WARP и Psiphon работают согласно собственным условиям сервисов и их доступности.</string>
+
 </resources>
