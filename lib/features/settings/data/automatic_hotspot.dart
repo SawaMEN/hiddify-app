@@ -47,6 +47,8 @@ class AutomaticHotspot extends Notifier<Map<String, dynamic>> {
     state = {'active': false};
   }
 
+  void reportFailure(Object error) => state = {'active': false, 'error': '$error'};
+
   static String wifiQr(String ssid, String password) {
     String escape(String value) => value.replaceAllMapped(RegExp(r'[\\;,:"]'), (match) => '\\${match[0]}');
     return 'WIFI:T:WPA;S:${escape(ssid)};P:${escape(password)};;';
@@ -59,6 +61,11 @@ final hotspotSharingControllerProvider = NotifierProvider<HotspotSharingControll
 class HotspotSharingController extends Notifier<bool> {
   @override
   bool build() {
+    ref.listen(VpnPrivacyPreferences.useRoot, (previous, next) {
+      if (PlatformUtils.isAndroid && !state && ref.read(automaticHotspotProvider)['active'] == true) {
+        unawaited(_changeMode(next).catchError((Object error) {}));
+      }
+    });
     ref.listen(automaticHotspotProvider, (previous, next) {
       if (PlatformUtils.isAndroid &&
           !state &&
@@ -69,6 +76,46 @@ class HotspotSharingController extends Notifier<bool> {
       }
     });
     return false;
+  }
+
+  Future<void> _changeMode(bool root) async {
+    state = true;
+    try {
+      // Release the old AP before removing its guards; new credentials are published by Android.
+      await ref.read(automaticHotspotProvider.notifier).stop();
+      await ref.read(automaticHotspotProvider.notifier).start(root: root);
+      await ref.read(configOptionNotifierProvider.notifier).applyPending();
+      await ref.read(automaticHotspotProvider.notifier).activate();
+    } catch (error) {
+      await _rollback();
+      ref.read(automaticHotspotProvider.notifier).reportFailure(error);
+      rethrow;
+    } finally {
+      _finish();
+    }
+  }
+
+  void _finish() {
+    state = false;
+    final hotspot = ref.read(automaticHotspotProvider);
+    final root = ref.read(VpnPrivacyPreferences.useRoot);
+    if (PlatformUtils.isAndroid && hotspot['active'] == true && hotspot['root'] != root) {
+      unawaited(_changeMode(root).catchError((Object error) {}));
+    }
+  }
+
+  Future<void> _rollback() async {
+    try {
+      await ref.read(automaticHotspotProvider.notifier).stop();
+    } catch (_) {}
+    try {
+      await ref
+          .read(configOptionNotifierProvider.notifier)
+          .updateTogether(
+            () => ref.read(VpnPrivacyPreferences.wifiSharing.notifier).update(false),
+            applyImmediately: true,
+          );
+    } catch (_) {}
   }
 
   Future<void> update(bool enabled) async {
@@ -104,21 +151,12 @@ class HotspotSharingController extends Notifier<bool> {
     } catch (error) {
       if (PlatformUtils.isAndroid) {
         // A failed VPN startup must never leave an apparently working AP.
-        try {
-          await ref.read(automaticHotspotProvider.notifier).stop();
-        } catch (_) {}
-        try {
-          await ref
-              .read(configOptionNotifierProvider.notifier)
-              .updateTogether(
-                () => ref.read(VpnPrivacyPreferences.wifiSharing.notifier).update(false),
-                applyImmediately: true,
-              );
-        } catch (_) {}
+        await _rollback();
+        ref.read(automaticHotspotProvider.notifier).reportFailure(error);
       }
       rethrow;
     } finally {
-      state = false;
+      _finish();
     }
   }
 }

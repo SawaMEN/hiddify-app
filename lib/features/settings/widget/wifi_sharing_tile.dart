@@ -48,6 +48,11 @@ class _WifiSharingTileState extends ConsumerState<WifiSharingTile> {
           value: PlatformUtils.isAndroid ? hotspot['active'] == true : enabled,
           onChanged: busy ? null : _update,
         ),
+        if (hotspot['error'] != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text('${hotspot['error']}', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          ),
         if (hotspot['active'] == true)
           Card(
             child: Padding(
