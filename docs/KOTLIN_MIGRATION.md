@@ -418,11 +418,24 @@ the configured haptic feedback; adaptive network remains independent.
 Raw profiles use the Dart ranking thresholds: EWMA 0.7/0.3, three successful samples, three
 candidate wins from distinct measurements, at least 50 ms and 20% improvement (or three current
 failures), ten-minute freshness and a two-minute switch cooldown. Ranking resets on profile
-changes. The Kotlin fallback currently keeps samples in memory; Dart's persistent per-profile
-health history is still migration work. The core balancer continues to work while the UI is
+changes. The Kotlin fallback persists per-profile health history in Dart's preference keys and JSON format. The core balancer continues to work while the UI is
 closed, whereas Kotlin fallback observation and selection stop with the Activity.
 
 Selections share the UI outbound-operation guard and native service lifecycle barrier, validate
 the active profile again before RPC, and use a cancellable eight-second RPC. Outbound snapshots
 also have an eight-second timeout and close/cancel their stream. No tests were added or run.
 Static resource/reference and whitespace checks were performed; APK/device validation is pending.
+
+## Persistent server health history and build fixes
+
+Kotlin loads `flutter.server_health_<profile ID>` samples from the same profile IDs as Dart.
+Restoration accepts up to 128 valid entries less than 24 hours old; invalid entries are ignored
+individually. Changed samples are saved on IO at intervals of at least ten seconds, with a final
+flush when the controller closes or changes profiles. The cache retains at most 16 profiles and
+writes the legacy Flutter string-list index. Existing records reconstruct that index without
+Java deserialization. The outbound-operation guard covers history loading as well as selection.
+
+The ARM64 build of c94d725 exposed two Kotlin compile errors: Wire maps the protobuf timestamp
+to `java.time.Instant` (use `toEpochMilli()`), and diagnostics referenced a nonexistent
+`VpnApplication` (use `Application.application`). Both are corrected here. No new tests were
+added or run manually; static checks pass. APK/device confirmation remains pending CI.

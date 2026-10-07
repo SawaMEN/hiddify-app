@@ -189,6 +189,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val healthRepository = NativeHealthRepository()
     private var healthJob: Job? = null
     private var smartSelectionJob: Job? = null
+    private val serverHistoryRepository by lazy { com.hiddify.hiddify.nativeconnection.NativeServerHistoryRepository(applicationContext) }
     private var nativeForeground = false
     private var recoveryPolicy = NativeRecoveryPolicy()
     private var recoveryJob: Job? = null
@@ -1383,54 +1384,92 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
             var leaveBalancer = false
             var profile: String? = null
             var ranker = com.hiddify.hiddify.nativeconnection.NativeServerRanker()
-            while (isActive && nativeForeground && serviceStatus.value == Status.Started) {
-                delay(3000)
-                val enabled = generalPreferences.value.smartSelection || connectionOptions.value.adaptiveNetwork
-                if (wasEnabled && !enabled) leaveBalancer = true
-                if (enabled) leaveBalancer = false
-                wasEnabled = enabled
-                if (!enabled && !leaveBalancer) continue
-                if (outboundBusyTag.value != null || generalPreferencesBusy.value || connectionOptionsBusy.value) continue
-                val path = Settings.activeConfigPath
-                if (path != profile) { profile = path; ranker = com.hiddify.hiddify.nativeconnection.NativeServerRanker() }
-                if (path.isNullOrBlank()) continue
-                outboundBusyTag.value = busyToken
+            var historyId: String? = null
+            var savedRevision = 0L
+            var saveAt = 0L
+            suspend fun flushHistory() {
+                val id = historyId ?: return
+                if (savedRevision == ranker.revision) return
+                val snapshot = ranker.snapshot()
+                saveAt = System.currentTimeMillis()
                 try {
-                    val groups = withContext(Dispatchers.IO) { outboundsRepository.load() }
-                    if (!nativeForeground || serviceStatus.value != Status.Started || path != Settings.activeConfigPath) continue
-                    outboundGroups.value = groups
-                    val group = groups.firstOrNull()?.takeIf { it.selectable } ?: continue
-                    val balancer = group.items.firstOrNull { it.isGroup && it.tag == "lowest" }
-                    val direct = group.items.filter { !it.isGroup }.take(128)
-                    val now = System.currentTimeMillis()
-                    val target = if (enabled) {
-                        if (balancer != null) balancer.tag.takeIf { it != group.selectedTag }
-                        else {
-                            direct.forEach { ranker.observe(it.tag, it.delayMs, it.testTimestampMs, now) }
-                            ranker.recommend(group.selectedTag, direct.map { it.tag }.toSet(), now)
+                    withContext(Dispatchers.IO) { serverHistoryRepository.save(id, snapshot) }
+                    savedRevision = ranker.revision
+                } catch (error: CancellationException) { throw error }
+                catch (error: Exception) { Log.w(TAG, "could not save native server history", error) }
+            }
+            try {
+                while (isActive && nativeForeground && serviceStatus.value == Status.Started) {
+                    delay(3000)
+                    if (savedRevision != ranker.revision && System.currentTimeMillis() - saveAt >= 10000) flushHistory()
+                    val enabled = generalPreferences.value.smartSelection || connectionOptions.value.adaptiveNetwork
+                    if (wasEnabled && !enabled) leaveBalancer = true
+                    if (enabled) leaveBalancer = false
+                    wasEnabled = enabled
+                    if (!enabled && !leaveBalancer) continue
+                    if (outboundBusyTag.value != null || generalPreferencesBusy.value || connectionOptionsBusy.value) continue
+                    outboundBusyTag.value = busyToken
+                    try {
+                        val path = Settings.activeConfigPath
+                        if (path != profile) {
+                            flushHistory()
+                            val nextRanker = com.hiddify.hiddify.nativeconnection.NativeServerRanker()
+                            val nextId = withContext(Dispatchers.IO) {
+                                if (path.isBlank()) null else profileRepository.activeProfile()?.id
+                                    ?.takeIf { java.io.File(path).name == "$it.json" }
+                            }
+                            nextId?.let { id ->
+                                val history = withContext(Dispatchers.IO) { serverHistoryRepository.load(id) }
+                                nextRanker.restore(history, System.currentTimeMillis())
+                            }
+                            ranker = nextRanker
+                            historyId = nextId
+                            savedRevision = ranker.revision
+                            saveAt = System.currentTimeMillis()
+                            profile = path
                         }
-                    } else if (leaveBalancer && balancer != null && group.selectedTag == balancer.tag) {
-                        balancer.selectedChildTag?.takeIf { tag -> direct.any { it.tag == tag } }
-                            ?: direct.minByOrNull { if (it.delayMs in 1..64999) it.delayMs else 65535 }?.tag
-                    } else null
-                    if (target == null && !enabled) leaveBalancer = false
-                    if (target != null) {
-                        BoxService.withNativeLifecycle {
-                            if (nativeForeground && serviceStatus.value == Status.Started && path == Settings.activeConfigPath &&
-                                enabled == (generalPreferences.value.smartSelection || connectionOptions.value.adaptiveNetwork)) {
-                                outboundsRepository.selectForeground(group.tag, target)
-                                leaveBalancer = false
-                                ranker.switched(now)
-                                restartHealthMonitor()
+                        if (path.isBlank()) continue
+                        val groups = withContext(Dispatchers.IO) { outboundsRepository.load() }
+                        if (!nativeForeground || serviceStatus.value != Status.Started || path != Settings.activeConfigPath) continue
+                        outboundGroups.value = groups
+                        val group = groups.firstOrNull()?.takeIf { it.selectable } ?: continue
+                        val balancer = group.items.firstOrNull { it.isGroup && it.tag == "lowest" }
+                        val direct = group.items.filter { !it.isGroup }.take(128)
+                        val now = System.currentTimeMillis()
+                        val target = if (enabled) {
+                            if (balancer != null) balancer.tag.takeIf { it != group.selectedTag }
+                            else {
+                                direct.forEach { ranker.observe(it.tag, it.delayMs, it.testTimestampMs, now) }
+                                ranker.recommend(group.selectedTag, direct.map { it.tag }.toSet(), now)
+                            }
+                        } else if (leaveBalancer && balancer != null && group.selectedTag == balancer.tag) {
+                            balancer.selectedChildTag?.takeIf { tag -> direct.any { it.tag == tag } }
+                                ?: direct.minByOrNull { if (it.delayMs in 1..64999) it.delayMs else 65535 }?.tag
+                        } else null
+                        if (target == null && !enabled) leaveBalancer = false
+                        if (target != null) {
+                            BoxService.withNativeLifecycle {
+                                if (nativeForeground && serviceStatus.value == Status.Started && path == Settings.activeConfigPath &&
+                                    enabled == (generalPreferences.value.smartSelection || connectionOptions.value.adaptiveNetwork)) {
+                                    outboundsRepository.selectForeground(group.tag, target)
+                                    leaveBalancer = false
+                                    ranker.switched(now)
+                                    restartHealthMonitor()
+                                }
                             }
                         }
+                    } catch (error: CancellationException) {
+                        throw error
+                    } catch (error: Exception) {
+                        Log.w(TAG, "native smart server selection failed", error)
+                    } finally {
+                        if (outboundBusyTag.value == busyToken) outboundBusyTag.value = null
                     }
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Exception) {
-                    Log.w(TAG, "native smart server selection failed", error)
-                } finally {
-                    if (outboundBusyTag.value == busyToken) outboundBusyTag.value = null
+                }
+            } finally {
+                withContext(kotlinx.coroutines.NonCancellable) {
+                    try { flushHistory() }
+                    catch (error: Exception) { Log.w(TAG, "could not save native server history", error) }
                 }
             }
         }

@@ -1,9 +1,29 @@
 package com.hiddify.hiddify.nativeconnection
 
+data class NativeServerSample(val average: Double, val successes: Int, val failures: Int, val updated: Long)
+
 /** Foreground fallback for raw configurations without the core's `lowest` balancer. */
 class NativeServerRanker {
     private data class Sample(var average: Double = 0.0, var successes: Int = 0, var failures: Int = 0, var updated: Long = 0)
     private val samples = linkedMapOf<String, Sample>()
+    var revision = 0L
+        private set
+
+    fun snapshot(): Map<String, NativeServerSample> = samples.mapValues { (_, s) ->
+        NativeServerSample(s.average, s.successes, s.failures, s.updated)
+    }
+
+    fun restore(history: Map<String, NativeServerSample>, now: Long) {
+        samples.clear()
+        history.entries.take(128).forEach { (tag, s) ->
+            if (tag.isNotBlank() && tag.length <= 1024 && s.average.isFinite() && s.average in 0.0..64999.0 &&
+                s.successes in 0..100 && s.failures in 0..20 && s.updated > 0 && now - s.updated in 0..86399999L) {
+                samples[tag] = Sample(s.average, s.successes, s.failures, s.updated)
+            }
+        }
+        candidate = null; wins = 0; evaluated = 0; lastSwitch = 0; revision = 0
+    }
+
     private var candidate: String? = null
     private var wins = 0
     private var evaluated = 0L
@@ -14,6 +34,7 @@ class NativeServerRanker {
         val sample = samples.getOrPut(tag) { Sample() }
         if (timestamp <= sample.updated) return
         sample.updated = timestamp
+        revision++
         if (delay in 1..64999) {
             sample.average = if (sample.successes == 0) delay.toDouble() else sample.average * .7 + delay * .3
             sample.successes = (sample.successes + 1).coerceAtMost(100)
@@ -22,7 +43,7 @@ class NativeServerRanker {
     }
 
     fun recommend(current: String, eligible: Set<String>, now: Long): String? {
-        samples.keys.retainAll(eligible)
+        if (samples.keys.retainAll(eligible)) revision++
         if (lastSwitch != 0L && now - lastSwitch < 120000) return null
         val best = samples.entries.filter { (_, sample) ->
             sample.successes >= 3 && sample.failures == 0 && now - sample.updated in 0..600000L

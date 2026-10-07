@@ -70,7 +70,7 @@ class NativeOutboundsRepository {
                                         selectedChild = outbound.group_selected_tag_display,
                                         isGroup = outbound.is_group,
                                         selectedChildTag = outbound.group_selected_tag,
-                                        testTimestampMs = outbound.url_test_time?.let { it.seconds * 1000 + it.nanos / 1000000 } ?: 0,
+                                        testTimestampMs = outbound.url_test_time?.toEpochMilli() ?: 0,
                                     )
                                 },
                     )
