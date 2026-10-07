@@ -10,6 +10,7 @@ import android.util.Log
 import com.hiddify.core.libbox.Notification
 import com.hiddify.core.libbox.TunOptions
 import com.hiddify.hiddify.Settings
+import com.hiddify.hiddify.constant.PerAppProxyMode
 import com.hiddify.hiddify.ktx.toIpPrefix
 
 class VPNService : VpnService(), PlatformInterfaceWrapper {
@@ -81,6 +82,34 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
         }
     }
 
+    /**
+     * Applies the user-facing per-app mode directly to Android's VPN builder.
+     *
+     * This intentionally takes precedence over package filters produced by the core. Android does
+     * not allow allowed/disallowed application sets to be mixed on one Builder, so include mode
+     * owns the set completely; exclude mode can safely combine user exclusions with the VPN app.
+     */
+    private fun applyPerAppRouting(builder: Builder): Boolean {
+        return when (Settings.perAppProxyMode) {
+            PerAppProxyMode.INCLUDE -> {
+                var included = 0
+                Settings.perAppProxyList.distinct().forEach { packageName ->
+                    if (addIncludePackage(builder, packageName)) included++
+                }
+                check(included > 0) { "per-app include mode has no valid selected applications" }
+                true
+            }
+
+            PerAppProxyMode.EXCLUDE -> {
+                Settings.perAppProxyList.distinct().forEach { addExcludePackage(builder, it) }
+                addExcludePackage(builder, packageName)
+                true
+            }
+
+            else -> false
+        }
+    }
+
     override fun openTun(options: TunOptions): Int {
         return try {
             openTunInternal(options)
@@ -136,7 +165,7 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
             if (Settings.privacyFullTunnel) {
                 builder.addRoute("0.0.0.0", 0)
                 if (!Settings.privacyDisableIpv6) builder.addRoute("::", 0)
-                addExcludePackage(builder, packageName)
+                if (!applyPerAppRouting(builder)) addExcludePackage(builder, packageName)
             } else {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     val inet4RouteAddress = options.inet4RouteAddress
@@ -182,29 +211,31 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
                     }
                 }
 
-                val configured = org.json.JSONObject(Settings.configOptions.ifBlank { "{}" })
-                val policy = com.hiddify.hiddify.privacy.RegionalRouting.policy(
-                    this,
-                    configured.optString("region", "other"),
-                )
-                if (policy["privacy-routing-mode"] != "off") {
-                    @Suppress("UNCHECKED_CAST")
-                    (policy["privacy-direct-packages"] as List<String>).forEach { addExcludePackage(builder, it) }
-                    addExcludePackage(builder, packageName)
-                } else {
-                    val includePackage = options.includePackage
-                    if (includePackage.hasNext()) {
-                        var included = 0
-                        while (includePackage.hasNext()) {
-                            if (addIncludePackage(builder, includePackage.next())) included++
-                        }
-                        check(included > 0) { "no applications could be included" }
-                    } else {
-                        val excludePackage = options.excludePackage
-                        while (excludePackage.hasNext()) {
-                            addExcludePackage(builder, excludePackage.next())
-                        }
+                if (!applyPerAppRouting(builder)) {
+                    val configured = org.json.JSONObject(Settings.configOptions.ifBlank { "{}" })
+                    val policy = com.hiddify.hiddify.privacy.RegionalRouting.policy(
+                        this,
+                        configured.optString("region", "other"),
+                    )
+                    if (policy["privacy-routing-mode"] != "off") {
+                        @Suppress("UNCHECKED_CAST")
+                        (policy["privacy-direct-packages"] as List<String>).forEach { addExcludePackage(builder, it) }
                         addExcludePackage(builder, packageName)
+                    } else {
+                        val includePackage = options.includePackage
+                        if (includePackage.hasNext()) {
+                            var included = 0
+                            while (includePackage.hasNext()) {
+                                if (addIncludePackage(builder, includePackage.next())) included++
+                            }
+                            check(included > 0) { "no applications could be included" }
+                        } else {
+                            val excludePackage = options.excludePackage
+                            while (excludePackage.hasNext()) {
+                                addExcludePackage(builder, excludePackage.next())
+                            }
+                            addExcludePackage(builder, packageName)
+                        }
                     }
                 }
             }

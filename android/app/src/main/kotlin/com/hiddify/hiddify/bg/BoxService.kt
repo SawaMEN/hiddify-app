@@ -1,5 +1,7 @@
 package com.hiddify.hiddify.bg
 
+import com.hiddify.hiddify.nativecore.NativeCoreControl
+
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -75,6 +77,8 @@ class BoxService(
         fun currentPlatformInterface(): PlatformInterface? = coreOwner?.platformInterface
 
         fun isRunning(): Boolean = coreOwner?.status?.value in listOf(Status.Started, Status.Starting)
+
+        fun isStarted(): Boolean = coreOwner?.status?.value == Status.Started
 
         // Unlike Activity/AIDL state, ownership is set before Mobile.setup() and cleared only
         // after Mobile.close() finishes. Use it as the native lifecycle barrier.
@@ -242,6 +246,12 @@ class BoxService(
 
                 if (!Settings.connectionDesired) {
                     finishCancelledStart("cancelled during native setup")
+                    return
+                }
+                try {
+                    NativeCoreControl.applyStoredSettings()
+                } catch (error: Exception) {
+                    stopAndAlert(Alert.CreateService, "Unable to apply core settings: ${error.message ?: error.javaClass.simpleName}")
                     return
                 }
                 Mobile.applyDevicePrivacy(Settings.privacyFullTunnel, Settings.privacyHideLocalProxy,

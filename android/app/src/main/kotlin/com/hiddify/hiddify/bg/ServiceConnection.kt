@@ -133,6 +133,12 @@ class ServiceConnection(
 
         fun onServiceAlert(type: Alert, message: String?) {
         }
+
+        fun onServiceWriteLog(message: String) {
+        }
+
+        fun onServiceResetLogs(messages: List<String>) {
+        }
     }
 
     class ServiceCallback(private val callback: Callback) : IServiceCallback.Stub() {
@@ -156,11 +162,11 @@ class ServiceConnection(
         }
 
         override fun onServiceWriteLog(message: String?) {
-            // TODO: expose native service logs when needed.
+            message?.takeIf { it.isNotBlank() }?.let(callback::onServiceWriteLog)
         }
 
         override fun onServiceResetLogs(messages: List<String?>?) {
-            // TODO: expose native service logs when needed.
+            callback.onServiceResetLogs(messages.orEmpty().filterNotNull())
         }
     }
 }

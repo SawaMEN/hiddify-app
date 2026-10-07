@@ -36,13 +36,21 @@ object AutomaticHotspot {
     private var iface: String? = null
     private var address: String? = null
     private var root = false
-    private var details: Map<String, Any?> = mapOf("active" to false)
+    @Volatile private var details: Map<String, Any?> = mapOf("active" to false)
     var listener: ((Map<String, Any?>) -> Unit)? = null
+
+    private val observers = linkedSetOf<(Map<String, Any?>) -> Unit>()
+    fun addObserver(observer: (Map<String, Any?>) -> Unit) { observers.add(observer) }
+    fun removeObserver(observer: (Map<String, Any?>) -> Unit) { observers.remove(observer) }
 
     fun snapshot(): Map<String, Any?> = details.toMap()
     private fun publish(value: Map<String, Any?>) {
         details = value
-        main.post { listener?.invoke(snapshot()) }
+        main.post {
+            val current = snapshot()
+            listener?.invoke(current)
+            observers.toList().forEach { it(current) }
+        }
     }
 
     fun permission() = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.NEARBY_WIFI_DEVICES
@@ -145,7 +153,7 @@ object AutomaticHotspot {
                 val pair = withTimeout(10_000) {
                     var found: Pair<String, String>? = null
                     while (found == null) {
-                        found = withContext(Dispatchers.IO) { addresses().entries.firstOrNull { it.key !in before }?.value }
+                        found = withContext(Dispatchers.IO) { HotspotInterfaceSelection.find(before.keys, addresses()) }
                         if (found == null) delay(200)
                     }
                     found
