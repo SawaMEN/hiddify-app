@@ -105,6 +105,7 @@ fun NativeApp(
     systemStats: NativeSystemStats,
     wifiSharingDetails: NativeWifiSharingDetails,
     wifiSharingDetailsBusy: Boolean,
+    wifiSharingBusy: Boolean,
     updateChecking: Boolean,
     updateMessage: String?,
     updateUrl: String?,
@@ -386,7 +387,9 @@ fun NativeApp(
                     PAGE_SETTINGS ->
                         NativeSettingsScreen(
                             state = settingsState,
-                            canChangeServiceMode = status == Status.Stopped,
+                            canChangeServiceMode = status == Status.Stopped && !wifiSharingBusy,
+                            wifiSharingBusy = wifiSharingBusy || status == Status.Starting || status == Status.Stopping,
+                            wifiSharingDetails = wifiSharingDetails,
                             onBack = { page = PAGE_HOME },
                             onOpenVpnProtection = {
                                 onRefreshVpnProtection()

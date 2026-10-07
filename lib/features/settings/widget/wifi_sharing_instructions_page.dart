@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:hiddify/features/settings/data/automatic_hotspot.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
 import 'package:hiddify/hiddifycore/hiddify_core_service_provider.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
@@ -19,6 +20,11 @@ class _InstructionsState extends ConsumerState<WifiSharingInstructionsPage> {
   Future<void> _refresh() async {
     setState(() => _loading = true);
     try {
+      final hotspot = ref.read(automaticHotspotProvider);
+      if (hotspot['active'] == true) {
+        setState(() => _ip = hotspot['ip'] as String?);
+        return;
+      }
       final result = await ref.read(hiddifyCoreServiceProvider).getLANIP().run();
       if (mounted) setState(() => _ip = result.fold((_) => null, (value) => value.ip));
     } finally {
@@ -32,8 +38,10 @@ class _InstructionsState extends ConsumerState<WifiSharingInstructionsPage> {
     final port = ref.watch(ConfigOptions.mixedPort);
     final password = ref.watch(ConfigOptions.lanSharingPassword);
     final root = ref.watch(VpnPrivacyPreferences.useRoot);
+    final hotspot = ref.watch(automaticHotspotProvider);
+    final hotspotIp = hotspot['active'] == true ? hotspot['ip'] as String? : null;
     final effectivePort = port > 0 ? port : 12334;
-    final host = _ip ?? (ru ? 'IP раздатчика' : 'Host IP');
+    final host = hotspotIp ?? _ip ?? (ru ? 'IP раздатчика' : 'Host IP');
     return DefaultTabController(
       length: 5,
       child: Scaffold(
@@ -52,7 +60,14 @@ class _InstructionsState extends ConsumerState<WifiSharingInstructionsPage> {
         ),
         body: TabBarView(
           children: List.generate(5, (platform) {
-            final guide = sharingGuide(platform, ru, host, effectivePort, root: root);
+            final guide = sharingGuide(
+              platform,
+              ru,
+              host,
+              effectivePort,
+              root: root,
+              ssid: hotspot['ssid'] as String? ?? 'VPN-WiFi',
+            );
             return ListView(
               key: PageStorageKey('wifi-guide-$platform'),
               padding: const EdgeInsets.all(20),
@@ -63,6 +78,16 @@ class _InstructionsState extends ConsumerState<WifiSharingInstructionsPage> {
                       : 'This phone runs the app and shares Wi-Fi through VPN. Choose the OS of the device receiving Wi-Fi from this phone. All steps and diagrams below apply to the receiving device.',
                 ),
                 const SizedBox(height: 16),
+                if (hotspot['active'] == true)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: SelectableText(
+                        '${ru ? 'Подключитесь к сети' : 'Join network'}: ${hotspot['ssid']}\n'
+                        '${ru ? 'Пароль Wi-Fi' : 'Wi-Fi password'}: ${hotspot['password']}',
+                      ),
+                    ),
+                  ),
                 if (!root)
                   Card(
                     child: Padding(
@@ -77,8 +102,8 @@ class _InstructionsState extends ConsumerState<WifiSharingInstructionsPage> {
                           const SizedBox(height: 8),
                           SelectableText(
                             ru
-                                ? 'IP: ${_ip ?? 'шлюз Wi-Fi клиента при прямой раздаче'}\nПорт: $effectivePort\nПользователь: hiddify\nПароль прокси: ${password.isEmpty ? 'не установлен — включите раздачу в основных настройках' : password}'
-                                : 'IP: ${_ip ?? 'client Wi-Fi gateway for a direct hotspot'}\nPort: $effectivePort\nUsername: hiddify\nProxy password: ${password.isEmpty ? 'not set — enable sharing in general settings' : password}',
+                                ? 'IP: ${hotspotIp ?? _ip ?? 'шлюз Wi-Fi клиента при прямой раздаче'}\nПорт: $effectivePort\nПользователь: hiddify\nПароль прокси: ${password.isEmpty ? 'не установлен — включите раздачу в основных настройках' : password}'
+                                : 'IP: ${hotspotIp ?? _ip ?? 'client Wi-Fi gateway for a direct hotspot'}\nPort: $effectivePort\nUsername: hiddify\nProxy password: ${password.isEmpty ? 'not set — enable sharing in general settings' : password}',
                           ),
                           TextButton.icon(
                             onPressed: _loading ? null : _refresh,
@@ -87,8 +112,8 @@ class _InstructionsState extends ConsumerState<WifiSharingInstructionsPage> {
                           ),
                           Text(
                             ru
-                                ? 'Пароль Wi-Fi задаётся в настройках точки доступа. Пароль прокси берите отсюда.'
-                                : 'Set the Wi-Fi password in hotspot settings. Use the proxy password shown here.',
+                                ? 'Точка доступа создаётся приложением автоматически. Пароль Wi-Fi показан выше; пароль прокси берите отсюда.'
+                                : 'The app creates the hotspot automatically. The Wi-Fi password is above; use the proxy password shown here.',
                           ),
                         ],
                       ),
@@ -140,8 +165,8 @@ class _InstructionsState extends ConsumerState<WifiSharingInstructionsPage> {
                   ru: ru,
                   section: SharingGuideSection(ru ? 'Если не подключается' : 'If it does not connect', [
                     ru
-                        ? 'Сеть не видна: проверьте, что включена системная точка доступа, а не только переключатель приложения; попробуйте 2,4 ГГц. «Подключено без интернета» не всегда означает ошибку: системная проверка Android может не использовать прокси. Проверьте сайт в настроенном браузере.'
-                        : 'Network missing: check the system hotspot, not just the app switch; try 2.4 GHz. Connected without internet does not always mean failure: Android connectivity checks may not use the proxy. Test a site in the configured browser.',
+                        ? 'Сеть не видна: проверьте, что приложение показало имя и пароль созданной точки доступа. Если Android сообщил о конфликте, выключите ранее созданную системную точку доступа и повторите включение в приложении. «Подключено без интернета» не всегда означает ошибку: системная проверка Android может не использовать прокси. Проверьте сайт в настроенном браузере.'
+                        : 'Network missing: check that the app displayed the created hotspot name and password. If Android reported a conflict, stop the existing system hotspot and enable sharing again in the app. Connected without internet does not always mean failure: Android connectivity checks may not use the proxy. Test a site in the configured browser.',
                     ru
                         ? 'Тайм-аут или отказ подключения: проверьте сеть, локальный IP, порт, запущенный VPN и пароль. Обновите IP после перезапуска точки доступа. Если данные верны, проверьте доступность раздачи на телефоне. На получающем компьютере не нужно открывать входящий порт: он подключается к прокси телефона.'
                         : 'Timeout or connection refused: check the network, local IP, port, running VPN and password. Refresh the IP after restarting the hotspot. If the details are correct, check sharing availability on the phone. The receiving computer does not need an incoming port opened: it connects to the phone proxy.',

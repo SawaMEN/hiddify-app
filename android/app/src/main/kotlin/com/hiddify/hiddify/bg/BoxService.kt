@@ -146,6 +146,7 @@ class BoxService(
 
     private suspend fun finishCancelledStart(reason: String) {
         Settings.startedByUser = false
+        runCatching { com.hiddify.hiddify.sharing.AutomaticHotspot.stop() }
         val closeError = runCatching { releaseNative(reason) }.exceptionOrNull()
         closeTun(reason)
         withContext(Dispatchers.Main) {
@@ -362,6 +363,8 @@ class BoxService(
                     }
                     return@withLock
                 }
+                if (!preserveIntent) runCatching { com.hiddify.hiddify.sharing.AutomaticHotspot.stop() }
+                    .onFailure { Log.w(TAG, "hotspot cleanup deferred", it) }
                 DefaultNetworkMonitor.detachCoreListener()
                 val closeError = runCatching { closeCore() }.exceptionOrNull()
                 closeTun("stop")
@@ -393,6 +396,7 @@ class BoxService(
     private suspend fun stopAndAlert(type: Alert, message: String? = null) {
         if (destroyed) return
         if (!Settings.connectionDesired) Settings.startedByUser = false
+        runCatching { com.hiddify.hiddify.sharing.AutomaticHotspot.stop() }
         val closeError = runCatching { releaseNative("service error") }.exceptionOrNull()
         closeTun("service error")
 
@@ -506,6 +510,9 @@ class BoxService(
         serviceScope.launch {
             try {
                 lifecycleMutex.withLock {
+                    if (coreOwner === this@BoxService && !Settings.connectionDesired) {
+                        runCatching { com.hiddify.hiddify.sharing.AutomaticHotspot.stop() }
+                    }
                     releaseNative("destroy")
                     closeTun("destroy")
                 }

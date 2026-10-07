@@ -86,6 +86,8 @@ fun NativeWifiSharingGuideScreen(
             }
         }
 
+        NativeWifiCredentialsCard(details)
+
         if (!rootMode) {
             GuideCard(title = stringResource(R.string.native_wifi_guide_details)) {
                 DetailRow(stringResource(R.string.native_wifi_guide_host), host)

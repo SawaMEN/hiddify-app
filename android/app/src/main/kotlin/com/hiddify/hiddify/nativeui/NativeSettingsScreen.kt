@@ -51,6 +51,8 @@ data class NativeSettingsState(
 fun NativeSettingsScreen(
     state: NativeSettingsState,
     canChangeServiceMode: Boolean,
+    wifiSharingBusy: Boolean,
+    wifiSharingDetails: com.hiddify.hiddify.nativecore.NativeWifiSharingDetails,
     onBack: () -> Unit,
     onOpenPerAppRouting: () -> Unit,
     onOpenRegionalRouting: () -> Unit,
@@ -131,9 +133,11 @@ fun NativeSettingsScreen(
                 title = stringResource(R.string.native_setting_wifi_sharing),
                 summary = stringResource(R.string.native_setting_wifi_sharing_summary),
                 checked = state.wifiSharing,
-                enabled = canChangeServiceMode,
+                enabled = !wifiSharingBusy,
                 onCheckedChange = onWifiSharingChanged,
             )
+            if (wifiSharingBusy) Text(stringResource(R.string.native_wifi_busy))
+            NativeWifiCredentialsCard(wifiSharingDetails)
             OutlinedButton(
                 onClick = onOpenWifiSharingGuide,
                 modifier = Modifier.fillMaxWidth(),

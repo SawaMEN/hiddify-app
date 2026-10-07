@@ -58,6 +58,10 @@ import com.hiddify.hiddify.privacy.NativeTrafficFilters
 import com.hiddify.hiddify.privacy.NetworkPrivacySettings
 import com.hiddify.hiddify.nativeui.NativeApp
 import com.hiddify.hiddify.nativeui.NativeSettingsState
+import com.hiddify.hiddify.sharing.AutomaticHotspot
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -113,6 +117,20 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val outboundBusyTag = mutableStateOf<String?>(null)
     private val systemStats = mutableStateOf(NativeSystemStats())
     private val wifiSharingDetails = mutableStateOf(NativeWifiSharingDetails())
+    private val wifiSharingBusy = mutableStateOf(false)
+    private var hotspotPermission: CompletableDeferred<Boolean>? = null
+    private val hotspotPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            hotspotPermission?.complete(granted)
+        }
+    private val hotspotObserver: (Map<String, Any?>) -> Unit = { state ->
+        if (state["active"] != true && !wifiSharingBusy.value && Settings.wifiVpnSharing) {
+            Settings.setWifiVpnSharing(false)
+        }
+        refreshSettingsSnapshot()
+        refreshWifiSharingDetails()
+    }
+    private var wifiDetailsRefreshPending = false
     private val wifiSharingDetailsBusy = mutableStateOf(false)
     private val updateChecking = mutableStateOf(false)
     private val updateMessage = mutableStateOf<String?>(null)
@@ -266,6 +284,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 .exceptionOrNull()
 
         super.onCreate(savedInstanceState)
+        AutomaticHotspot.addObserver(hotspotObserver)
         pendingProfileExportId = savedInstanceState?.getString("native_profile_export_id")
 
         if (migrationError != null) {
@@ -315,6 +334,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 systemStats = systemStats.value,
                 wifiSharingDetails = wifiSharingDetails.value,
                 wifiSharingDetailsBusy = wifiSharingDetailsBusy.value,
+                wifiSharingBusy = wifiSharingBusy.value,
                 updateChecking = updateChecking.value,
                 updateMessage = updateMessage.value,
                 updateUrl = updateUrl.value,
@@ -388,19 +408,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                         connection.reconnect()
                     }
                 },
-                onWifiSharingChanged = { value ->
-                    if (serviceStatus.value != Status.Stopped) {
-                        errorMessage.value = getString(R.string.native_profile_disconnect_required)
-                    } else {
-                        try {
-                            updateSettings { Settings.setWifiVpnSharing(value) }
-                            coreOptions.value = coreOptionsRepository.setLanSharing(value)
-                            refreshWifiSharingDetails()
-                        } catch (error: Exception) {
-                            errorMessage.value = error.message ?: error.javaClass.simpleName
-                        }
-                    }
-                },
+                onWifiSharingChanged = ::changeWifiSharing,
                 onFullTunnelChanged = { value -> updateSettings { Settings.setPrivacyFullTunnel(value) } },
                 onEncryptedDnsChanged = { value -> updateSettings { Settings.setPrivacyEncryptedDns(value) } },
                 onPublicDnsChanged = { value -> updateSettings { Settings.setPrivacyPublicDns(value) } },
@@ -1098,7 +1106,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         NativeSettingsState(
             serviceMode = Settings.serviceMode,
             rootRequested = Settings.privacyUseRootRequested,
-            wifiSharing = Settings.wifiVpnSharing,
+            wifiSharing = AutomaticHotspot.snapshot()["active"] == true,
             fullTunnel = Settings.privacyFullTunnel,
             encryptedDns = Settings.privacyEncryptedDns,
             publicDns = Settings.privacyPublicDns,
@@ -1222,8 +1230,86 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    override fun onDestroy() {
+        AutomaticHotspot.removeObserver(hotspotObserver)
+        hotspotPermission?.cancel()
+        super.onDestroy()
+    }
+
+    private fun changeWifiSharing(enabled: Boolean) {
+        if (wifiSharingBusy.value || serviceStatus.value == Status.Starting || serviceStatus.value == Status.Stopping) return
+        wifiSharingBusy.value = true
+        lifecycleScope.launch {
+            var startupRequested = false
+            try {
+                profileOperationMutex.withLock {
+                    if (enabled) {
+                        check(Settings.activeConfigPath.isNotBlank()) { getString(R.string.native_no_active_profile) }
+                        if (Settings.privacyUseRootRequested) AutomaticHotspot.prepareRoot(applicationContext)
+                        val permission = AutomaticHotspot.permission()
+                        if (ContextCompat.checkSelfPermission(this@NativeMainActivity, permission) != PackageManager.PERMISSION_GRANTED) {
+                            val pending = CompletableDeferred<Boolean>()
+                            hotspotPermission = pending
+                            try {
+                                hotspotPermissionLauncher.launch(permission)
+                                check(pending.await()) { getString(R.string.native_wifi_permission_denied) }
+                            } finally { hotspotPermission = null }
+                        }
+                        AutomaticHotspot.start(applicationContext, Settings.privacyUseRootRequested)
+                    } else {
+                        AutomaticHotspot.stop()
+                    }
+                    val wasRunning = serviceStatus.value == Status.Started
+                    Settings.setWifiVpnSharing(enabled)
+                    coreOptions.value = coreOptionsRepository.setLanSharing(enabled)
+                    if (wasRunning) {
+                        BoxService.stop(preserveIntent = true)
+                        withTimeout(30_000) {
+                            while (serviceStatus.value != Status.Stopped) delay(100)
+                        }
+                    }
+                    if (enabled) Settings.serviceMode = ServiceMode.VPN
+                    if (enabled || wasRunning) {
+                        connection.reconnect()
+                        startupRequested = true
+                        requestStart()
+                        withTimeout(60_000) {
+                            while (serviceStatus.value != Status.Started) {
+                                check(Settings.connectionDesired) { errorMessage.value ?: getString(R.string.native_wifi_vpn_failed) }
+                                delay(100)
+                            }
+                        }
+                    }
+                    if (enabled) check(AutomaticHotspot.snapshot()["active"] == true) { getString(R.string.native_wifi_vpn_failed) }
+                }
+            } catch (error: Exception) {
+                if (startupRequested) {
+                    pendingStartAfterVpnPermission = false
+                    if (serviceStatus.value != Status.Started) {
+                        Settings.connectionDesired = false
+                        BoxService.stop()
+                    }
+                }
+                withContext(NonCancellable) {
+                    runCatching { AutomaticHotspot.stop() }
+                    Settings.setWifiVpnSharing(false)
+                    runCatching { coreOptions.value = coreOptionsRepository.setLanSharing(false) }
+                }
+                if (error is CancellationException) throw error
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                wifiSharingBusy.value = false
+                refreshSettingsSnapshot()
+                refreshWifiSharingDetails()
+            }
+        }
+    }
+
     private fun refreshWifiSharingDetails() {
-        if (wifiSharingDetailsBusy.value) return
+        if (wifiSharingDetailsBusy.value) {
+            wifiDetailsRefreshPending = true
+            return
+        }
         wifiSharingDetailsBusy.value = true
         lifecycleScope.launch {
             try {
@@ -1235,6 +1321,10 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
                 wifiSharingDetailsBusy.value = false
+                if (wifiDetailsRefreshPending) {
+                    wifiDetailsRefreshPending = false
+                    refreshWifiSharingDetails()
+                }
             }
         }
     }

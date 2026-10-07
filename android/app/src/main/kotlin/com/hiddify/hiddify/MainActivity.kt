@@ -29,6 +29,7 @@ import kotlinx.coroutines.withContext
 class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
 
     private val connection = ServiceConnection(this, this)
+    private val hotspotChannel = com.hiddify.hiddify.sharing.HotspotChannel(this)
 
     val logList = LinkedList<String>()
     var logCallback: ((Boolean) -> Unit)? = null
@@ -58,6 +59,7 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        hotspotChannel.attach(flutterEngine.dartExecutor.binaryMessenger)
         backgroundChannel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "vetroff/background_permissions").also { channel ->
             channel.setMethodCallHandler { call, result ->
                 if (call.method == "ready") {
@@ -314,6 +316,7 @@ class MainActivity : FlutterFragmentActivity(), ServiceConnection.Callback {
     }
 
     override fun onDestroy() {
+        hotspotChannel.detach()
         backgroundUiReady = false
         backgroundChannel?.setMethodCallHandler(null)
         backgroundChannel = null

@@ -34,7 +34,7 @@
     <string name="native_setting_root">Root-режим</string>
     <string name="native_setting_root_summary">Использовать root-компаньон вместо Android VpnService.</string>
     <string name="native_setting_wifi_sharing">Раздавать VPN по Wi-Fi</string>
-    <string name="native_setting_wifi_sharing_summary">Открывать локальный прокси для устройств, подключённых к точке доступа.</string>
+    <string name="native_setting_wifi_sharing_summary">Автоматически создать защищённую точку Wi-Fi. С root устройства работают через VPN сразу; без root настройте прокси на получающих устройствах.</string>
     <string name="native_setting_full_tunnel">Полный туннель</string>
     <string name="native_setting_full_tunnel_summary">Направлять весь IPv4/IPv6-трафик через VPN, кроме явных исключений.</string>
     <string name="native_setting_ipv4_only">Только IPv4</string>
@@ -424,4 +424,10 @@
     <string name="native_regional_apps_missing">Не установлено или недоступно; сохранённый выбор сохраняется</string>
     <string name="native_regional_apps_saved">Маршрутизация приложений сохранена. Переподключите VPN для применения.</string>
     <string name="native_regional_apps_save_first">Сохраните изменения маршрутизации перед выбором приложений.</string>
+    <string name="native_wifi_permission_denied">Не предоставлено разрешение для точки Wi-Fi.</string>
+    <string name="native_wifi_vpn_failed">Раздача через VPN не запустилась. Проверьте подключение VPN и повторите.</string>
+    <string name="native_wifi_busy">Настраиваем точку Wi-Fi и VPN…</string>
+    <string name="native_wifi_credentials">Подключитесь к этой сети Wi-Fi</string>
+    <string name="native_wifi_ssid">Название сети</string>
+    <string name="native_wifi_password">Пароль Wi-Fi</string>
 </resources>

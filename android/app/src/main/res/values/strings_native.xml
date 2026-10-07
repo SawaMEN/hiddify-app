@@ -34,7 +34,7 @@
     <string name="native_setting_root">Root mode</string>
     <string name="native_setting_root_summary">Use the root companion instead of Android VpnService.</string>
     <string name="native_setting_wifi_sharing">Share VPN over Wi-Fi</string>
-    <string name="native_setting_wifi_sharing_summary">Expose the local proxy so hotspot clients can use the VPN.</string>
+    <string name="native_setting_wifi_sharing_summary">Automatically create a secured Wi-Fi hotspot. Root routes clients through VPN; without root, configure the proxy on receiving devices.</string>
     <string name="native_setting_full_tunnel">Full tunnel</string>
     <string name="native_setting_full_tunnel_summary">Route all IPv4/IPv6 traffic through the VPN except explicit exclusions.</string>
     <string name="native_setting_ipv4_only">IPv4 only</string>
@@ -424,4 +424,10 @@
     <string name="native_regional_apps_missing">Not installed or unavailable; saved choice retained</string>
     <string name="native_regional_apps_saved">Application routing saved. Reconnect the VPN to apply.</string>
     <string name="native_regional_apps_save_first">Save routing changes before opening application selection.</string>
+    <string name="native_wifi_permission_denied">Wi-Fi hotspot permission was declined.</string>
+    <string name="native_wifi_vpn_failed">VPN sharing could not start. Check the VPN connection and retry.</string>
+    <string name="native_wifi_busy">Configuring the hotspot and VPN…</string>
+    <string name="native_wifi_credentials">Connect to this Wi-Fi network</string>
+    <string name="native_wifi_ssid">Network name</string>
+    <string name="native_wifi_password">Wi-Fi password</string>
 </resources>

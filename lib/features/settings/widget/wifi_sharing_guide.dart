@@ -7,7 +7,14 @@ class SharingGuideSection {
   final Map<String, String> fields;
 }
 
-List<SharingGuideSection> sharingGuide(int platform, bool ru, String host, int port, {bool root = false}) {
+List<SharingGuideSection> sharingGuide(
+  int platform,
+  bool ru,
+  String host,
+  int port, {
+  bool root = false,
+  String ssid = 'VPN-WiFi',
+}) {
   String t(String russian, String english) => ru ? russian : english;
   final on = t('Включено', 'On');
   final manual = t('Вручную', 'Manual');
@@ -22,8 +29,8 @@ List<SharingGuideSection> sharingGuide(int platform, bool ru, String host, int p
     t('Подключитесь к Wi-Fi телефона', 'Join the phone Wi-Fi'),
     [
       t(
-        'На устройстве, которое получает интернет, откройте список Wi-Fi сетей. Выберите точку доступа этого телефона (например, VPN-WiFi) и введите пароль Wi-Fi, заданный на телефоне.',
-        'On the device receiving internet open the Wi-Fi network list. Select this phone hotspot (for example VPN-WiFi) and enter the Wi-Fi password set on the phone.',
+        'На устройстве, которое получает интернет, откройте список Wi-Fi сетей. Выберите точку доступа этого телефона «$ssid» и введите пароль Wi-Fi из карточки приложения.',
+        'On the device receiving internet open the Wi-Fi network list. Select this phone hotspot "$ssid" and enter the Wi-Fi password shown in the app card.',
       ),
       t(
         'Телефон с приложением должен уже раздавать Wi-Fi, а VPN и «Раздача Wi-Fi через VPN» должны быть включены. Приложение на получающем устройстве устанавливать не нужно. Выберите вкладку ОС получающего устройства.',
@@ -36,7 +43,7 @@ List<SharingGuideSection> sharingGuide(int platform, bool ru, String host, int p
     ],
     screenTitle: t('Получающее устройство → Wi-Fi', 'Receiving device → Wi-Fi'),
     fields: {
-      t('Сеть телефона', 'Phone network'): 'VPN-WiFi',
+      t('Сеть телефона', 'Phone network'): ssid,
       t('Состояние', 'Status'): t('Подключено', 'Connected'),
       t('Пароль Wi-Fi', 'Wi-Fi password'): t('Пароль точки доступа телефона', 'Phone hotspot password'),
     },
@@ -110,7 +117,7 @@ List<SharingGuideSection> sharingGuide(int platform, bool ru, String host, int p
     ],
     screenTitle: t('Клиент → Сведения о Wi-Fi', 'Client → Wi-Fi details'),
     fields: {
-      t('Сеть', 'Network'): 'VPN-WiFi',
+      t('Сеть', 'Network'): ssid,
       t('Шлюз / Маршрутизатор', 'Gateway / Router'): host,
       t('Это IP прокси при прямой раздаче', 'Proxy IP for a direct hotspot'): host,
     },
