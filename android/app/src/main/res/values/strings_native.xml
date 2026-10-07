@@ -297,6 +297,8 @@
     <string name="native_settings_reset_title">Reset core settings?</string>
     <string name="native_settings_reset_message">Core, DNS, inbound, TLS and chain options will return to defaults. Profiles are not deleted.</string>
     <string name="native_settings_import_success">Settings imported.</string>
+    <string name="native_settings_clipboard_empty">Clipboard does not contain settings JSON.</string>
+    <string name="native_settings_import_disconnect">Disconnect the VPN before importing or resetting core settings.</string>
     <string name="native_settings_export_success">Settings exported.</string>
     <string name="native_settings_reset_success">Core settings reset.</string>
 
