@@ -50,6 +50,7 @@ private const val PAGE_LOGS = "logs"
 private const val PAGE_CORE_OPTIONS = "core_options"
 private const val PAGE_OUTBOUNDS = "outbounds"
 private const val PAGE_WIFI_GUIDE = "wifi_guide"
+private const val PAGE_ABOUT = "about"
 
 @Composable
 fun NativeApp(
@@ -73,6 +74,9 @@ fun NativeApp(
     systemStats: NativeSystemStats,
     wifiSharingDetails: NativeWifiSharingDetails,
     wifiSharingDetailsBusy: Boolean,
+    updateChecking: Boolean,
+    updateMessage: String?,
+    updateUrl: String?,
     errorMessage: String?,
     onDismissError: () -> Unit,
     onToggleConnection: () -> Unit,
@@ -93,6 +97,12 @@ fun NativeApp(
     onTestOutbound: (String) -> Unit,
     onTestActiveOutbounds: () -> Unit,
     onRefreshWifiSharingDetails: () -> Unit,
+    onCheckUpdate: () -> Unit,
+    onOpenUpdate: () -> Unit,
+    onOpenFork: () -> Unit,
+    onOpenUpstream: () -> Unit,
+    onOpenTerms: () -> Unit,
+    onOpenPrivacy: () -> Unit,
     onOpenLegacy: () -> Unit,
     onProxyOnlyChanged: (Boolean) -> Unit,
     onRootModeChanged: (Boolean) -> Unit,
@@ -198,6 +208,22 @@ fun NativeApp(
                             onRefresh = onRefreshWifiSharingDetails,
                         )
 
+                    PAGE_ABOUT ->
+                        NativeAboutScreen(
+                            versionName = com.hiddify.hiddify.BuildConfig.VERSION_NAME,
+                            versionCode = com.hiddify.hiddify.BuildConfig.VERSION_CODE,
+                            updateChecking = updateChecking,
+                            updateMessage = updateMessage,
+                            updateUrl = updateUrl,
+                            onBack = { page = PAGE_HOME },
+                            onCheckUpdate = onCheckUpdate,
+                            onOpenUpdate = onOpenUpdate,
+                            onOpenFork = onOpenFork,
+                            onOpenUpstream = onOpenUpstream,
+                            onOpenTerms = onOpenTerms,
+                            onOpenPrivacy = onOpenPrivacy,
+                        )
+
                     PAGE_SETTINGS ->
                         NativeSettingsScreen(
                             state = settingsState,
@@ -240,6 +266,7 @@ fun NativeApp(
                             onOpenProfiles = { page = PAGE_PROFILES },
                             onOpenSettings = { page = PAGE_SETTINGS },
                             onOpenLogs = { page = PAGE_LOGS },
+                            onOpenAbout = { page = PAGE_ABOUT },
                             onOpenOutbounds = {
                                 onRefreshOutbounds()
                                 page = PAGE_OUTBOUNDS
@@ -278,6 +305,7 @@ private fun HomeScreen(
     onOpenProfiles: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenLogs: () -> Unit,
+    onOpenAbout: () -> Unit,
     onOpenOutbounds: () -> Unit,
     onOpenLegacy: () -> Unit,
 ) {
@@ -367,6 +395,13 @@ private fun HomeScreen(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(stringResource(R.string.native_logs_title))
+        }
+
+        OutlinedButton(
+            onClick = onOpenAbout,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.native_about_open))
         }
 
         Spacer(modifier = Modifier.weight(1f))
