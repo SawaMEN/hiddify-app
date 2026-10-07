@@ -284,4 +284,20 @@
     <string name="native_chain_range_hint">Диапазон, например 1-3. Если не уверены, оставьте текущее значение.</string>
     <string name="native_chain_reconnect_note">После сохранения переподключите VPN, чтобы hiddify-core пересобрал цепочку. WARP и Psiphon работают согласно собственным условиям сервисов и их доступности.</string>
 
+
+    <string name="native_settings_transfer">Резервная копия настроек</string>
+    <string name="native_settings_transfer_summary">Импорт, экспорт и сброс JSON-настроек ядра VetrOFF. Файлы профилей управляются отдельно.</string>
+    <string name="native_settings_import_clipboard">Импортировать из буфера</string>
+    <string name="native_settings_import_file">Импортировать JSON-файл</string>
+    <string name="native_settings_include_private">Включить приватные данные</string>
+    <string name="native_settings_include_private_summary">Добавлять в экспорт лицензионные ключи WARP и пароль LAN-раздачи.</string>
+    <string name="native_settings_export_clipboard">Экспортировать в буфер</string>
+    <string name="native_settings_export_file">Экспортировать JSON-файл</string>
+    <string name="native_settings_reset">Сбросить настройки ядра</string>
+    <string name="native_settings_reset_title">Сбросить настройки ядра?</string>
+    <string name="native_settings_reset_message">Настройки ядра, DNS, входящих подключений, TLS и цепочки вернутся к значениям по умолчанию. Профили не удаляются.</string>
+    <string name="native_settings_import_success">Настройки импортированы.</string>
+    <string name="native_settings_export_success">Настройки экспортированы.</string>
+    <string name="native_settings_reset_success">Настройки ядра сброшены.</string>
+
 </resources>
