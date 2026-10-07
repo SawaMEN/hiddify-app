@@ -372,4 +372,21 @@
     <string name="native_per_app_backup_invalid">Некорректная копия маршрутизации приложений</string>
     <string name="native_per_app_backup_clipboard_large">Копия слишком велика для буфера обмена. Сохраните её в файл.</string>
     <string name="native_per_app_backup_busy">Дождитесь завершения операции с маршрутизацией приложений и повторите попытку.</string>
+    <string name="native_filters_title">Сетевые ограничения</string>
+    <string name="native_filters_warning">Экспериментальные настройки — не рекомендуются к применению</string>
+    <string name="native_filters_warning_summary">По умолчанию отключены. Эти фильтры изменяют сетевое поведение приложений и могут нарушить работу сайтов, звонков, игр и доступ к локальным устройствам.</string>
+    <string name="native_filters_count">Включено: %1$d из %2$d</string>
+    <string name="native_filters_enable_all">Включить все экспериментальные меры</string>
+    <string name="native_filters_disable_all">Отключить все</string>
+    <string name="native_filters_enable">Включить</string>
+    <string name="native_filters_confirm">Эти настройки могут нарушить работу сайтов, звонков, игр, локальных устройств и приложений. Включить все четыре меры?</string>
+    <string name="native_filters_quic">Блокировать QUIC / HTTP/3</string>
+    <string name="native_filters_quic_summary">Блокирует распознанный QUIC в TUN-трафике приложений. Браузеры обычно переключаются на HTTPS поверх TCP; некоторые приложения могут потерять скорость или соединение.</string>
+    <string name="native_filters_stun">Защита STUN / WebRTC</string>
+    <string name="native_filters_stun_summary">Блокирует распознанный STUN в TUN. Может уменьшить сетевые утечки WebRTC, но способен нарушить звонки, P2P, игры и передачу медиа.</string>
+    <string name="native_filters_http">Блокировать незашифрованный HTTP</string>
+    <string name="native_filters_http_summary">Блокирует распознанный обычный HTTP из приложений. Сайты без HTTPS, captive portal и некоторые проверки подключения могут перестать работать.</string>
+    <string name="native_filters_lan">Изолировать локальную сеть</string>
+    <string name="native_filters_lan_summary">Блокирует TUN-трафик приложений к приватным адресам LAN. Принтеры, телевизоры, роутеры и NAS могут стать недоступны.</string>
+    <string name="native_filters_limits">Эти фильтры не изменяют отпечаток браузера, User-Agent, Canvas/WebGL или данные внутри HTTPS. Они не расшифровывают HTTPS и не гарантируют полную анонимность.</string>
 </resources>

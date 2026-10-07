@@ -70,12 +70,25 @@ selected apps and forced deselections restored from backups. Unknown flag bits a
 cannot accidentally make an application selected. The per-app page uses one lazy scrolling list
 for controls and applications, so the controls remain accessible on small screens.
 
+## Native experimental traffic restrictions
+
+The Kotlin settings page now opens a Compose screen for QUIC, STUN/WebRTC, plain HTTP
+blocking and LAN isolation. It preserves the compatibility UI's opt-in defaults, limitations,
+bulk-enable confirmation and reconnect requirement. The screen displays saved choices rather
+than claiming that an already running tunnel has applied them.
+
+A typed filter model reads only actual Boolean values under the existing Flutter preference
+keys. Individual changes preserve other filters; bulk changes write all four values in one
+SharedPreferences transaction on IO. The core policy reads the same model, avoiding a separate
+mapping that could diverge from the UI. Modern-protocol and adaptive-network settings remain
+independent. Save failures are surfaced through the native error dialog.
+
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and
-`NativeDiagnosticReportTest`, `NativePerAppBackupTest` and `NativePerAppFlagsTest` cover UTF-8, byte-order marks, size limits,
+`NativeDiagnosticReportTest`, `NativePerAppBackupTest`, `NativePerAppFlagsTest` and `NativeTrafficFiltersTest` cover UTF-8, byte-order marks, size limits,
 encoded URL tokens, custom ports, IPv6, QR round trips, inverted QR images and oversized QR
-payloads, captive portal responses, probe URL validation and the diagnostic report allowlist, legacy routing backups, validation limits and manual/automatic flag transitions. Run with the configured Android/Flutter SDK and prepared core:
+payloads, captive portal responses, probe URL validation and the diagnostic report allowlist, legacy routing backups, validation limits and manual/automatic flag transitions, typed privacy preferences and bulk filter round trips. Run with the configured Android/Flutter SDK and prepared core:
 
 ```sh
 cd android

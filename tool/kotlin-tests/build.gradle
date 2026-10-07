@@ -21,6 +21,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeprofile/NativeQrCodec.kt'
             include 'com/hiddify/hiddify/nativediagnostics/NativeDiagnosticModels.kt'
             include 'com/hiddify/hiddify/nativerouting/NativePerAppBackup.kt'
+            include 'com/hiddify/hiddify/privacy/NativeTrafficFilters.kt'
         }
     }
     test {

@@ -372,4 +372,21 @@
     <string name="native_per_app_backup_invalid">Invalid application routing backup</string>
     <string name="native_per_app_backup_clipboard_large">This backup is too large for the clipboard. Save it to a file instead.</string>
     <string name="native_per_app_backup_busy">Wait for the current application routing operation to finish and try again.</string>
+    <string name="native_filters_title">Traffic restrictions</string>
+    <string name="native_filters_warning">Experimental settings — not recommended for normal use</string>
+    <string name="native_filters_warning_summary">Disabled by default. These filters change app network behavior and can break websites, calls, games and access to local devices.</string>
+    <string name="native_filters_count">Enabled: %1$d of %2$d</string>
+    <string name="native_filters_enable_all">Enable all experimental measures</string>
+    <string name="native_filters_disable_all">Disable all</string>
+    <string name="native_filters_enable">Enable</string>
+    <string name="native_filters_confirm">These settings can break websites, calls, games, local devices and apps. Enable all four measures?</string>
+    <string name="native_filters_quic">Block QUIC / HTTP/3</string>
+    <string name="native_filters_quic_summary">Reject detected QUIC in application TUN traffic. Browsers usually fall back to HTTPS over TCP; some apps may lose performance or connectivity.</string>
+    <string name="native_filters_stun">STUN / WebRTC protection</string>
+    <string name="native_filters_stun_summary">Reject detected STUN in TUN traffic. May reduce WebRTC network leaks, but can break calls, P2P, games and media connectivity.</string>
+    <string name="native_filters_http">Block unencrypted HTTP</string>
+    <string name="native_filters_http_summary">Reject detected plain HTTP from apps. Non-HTTPS sites, captive portals and some connectivity checks may stop working.</string>
+    <string name="native_filters_lan">Isolate the local network</string>
+    <string name="native_filters_lan_summary">Reject app TUN traffic to private LAN addresses. Printers, TVs, routers and NAS devices may become unavailable.</string>
+    <string name="native_filters_limits">These filters do not change browser fingerprints, User-Agent, Canvas/WebGL or data inside HTTPS. They do not decrypt HTTPS or guarantee complete anonymity.</string>
 </resources>

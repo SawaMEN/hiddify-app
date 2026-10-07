@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.nativediagnostics.NativeDiagnosticSnapshot
 import com.hiddify.hiddify.nativediagnostics.NativeVpnProtection
+import com.hiddify.hiddify.privacy.NativeTrafficFilters
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
@@ -60,6 +61,7 @@ private const val PAGE_WIFI_GUIDE = "wifi_guide"
 private const val PAGE_ABOUT = "about"
 private const val PAGE_CHAIN = "chain"
 private const val PAGE_DIAGNOSTICS = "diagnostics"
+private const val PAGE_TRAFFIC_FILTERS = "traffic_filters"
 private const val PAGE_PROTECTION = "protection"
 
 @Composable
@@ -69,6 +71,9 @@ fun NativeApp(
     hasActiveProfile: Boolean,
     rootMode: Boolean,
     settingsState: NativeSettingsState,
+    trafficFilters: NativeTrafficFilters,
+    trafficFiltersBusy: Boolean,
+    onSaveTrafficFilters: (NativeTrafficFilters) -> Unit,
     profiles: List<NativeProfile>,
     busyProfileId: String?,
     profileEditor: NativeProfileEditor?,
@@ -170,6 +175,7 @@ fun NativeApp(
                 PAGE_CORE_OPTIONS -> PAGE_SETTINGS
                 PAGE_CHAIN -> PAGE_SETTINGS
                 PAGE_WIFI_GUIDE -> PAGE_SETTINGS
+                PAGE_TRAFFIC_FILTERS -> PAGE_SETTINGS
                 PAGE_PROTECTION -> PAGE_SETTINGS
                 else -> PAGE_HOME
             }
@@ -198,6 +204,14 @@ fun NativeApp(
                             onRun = onRunDiagnostics,
                             onCancel = onCancelDiagnostics,
                             onShareReport = onShareDiagnosticReport,
+                        )
+
+                    PAGE_TRAFFIC_FILTERS ->
+                        NativeTrafficFiltersScreen(
+                            filters = trafficFilters,
+                            busy = trafficFiltersBusy,
+                            onBack = { page = PAGE_SETTINGS },
+                            onSave = onSaveTrafficFilters,
                         )
 
                     PAGE_PROTECTION ->
@@ -333,6 +347,7 @@ fun NativeApp(
                                 onRefreshVpnProtection()
                                 page = PAGE_PROTECTION
                             },
+                            onOpenTrafficFilters = { page = PAGE_TRAFFIC_FILTERS },
                             onOpenPerAppRouting = { page = PAGE_PER_APP },
                             onOpenCoreOptions = { page = PAGE_CORE_OPTIONS },
                             onOpenChain = { page = PAGE_CHAIN },

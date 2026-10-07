@@ -50,6 +50,8 @@ import com.hiddify.hiddify.nativerouting.NativePerAppBackup
 import com.hiddify.hiddify.nativerouting.NativePerAppBackupCodec
 import com.hiddify.hiddify.nativerouting.NativePerAppRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
+import com.hiddify.hiddify.privacy.NativeTrafficFilters
+import com.hiddify.hiddify.privacy.NetworkPrivacySettings
 import com.hiddify.hiddify.nativeui.NativeApp
 import com.hiddify.hiddify.nativeui.NativeSettingsState
 import kotlinx.coroutines.CancellationException
@@ -115,6 +117,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val diagnosticBusy = mutableStateOf(false)
     private val vpnProtection = mutableStateOf(NativeVpnProtection())
     private val errorMessage = mutableStateOf<String?>(null)
+    private val trafficFilters = mutableStateOf(NativeTrafficFilters())
+    private val trafficFiltersBusy = mutableStateOf(false)
     private val nativeSettings = mutableStateOf(readNativeSettings())
 
     private val profileRepository by lazy { NativeProfileRepository(applicationContext) }
@@ -272,6 +276,9 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 hasActiveProfile = activeProfilePath.value.isNotBlank(),
                 rootMode = Settings.privacyUseRoot,
                 settingsState = nativeSettings.value,
+                trafficFilters = trafficFilters.value,
+                trafficFiltersBusy = trafficFiltersBusy.value,
+                onSaveTrafficFilters = ::saveTrafficFilters,
                 profiles = profiles.value,
                 busyProfileId = busyProfileId.value,
                 profileEditor = profileEditor.value,
@@ -1091,6 +1098,24 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun refreshSettingsSnapshot() {
         nativeSettings.value = readNativeSettings()
+        trafficFilters.value = NetworkPrivacySettings.loadFilters(this)
+    }
+
+    private fun saveTrafficFilters(value: NativeTrafficFilters) {
+        if (trafficFiltersBusy.value) return
+        trafficFiltersBusy.value = true
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    NetworkPrivacySettings.saveFilters(applicationContext, value)
+                }
+                trafficFilters.value = NetworkPrivacySettings.loadFilters(applicationContext)
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                trafficFiltersBusy.value = false
+            }
+        }
     }
 
     private fun refreshCoreOptions() {
