@@ -40,7 +40,12 @@ data class NativeProfile(
     val userOverride: String?,
 ) {
     val isRemote: Boolean get() = type == "remote"
-    val consumed: Long? get() = if (upload != null && download != null) upload + download else null
+    val consumed: Long? get() {
+        val sent = upload ?: return null
+        val received = download ?: return null
+        // Do not wrap large subscription counters into a negative amount.
+        return if (sent >= 0 && received >= 0 && sent > Long.MAX_VALUE - received) Long.MAX_VALUE else sent + received
+    }
 }
 
 data class NativeProfileEditor(
@@ -49,6 +54,7 @@ data class NativeProfileEditor(
     val name: String,
     val disableAutoUpdate: Boolean,
     val updateIntervalHours: Int?,
+    val isJson: Boolean = false,
 )
 
 /**
@@ -311,6 +317,7 @@ class NativeProfileRepository(private val context: Context) {
         return NativeProfileEditor(
             profile = profile,
             content = content,
+            isJson = runCatching { NativeJsonDocument.parse(content) }.isSuccess,
             name = userOverrideName(profile.userOverride) ?: profile.name,
             disableAutoUpdate = userOverrideAutoUpdateDisabled(profile.userOverride),
             updateIntervalHours =
@@ -333,8 +340,8 @@ class NativeProfileRepository(private val context: Context) {
         require(content.toByteArray(Charsets.UTF_8).size <= MAX_CONFIG_BYTES) {
             "Configuration exceeds 8 MiB"
         }
-        if (content.trimStart().startsWith("{")) {
-            runCatching { JSONObject(content) }
+        if (content.trimStart().startsWith("{") || content.trimStart().startsWith("[")) {
+            runCatching { NativeJsonDocument.parse(content) }
                 .getOrElse { throw IllegalArgumentException("Invalid JSON configuration", it) }
         }
 

@@ -1,0 +1,466 @@
+{
+  "protocolSchemaValues": {
+    "xray": {
+      "type": "xray",
+      "tag": "xray-out",
+      "xray_outbound_raw": {},
+      "xray_fragment": {
+        "packets": "tlshello",
+        "interval": "1-10",
+        "length": "1-10"
+      }
+    },
+    "warp": {
+      "type": "warp",
+      "key": "",
+      "host": "",
+      "port": 808,
+      "noise": {
+        "fake_packets": {
+          "enabled": true,
+          "count": "1-10",
+          "delay": "1-10",
+          "mode": "m4"
+        }
+      }
+    },
+    "mieru": {
+      "type": "mieru",
+      "tag": "mieru-out",
+      "server": "127.0.0.1",
+      "portBindings": [
+        {
+          "protocol": "tcp",
+          "port": 1080
+        },
+        {
+          "protocol": "udp",
+          "portRanges": "1080-1090"
+        }
+      ],
+      "multiplexing": "high",
+      "handshake": "no_wait"
+    },
+    "naive": {
+      "type": "naive",
+      "tag": "naive-out",
+      "server": "127.0.0.1",
+      "server_port": 1080,
+      "username": "",
+      "password": "",
+      "tls": {
+        "enabled": true
+      }
+    },
+    "dnstt": {
+      "type": "dnstt",
+      "tag": "dnstt-out",
+      "domain": "dnstt.hiddify.com",
+      "publicKey": "publickey",
+      "resolvers": [
+        "8.8.8.8:53",
+        "8.8.4.4:53"
+      ],
+      "tunnel_per_resolver": 4
+    },
+    "vless": {
+      "type": "vless",
+      "tag": "vless-out",
+      "server": "127.0.0.1",
+      "server_port": 1080,
+      "uuid": "bf000d23-0752-40b4-affe-68f7707a9661",
+      "flow": "xtls-rprx-vision",
+      "packet_encoding": ""
+    },
+    "vmess": {
+      "type": "vmess",
+      "tag": "vmess-out",
+      "server": "127.0.0.1",
+      "server_port": 1080,
+      "uuid": "bf000d23-0752-40b4-affe-68f7707a9661",
+      "security": "auto",
+      "global_padding": false,
+      "authenticated_length": true,
+      "packet_encoding": ""
+    },
+    "trojan": {
+      "type": "trojan",
+      "tag": "trojan-out",
+      "server": "127.0.0.1",
+      "server_port": 1080,
+      "password": "8JCsPssfgS8tiRwiMlhARg=="
+    },
+    "hysteria": {
+      "type": "hysteria",
+      "tag": "hysteria-out",
+      "server": "127.0.0.1",
+      "server_port": 1080,
+      "up": "100 Mbps",
+      "up_mbps": 100,
+      "down": "100 Mbps",
+      "down_mbps": 100,
+      "obfs": "daylight",
+      "auth": "",
+      "auth_str": "password",
+      "recv_window_conn": 0,
+      "recv_window": 0,
+      "disable_mtu_discovery": false,
+      "tls": {
+        "enabled": true
+      }
+    },
+    "hysteria2": {
+      "type": "hysteria2",
+      "tag": "hy2-out",
+      "server": "127.0.0.1",
+      "server_port": 1080,
+      "up_mbps": 100,
+      "down_mbps": 100,
+      "obfs": {
+        "type": "salamander",
+        "password": "cry_me_a_r1ver"
+      },
+      "password": "goofy_ahh_password",
+      "tls": {
+        "enabled": true
+      }
+    },
+    "shadowsocks": {
+      "type": "shadowsocks",
+      "tag": "ss-out",
+      "server": "127.0.0.1",
+      "server_port": 1080,
+      "method": "2022-blake3-aes-128-gcm",
+      "password": "8JCsPssfgS8tiRwiMlhARg==",
+      "plugin": "",
+      "plugin_opts": "",
+      "udp_over_tcp": false
+    },
+    "socks": {
+      "type": "socks",
+      "tag": "socks-out",
+      "server": "127.0.0.1",
+      "server_port": 1080,
+      "version": "5",
+      "username": "",
+      "password": "",
+      "udp_over_tcp": false
+    },
+    "http": {
+      "type": "http",
+      "tag": "http-out",
+      "server": "127.0.0.1",
+      "server_port": 1080,
+      "username": "",
+      "password": "",
+      "path": "",
+      "headers": {},
+      "tls": {
+        "enabled": false
+      }
+    },
+    "wireguard": {
+      "type": "wireguard",
+      "tag": "wireguard-out",
+      "server": "127.0.0.1",
+      "server_port": 1080,
+      "system_interface": false,
+      "gso": false,
+      "interface_name": "wg0",
+      "local_address": [
+        "10.0.0.2/32"
+      ],
+      "private_key": "YNXtAzepDqRv9H52osJVDQnznT5AM11eCK3ESpwSt04=",
+      "peer_public_key": "Z1XXLsKYkYxuiYjJIkRvtIKFepCYHTgON+GwPq7SOV4=",
+      "pre_shared_key": "31aIhAPwktDGpH4JDhA8GNvjFXEf/a6+UaQRyOAiyfM=",
+      "reserved": [
+        0,
+        0,
+        0
+      ],
+      "workers": 4,
+      "mtu": 1408,
+      "fake_packets": "1-10",
+      "fake_packets_size": "1-10",
+      "fake_packets_delay": "1-10",
+      "fake_packets_mode": "m4"
+    },
+    "tuic": {
+      "type": "tuic",
+      "tag": "tuic-out",
+      "server": "127.0.0.1",
+      "server_port": 1080,
+      "uuid": "2DD61D93-75D8-4DA4-AC0E-6AECE7EAC365",
+      "password": "hello",
+      "congestion_control": "cubic",
+      "udp_relay_mode": "native",
+      "udp_over_stream": false,
+      "zero_rtt_handshake": false,
+      "heartbeat": "10s",
+      "tls": {
+        "enabled": true
+      }
+    },
+    "ssh": {
+      "type": "ssh",
+      "tag": "ssh-out",
+      "server": "127.0.0.1",
+      "server_port": 22,
+      "user": "root",
+      "password": "admin",
+      "private_key": "",
+      "private_key_passphrase": "",
+      "host_key": [
+        ""
+      ],
+      "client_version": "SSH-2.0-OpenSSH_7.4p1"
+    }
+  },
+  "exampleSchemaValues": {
+    "config.outbounds.transport": {
+      "browser user-agent": {
+        "header": {
+          "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"
+        }
+      }
+    },
+    "config.outbounds.tls": {
+      "fragment": {
+        "tls_fragment": {
+          "enabled": true,
+          "size": "1-10",
+          "sleep": "1-10"
+        }
+      },
+      "utls": {
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      }
+    },
+    "config.outbounds": {
+      "multiplex": {
+        "multiplex": {
+          "enabled": true,
+          "protocol": "smux",
+          "max_connections": 4,
+          "min_streams": 4,
+          "max_streams": 0,
+          "padding": false,
+          "brutal": {
+            "enabled": true,
+            "up_mbps": 100,
+            "down_mbps": 100
+          }
+        }
+      },
+      "reality": {
+        "tls": {
+          "enabled": true,
+          "server_name": "",
+          "min_version": "",
+          "max_version": "",
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          },
+          "reality": {
+            "enabled": true,
+            "public_key": "",
+            "short_id": ""
+          }
+        }
+      },
+      "tls": {
+        "tls": {
+          "enabled": true,
+          "utls": {
+            "enabled": true,
+            "fingerprint": "chrome"
+          },
+          "disable_sni": false,
+          "insecure": false,
+          "server_name": "",
+          "alpn": [],
+          "min_version": "",
+          "max_version": "",
+          "tls_fragment": {
+            "enabled": false,
+            "size": "1-10",
+            "sleep": "1-10"
+          }
+        }
+      },
+      "websocket": {
+        "transport": {
+          "type": "ws",
+          "path": "",
+          "headers": {},
+          "max_early_data": 0,
+          "early_data_header_name": ""
+        }
+      },
+      "grpc": {
+        "transport": {
+          "type": "grpc",
+          "service_name": "TunService",
+          "idle_timeout": "15s",
+          "ping_timeout": "15s",
+          "permit_without_stream": false
+        }
+      },
+      "quic": {
+        "transport": {
+          "type": "quic"
+        }
+      },
+      "http": {
+        "transport": {
+          "type": "http",
+          "host": [],
+          "path": "",
+          "method": "",
+          "headers": {},
+          "idle_timeout": "15s",
+          "ping_timeout": "15s"
+        }
+      },
+      "httpupgrade": {
+        "transport": {
+          "type": "httpupgrade",
+          "host": "",
+          "path": "",
+          "headers": {}
+        }
+      },
+      "xhttp": {
+        "transport": {
+          "type": "xhttp",
+          "host": "",
+          "path": "",
+          "headers": {}
+        }
+      }
+    }
+  },
+  "possibleValues": {
+    "config.outbounds.flow": [
+      "",
+      "xtls-rprx-vision"
+    ],
+    "config.outbounds.security": [
+      "",
+      "auto",
+      "none",
+      "zero",
+      "aes-128-gcm",
+      "chacha20-poly1305"
+    ],
+    "config.outbounds.method": [
+      "",
+      "2022-blake3-aes-128-gcm",
+      "2022-blake3-aes-256-gcm",
+      "2022-blake3-chacha20-poly1305",
+      "none",
+      "aes-128-gcm",
+      "aes-192-gcm",
+      "aes-256-gcm",
+      "chacha20-ietf-poly1305",
+      "xchacha20-ietf-poly1305"
+    ],
+    "config.outbounds.plugin": [
+      "",
+      "obfs-local",
+      "v2ray-plugin"
+    ],
+    "config.outbounds.network": [
+      "",
+      "udp",
+      "tcp"
+    ],
+    "config.endpoints.network": [
+      "",
+      "udp",
+      "tcp"
+    ],
+    "config.outbounds.multiplex.protocol": [
+      "",
+      "smux",
+      "yamux",
+      "h2mux"
+    ],
+    "config.outbounds.tls.min_version": [
+      "",
+      "1.0",
+      "1.1",
+      "1.2",
+      "1.3"
+    ],
+    "config.outbounds.tls.max_version": [
+      "",
+      "1.0",
+      "1.1",
+      "1.2",
+      "1.3"
+    ],
+    "config.outbounds.tls.utls.fingerprint": [
+      "",
+      "chrome",
+      "chrome_psk",
+      "chrome_psk_shuffle",
+      "chrome_padding_psk_shuffle",
+      "chrome_pq",
+      "chrome_pq_psk",
+      "firefox",
+      "edge",
+      "safari",
+      "360",
+      "qq",
+      "ios",
+      "android",
+      "random",
+      "randomized"
+    ],
+    "config.outbounds.packet_encoding": [
+      "",
+      "(none)",
+      "xudp",
+      "packetaddr"
+    ],
+    "config.outbounds.transport.type": [
+      "",
+      "http",
+      "ws",
+      "grpc",
+      "quic",
+      "httpupgrade"
+    ],
+    "config.outbounds.type": [
+      "vless",
+      "dnstt",
+      "vmess",
+      "trojan",
+      "xray",
+      "shadowsocks",
+      "wireguard",
+      "hysteria",
+      "hysteria2",
+      "tuic",
+      "ssh",
+      "shadowtls",
+      "custom",
+      "direct",
+      "block",
+      "socks",
+      "http",
+      "mieru",
+      "naive",
+      "anytls"
+    ],
+    "config.endpoints.type": [
+      "wireguard",
+      "warp"
+    ]
+  }
+}
