@@ -4,6 +4,7 @@ import 'package:hiddify/features/connection/model/connection_status.dart';
 import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
 import 'package:hiddify/features/settings/notifier/config_option/config_option_notifier.dart';
 import 'package:hiddify/features/settings/data/config_option_repository.dart';
+import 'package:hiddify/singbox/model/singbox_config_enum.dart';
 
 import 'dart:async';
 import 'dart:math';
@@ -85,6 +86,9 @@ class HotspotSharingController extends Notifier<bool> {
         }
       }
       await ref.read(configOptionNotifierProvider.notifier).updateTogether(() async {
+        if (enabled && PlatformUtils.isAndroid) {
+          await ref.read(ConfigOptions.serviceMode.notifier).update(ServiceMode.tun);
+        }
         if (enabled && ref.read(ConfigOptions.lanSharingPassword).isEmpty) {
           final random = Random.secure();
           final password = List.generate(24, (_) => random.nextInt(16).toRadixString(16)).join();
