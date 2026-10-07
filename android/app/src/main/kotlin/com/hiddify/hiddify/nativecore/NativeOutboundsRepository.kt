@@ -34,9 +34,12 @@ class NativeOutboundsRepository {
         GrpcClientProvider.grpcClient.create(CoreClient::class)
 
     fun load(): List<NativeOutboundGroup> {
-        val source = client().OutboundsInfo().executeBlocking(Empty())
-        return source.use {
-            val response = it.read() ?: return@use emptyList()
+        val (requestSink, responseSource) = client().OutboundsInfo().executeBlocking()
+        requestSink.use { sink ->
+            sink.write(Empty())
+        }
+        return responseSource.use { source ->
+            val response = source.read() ?: return@use emptyList()
             response.items.map { group ->
                 NativeOutboundGroup(
                     tag = group.tag,
