@@ -188,6 +188,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val internetHealth = mutableStateOf(NativeInternetHealth.UNCHECKED)
     private val healthRepository = NativeHealthRepository()
     private var healthJob: Job? = null
+    private var smartSelectionJob: Job? = null
     private var nativeForeground = false
     private var recoveryPolicy = NativeRecoveryPolicy()
     private var recoveryJob: Job? = null
@@ -371,6 +372,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 generalPreferencesBusy = generalPreferencesBusy.value,
                 onChangeLanguage = ::saveLanguage,
                 onChangeHapticFeedback = ::saveHapticFeedback,
+                onChangeSmartSelection = ::saveSmartSelection,
                 tunnelOptions = tunnelOptions.value,
                 tunnelBusy = tunnelBusy.value,
                 onSaveTunnelOptions = ::saveTunnelOptions,
@@ -547,6 +549,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         startStatsRefreshLoop()
         connection.connect()
         restartHealthMonitor()
+        startSmartSelectionLoop()
     }
 
     override fun onResume() {
@@ -569,6 +572,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
             maybePromptBatteryOptimization()
         }
         restartHealthMonitor()
+        startSmartSelectionLoop()
         if (serviceStatus.value == Status.Started) trackStableConnection() else scheduleRecovery()
     }
 
@@ -580,6 +584,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     override fun onStop() {
         nativeForeground = false
+        smartSelectionJob?.cancel()
+        smartSelectionJob = null
         stopHealthMonitor()
         cancelRecovery()
         cancelDiagnostics()
@@ -728,6 +734,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun selectOutbound(groupTag: String, outboundTag: String) {
         runOutboundOperation(outboundTag) {
             outboundsRepository.select(groupTag, outboundTag)
+            val preferences = generalPreferencesRepository.saveSmartSelection(false)
+            runOnUiThread { generalPreferences.value = preferences; connectionHaptic(stopping = false) }
             runOnUiThread { restartHealthMonitor() }
         }
     }
@@ -1346,6 +1354,88 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    private fun saveSmartSelection(enabled: Boolean) {
+        if (generalPreferencesBusy.value || outboundBusyTag.value != null) return
+        generalPreferencesBusy.value = true
+        lifecycleScope.launch {
+            try {
+                generalPreferences.value = withContext(Dispatchers.IO) { generalPreferencesRepository.saveSmartSelection(enabled) }
+                startSmartSelectionLoop()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally { generalPreferencesBusy.value = false }
+        }
+    }
+
+    /** The core balancer also works in background; raw-profile ranking only runs while visible. */
+    private fun startSmartSelectionLoop() {
+        if (!nativeForeground || serviceStatus.value != Status.Started) {
+            smartSelectionJob?.cancel()
+            smartSelectionJob = null
+            return
+        }
+        if (smartSelectionJob?.isActive == true) return
+        val busyToken = "__smart_selection_${java.util.UUID.randomUUID()}__"
+        smartSelectionJob = lifecycleScope.launch {
+            var wasEnabled = generalPreferences.value.smartSelection || connectionOptions.value.adaptiveNetwork
+            var leaveBalancer = false
+            var profile: String? = null
+            var ranker = com.hiddify.hiddify.nativeconnection.NativeServerRanker()
+            while (isActive && nativeForeground && serviceStatus.value == Status.Started) {
+                delay(3000)
+                val enabled = generalPreferences.value.smartSelection || connectionOptions.value.adaptiveNetwork
+                if (wasEnabled && !enabled) leaveBalancer = true
+                if (enabled) leaveBalancer = false
+                wasEnabled = enabled
+                if (!enabled && !leaveBalancer) continue
+                if (outboundBusyTag.value != null || generalPreferencesBusy.value || connectionOptionsBusy.value) continue
+                val path = Settings.activeConfigPath
+                if (path != profile) { profile = path; ranker = com.hiddify.hiddify.nativeconnection.NativeServerRanker() }
+                if (path.isNullOrBlank()) continue
+                outboundBusyTag.value = busyToken
+                try {
+                    val groups = withContext(Dispatchers.IO) { outboundsRepository.load() }
+                    if (!nativeForeground || serviceStatus.value != Status.Started || path != Settings.activeConfigPath) continue
+                    outboundGroups.value = groups
+                    val group = groups.firstOrNull()?.takeIf { it.selectable } ?: continue
+                    val balancer = group.items.firstOrNull { it.isGroup && it.tag == "lowest" }
+                    val direct = group.items.filter { !it.isGroup }.take(128)
+                    val now = System.currentTimeMillis()
+                    val target = if (enabled) {
+                        if (balancer != null) balancer.tag.takeIf { it != group.selectedTag }
+                        else {
+                            direct.forEach { ranker.observe(it.tag, it.delayMs, it.testTimestampMs, now) }
+                            ranker.recommend(group.selectedTag, direct.map { it.tag }.toSet(), now)
+                        }
+                    } else if (leaveBalancer && balancer != null && group.selectedTag == balancer.tag) {
+                        balancer.selectedChildTag?.takeIf { tag -> direct.any { it.tag == tag } }
+                            ?: direct.minByOrNull { if (it.delayMs in 1..64999) it.delayMs else 65535 }?.tag
+                    } else null
+                    if (target == null && !enabled) leaveBalancer = false
+                    if (target != null) {
+                        BoxService.withNativeLifecycle {
+                            if (nativeForeground && serviceStatus.value == Status.Started && path == Settings.activeConfigPath &&
+                                enabled == (generalPreferences.value.smartSelection || connectionOptions.value.adaptiveNetwork)) {
+                                outboundsRepository.selectForeground(group.tag, target)
+                                leaveBalancer = false
+                                ranker.switched(now)
+                                restartHealthMonitor()
+                            }
+                        }
+                    }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    Log.w(TAG, "native smart server selection failed", error)
+                } finally {
+                    if (outboundBusyTag.value == busyToken) outboundBusyTag.value = null
+                }
+            }
+        }
+    }
+
     private fun saveHapticFeedback(enabled: Boolean) {
         if (generalPreferencesBusy.value) return
         generalPreferencesBusy.value = true
@@ -1404,6 +1494,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 withContext(Dispatchers.IO) { NetworkPrivacySettings.saveConnection(applicationContext, options) }
                 connectionOptions.value = NetworkPrivacySettings.loadConnection(applicationContext)
                 restartHealthMonitor()
+                startSmartSelectionLoop()
                 cancelRecovery()
                 if (serviceStatus.value == Status.Started) trackStableConnection() else scheduleRecovery()
                 Toast.makeText(this@NativeMainActivity, R.string.native_connection_saved, Toast.LENGTH_SHORT).show()
@@ -1674,6 +1765,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
             try {
                 generalOptions.value = withContext(Dispatchers.IO) { generalOptionsRepository.load() }
                 restartHealthMonitor()
+                startSmartSelectionLoop()
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -2251,6 +2343,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 if (status == Status.Stopped) scheduleRecovery()
             }
             restartHealthMonitor()
+            startSmartSelectionLoop()
             refreshVpnProtection()
             if (status != Status.Started) cancelDiagnostics()
             if (status == Status.Started) {

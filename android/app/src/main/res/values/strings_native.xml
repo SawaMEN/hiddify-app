@@ -545,4 +545,7 @@
     <string name="native_tunnel_invalid">MTU must be 1280–65535 with IPv6, or 576–65535 with IPv4 only.</string>
     <string name="native_tunnel_save">Save tunnel settings</string>
     <string name="native_tunnel_saved">Tunnel settings saved. Connect the VPN to apply.</string>
+    <string name="native_smart_selection_title">Smart server selection</string>
+    <string name="native_smart_selection_summary">Automatically choose a stable server with lower latency.</string>
+    <string name="native_smart_selection_adaptive">Adaptive network also enables automatic server selection.</string>
 </resources>

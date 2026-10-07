@@ -30,6 +30,10 @@ import com.hiddify.hiddify.nativecore.NativeOutboundGroup
 fun NativeOutboundsScreen(
     groups: List<NativeOutboundGroup>,
     busyTag: String?,
+    smartSelection: Boolean,
+    smartSelectionBusy: Boolean,
+    adaptiveNetwork: Boolean,
+    onChangeSmartSelection: (Boolean) -> Unit,
     onBack: () -> Unit,
     onRefresh: () -> Unit,
     onSelect: (String, String) -> Unit,
@@ -57,6 +61,14 @@ fun NativeOutboundsScreen(
                 TextButton(onClick = onBack) {
                     Text(stringResource(R.string.native_back))
                 }
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(18.dp)) {
+                NativePreferenceSwitch(R.string.native_smart_selection_title,
+                    if (adaptiveNetwork) R.string.native_smart_selection_adaptive else R.string.native_smart_selection_summary,
+                    R.drawable.native_layers, smartSelection, !smartSelectionBusy && busyTag == null, onChangeSmartSelection)
             }
         }
 

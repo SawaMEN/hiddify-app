@@ -64,6 +64,7 @@ fun NativeSettingsScreen(
     generalPreferencesBusy: Boolean,
     onChangeLanguage: (com.hiddify.hiddify.nativepreferences.NativeLanguage) -> Unit,
     onChangeHapticFeedback: (Boolean) -> Unit,
+    onChangeSmartSelection: (Boolean) -> Unit,
     onOpenGeneralOptions: () -> Unit,
     onOpenTunnel: () -> Unit,
     state: NativeSettingsState,
@@ -294,6 +295,8 @@ fun NativeSettingsScreen(
                 checked = state.dynamicNotification,
                 onCheckedChange = onDynamicNotificationChanged,
             )
+            NativePreferenceSwitch(R.string.native_smart_selection_title, R.string.native_smart_selection_summary,
+                R.drawable.native_layers, generalPreferences.smartSelection, !generalPreferencesBusy, onChangeSmartSelection)
             NativePreferenceSwitch(R.string.native_haptic_title, R.string.native_haptic_summary,
                 R.drawable.native_layers, generalPreferences.hapticFeedback, !generalPreferencesBusy, onChangeHapticFeedback)
             SettingSwitch(

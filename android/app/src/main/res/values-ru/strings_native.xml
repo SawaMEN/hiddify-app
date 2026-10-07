@@ -545,4 +545,7 @@
     <string name="native_tunnel_invalid">MTU должен быть 1280–65535 при IPv6 или 576–65535 в режиме только IPv4.</string>
     <string name="native_tunnel_save">Сохранить параметры туннеля</string>
     <string name="native_tunnel_saved">Параметры туннеля сохранены. Подключите VPN для применения.</string>
+    <string name="native_smart_selection_title">Умный выбор сервера</string>
+    <string name="native_smart_selection_summary">Автоматически выбирать стабильный сервер с меньшей задержкой.</string>
+    <string name="native_smart_selection_adaptive">Адаптивная сеть также включает автоматический выбор сервера.</string>
 </resources>

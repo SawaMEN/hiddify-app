@@ -405,3 +405,24 @@ relying on the Android unit-test task unavailable in the current Flutter/AGP con
 as a CI artifact. A full Android build
 still requires Flutter, Android SDK/NDK, generated RPC sources and the native core; JVM tests
 alone do not validate Compose layout or camera/document-picker behavior on a device.
+
+## Smart server selection
+
+The native settings and server pages expose the existing `smart_server_selection` preference,
+using the shared glass controls and English/Russian labels. Adaptive network mode also enables
+selection, matching Dart. The foreground controller observes the first outbound group, prefers
+its core `lowest` balancer, and leaves that balancer for its current direct server when both
+automatic modes are disabled. Manual selection clears the explicit smart preference and emits
+the configured haptic feedback; adaptive network remains independent.
+
+Raw profiles use the Dart ranking thresholds: EWMA 0.7/0.3, three successful samples, three
+candidate wins from distinct measurements, at least 50 ms and 20% improvement (or three current
+failures), ten-minute freshness and a two-minute switch cooldown. Ranking resets on profile
+changes. The Kotlin fallback currently keeps samples in memory; Dart's persistent per-profile
+health history is still migration work. The core balancer continues to work while the UI is
+closed, whereas Kotlin fallback observation and selection stop with the Activity.
+
+Selections share the UI outbound-operation guard and native service lifecycle barrier, validate
+the active profile again before RPC, and use a cancellable eight-second RPC. Outbound snapshots
+also have an eight-second timeout and close/cancel their stream. No tests were added or run.
+Static resource/reference and whitespace checks were performed; APK/device validation is pending.

@@ -19,6 +19,9 @@ data class NativeOutbound(
     val upload: Long,
     val download: Long,
     val selectedChild: String?,
+    val isGroup: Boolean = false,
+    val selectedChildTag: String? = null,
+    val testTimestampMs: Long = 0,
 )
 
 data class NativeOutboundGroup(
@@ -34,38 +37,47 @@ class NativeOutboundsRepository {
         GrpcClientProvider.grpcClient.create(CoreClient::class)
 
     fun load(): List<NativeOutboundGroup> {
-        val (requestSink, responseSource) = client().OutboundsInfo().executeBlocking()
-        requestSink.use { sink ->
-            sink.write(Empty())
-        }
-        return responseSource.use { source ->
-            val response = source.read() ?: return@use emptyList()
-            response.items.map { group ->
-                NativeOutboundGroup(
-                    tag = group.tag,
-                    type = group.type,
-                    selectedTag = group.selected,
-                    selectable = group.selectable,
-                    items =
-                        group.items
-                            .filter { outbound -> outbound.is_visible }
-                            .map { outbound ->
-                                NativeOutbound(
-                                    tag = outbound.tag,
-                                    name = outbound.tag_display.ifBlank { outbound.tag },
-                                    type = outbound.type,
-                                    selected = outbound.is_selected,
-                                    visible = outbound.is_visible,
-                                    delayMs = outbound.url_test_delay,
-                                    host = outbound.host,
-                                    port = outbound.port.toInt(),
-                                    upload = outbound.upload,
-                                    download = outbound.download,
-                                    selectedChild = outbound.group_selected_tag_display,
-                                )
-                            },
-                )
+        val call = client().OutboundsInfo()
+        call.timeout.timeout(8, java.util.concurrent.TimeUnit.SECONDS)
+        try {
+            val (requestSink, responseSource) = call.executeBlocking()
+            requestSink.use { sink ->
+                sink.write(Empty())
             }
+            return responseSource.use { source ->
+                val response = source.read() ?: return@use emptyList()
+                response.items.map { group ->
+                    NativeOutboundGroup(
+                        tag = group.tag,
+                        type = group.type,
+                        selectedTag = group.selected,
+                        selectable = group.selectable,
+                        items =
+                            group.items
+                                .filter { outbound -> outbound.is_visible }
+                                .map { outbound ->
+                                    NativeOutbound(
+                                        tag = outbound.tag,
+                                        name = outbound.tag_display.ifBlank { outbound.tag },
+                                        type = outbound.type,
+                                        selected = outbound.is_selected,
+                                        visible = outbound.is_visible,
+                                        delayMs = outbound.url_test_delay,
+                                        host = outbound.host,
+                                        port = outbound.port.toInt(),
+                                        upload = outbound.upload,
+                                        download = outbound.download,
+                                        selectedChild = outbound.group_selected_tag_display,
+                                        isGroup = outbound.is_group,
+                                        selectedChildTag = outbound.group_selected_tag,
+                                        testTimestampMs = outbound.url_test_time?.let { it.seconds * 1000 + it.nanos / 1000000 } ?: 0,
+                                    )
+                                },
+                    )
+                }
+            }
+        } finally {
+            call.cancel()
         }
     }
 
@@ -82,6 +94,15 @@ class NativeOutboundsRepository {
         check(response.code == ResponseCode.OK) {
             response.message.ifBlank { "Unable to select outbound" }
         }
+    }
+
+    /** Cancellable selection for the foreground automatic controller. */
+    suspend fun selectForeground(groupTag: String, outboundTag: String) {
+        val call = client().SelectOutbound()
+        call.timeout.timeout(8, java.util.concurrent.TimeUnit.SECONDS)
+        val response = try { call.execute(SelectOutboundRequest(group_tag = groupTag, outbound_tag = outboundTag)) }
+            finally { call.cancel() }
+        check(response.code == ResponseCode.OK) { response.message.ifBlank { "Unable to select outbound" } }
     }
 
     fun test(tag: String) {

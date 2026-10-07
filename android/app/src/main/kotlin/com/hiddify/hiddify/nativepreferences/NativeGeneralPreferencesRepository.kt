@@ -11,6 +11,7 @@ enum class NativeLanguage(val value: String?) {
 data class NativeGeneralPreferences(
     val language: NativeLanguage = NativeLanguage.SYSTEM,
     val hapticFeedback: Boolean = true,
+    val smartSelection: Boolean = false,
 )
 
 class NativeGeneralPreferencesRepository(context: Context) {
@@ -21,6 +22,7 @@ class NativeGeneralPreferencesRepository(context: Context) {
         return NativeGeneralPreferences(
             language = NativeLanguage.entries.firstOrNull { it.value == values["flutter.locale"] } ?: NativeLanguage.SYSTEM,
             hapticFeedback = (values["flutter.haptic_feedback"] as? Boolean) ?: true,
+            smartSelection = values["flutter.smart_server_selection"] == true,
         )
     }
 
@@ -33,6 +35,11 @@ class NativeGeneralPreferencesRepository(context: Context) {
 
     fun saveHapticFeedback(enabled: Boolean): NativeGeneralPreferences {
         check(preferences.edit().putBoolean("flutter.haptic_feedback", enabled).commit()) { "Could not save haptic preference" }
+        return load()
+    }
+
+    fun saveSmartSelection(enabled: Boolean): NativeGeneralPreferences {
+        check(preferences.edit().putBoolean("flutter.smart_server_selection", enabled).commit()) { "Could not save server selection preference" }
         return load()
     }
 
