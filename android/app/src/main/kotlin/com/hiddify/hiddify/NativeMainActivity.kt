@@ -154,6 +154,11 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val errorMessage = mutableStateOf<String?>(null)
     private val themeMode = mutableStateOf(NativeThemeMode.SYSTEM)
     private val themeBusy = mutableStateOf(false)
+    private val privacySetupRepository by lazy { com.hiddify.hiddify.nativeprivacy.NativePrivacySetupRepository(applicationContext) }
+    private var privacySetupSnapshotJob: Job? = null
+    private val privacySetupBusy = mutableStateOf(false)
+    private val privacyConfigured = mutableStateOf(false)
+    private val privacyCanRestore = mutableStateOf(false)
     private val appearanceRepository by lazy { NativeAppearanceRepository(applicationContext) }
     private val connectionOptions = mutableStateOf(NativeConnectionOptions())
     private val connectionOptionsBusy = mutableStateOf(false)
@@ -335,6 +340,11 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
             }
             NativeApp(
+                privacySetupBusy = privacySetupBusy.value,
+                privacyConfigured = privacyConfigured.value,
+                privacyCanRestore = privacyCanRestore.value,
+                onConfigurePrivacy = { applyPrivacySetup(false) },
+                onRestorePrivacy = { applyPrivacySetup(true) },
                 themeMode = themeMode.value,
                 themeBusy = themeBusy.value,
                 onChangeTheme = ::saveTheme,
@@ -1177,10 +1187,61 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun refreshSettingsSnapshot() {
         nativeSettings.value = readNativeSettings()
+        refreshPrivacySetupState()
         themeMode.value = appearanceRepository.load()
         connectionOptions.value = NetworkPrivacySettings.loadConnection(this)
         regionalOptions.value = regionalRepository.load()
         trafficFilters.value = NetworkPrivacySettings.loadFilters(this)
+    }
+
+    private fun refreshPrivacySetupState() {
+        privacySetupSnapshotJob?.cancel()
+        privacySetupSnapshotJob = lifecycleScope.launch {
+            val (configured, canRestore) = withContext(Dispatchers.IO) {
+                privacySetupRepository.isConfigured() to privacySetupRepository.canRestore()
+            }
+            privacyConfigured.value = configured
+            privacyCanRestore.value = canRestore
+        }
+    }
+
+    private fun applyPrivacySetup(restore: Boolean) {
+        if (privacySetupBusy.value || regionalBusy.value || connectionOptionsBusy.value || wifiSharingBusy.value) return
+        if (serviceStatus.value != Status.Stopped || pendingStartAfterVpnPermission || nativeStartPending) {
+            errorMessage.value = getString(R.string.native_privacy_setup_disconnect)
+            return
+        }
+        privacySetupBusy.value = true
+        cancelRecovery()
+        lifecycleScope.launch {
+            try {
+                BoxService.withNativeLifecycle {
+                    check(serviceStatus.value == Status.Stopped && !BoxService.hasActiveCore() && !BoxService.isRunning() &&
+                        !pendingStartAfterVpnPermission && !nativeStartPending) {
+                        getString(R.string.native_privacy_setup_disconnect)
+                    }
+                    withContext(Dispatchers.IO) {
+                        regionalOperationMutex.withLock {
+                            privacySetupRepository.apply(restore)
+                            com.hiddify.hiddify.privacy.VpnServiceVisibility.sync(applicationContext, Settings.privacyUseRoot)
+                        }
+                    }
+                }
+                refreshImportedSettingsSnapshots()
+                regionalApps.value = null
+                regionalAppsRevision.value += 1
+                Toast.makeText(this@NativeMainActivity,
+                    if (restore) R.string.native_privacy_setup_restored else R.string.native_privacy_setup_saved,
+                    Toast.LENGTH_LONG).show()
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                privacySetupBusy.value = false
+                refreshSettingsSnapshot()
+            }
+        }
     }
 
     private fun saveTheme(mode: NativeThemeMode) {
@@ -1241,7 +1302,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun scheduleRecovery() {
         if (!nativeForeground || recoveryJob != null || !connectionOptions.value.recoveryEnabled ||
             !Settings.connectionDesired || !Settings.startedByUser || serviceStatus.value != Status.Stopped ||
-            pendingStartAfterVpnPermission || nativeStartPending || wifiSharingBusy.value) return
+            pendingStartAfterVpnPermission || nativeStartPending || wifiSharingBusy.value || privacySetupBusy.value) return
         stableConnectionJob?.cancel()
         recoveryJob = lifecycleScope.launch(start = kotlinx.coroutines.CoroutineStart.LAZY) {
             try {
@@ -1273,7 +1334,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                         val decision = NativeRecoveryPolicy.decision(
                             Settings.connectionDesired && Settings.startedByUser,
                             connectionOptions.value.recoveryEnabled, nativeForeground, permission,
-                            pendingStartAfterVpnPermission || nativeStartPending || wifiSharingBusy.value ||
+                            pendingStartAfterVpnPermission || nativeStartPending || wifiSharingBusy.value || privacySetupBusy.value ||
                                 serviceStatus.value != Status.Stopped,
                             adaptive, network, BoxService.hasActiveCore(),
                         )
@@ -1715,6 +1776,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun toggleConnection() {
+        if (privacySetupBusy.value) return
         if (recoveryJob != null || recoveryAttempt.value > 0) {
             Settings.connectionDesired = false
             Settings.startedByUser = false
@@ -1737,6 +1799,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun requestStart() {
+        if (privacySetupBusy.value) return
         cancelRecovery()
         recoveryPolicy.reset()
         nativeStartPending = false

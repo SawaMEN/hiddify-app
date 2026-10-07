@@ -475,4 +475,13 @@
     <string name="native_privacy_limits">Скрытие VPN снижает количество локальных признаков, но не может гарантировать полную незаметность для любого приложения или сервера.</string>
     <string name="native_category_expanded">Развёрнуто</string>
     <string name="native_category_collapsed">Свёрнуто</string>
+    <string name="native_privacy_setup_configured">Автоматические настройки сохранены</string>
+    <string name="native_privacy_setup_ready">Можно настроить в одно нажатие</string>
+    <string name="native_privacy_setup_configure">Настроить всё автоматически</string>
+    <string name="native_privacy_setup_again">Применить автоматические настройки снова</string>
+    <string name="native_privacy_setup_restore">Вернуть всё как было</string>
+    <string name="native_privacy_setup_disconnect">Отключите VPN перед применением или восстановлением автоматических настроек.</string>
+    <string name="native_privacy_setup_apply_note">Предыдущие настройки сохраняются один раз. Изменения применяются при следующем подключении. Root, пользовательские списки и фильтры трафика сохраняются.</string>
+    <string name="native_privacy_setup_saved">Автоматические настройки сохранены. Подключите VPN для применения.</string>
+    <string name="native_privacy_setup_restored">Предыдущие настройки восстановлены. Подключите VPN для применения.</string>
 </resources>

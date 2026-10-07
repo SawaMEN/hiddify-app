@@ -195,13 +195,34 @@ and proxy/control categories. Categories retain expansion across child screens a
 Settings use glass icon/chevron rows, with separate general, VPN, DNS, custom-routing and backup pages.
 Shared native page history returns children to their actual entry point, including nested selectors
 and backups. All switches retain their existing Kotlin preference writers; entire switch rows are
-accessible touch targets. The Flutter one-tap automatic protection/restore actions remain migration work. Android device screenshot comparison is still required
+accessible touch targets. Automatic setup and restore now run in Kotlin, as described below. Android device screenshot comparison is still required
 before claiming pixel-for-pixel equivalence.
+
+## Native automatic privacy setup and restore
+
+The privacy overview now includes the source one-tap setup and restore actions, with the same glass
+status card and filled/outlined buttons. Kotlin snapshots the original Dart field names in
+`flutter.privacy-auto-setup-backup` before the first setup. Reapplying keeps that snapshot. Automatic
+setup enables the same DNS, regional routing, IPv4-only, 1400 MTU and reconnect preferences while
+preserving root, user lists, transport choices and traffic filters. Core JSON and Flutter preference
+values are updated together; unrelated core options remain intact.
+
+Restore accepts existing Dart JSON snapshots and uses the source defaults for absent fields.
+Invalid types, modes, MTU bounds or oversized/corrupt data fail before writing; the backup remains
+available instead of silently replacing settings with defaults. Restoring values and clearing the
+backup happen in one SharedPreferences commit on IO. The service lifecycle barrier rechecks that
+no core owns the tunnel, and regional writes are serialized. Start/recovery and navigation are
+blocked during the transaction. Root service visibility is synchronized after the commit. Overview
+status parsing also runs on IO.
+
+Unlike Flutter's immediate service reconfiguration, the native action currently requires a stopped
+VPN. The screen explains that changes apply on the next connection. This avoids restarting a VPN
+while switching service/root modes; active-service reconfiguration remains migration work.
 
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and
-`NativeDiagnosticReportTest`, `NativePerAppBackupTest`, `NativePerAppFlagsTest` `NativeTrafficFiltersTest` `NativeRegionalOptionsTest` and `NativeRegionalPackagesTest`, `NativeConnectionOptionsTest`, `NativeHealthProbePolicyTest` `HotspotSharingTest` and `NativeRecoveryPolicyTest` cover UTF-8, byte-order marks, size limits,
+`NativeDiagnosticReportTest`, `NativePerAppBackupTest`, `NativePerAppFlagsTest` `NativeTrafficFiltersTest` `NativeRegionalOptionsTest` and `NativeRegionalPackagesTest`, `NativeConnectionOptionsTest`, `NativeHealthProbePolicyTest` `HotspotSharingTest`, `NativeRecoveryPolicyTest` and `NativePrivacySetupTest` cover UTF-8, byte-order marks, size limits,
 encoded URL tokens, custom ports, IPv6, QR round trips, inverted QR images and oversized QR
 payloads, captive portal responses, probe URL validation and the diagnostic report allowlist, legacy routing backups, validation limits and manual/automatic flag transitions, typed privacy preferences and bulk filter round trips, regional routing modes, override precedence, domain normalization and merged catalogue limits, automatic/manual empty selections, package case preservation, cross-list conflict removal, reset isolation and package limits. Run with the configured Android/Flutter SDK and prepared core:
 

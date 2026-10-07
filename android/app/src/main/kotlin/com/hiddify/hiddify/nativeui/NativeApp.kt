@@ -93,6 +93,11 @@ private const val PAGE_PROTECTION = "protection"
 
 @Composable
 fun NativeApp(
+    privacySetupBusy: Boolean,
+    privacyConfigured: Boolean,
+    privacyCanRestore: Boolean,
+    onConfigurePrivacy: () -> Unit,
+    onRestorePrivacy: () -> Unit,
     themeMode: NativeThemeMode,
     themeBusy: Boolean,
     onChangeTheme: (NativeThemeMode) -> Unit,
@@ -216,10 +221,12 @@ fun NativeApp(
     var pageTrail by rememberSaveable { mutableStateOf("") }
     var settingsCategory by rememberSaveable { mutableStateOf(NativeSettingsCategory.APP.name) }
     fun openPage(destination: String) {
+        if (privacySetupBusy) return
         pageTrail += "|$page"
         page = destination
     }
     fun goBack() {
+        if (privacySetupBusy) return
         if (page == PAGE_DIAGNOSTICS) onCancelDiagnostics()
         if (page == PAGE_PER_APP_BACKUP) onDismissPerAppImport()
         page = pageTrail.substringAfterLast('|', PAGE_HOME)
@@ -230,7 +237,7 @@ fun NativeApp(
         openPage(PAGE_PREFERENCES)
     }
 
-    BackHandler(enabled = page != PAGE_HOME) { goBack() }
+    BackHandler(enabled = privacySetupBusy || page != PAGE_HOME) { goBack() }
 
     NativeAppTheme(themeMode) {
         NativeAtmosphere {
@@ -432,6 +439,12 @@ fun NativeApp(
                             )
 
                             PAGE_PRIVACY -> NativePrivacyOverviewScreen(
+                                configured = privacyConfigured,
+                                canRestore = privacyCanRestore,
+                                busy = privacySetupBusy,
+                                canApply = status == Status.Stopped && !wifiSharingBusy && !regionalBusy && !connectionOptionsBusy,
+                                onConfigure = onConfigurePrivacy,
+                                onRestore = onRestorePrivacy,
                                 expandedCategories = privacyExpanded.split('|').filter { it.isNotEmpty() }.toSet(),
                                 onToggleCategory = { category ->
                                     val expanded = privacyExpanded.split('|').filter { it.isNotEmpty() }.toMutableSet()
@@ -531,7 +544,7 @@ fun NativeApp(
                                 Triple(PAGE_PRIVACY, R.drawable.native_shield, R.string.native_privacy_title),
                                 Triple(PAGE_SETTINGS, R.drawable.native_settings, R.string.native_settings),
                             ).forEach { (destination, icon, label) ->
-                                NavigationBarItem(selected = page == destination, onClick = { pageTrail = ""; page = destination },
+                                NavigationBarItem(selected = page == destination, enabled = !privacySetupBusy, onClick = { pageTrail = ""; page = destination },
                                     icon = { Icon(painterResource(icon), contentDescription = null) },
                                     label = { Text(stringResource(label), maxLines = 1) })
                             }

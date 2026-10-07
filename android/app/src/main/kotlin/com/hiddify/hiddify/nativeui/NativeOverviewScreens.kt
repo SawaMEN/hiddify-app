@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -114,6 +115,12 @@ private fun PrivacyCategory(
 
 @Composable
 internal fun NativePrivacyOverviewScreen(
+    configured: Boolean = false,
+    canRestore: Boolean = false,
+    busy: Boolean = false,
+    canApply: Boolean = true,
+    onConfigure: () -> Unit = {},
+    onRestore: () -> Unit = {},
     expandedCategories: Set<String> = emptySet(),
     onToggleCategory: (String) -> Unit = {},
     onOpenRegional: () -> Unit,
@@ -131,9 +138,22 @@ internal fun NativePrivacyOverviewScreen(
             Row(Modifier.padding(20.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Icon(painterResource(R.drawable.native_shield), null, Modifier.size(52.dp),
                     tint = MaterialTheme.colorScheme.primary)
-                Text(stringResource(R.string.native_privacy_summary), style = MaterialTheme.typography.bodyLarge)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(stringResource(if (configured) R.string.native_privacy_setup_configured else R.string.native_privacy_setup_ready),
+                        style = MaterialTheme.typography.titleLarge)
+                    Text(stringResource(R.string.native_privacy_summary), style = MaterialTheme.typography.bodyMedium)
+                }
             }
         }
+        NativeButton(onClick = onConfigure, enabled = canApply && !busy, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(if (configured) R.string.native_privacy_setup_again else R.string.native_privacy_setup_configure))
+        }
+        NativeOutlinedButton(onClick = onRestore, enabled = canApply && canRestore && !busy, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.native_privacy_setup_restore))
+        }
+        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        Text(stringResource(if (canApply) R.string.native_privacy_setup_apply_note else R.string.native_privacy_setup_disconnect),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         PrivacyCategory(R.string.native_privacy_routing, R.string.native_privacy_routing_summary, R.drawable.native_route,
             "routing" in expandedCategories, { onToggleCategory("routing") }) {
             NativeSettingsLink(R.string.native_regional_title, R.drawable.native_route, onOpenRegional)

@@ -26,6 +26,7 @@ sourceSets {
             include 'com/hiddify/hiddify/privacy/NativeRegionalPackages.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeConnectionPolicy.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeRecoveryPolicy.kt'
+            include 'com/hiddify/hiddify/nativeprivacy/NativePrivacySetup.kt'
             include 'com/hiddify/hiddify/sharing/HotspotInterfaceSelection.kt'
             include 'com/hiddify/hiddify/sharing/HotspotRootRules.kt'
             include 'com/hiddify/hiddify/sharing/HotspotWifiQr.kt'
