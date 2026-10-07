@@ -107,7 +107,7 @@ internal fun NativeQuickSettingsSheet(
                 ChainStage(Modifier.weight(1f), true, chain, busy, onChain, onOpenChain)
                 Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = onOpenChain) { Text(stringResource(R.string.native_quick_chain)) }
+                    TextButton(enabled = !busy, onClick = onOpenChain) { Text(stringResource(R.string.native_quick_chain)) }
                     Text(stringResource(R.string.native_quick_main_profile), style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(activeProfileName.ifBlank { stringResource(R.string.native_quick_not_set) },
@@ -171,7 +171,7 @@ private fun ChainStage(modifier: Modifier, extra: Boolean, chain: NativeChainOpt
                 }
                 HorizontalDivider()
                 DropdownMenuItem(text = { Text(stringResource(R.string.native_quick_configuration)) },
-                    onClick = { menuOpen = false; onConfigure() })
+                    onClick = { menuOpen = false; onConfigure() }, enabled = !busy)
             }
         }
         Text(stringResource(R.string.native_quick_final_ip), style = MaterialTheme.typography.labelSmall,

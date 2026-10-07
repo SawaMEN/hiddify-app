@@ -1986,6 +1986,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun saveQuickServiceMode(proxyOnly: Boolean) {
         if (reconnectBusy.value || wifiSharingBusy.value || inboundBusy.value || chainBusy.value ||
+            dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value || privacySetupBusy.value ||
+            proxyPrivacyBusy.value || pendingStartAfterVpnPermission || nativeStartPending ||
             serviceStatus.value == Status.Starting || serviceStatus.value == Status.Stopping) return
         val mode = if (proxyOnly) ServiceMode.NORMAL else ServiceMode.VPN
         if (mode == Settings.serviceMode) return
@@ -1996,7 +1998,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun saveQuickLanSharing(enabled: Boolean, password: String) {
         if (reconnectBusy.value || inboundBusy.value || wifiSharingBusy.value || chainBusy.value ||
-            privacySetupBusy.value || proxyPrivacyBusy.value || serviceStatus.value == Status.Starting ||
+            privacySetupBusy.value || proxyPrivacyBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value ||
+            tunnelBusy.value || pendingStartAfterVpnPermission || nativeStartPending || serviceStatus.value == Status.Starting ||
             serviceStatus.value == Status.Stopping) return
         inboundBusy.value = true
         inboundSnapshotJob?.cancel()
