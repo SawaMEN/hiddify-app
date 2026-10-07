@@ -41,6 +41,7 @@ fun NativePerAppScreen(
     onModeChanged: (String) -> Unit,
     onTogglePackage: (String) -> Unit,
     onClear: () -> Unit,
+    onOpenBackup: () -> Unit,
 ) {
     var search by remember { mutableStateOf("") }
     val filtered =
@@ -56,110 +57,110 @@ fun NativePerAppScreen(
             }
         }
 
-    Column(
+    LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = stringResource(R.string.native_per_app_title),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            TextButton(onClick = onBack) {
-                Text(stringResource(R.string.native_back))
-            }
-        }
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                ModeRow(
-                    title = stringResource(R.string.native_per_app_all),
-                    summary = stringResource(R.string.native_per_app_all_summary),
-                    selected = snapshot.mode == PerAppProxyMode.OFF,
-                    enabled = canChange && !busy,
-                    onClick = { onModeChanged(PerAppProxyMode.OFF) },
-                )
-                ModeRow(
-                    title = stringResource(R.string.native_per_app_include),
-                    summary = stringResource(R.string.native_per_app_include_summary),
-                    selected = snapshot.mode == PerAppProxyMode.INCLUDE,
-                    enabled = canChange && !busy,
-                    onClick = { onModeChanged(PerAppProxyMode.INCLUDE) },
-                )
-                ModeRow(
-                    title = stringResource(R.string.native_per_app_exclude),
-                    summary = stringResource(R.string.native_per_app_exclude_summary),
-                    selected = snapshot.mode == PerAppProxyMode.EXCLUDE,
-                    enabled = canChange && !busy,
-                    onClick = { onModeChanged(PerAppProxyMode.EXCLUDE) },
-                )
-            }
-        }
-
-        if (!canChange) {
-            Text(
-                text = stringResource(R.string.native_per_app_disconnect),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        if (snapshot.mode != PerAppProxyMode.OFF) {
-            OutlinedTextField(
-                value = search,
-                onValueChange = { search = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                label = { Text(stringResource(R.string.native_per_app_search)) },
-            )
-
+        item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Text(
-                    text =
-                        stringResource(
-                            R.string.native_per_app_selected_count,
-                            snapshot.selectedPackages.size,
-                        ),
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = stringResource(R.string.native_per_app_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
                 )
-                TextButton(
-                    enabled = canChange && !busy && snapshot.selectedPackages.isNotEmpty(),
-                    onClick = onClear,
-                ) {
-                    Text(stringResource(R.string.native_per_app_clear))
-                }
+                TextButton(onClick = onBack) { Text(stringResource(R.string.native_back)) }
             }
-
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                items(filtered, key = { it.packageName }) { app ->
-                    AppRow(
-                        app = app,
-                        selected = app.packageName in snapshot.selectedPackages,
+        }
+        item {
+            TextButton(onClick = onOpenBackup, enabled = !busy) {
+                Text(stringResource(R.string.native_per_app_backup_title))
+            }
+        }
+        item {
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                    ModeRow(
+                        title = stringResource(R.string.native_per_app_all),
+                        summary = stringResource(R.string.native_per_app_all_summary),
+                        selected = snapshot.mode == PerAppProxyMode.OFF,
                         enabled = canChange && !busy,
-                        onToggle = { onTogglePackage(app.packageName) },
+                        onClick = { onModeChanged(PerAppProxyMode.OFF) },
+                    )
+                    ModeRow(
+                        title = stringResource(R.string.native_per_app_include),
+                        summary = stringResource(R.string.native_per_app_include_summary),
+                        selected = snapshot.mode == PerAppProxyMode.INCLUDE,
+                        enabled = canChange && !busy,
+                        onClick = { onModeChanged(PerAppProxyMode.INCLUDE) },
+                    )
+                    ModeRow(
+                        title = stringResource(R.string.native_per_app_exclude),
+                        summary = stringResource(R.string.native_per_app_exclude_summary),
+                        selected = snapshot.mode == PerAppProxyMode.EXCLUDE,
+                        enabled = canChange && !busy,
+                        onClick = { onModeChanged(PerAppProxyMode.EXCLUDE) },
                     )
                 }
             }
-        } else {
-            Card(modifier = Modifier.fillMaxWidth()) {
+        }
+        if (!canChange) {
+            item {
                 Text(
-                    text = stringResource(R.string.native_per_app_all_active),
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = stringResource(R.string.native_per_app_disconnect),
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
+        }
+        if (snapshot.mode != PerAppProxyMode.OFF) {
+            item {
+                OutlinedTextField(
+                    value = search,
+                    onValueChange = { search = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.native_per_app_search)) },
+                )
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text(
+                        text = stringResource(R.string.native_per_app_selected_count, snapshot.selectedPackages.size),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    TextButton(
+                        enabled = canChange && !busy && snapshot.selectedPackages.isNotEmpty(),
+                        onClick = onClear,
+                    ) { Text(stringResource(R.string.native_per_app_clear)) }
+                }
+            }
+            items(filtered, key = { it.packageName }) { app ->
+                AppRow(
+                    app = app,
+                    selected = app.packageName in snapshot.selectedPackages,
+                    enabled = canChange && !busy,
+                    onToggle = { onTogglePackage(app.packageName) },
+                )
+            }
+        } else {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = stringResource(R.string.native_per_app_all_active),
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }

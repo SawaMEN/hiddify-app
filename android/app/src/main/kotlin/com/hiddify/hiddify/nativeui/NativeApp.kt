@@ -33,6 +33,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.nativediagnostics.NativeDiagnosticSnapshot
 import com.hiddify.hiddify.nativediagnostics.NativeVpnProtection
+import com.hiddify.hiddify.privacy.NativeRegionalAppKind
+import com.hiddify.hiddify.privacy.NativeRegionalAppSnapshot
+import com.hiddify.hiddify.privacy.NativeRegionalOptions
+import com.hiddify.hiddify.privacy.NativeTrafficFilters
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
@@ -44,12 +48,14 @@ import com.hiddify.hiddify.nativecore.NativeSystemStats
 import com.hiddify.hiddify.nativecore.NativeWifiSharingDetails
 import com.hiddify.hiddify.nativeprofile.NativeProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
+import com.hiddify.hiddify.nativerouting.NativePerAppBackup
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
 
 private const val PAGE_HOME = "home"
 private const val PAGE_PROFILES = "profiles"
 private const val PAGE_SETTINGS = "settings"
 private const val PAGE_PER_APP = "per_app"
+private const val PAGE_PER_APP_BACKUP = "per_app_backup"
 private const val PAGE_PROFILE_DETAILS = "profile_details"
 private const val PAGE_LOGS = "logs"
 private const val PAGE_CORE_OPTIONS = "core_options"
@@ -58,6 +64,9 @@ private const val PAGE_WIFI_GUIDE = "wifi_guide"
 private const val PAGE_ABOUT = "about"
 private const val PAGE_CHAIN = "chain"
 private const val PAGE_DIAGNOSTICS = "diagnostics"
+private const val PAGE_REGIONAL_APPS = "regional_apps"
+private const val PAGE_REGIONAL = "regional"
+private const val PAGE_TRAFFIC_FILTERS = "traffic_filters"
 private const val PAGE_PROTECTION = "protection"
 
 @Composable
@@ -67,12 +76,24 @@ fun NativeApp(
     hasActiveProfile: Boolean,
     rootMode: Boolean,
     settingsState: NativeSettingsState,
+    regionalApps: NativeRegionalAppSnapshot?,
+    regionalAppsRevision: Int,
+    onOpenRegionalApps: (NativeRegionalAppKind) -> Unit,
+    onSaveRegionalApps: (NativeRegionalAppKind, Set<String>) -> Unit,
+    onResetRegionalApps: (NativeRegionalAppKind) -> Unit,
+    regionalOptions: NativeRegionalOptions,
+    regionalBusy: Boolean,
+    onSaveRegionalOptions: (NativeRegionalOptions) -> Unit,
+    trafficFilters: NativeTrafficFilters,
+    trafficFiltersBusy: Boolean,
+    onSaveTrafficFilters: (NativeTrafficFilters) -> Unit,
     profiles: List<NativeProfile>,
     busyProfileId: String?,
     profileEditor: NativeProfileEditor?,
     profileEditorBusy: Boolean,
     perAppSnapshot: NativePerAppSnapshot,
     perAppBusy: Boolean,
+    pendingPerAppImport: NativePerAppBackup?,
     logSnapshot: NativeLogSnapshot,
     logBusy: Boolean,
     coreOptions: NativeCoreOptions,
@@ -111,6 +132,12 @@ fun NativeApp(
     onPerAppModeChanged: (String) -> Unit,
     onTogglePerAppPackage: (String) -> Unit,
     onClearPerApp: () -> Unit,
+    onImportPerAppClipboard: () -> Unit,
+    onImportPerAppFile: () -> Unit,
+    onExportPerAppClipboard: () -> Unit,
+    onExportPerAppFile: () -> Unit,
+    onConfirmPerAppImport: () -> Unit,
+    onDismissPerAppImport: () -> Unit,
     onRefreshLogs: () -> Unit,
     onClearLogs: () -> Unit,
     onSaveCoreOptions: (NativeCoreOptions) -> Unit,
@@ -150,16 +177,22 @@ fun NativeApp(
     onDisableMemoryLimitChanged: (Boolean) -> Unit,
 ) {
     var page by rememberSaveable { mutableStateOf(PAGE_HOME) }
+    var regionalAppKind by rememberSaveable { mutableStateOf(NativeRegionalAppKind.DIRECT.name) }
 
     BackHandler(enabled = page != PAGE_HOME) {
         if (page == PAGE_DIAGNOSTICS) onCancelDiagnostics()
+        if (page == PAGE_PER_APP_BACKUP) onDismissPerAppImport()
         page =
             when (page) {
                 PAGE_PER_APP -> PAGE_SETTINGS
+                PAGE_PER_APP_BACKUP -> PAGE_PER_APP
                 PAGE_PROFILE_DETAILS -> PAGE_PROFILES
                 PAGE_CORE_OPTIONS -> PAGE_SETTINGS
                 PAGE_CHAIN -> PAGE_SETTINGS
                 PAGE_WIFI_GUIDE -> PAGE_SETTINGS
+                PAGE_REGIONAL_APPS -> PAGE_REGIONAL
+                PAGE_REGIONAL -> PAGE_SETTINGS
+                PAGE_TRAFFIC_FILTERS -> PAGE_SETTINGS
                 PAGE_PROTECTION -> PAGE_SETTINGS
                 else -> PAGE_HOME
             }
@@ -188,6 +221,43 @@ fun NativeApp(
                             onRun = onRunDiagnostics,
                             onCancel = onCancelDiagnostics,
                             onShareReport = onShareDiagnosticReport,
+                        )
+
+                    PAGE_REGIONAL_APPS -> {
+                        val kind = NativeRegionalAppKind.valueOf(regionalAppKind)
+                        NativeRegionalAppsScreen(
+                            kind = kind,
+                            snapshot = regionalApps?.takeIf { it.kind == kind },
+                            revision = regionalAppsRevision,
+                            busy = regionalBusy,
+                            onBack = { page = PAGE_REGIONAL },
+                            onReload = { onOpenRegionalApps(kind) },
+                            onSave = { onSaveRegionalApps(kind, it) },
+                            onReset = { onResetRegionalApps(kind) },
+                        )
+                    }
+
+                    PAGE_REGIONAL ->
+                        NativeRegionalRoutingScreen(
+                            options = regionalOptions,
+                            busy = regionalBusy,
+                            fullTunnel = settingsState.fullTunnel,
+                            handbookRouting = settingsState.handbookRouting,
+                            onBack = { page = PAGE_SETTINGS },
+                            onSave = onSaveRegionalOptions,
+                            onOpenApps = { kind ->
+                                regionalAppKind = kind.name
+                                onOpenRegionalApps(kind)
+                                page = PAGE_REGIONAL_APPS
+                            },
+                        )
+
+                    PAGE_TRAFFIC_FILTERS ->
+                        NativeTrafficFiltersScreen(
+                            filters = trafficFilters,
+                            busy = trafficFiltersBusy,
+                            onBack = { page = PAGE_SETTINGS },
+                            onSave = onSaveTrafficFilters,
                         )
 
                     PAGE_PROTECTION ->
@@ -223,6 +293,23 @@ fun NativeApp(
                             onSave = onSaveProfileEditor,
                         )
 
+                    PAGE_PER_APP_BACKUP ->
+                        NativePerAppBackupScreen(
+                            busy = perAppBusy,
+                            canImport = status == Status.Stopped,
+                            pendingImport = pendingPerAppImport,
+                            onBack = {
+                                onDismissPerAppImport()
+                                page = PAGE_PER_APP
+                            },
+                            onImportClipboard = onImportPerAppClipboard,
+                            onImportFile = onImportPerAppFile,
+                            onExportClipboard = onExportPerAppClipboard,
+                            onExportFile = onExportPerAppFile,
+                            onConfirmImport = onConfirmPerAppImport,
+                            onDismissImport = onDismissPerAppImport,
+                        )
+
                     PAGE_PER_APP ->
                         NativePerAppScreen(
                             snapshot = perAppSnapshot,
@@ -232,6 +319,7 @@ fun NativeApp(
                             onModeChanged = onPerAppModeChanged,
                             onTogglePackage = onTogglePerAppPackage,
                             onClear = onClearPerApp,
+                            onOpenBackup = { page = PAGE_PER_APP_BACKUP },
                         )
 
                     PAGE_LOGS ->
@@ -307,6 +395,8 @@ fun NativeApp(
                                 onRefreshVpnProtection()
                                 page = PAGE_PROTECTION
                             },
+                            onOpenRegionalRouting = { page = PAGE_REGIONAL },
+                            onOpenTrafficFilters = { page = PAGE_TRAFFIC_FILTERS },
                             onOpenPerAppRouting = { page = PAGE_PER_APP },
                             onOpenCoreOptions = { page = PAGE_CORE_OPTIONS },
                             onOpenChain = { page = PAGE_CHAIN },
