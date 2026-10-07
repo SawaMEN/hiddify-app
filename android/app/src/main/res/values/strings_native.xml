@@ -171,4 +171,14 @@
     <string name="native_core_tls_padding">Enable TLS padding</string>
     <string name="native_core_tls_padding_size">Padding size range</string>
     <string name="native_core_reconnect_note">These settings are persisted immediately and applied by hiddify-core on the next VPN start or reconnect.</string>
+    <string name="native_outbounds_title">Proxy outbounds</string>
+    <string name="native_outbounds_empty">No outbound data yet</string>
+    <string name="native_outbounds_empty_summary">Connect the VPN, then refresh to load outbound groups from hiddify-core.</string>
+    <string name="native_outbounds_test_active">Test active outbounds</string>
+    <string name="native_outbounds_group_summary">%1$s · selected: %2$s</string>
+    <string name="native_outbounds_selected">Selected</string>
+    <string name="native_outbounds_select">Select</string>
+    <string name="native_outbounds_testing">Testing…</string>
+    <string name="native_outbounds_test">Test</string>
+    <string name="native_outbounds_delay">%1$d ms</string>
 </resources>
