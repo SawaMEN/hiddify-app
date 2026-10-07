@@ -49,6 +49,7 @@ fun NativeSettingsScreen(
     onBack: () -> Unit,
     onOpenPerAppRouting: () -> Unit,
     onOpenCoreOptions: () -> Unit,
+    onOpenWifiSharingGuide: () -> Unit,
     onProxyOnlyChanged: (Boolean) -> Unit,
     onRootModeChanged: (Boolean) -> Unit,
     onWifiSharingChanged: (Boolean) -> Unit,
@@ -110,6 +111,12 @@ fun NativeSettingsScreen(
                 enabled = canChangeServiceMode,
                 onCheckedChange = onWifiSharingChanged,
             )
+            OutlinedButton(
+                onClick = onOpenWifiSharingGuide,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.native_wifi_guide_open))
+            }
             OutlinedButton(
                 onClick = onOpenPerAppRouting,
                 modifier = Modifier.fillMaxWidth(),
