@@ -508,4 +508,14 @@
     <string name="native_dns_invalid">Адреса DNS должны быть непустыми, не длиннее 2048 символов и без управляющих символов.</string>
     <string name="native_dns_save">Сохранить настройки DNS</string>
     <string name="native_dns_saved">Настройки DNS сохранены. Подключите VPN для применения.</string>
+    <string name="native_tls_summary">Настройте фрагментацию TLS, регистр SNI и padding. Сохранённые изменения применятся при следующем подключении.</string>
+    <string name="native_tls_fragment_summary">Разделять данные TLS на небольшие фрагменты. Включает параметры ниже.</string>
+    <string name="native_tls_sni_summary">Чередовать прописные и строчные буквы в имени TLS-сервера.</string>
+    <string name="native_tls_padding_summary">Добавлять padding к данным TLS. Размер сохраняется при отключении.</string>
+    <string name="native_tls_disconnect">Отключите VPN перед сохранением настроек TLS.</string>
+    <string name="native_tls_invalid">Введите неотрицательное число или диапазон по возрастанию, например 10-30. Каждое число не должно превышать 2147483647.</string>
+    <string name="native_tls_range">Число или диапазон</string>
+    <string name="native_tls_not_set">Не задано</string>
+    <string name="native_tls_save">Сохранить настройки TLS</string>
+    <string name="native_tls_saved">Настройки TLS сохранены. Подключите VPN для применения.</string>
 </resources>

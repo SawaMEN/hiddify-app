@@ -508,4 +508,14 @@
     <string name="native_dns_invalid">DNS addresses must be nonempty, at most 2048 characters, and contain no control characters.</string>
     <string name="native_dns_save">Save DNS settings</string>
     <string name="native_dns_saved">DNS settings saved. Connect the VPN to apply.</string>
+    <string name="native_tls_summary">Adjust TLS fragmentation, SNI case and padding. Saved changes apply on the next connection.</string>
+    <string name="native_tls_fragment_summary">Split TLS data into smaller fragments. Enables the options below.</string>
+    <string name="native_tls_sni_summary">Mix uppercase and lowercase letters in the TLS server name.</string>
+    <string name="native_tls_padding_summary">Add padding to TLS data. Keep the saved size when disabled.</string>
+    <string name="native_tls_disconnect">Disconnect the VPN before saving TLS settings.</string>
+    <string name="native_tls_invalid">Enter a nonnegative integer or an ordered range, for example 10-30. Each number must be at most 2147483647.</string>
+    <string name="native_tls_range">Number or range</string>
+    <string name="native_tls_not_set">Not set</string>
+    <string name="native_tls_save">Save TLS settings</string>
+    <string name="native_tls_saved">TLS settings saved. Connect the VPN to apply.</string>
 </resources>

@@ -280,6 +280,29 @@ during the commit. Snapshots refresh after import, compatibility UI return and n
 No new tests are added or manually run. Resource and patch checks are performed; Android compilation
 and device screenshot comparison remain required for full build and visual verification.
 
+## Native TLS settings
+
+The settings overview and core options now open a dedicated TLS page. It follows the Dart order:
+fragmentation, fragment size, sleep, mixed SNI case, padding and padding size. Subordinate controls
+remain visible and become editable with fragmentation, including padding size regardless of the
+padding switch. Turning off switches preserves subordinate values. Shared value rows, glass/card
+surfaces, Manrope and themed edit dialogs retain the established appearance. Drafts and an open
+range dialog survive Activity recreation; Android Studio includes a dark preview.
+
+Kotlin reads the nested core TLS object first, then existing Flutter keys. Missing values use Dart's
+10–30 fragment size, 2–8 sleep and 1–1500 padding defaults. Range parsing accepts a nonnegative
+integer or an ordered pair and normalizes leading zeros; empty legacy stored ranges are retained.
+Integers are bounded to 2147483647 and input to 21 characters. Corrupt JSON/TLS objects and invalid
+ranges fail without replacing other configuration. One IO commit merges only the six TLS fields
+and compatible Flutter keys, preserving unexposed packet selection and all other core options.
+The general core editor opens this page and no longer rewrites TLS values from a stale draft.
+
+Saving requires a stopped service, rechecks core ownership and pending starts under the lifecycle
+barrier, and excludes DNS/inbound/core/chain/hotspot/setup writes and connection recovery. Snapshots
+reload after imports and returning from the compatibility UI. Resource and patch checks are performed;
+no tests are added or manually run. Android compilation and device screenshot comparison remain
+separate verification steps.
+
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and

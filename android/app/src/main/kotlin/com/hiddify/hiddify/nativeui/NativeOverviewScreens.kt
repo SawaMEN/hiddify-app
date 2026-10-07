@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -67,6 +68,7 @@ internal fun NativeSettingsOverviewScreen(
     onOpenAbout: () -> Unit,
     onOpenLegacy: () -> Unit,
     onOpenDns: () -> Unit = {},
+    onOpenTls: () -> Unit = {},
     onOpenInbound: () -> Unit = {},
 ) {
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
@@ -77,6 +79,7 @@ internal fun NativeSettingsOverviewScreen(
             Triple(R.string.native_settings_general, R.drawable.native_layers, { onOpenCategory(NativeSettingsCategory.APP) }),
             Triple(R.string.native_chain_open, R.drawable.native_route, onOpenChain),
             Triple(R.string.native_core_dns, R.drawable.native_dns, onOpenDns),
+            Triple(R.string.native_core_tls, R.drawable.native_shield, onOpenTls),
             Triple(R.string.native_inbound_title, R.drawable.native_route, onOpenInbound),
             Triple(R.string.native_settings_vpn, R.drawable.native_shield, { onOpenCategory(NativeSettingsCategory.VPN) }),
             Triple(R.string.native_core_options_title, R.drawable.native_settings, onOpenCoreOptions),
@@ -212,5 +215,19 @@ private fun PrivacyOverviewPreview() {
                     onOpenProtection = {}, onOpenFilters = {}, onOpenCoreOptions = {}, onOpenCategory = {})
             }
         }
+    }
+}
+
+@Composable
+internal fun NativePreferenceValueRow(title: Int, value: String, enabled: Boolean, icon: Int = R.drawable.native_dns, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().alpha(if (enabled) 1f else .38f).clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+        .padding(horizontal = 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Icon(painterResource(icon), null, tint = MaterialTheme.colorScheme.primary)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
+            Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Icon(painterResource(R.drawable.native_chevron), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

@@ -39,6 +39,7 @@ fun NativeCoreOptionsScreen(
     onBack: () -> Unit,
     onSave: (NativeCoreOptions) -> Unit,
     onOpenDns: () -> Unit,
+    onOpenTls: () -> Unit,
 ) {
     var value by remember(options) { mutableStateOf(options) }
 
@@ -178,46 +179,8 @@ fun NativeCoreOptionsScreen(
                 ) { value = value.copy(mtu = it) }
             }
 
-            SectionCard(stringResource(R.string.native_core_tls)) {
-                SwitchSetting(
-                    title = stringResource(R.string.native_core_tls_fragment),
-                    checked = value.tlsFragment,
-                    enabled = !busy,
-                ) { value = value.copy(tlsFragment = it) }
-
-                if (value.tlsFragment) {
-                    TextSetting(
-                        title = stringResource(R.string.native_core_tls_fragment_size),
-                        value = value.tlsFragmentSize,
-                        enabled = !busy,
-                    ) { value = value.copy(tlsFragmentSize = it) }
-
-                    TextSetting(
-                        title = stringResource(R.string.native_core_tls_fragment_sleep),
-                        value = value.tlsFragmentSleep,
-                        enabled = !busy,
-                    ) { value = value.copy(tlsFragmentSleep = it) }
-
-                    SwitchSetting(
-                        title = stringResource(R.string.native_core_tls_mixed_sni),
-                        checked = value.tlsMixedSniCase,
-                        enabled = !busy,
-                    ) { value = value.copy(tlsMixedSniCase = it) }
-
-                    SwitchSetting(
-                        title = stringResource(R.string.native_core_tls_padding),
-                        checked = value.tlsPadding,
-                        enabled = !busy,
-                    ) { value = value.copy(tlsPadding = it) }
-
-                    if (value.tlsPadding) {
-                        TextSetting(
-                            title = stringResource(R.string.native_core_tls_padding_size),
-                            value = value.tlsPaddingSize,
-                            enabled = !busy,
-                        ) { value = value.copy(tlsPaddingSize = it) }
-                    }
-                }
+            NativeGlass(Modifier.fillMaxWidth(), radius = 24) {
+                NativeSettingsLink(R.string.native_core_tls, R.drawable.native_shield, onOpenTls, enabled = !busy)
             }
 
             Text(

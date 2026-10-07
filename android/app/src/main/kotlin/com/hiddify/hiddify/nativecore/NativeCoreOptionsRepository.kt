@@ -17,12 +17,7 @@ data class NativeCoreOptions(
     val mixedPort: Int,
     val directPort: Int,
     val mtu: Int,
-    val tlsFragment: Boolean,
-    val tlsFragmentSize: String,
-    val tlsFragmentSleep: String,
-    val tlsMixedSniCase: Boolean,
-    val tlsPadding: Boolean,
-    val tlsPaddingSize: String,
+
 )
 
 class NativeCoreOptionsRepository {
@@ -35,7 +30,6 @@ class NativeCoreOptionsRepository {
 
     fun load(): NativeCoreOptions {
         val root = root()
-        val tls = root.optJSONObject("tls-tricks") ?: JSONObject()
         return NativeCoreOptions(
             balancerStrategy = root.optString("balancer-strategy", "round-robin"),
             resolveDestination = root.optBoolean("resolve-destination", false),
@@ -49,12 +43,6 @@ class NativeCoreOptionsRepository {
             mixedPort = if (root.optBoolean("enable-mixed-port", true)) root.optInt("mixed-port", 12334).takeIf { it in 1..65535 } ?: 0 else 0,
             directPort = if (root.optBoolean("enable-direct-port", true)) root.optInt("direct-port", 12337).takeIf { it in 1..65535 } ?: 0 else 0,
             mtu = root.optInt("mtu", 9000).coerceIn(1280, 65535),
-            tlsFragment = tls.optBoolean("enable-fragment", false),
-            tlsFragmentSize = tls.optString("fragment-size", "10-100"),
-            tlsFragmentSleep = tls.optString("fragment-sleep", "50-200"),
-            tlsMixedSniCase = tls.optBoolean("mixed-sni-case", false),
-            tlsPadding = tls.optBoolean("enable-padding", false),
-            tlsPaddingSize = tls.optString("padding-size", "1200-1500"),
         )
     }
 
@@ -76,14 +64,7 @@ class NativeCoreOptionsRepository {
             root.put("direct-port", options.directPort.takeIf { it in 1..65535 } ?: 0)
             root.put("mtu", options.mtu.coerceIn(1280, 65535))
 
-            val tls = root.optJSONObject("tls-tricks") ?: JSONObject()
-            tls.put("enable-fragment", options.tlsFragment)
-            tls.put("fragment-size", options.tlsFragmentSize.trim())
-            tls.put("fragment-sleep", options.tlsFragmentSleep.trim())
-            tls.put("mixed-sni-case", options.tlsMixedSniCase)
-            tls.put("enable-padding", options.tlsPadding)
-            tls.put("padding-size", options.tlsPaddingSize.trim())
-            root.put("tls-tricks", tls)
+
         }
 
     fun update(transform: (JSONObject) -> Unit): NativeCoreOptions {
@@ -136,20 +117,6 @@ class NativeCoreOptionsRepository {
 
     fun lanSharingPassword(): String =
         root().optString("lan-sharing-password").trim()
-
-    fun updateTls(transform: (JSONObject) -> Unit): NativeCoreOptions =
-        update { root ->
-            val tls = root.optJSONObject("tls-tricks") ?: JSONObject()
-            transform(tls)
-            root.put("tls-tricks", tls)
-        }
-
-    fun setTlsFragment(value: Boolean) = updateTls { it.put("enable-fragment", value) }
-    fun setTlsFragmentSize(value: String) = updateTls { it.put("fragment-size", value.trim()) }
-    fun setTlsFragmentSleep(value: String) = updateTls { it.put("fragment-sleep", value.trim()) }
-    fun setTlsMixedSniCase(value: Boolean) = updateTls { it.put("mixed-sni-case", value) }
-    fun setTlsPadding(value: Boolean) = updateTls { it.put("enable-padding", value) }
-    fun setTlsPaddingSize(value: String) = updateTls { it.put("padding-size", value.trim()) }
 
     private fun root(): JSONObject =
         runCatching {

@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -22,9 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -65,12 +62,12 @@ internal fun NativeDnsOptionsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         NativePageHeader(stringResource(R.string.native_core_dns), if (busy) null else onBack)
         NativeCard(Modifier.fillMaxWidth()) {
-            DnsValueRow(R.string.native_core_remote_dns, draft.remoteAddress, !busy) { edit("remote", draft.remoteAddress) }
-            DnsValueRow(R.string.native_core_remote_dns_strategy, stringResource(strategyLabel(draft.remoteStrategy)), !busy) { editor = "remote_strategy" }
+            NativePreferenceValueRow(R.string.native_core_remote_dns, draft.remoteAddress, !busy) { edit("remote", draft.remoteAddress) }
+            NativePreferenceValueRow(R.string.native_core_remote_dns_strategy, stringResource(strategyLabel(draft.remoteStrategy)), !busy) { editor = "remote_strategy" }
             NativePreferenceSwitch(R.string.native_core_fake_dns, R.string.native_dns_fake_summary,
                 R.drawable.native_shield, draft.fakeDns, !busy, { draft = draft.copy(fakeDns = it) })
-            DnsValueRow(R.string.native_core_direct_dns, draft.directAddress, !busy) { edit("direct", draft.directAddress) }
-            DnsValueRow(R.string.native_core_direct_dns_strategy, stringResource(strategyLabel(draft.directStrategy)), !busy) { editor = "direct_strategy" }
+            NativePreferenceValueRow(R.string.native_core_direct_dns, draft.directAddress, !busy) { edit("direct", draft.directAddress) }
+            NativePreferenceValueRow(R.string.native_core_direct_dns_strategy, stringResource(strategyLabel(draft.directStrategy)), !busy) { editor = "direct_strategy" }
         }
         NativeGlass(Modifier.fillMaxWidth(), radius = 24) {
             NativeSettingsLink(R.string.native_settings_dns, R.drawable.native_shield, onOpenPrivacy, enabled = !busy)
@@ -118,20 +115,6 @@ internal fun NativeDnsOptionsScreen(
                 }, enabled = !busy && addressValid) { Text(stringResource(R.string.native_profile_save)) }
             },
             dismissButton = { TextButton(onClick = { editor = "" }, enabled = !busy) { Text(stringResource(android.R.string.cancel)) } })
-    }
-}
-
-@Composable
-private fun DnsValueRow(title: Int, value: String, enabled: Boolean, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-        .padding(horizontal = 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Icon(painterResource(R.drawable.native_dns), null, tint = MaterialTheme.colorScheme.primary)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
-            Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-        Icon(painterResource(R.drawable.native_chevron), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
