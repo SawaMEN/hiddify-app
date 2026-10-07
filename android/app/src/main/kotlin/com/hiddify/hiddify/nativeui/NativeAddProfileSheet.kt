@@ -130,10 +130,11 @@ internal fun NativeAddProfileSheet(
     ) {
         Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState())) {
             if (busy || fileBusy) {
-                Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    CircularProgressIndicator()
-                    Text(stringResource(R.string.native_profile_adding))
+                Column(Modifier.fillMaxWidth().padding(horizontal = 64.dp, vertical = 64.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stringResource(R.string.native_profile_adding), style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(20.dp))
+                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), trackColor = androidx.compose.ui.graphics.Color.Transparent)
                 }
             } else if (!manual) {
                 BoxWithConstraints(Modifier.fillMaxWidth().padding(16.dp)) {
@@ -202,7 +203,7 @@ internal fun NativeAddProfileSheet(
                 importError?.let { Text(it, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) }
                 Button(onClick = {
                     validate = true
-                    if (name.isNotBlank() && validUrl) onImport(raw.trim(), name.trim(), interval.toInt().takeIf { it > 0 }, disableAutoUpdate)
+                    if (name.isNotBlank() && validUrl) onImport(raw.trim(), name.trim(), interval.toInt(), disableAutoUpdate)
                 }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
                     Text(stringResource(R.string.native_profile_add))
                 }

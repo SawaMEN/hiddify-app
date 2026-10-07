@@ -68,9 +68,12 @@ fun NativeProfilesScreen(
     var sortOpen by rememberSaveable { mutableStateOf(false) }
     val busy = busyProfileId != null
     val sorted = remember(profiles, sortByName, ascending) {
-        val comparator = if (sortByName) compareBy<NativeProfile> { it.name.lowercase(java.util.Locale.ROOT) }
+        val comparator = if (sortByName) compareBy<NativeProfile> { it.name }
             else compareBy<NativeProfile> { profileUpdateEpoch(it.lastUpdate) }
-        profiles.sortedWith(if (ascending) comparator else comparator.reversed())
+        // Dart keeps the active profile first, then usable subscriptions, before the chosen sort.
+        profiles.sortedWith(compareByDescending<NativeProfile> { it.active }
+            .thenByDescending { profileUsable(it) }
+            .then(if (ascending) comparator else comparator.reversed()))
     }
 
     @Composable fun ProfileBody(modifier: Modifier) {
@@ -160,3 +163,11 @@ fun NativeProfilesScreen(
 private fun profileUpdateEpoch(value: String): Long = runCatching { Instant.parse(value).toEpochMilli() }
     .recoverCatching { LocalDateTime.parse(value).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli() }
     .getOrDefault(Long.MIN_VALUE)
+
+
+private fun profileUsable(profile: NativeProfile): Boolean {
+    val used = if (profile.upload != null && profile.download != null) profile.upload.toDouble() + profile.download.toDouble() else null
+    val quotaAvailable = used == null || profile.total == null || profile.total == 0L || used / profile.total.toDouble() < 1.0
+    val expiry = profile.expire?.let { profileUpdateEpoch(it) }
+    return quotaAvailable && (expiry == null || expiry == Long.MIN_VALUE || expiry > System.currentTimeMillis())
+}

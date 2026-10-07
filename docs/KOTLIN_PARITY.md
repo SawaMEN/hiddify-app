@@ -13,7 +13,7 @@ Seven workstreams remain; a stream can contain multiple implementation/review it
 
 | Workstream | Known work remaining | Acceptance evidence |
 | --- | --- | --- |
-| Home/profile state | Initial load error/retry semantics; exact empty-state shield artwork; free-provider feed/consent in the add sheet; connection color/reconnect state | Same state, data and action targets as Dart HomePage/ProfileTile/ConnectionButton |
+| Home/profile state | Exact empty-state shield artwork; free-provider feed/consent in the add sheet; connection color/reconnect state | Same state, data and action targets as Dart HomePage/ProfileTile/ConnectionButton |
 | Profile flows | Match import/add/detail/editor/QR sheets and dialogs, list container/navigation, sorting/filtering and confirmation behavior | Compare each original flow and round-trip identical profiles |
 | Proxy presentation | Original circular country/provider artwork; proxy modal and primary-group-only overview; IP visibility lifetime/haptics; live stream timing and URL-test error/inspection sequence | Same selected/active proxy, operations, layout and state transitions |
 | Settings/navigation | Quick-settings rendering/dialog details; preference pages and picker/input/confirmation dialogs; back/deep-link behavior | One-to-one route/action/preferences audit against original widgets |
@@ -78,10 +78,10 @@ profile reads show the original 56 dp progress area; an empty database shows the
 successful repository operation, preserving the draft after validation/network failures. A
 successful profile selection returns from the list; rejected/failed selections leave it open.
 
-The import form still uses the existing native dialog. The original options/manual bottom sheet,
-free-provider feed/consent, QR scanner styling, exact empty-state artwork, exact sheet drag extents remain outstanding. Initial read-error/retry states are now implemented. No build or tests were run for this step. Source review,
-XML/resource references and whitespace inspection do not establish measured visual parity.
-
+The add form now uses native options/manual bottom sheets. Free-provider feed/consent,
+QR scanner styling, exact empty-state artwork and exact sheet drag extents remain outstanding.
+Initial read-error/retry states are implemented. Source/resource checks alone do not establish
+measured visual parity.
 
 ## Profile options/manual sheets and list controls
 
@@ -91,10 +91,12 @@ repository import directly, as in Dart, instead of requiring a second submission
 multiline input dialog. QR image import remains available as an additional action. File
 reads remain limited to 8 MiB on IO, image processing stays on IO, cancelled pickers do
 nothing, and failed imports retain their source for Retry. The sheet closes only after
-the Activity publishes a successful import revision. Busy operations show adding progress.
+the Activity publishes a successful import revision. Busy operations show the original text/linear-progress arrangement. Import cancellation
+still needs a repository-level cancellation path; the busy sheet currently stays open.
 
 Manual import has required name and HTTP(S) URL fields, the disable-auto-update switch,
 a discrete 0–96 hour slider and an Auto value that leaves subscription timing to metadata.
+Selecting Auto explicitly clears a previous manual interval when reimporting the same URL.
 Manual drafts survive rotation; large configuration contents are excluded from saved state.
 The close icon returns to options. Help and the home empty-state paragraph use the original
 EN/RU text and help destination. Free providers and their consent/feature overrides still
@@ -102,6 +104,7 @@ need implementation; the current image action occupies the footer where Dart has
 
 Home profile selection opens a bottom sheet; settings retains the full list page. Both use
 12 dp list spacing, shared tiles, a last-update/name sort with direction, and Update subscriptions.
+Active and usable profiles keep priority before the chosen comparator, matching Dart.
 Sorting defaults to newest first and is shared across both views during the Activity session;
 its labels describe the actual comparator rather than reproducing the inverted Dart labels.
 Full-page controls use the 56 dp app bar and add FAB. Selection success closes the sheet;
