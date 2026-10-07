@@ -1,6 +1,8 @@
 package com.hiddify.hiddify
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -8,6 +10,7 @@ import android.net.VpnService
 import android.os.Build
 import android.provider.Settings as AndroidSettings
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -33,6 +36,7 @@ import com.hiddify.hiddify.nativecore.NativeCoreOptionsRepository
 import com.hiddify.hiddify.nativecore.NativeOutboundGroup
 import com.hiddify.hiddify.nativecore.NativeOutboundsRepository
 import com.hiddify.hiddify.nativecore.NativeStatsRepository
+import com.hiddify.hiddify.nativecore.NativeSettingsTransferRepository
 import com.hiddify.hiddify.nativecore.NativeSystemStats
 import com.hiddify.hiddify.nativecore.NativeWifiSharingDetails
 import com.hiddify.hiddify.nativecore.NativeWifiSharingRepository
@@ -109,6 +113,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val outboundsRepository by lazy { NativeOutboundsRepository() }
     private val statsRepository by lazy { NativeStatsRepository() }
     private val wifiSharingRepository by lazy { NativeWifiSharingRepository() }
+    private val settingsTransferRepository by lazy { NativeSettingsTransferRepository() }
     private val updateRepository by lazy { NativeUpdateRepository() }
     private val profileOperationMutex = Mutex()
     private val connection = ServiceConnection(this, this)
@@ -119,6 +124,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private var pendingStartAfterVpnPermission = false
     private var notificationRequestInFlight = false
     private var batteryPromptOpen = false
+    private var pendingSettingsExport: String? = null
 
     private val vpnPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -139,6 +145,52 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
             notificationRequestInFlight = false
             com.hiddify.hiddify.bg.ServiceNotification.refreshActive()
             maybePromptBatteryOptimization()
+        }
+
+    private val settingsImportLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri == null) return@registerForActivityResult
+            lifecycleScope.launch {
+                val result =
+                    withContext(Dispatchers.IO) {
+                        runCatching {
+                            contentResolver.openInputStream(uri)
+                                ?.bufferedReader(Charsets.UTF_8)
+                                ?.use { it.readText() }
+                                ?: throw java.io.FileNotFoundException(uri.toString())
+                        }
+                    }
+                result.fold(
+                    onSuccess = ::applyImportedSettings,
+                    onFailure = { error ->
+                        errorMessage.value = error.message ?: error.javaClass.simpleName
+                    },
+                )
+            }
+        }
+
+    private val settingsExportLauncher =
+        registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+            val payload = pendingSettingsExport
+            pendingSettingsExport = null
+            if (uri == null || payload == null) return@registerForActivityResult
+            lifecycleScope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        contentResolver.openOutputStream(uri, "wt")
+                            ?.bufferedWriter(Charsets.UTF_8)
+                            ?.use { it.write(payload) }
+                            ?: throw java.io.FileNotFoundException(uri.toString())
+                    }
+                    Toast.makeText(
+                        this@NativeMainActivity,
+                        R.string.native_settings_export_success,
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                } catch (error: Exception) {
+                    errorMessage.value = error.message ?: error.javaClass.simpleName
+                }
+            }
         }
 
     override fun onCreate(savedInstanceState: android.os.Bundle?) {
@@ -207,6 +259,11 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onTestOutbound = ::testOutbound,
                 onTestActiveOutbounds = ::testActiveOutbounds,
                 onRefreshWifiSharingDetails = ::refreshWifiSharingDetails,
+                onImportSettingsClipboard = ::importSettingsFromClipboard,
+                onImportSettingsFile = ::importSettingsFromFile,
+                onExportSettingsClipboard = ::exportSettingsToClipboard,
+                onExportSettingsFile = ::exportSettingsToFile,
+                onResetSettings = ::resetCoreSettings,
                 onCheckUpdate = ::checkForUpdate,
                 onOpenUpdate = { updateUrl.value?.let(::openExternalUrl) },
                 onOpenFork = { openExternalUrl(NativeUpdateRepository.FORK_URL) },
@@ -815,6 +872,82 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 wifiSharingDetailsBusy.value = false
             }
         }
+    }
+
+    private fun importSettingsFromClipboard() {
+        val clipboard = getSystemService(ClipboardManager::class.java)
+        val clip = clipboard?.primaryClip
+        val text =
+            if (clip != null && clip.itemCount > 0) {
+                clip.getItemAt(0).coerceToText(this)?.toString()
+            } else {
+                null
+            }
+        if (text.isNullOrBlank()) {
+            errorMessage.value = getString(R.string.native_settings_clipboard_empty)
+            return
+        }
+        applyImportedSettings(text)
+    }
+
+    private fun importSettingsFromFile() {
+        settingsImportLauncher.launch(arrayOf("application/json", "text/json", "text/plain"))
+    }
+
+    private fun applyImportedSettings(input: String) {
+        if (serviceStatus.value != Status.Stopped) {
+            errorMessage.value = getString(R.string.native_settings_import_disconnect)
+            return
+        }
+        try {
+            settingsTransferRepository.importJson(input)
+            refreshImportedSettingsSnapshots()
+            Toast.makeText(this, R.string.native_settings_import_success, Toast.LENGTH_SHORT).show()
+        } catch (error: Exception) {
+            errorMessage.value = error.message ?: error.javaClass.simpleName
+        }
+    }
+
+    private fun exportSettingsToClipboard(includePrivate: Boolean) {
+        try {
+            val payload = settingsTransferRepository.exportJson(includePrivate)
+            getSystemService(ClipboardManager::class.java)
+                ?.setPrimaryClip(ClipData.newPlainText("VetrOFF options.json", payload))
+            Toast.makeText(this, R.string.native_settings_export_success, Toast.LENGTH_SHORT).show()
+        } catch (error: Exception) {
+            errorMessage.value = error.message ?: error.javaClass.simpleName
+        }
+    }
+
+    private fun exportSettingsToFile(includePrivate: Boolean) {
+        try {
+            pendingSettingsExport = settingsTransferRepository.exportJson(includePrivate)
+            settingsExportLauncher.launch("options.json")
+        } catch (error: Exception) {
+            pendingSettingsExport = null
+            errorMessage.value = error.message ?: error.javaClass.simpleName
+        }
+    }
+
+    private fun resetCoreSettings() {
+        if (serviceStatus.value != Status.Stopped) {
+            errorMessage.value = getString(R.string.native_settings_import_disconnect)
+            return
+        }
+        try {
+            settingsTransferRepository.resetCoreSettings()
+            refreshImportedSettingsSnapshots()
+            Toast.makeText(this, R.string.native_settings_reset_success, Toast.LENGTH_SHORT).show()
+        } catch (error: Exception) {
+            errorMessage.value = error.message ?: error.javaClass.simpleName
+        }
+    }
+
+    private fun refreshImportedSettingsSnapshots() {
+        refreshCoreOptions()
+        refreshChainOptions()
+        refreshSettingsSnapshot()
+        refreshWifiSharingDetails()
     }
 
     private fun checkForUpdate() {
