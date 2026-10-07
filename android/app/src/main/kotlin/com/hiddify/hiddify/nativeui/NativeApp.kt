@@ -27,6 +27,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.ui.text.style.TextOverflow
+import com.hiddify.hiddify.BuildConfig
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
@@ -36,12 +42,13 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -57,7 +64,6 @@ import com.hiddify.hiddify.privacy.NativeRegionalAppSnapshot
 import com.hiddify.hiddify.privacy.NativeRegionalOptions
 import com.hiddify.hiddify.privacy.NativeTrafficFilters
 import com.hiddify.hiddify.R
-import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
 import com.hiddify.hiddify.nativecore.NativeChainOptions
@@ -272,11 +278,11 @@ fun NativeApp(
                         .fillMaxSize()
                         .statusBarsPadding()
                         .navigationBarsPadding()
-                        .padding(top = if (page == PAGE_OUTBOUNDS) 0.dp else 8.dp),
+                        .padding(top = if (page == PAGE_OUTBOUNDS || page == PAGE_HOME) 0.dp else 8.dp),
             ) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    Box((if (page == PAGE_OUTBOUNDS) Modifier else Modifier.widthIn(max = 680.dp))
-                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_OUTBOUNDS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
+                    Box((if (page == PAGE_OUTBOUNDS || page == PAGE_HOME) Modifier else Modifier.widthIn(max = 680.dp))
+                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_OUTBOUNDS, PAGE_HOME -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
                         when (page) {
                             PAGE_DIAGNOSTICS ->
                                 NativeDiagnosticsScreen(
@@ -609,9 +615,6 @@ fun NativeApp(
                                     recoveryAttempt = recoveryAttempt,
                                     activeProfileName = activeProfileName,
                                     hasActiveProfile = hasActiveProfile,
-                                    serviceMode = settingsState.serviceMode,
-                                    rootMode = rootMode,
-                                    wifiSharing = settingsState.wifiSharing,
                                     systemStats = systemStats,
                                     onToggleConnection = onToggleConnection,
                                     onOpenProfiles = { openPage(PAGE_PROFILES) },
@@ -665,9 +668,6 @@ private fun HomeScreen(
     recoveryAttempt: Int,
     activeProfileName: String,
     hasActiveProfile: Boolean,
-    serviceMode: String,
-    rootMode: Boolean,
-    wifiSharing: Boolean,
     systemStats: NativeSystemStats,
     onToggleConnection: () -> Unit,
     onOpenProfiles: () -> Unit,
@@ -675,64 +675,71 @@ private fun HomeScreen(
     onOpenDiagnostics: () -> Unit,
     onOpenOutbounds: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Column(Modifier.fillMaxSize()) {
+        Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically) {
             Image(painterResource(R.drawable.vetroff_app_logo), contentDescription = null, modifier = Modifier.size(28.dp))
-            Text(stringResource(R.string.app_name), modifier = Modifier.weight(1f).padding(start = 12.dp),
-                style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.width(12.dp))
+            Text(stringResource(R.string.app_name), modifier = Modifier.weight(1f, fill = false),
+                style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.width(8.dp))
+            Text(if (BuildConfig.CHANNEL == "prod") BuildConfig.VERSION_NAME
+                else "${BuildConfig.VERSION_NAME} ${BuildConfig.CHANNEL}",
+                modifier = Modifier.background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(4.dp))
+                    .padding(horizontal = 4.dp, vertical = 1.dp),
+                color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.bodySmall,
+                maxLines = 1)
+            Spacer(Modifier.weight(1f))
             IconButton(onClick = onOpenDiagnostics) {
                 Icon(painterResource(R.drawable.native_shield), stringResource(R.string.native_diagnostics_title))
             }
-            IconButton(onClick = onOpenProfiles) {
+            FilledTonalIconButton(onClick = onOpenProfiles) {
                 Icon(painterResource(R.drawable.native_add), stringResource(R.string.native_profiles))
             }
         }
-        NativeGlass(Modifier.fillMaxWidth().clickable(onClick = onOpenProfiles), radius = 24) {
-            Text(if (hasActiveProfile) activeProfileName.ifBlank { stringResource(R.string.native_active_profile_unnamed) }
-                else stringResource(R.string.native_no_profile_selected),
-                style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(20.dp))
-        }
-        ConnectionCard(
-            status = status, recovering = recoveryAttempt > 0, internetHealth = internetHealth,
-            onToggleConnection = onToggleConnection,
-        )
-
-        if (recoveryAttempt > 0) {
-            Text(stringResource(R.string.native_recovery_attempt, recoveryAttempt))
-        }
-        if (status == Status.Started) {
-            Text(stringResource(when (internetHealth) {
-                NativeInternetHealth.UNCHECKED -> R.string.native_health_unchecked
-                NativeInternetHealth.CHECKING -> R.string.native_health_checking
-                NativeInternetHealth.AVAILABLE -> R.string.native_health_available
-                NativeInternetHealth.UNAVAILABLE -> R.string.native_health_unavailable
-            }), modifier = Modifier.align(Alignment.CenterHorizontally), style = MaterialTheme.typography.bodyMedium)
-        }
-        NativeGlass(Modifier.fillMaxWidth()) {
-            NativeSettingsLink(R.string.native_outbounds_open, R.drawable.native_route,
-                onOpenOutbounds, enabled = status == Status.Started)
-        }
-        ConnectionStatsCard(systemStats)
-
-        NativeGlass(Modifier.fillMaxWidth().clickable(onClick = onOpenSettings)) {
-            Row(Modifier.padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(painterResource(R.drawable.native_settings), null, tint = MaterialTheme.colorScheme.primary)
-                Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                    Text(stringResource(R.string.native_quick_settings), style = MaterialTheme.typography.titleSmall)
-                    Text(stringResource(when {
-                        serviceMode != ServiceMode.VPN -> R.string.native_mode_proxy
-                        rootMode -> R.string.native_mode_root
-                        else -> R.string.native_mode_android_vpn
-                    }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (wifiSharing) Text(stringResource(R.string.native_wifi_sharing_on), style = MaterialTheme.typography.bodySmall)
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            Column(Modifier.widthIn(max = 680.dp).fillMaxWidth().verticalScroll(rememberScrollState())) {
+                NativeGlass(Modifier.fillMaxWidth().padding(start = 20.dp, top = 12.dp, end = 20.dp)
+                    .clickable(onClick = onOpenProfiles), radius = 24) {
+                    Text(if (hasActiveProfile) activeProfileName.ifBlank { stringResource(R.string.native_active_profile_unnamed) }
+                        else stringResource(R.string.native_no_profile_selected),
+                        style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(20.dp))
                 }
-                Icon(painterResource(R.drawable.native_chevron), null, Modifier.rotate(270f))
+                Column(Modifier.fillMaxWidth().padding(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 20.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        ConnectionCard(status = status, recovering = recoveryAttempt > 0, internetHealth = internetHealth,
+                            onToggleConnection = onToggleConnection)
+                        Spacer(Modifier.height(12.dp))
+                        TextButton(onClick = onOpenDiagnostics, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
+                            Text(if (recoveryAttempt > 0) stringResource(R.string.native_recovery_attempt, recoveryAttempt)
+                                else stringResource(if (status != Status.Started) R.string.native_home_health_stopped else when (internetHealth) {
+                                    NativeInternetHealth.UNCHECKED -> R.string.native_health_unchecked
+                                    NativeInternetHealth.CHECKING -> R.string.native_health_checking
+                                    NativeInternetHealth.AVAILABLE -> R.string.native_health_available
+                                    NativeInternetHealth.UNAVAILABLE -> R.string.native_health_unavailable
+                                }), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        }
+                    }
+                    if (status == Status.Started) {
+                        NativeGlass(Modifier.fillMaxWidth(), radius = 24) {
+                            NativeSettingsLink(R.string.native_outbounds_open, R.drawable.native_route, onOpenOutbounds)
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    ConnectionStatsCard(systemStats)
+                    Spacer(Modifier.height(16.dp))
+                    NativeGlass(Modifier.fillMaxWidth().clickable(onClick = onOpenSettings), radius = 20) {
+                        Row(Modifier.padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(painterResource(R.drawable.native_tune), null, tint = MaterialTheme.colorScheme.primary)
+                            Text(stringResource(R.string.native_quick_settings), Modifier.weight(1f).padding(start = 12.dp),
+                                style = MaterialTheme.typography.titleSmall)
+                            Icon(painterResource(R.drawable.native_arrow_up), null)
+                        }
+                    }
+                }
             }
         }
-
     }
 }
 
@@ -743,14 +750,6 @@ private fun ConnectionStatsCard(stats: NativeSystemStats) {
             Row(Modifier.fillMaxWidth()) {
                 Text("↓ ${formatTraffic(stats.downlink)}/s", Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 Text("↑ ${formatTraffic(stats.uplink)}/s", Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            }
-            if (stats.currentOutbound.isNotBlank()) {
-                Text(stats.currentOutbound, Modifier.align(Alignment.CenterHorizontally),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (stats.trafficAvailable) {
-                Text(stringResource(R.string.native_stats_total, formatTraffic(stats.uplinkTotal), formatTraffic(stats.downlinkTotal)),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -798,7 +797,7 @@ private fun ConnectionCard(
         else -> scheme.primary
     }
     val enabled = recovering || status == Status.Stopped || status == Status.Started
-    Column(Modifier.fillMaxWidth().padding(vertical = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.size(176.dp).background(
             Brush.radialGradient(listOf(accent.copy(alpha = .12f), Color.Transparent)), CircleShape,
         ).border(2.dp, accent.copy(alpha = .28f), CircleShape), contentAlignment = Alignment.Center) {
@@ -832,11 +831,10 @@ private fun BlackHomePreview() = NativeHomePreview(NativeThemeMode.BLACK)
 private fun NativeHomePreview(mode: NativeThemeMode) {
     NativeAppTheme(mode) {
         NativeAtmosphere {
-            Box(Modifier.fillMaxSize().padding(20.dp)) {
+            Box(Modifier.fillMaxSize()) {
                 HomeScreen(
                     status = Status.Started, internetHealth = NativeInternetHealth.AVAILABLE,
                     recoveryAttempt = 0, activeProfileName = "VetrOFF", hasActiveProfile = true,
-                    serviceMode = ServiceMode.VPN, rootMode = false, wifiSharing = false,
                     systemStats = NativeSystemStats(downlink = 1258291, uplink = 52428, trafficAvailable = true),
                     onToggleConnection = {}, onOpenProfiles = {}, onOpenSettings = {},
                     onOpenDiagnostics = {}, onOpenOutbounds = {},

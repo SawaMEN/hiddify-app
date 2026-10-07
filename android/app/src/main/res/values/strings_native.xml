@@ -438,13 +438,13 @@
     <string name="native_connection_adaptive_summary">Enables adaptive core bandwidth, server selection and longer probe deadlines. The native health check tolerates slower responses and pauses while the underlying network is offline.</string>
     <string name="native_connection_probe_summary">The home screen checks internet through the selected core outbound while the app is visible. A failed check does not automatically stop or restart the VPN.</string>
     <string name="native_connection_saved">Connection policy saved. Reconnect the VPN to apply core changes.</string>
-    <string name="native_health_unchecked">Internet through VPN: not checked</string>
-    <string name="native_health_checking">Internet through VPN: checking…</string>
-    <string name="native_health_available">Internet through VPN: available</string>
-    <string name="native_health_unavailable">Internet through VPN: check failed</string>
+    <string name="native_health_unchecked">VPN started · internet not checked</string>
+    <string name="native_health_checking">Checking internet…</string>
+    <string name="native_health_available">VPN started · internet available</string>
+    <string name="native_health_unavailable">VPN started · internet unavailable</string>
     <string name="native_recovery_setting">Reconnect after service failure</string>
     <string name="native_recovery_setting_summary">Retry unexpected service failures with bounded backoff while this app is visible. Manual disconnect and VPN permission revocation cancel retries. Adaptive mode also enables recovery.</string>
-    <string name="native_recovery_attempt">Restoring connection: attempt %1$d</string>
+    <string name="native_recovery_attempt">Recovery attempt: %1$d / 5</string>
     <string name="native_recovery_cancel">Cancel recovery</string>
     <string name="native_recovery_exhausted">Reconnect attempts exhausted. Check the profile and network, then connect again.</string>
     <string name="native_recovery_permission">VPN permission is required. Tap Connect to request permission again.</string>
@@ -583,4 +583,5 @@
     <string name="native_outbound_no">No</string>
     <string name="native_outbound_unknown_country">Unknown country</string>
     <string name="native_outbound_map_unavailable">Unable to open map</string>
+    <string name="native_home_health_stopped">VPN stopped</string>
 </resources>

@@ -438,13 +438,13 @@
     <string name="native_connection_adaptive_summary">Включает адаптивную скорость ядра, выбор сервера и увеличенные сроки проверки. Нативная проверка соединения допускает медленные ответы и делает паузу, если базовая сеть недоступна.</string>
     <string name="native_connection_probe_summary">Главный экран проверяет интернет через выбранный маршрут ядра, пока приложение видно. Неудачная проверка не останавливает и не перезапускает VPN автоматически.</string>
     <string name="native_connection_saved">Политика подключения сохранена. Переподключите VPN для применения изменений ядра.</string>
-    <string name="native_health_unchecked">Интернет через VPN: не проверен</string>
-    <string name="native_health_checking">Интернет через VPN: проверяется…</string>
-    <string name="native_health_available">Интернет через VPN: доступен</string>
-    <string name="native_health_unavailable">Интернет через VPN: проверка не пройдена</string>
+    <string name="native_health_unchecked">VPN запущен · интернет не проверен</string>
+    <string name="native_health_checking">Проверяем интернет…</string>
+    <string name="native_health_available">VPN запущен · интернет доступен</string>
+    <string name="native_health_unavailable">VPN запущен · интернет недоступен</string>
     <string name="native_recovery_setting">Переподключаться после сбоя службы</string>
     <string name="native_recovery_setting_summary">Повторяет запуск после сбоя службы с ограниченным числом попыток, пока приложение видно. Отключение вручную и отзыв VPN-разрешения отменяют попытки. Адаптивный режим также включает восстановление.</string>
-    <string name="native_recovery_attempt">Восстановление соединения: попытка %1$d</string>
+    <string name="native_recovery_attempt">Попытка восстановления: %1$d / 5</string>
     <string name="native_recovery_cancel">Отменить восстановление</string>
     <string name="native_recovery_exhausted">Попытки переподключения исчерпаны. Проверьте профиль и сеть, затем подключитесь снова.</string>
     <string name="native_recovery_permission">Необходимо VPN-разрешение. Нажмите «Подключить», чтобы запросить его снова.</string>
@@ -583,4 +583,5 @@
     <string name="native_outbound_no">Нет</string>
     <string name="native_outbound_unknown_country">Страна неизвестна</string>
     <string name="native_outbound_map_unavailable">Не удалось открыть карту</string>
+    <string name="native_home_health_stopped">VPN остановлен</string>
 </resources>

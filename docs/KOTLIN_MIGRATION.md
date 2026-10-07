@@ -24,6 +24,13 @@ button. Tile selection colors, one-line titles/subtitles, delay colors and downl
 the Dart widget. English/Russian proxy labels are copied from the existing translations.
 The native screen retains all core groups, without additional group headings.
 
+The home app bar now stays outside the scroll area, with a 56 dp height, 28 dp logo,
+version badge and tonal add button. The scroll body uses the original 680 dp maximum width
+and profile/connection section insets. Health text uses the original translations and opens
+diagnostics, with live-region semantics. Quick settings restores the single title, tune/up icons
+and 16 dp gap after the compact speed card. Profile content, active-proxy footer, empty-profile
+state, latency indicator and quick-settings sheet still need further parity work.
+
 These are source-based corrections, not a claim of verified pixel parity. Country/provider
 artwork, remaining screen layouts and screenshot comparisons on the same device, theme,
 locale and font scale still need completion. No manual tests were added or run.
