@@ -57,7 +57,6 @@
     <string name="native_settings_disconnect_required">Disconnect the VPN before changing root mode or Wi-Fi sharing.</string>
     <string name="native_settings_reconnect_note">Reconnect the VPN after changing routing or DNS settings so the core reloads them.</string>
 
-    <string name="native_advanced_legacy">Advanced compatibility UI</string>
     <string name="native_profile_add">Add</string>
     <string name="native_profiles_empty">No profiles yet</string>
     <string name="native_profiles_empty_summary">Import a subscription URL, Hiddify deep link, proxy link list, or raw configuration.</string>

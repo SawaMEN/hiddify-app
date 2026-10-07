@@ -1,7 +1,17 @@
 # Android Kotlin migration
 
-The `kotlin-rewrite` branch launches `NativeMainActivity` and uses Compose for Android.
-Flutter remains a temporary compatibility UI and build dependency; the migration is not complete.
+The `kotlin-rewrite` branch is a standalone Kotlin/Compose Android project, launched by
+`MainActivity`. Dart application/test sources, the Flutter compatibility Activity and method/event
+channels, pubspec/code generators and Flutter build plugins have been removed. The APK is built
+by Gradle directly, and CI rejects Flutter engine/snapshot assets in the APK. The pinned native
+Go VPN engine remains unchanged; it is not Dart application code.
+
+Existing storage names and schemas remain compatible with installed versions. The old
+`NativeMainActivity` component is retained as an Android manifest alias to the new entry point.
+Version metadata is now in `version.properties`. The app retains the migrated Compose visual
+style, but exact country/provider artwork and device screenshot parity are still outstanding.
+No tests were run manually for the standalone conversion. APK verification is pending the new
+GitHub build; earlier sections below document the incremental migration history.
 
 ## Profile transfer and QR
 
@@ -479,3 +489,20 @@ STARTED, it refreshes every three seconds, including when smart selection is off
 completed asynchronous delay tests. Polling stops off-screen/background and uses the existing
 outbound busy guard. No tests were added or run manually. Static resource and whitespace
 checks pass; ARM64 build confirmation remains pending the GitHub workflow.
+
+## Standalone Kotlin cutover
+
+Removed all 370 tracked Dart files, including tests and generator shims, and removed the Flutter
+SDK plugins and source generation from Gradle, Make and GitHub Actions. All handwritten Android
+application source is Kotlin, including the binary XML/resource-table rewriter previously in
+Java. The existing binary XML fixture has also been translated to Kotlin without new scenarios.
+Database schema references were moved from the removed `lib` source tree into
+`docs/database-schemas`. The app keeps its package, signing behavior, deep links, shortcuts,
+notification actions, VPN services and profile paths. Advanced settings navigate only to native
+Compose pages; the compatibility UI link is removed.
+
+CI checks native source/resource boundaries, assembles directly with `:app:assembleRelease`,
+and verifies the ARM64 core/root companion and application metadata. Existing Kotlin/core
+checks are still available to CI through its `run-tests` option; Dart tests are gone. Stable
+release feeds and tag checks read the same version properties as the Android build. Local
+Gradle execution was blocked while downloading the pinned distribution (`Network is unreachable`).

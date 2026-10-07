@@ -1,4 +1,4 @@
-"""Keep release tags, Android metadata and pubspec's app version consistent."""
+"""Keep release tags, Android metadata and the native app version consistent."""
 import argparse
 from pathlib import Path
 import re
@@ -6,11 +6,13 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def declared_version(path=ROOT / "pubspec.yaml"):
-    match = re.search(r"^version:\s*(\d+\.\d+\.\d+)\+(\d+)\s*$", path.read_text(), re.M)
-    if not match:
-        raise ValueError("pubspec.yaml must declare version+buildNumber")
-    return match.group(1), match.group(2)
+def declared_version(path=ROOT / "version.properties"):
+    source = path.read_text()
+    name = re.search(r"^versionName=(\d+\.\d+\.\d+)\s*$", source, re.M)
+    code = re.search(r"^versionCode=([1-9]\d*)\s*$", source, re.M)
+    if not name or not code:
+        raise ValueError("version.properties must declare versionName and positive versionCode")
+    return name.group(1), code.group(1)
 
 
 def apk_minimum_sdk(metadata):
@@ -26,9 +28,9 @@ def validate_tag(tag, channel, version, build):
         return
     match = re.fullmatch(r"v?(\d+\.\d+\.\d+)(?:\+(\d+))?(?:\.(dev|prod))?", tag)
     if not match or match.group(1) != version:
-        raise ValueError("Release tag version must match pubspec.yaml")
+        raise ValueError("Release tag version must match version.properties")
     if match.group(2) is not None and match.group(2) != build:
-        raise ValueError("Release tag build number must match pubspec.yaml")
+        raise ValueError("Release tag build number must match version.properties")
     if match.group(3) is not None and match.group(3) != channel:
         raise ValueError("Release tag channel does not match the build")
 

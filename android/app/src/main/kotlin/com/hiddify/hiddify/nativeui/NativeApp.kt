@@ -221,7 +221,6 @@ fun NativeApp(
     onOpenUpstream: () -> Unit,
     onOpenTerms: () -> Unit,
     onOpenPrivacy: () -> Unit,
-    onOpenLegacy: () -> Unit,
     onProxyOnlyChanged: (Boolean) -> Unit,
     onRootModeChanged: (Boolean) -> Unit,
     onWifiSharingChanged: (Boolean) -> Unit,
@@ -473,7 +472,6 @@ fun NativeApp(
                                 onOpenChain = { openPage(PAGE_CHAIN) },
                                 onOpenLogs = { openPage(PAGE_LOGS) },
                                 onOpenAbout = { openPage(PAGE_ABOUT) },
-                                onOpenLegacy = onOpenLegacy,
                             )
 
                             PAGE_TUNNEL -> NativeTunnelOptionsScreen(

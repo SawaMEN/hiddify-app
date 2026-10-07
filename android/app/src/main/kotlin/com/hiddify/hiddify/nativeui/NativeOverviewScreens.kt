@@ -66,7 +66,6 @@ internal fun NativeSettingsOverviewScreen(
     onOpenChain: () -> Unit,
     onOpenLogs: () -> Unit,
     onOpenAbout: () -> Unit,
-    onOpenLegacy: () -> Unit,
     onOpenDns: () -> Unit = {},
     onOpenTls: () -> Unit = {},
     onOpenInbound: () -> Unit = {},
@@ -87,7 +86,6 @@ internal fun NativeSettingsOverviewScreen(
             Triple(R.string.native_settings_transfer, R.drawable.native_logs, { onOpenCategory(NativeSettingsCategory.BACKUP) }),
             Triple(R.string.native_logs_title, R.drawable.native_logs, onOpenLogs),
             Triple(R.string.native_about_open, R.drawable.native_info, onOpenAbout),
-            Triple(R.string.native_advanced_legacy, R.drawable.native_layers, onOpenLegacy),
         ).forEach { (title, icon, open) ->
             NativeGlass(Modifier.fillMaxWidth(), radius = 24) { NativeSettingsLink(title, icon, open) }
         }

@@ -12,7 +12,7 @@ kotlin {
 }
 
 // Compile the production files directly; no copied implementations or Android stubs.
-// This suite is independent of Android test variants unavailable in the current Flutter build.
+// This suite is independent of Android test variants unavailable in the Android build.
 sourceSets {
     main {
         kotlin {
@@ -22,6 +22,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativediagnostics/NativeDiagnosticModels.kt'
             include 'com/hiddify/hiddify/nativerouting/NativePerAppBackup.kt'
             include 'com/hiddify/hiddify/privacy/NativeTrafficFilters.kt'
+            include 'com/hiddify/hiddify/privacy/BinaryXml.kt'
             include 'com/hiddify/hiddify/privacy/NativeProxyPrivacy.kt'
             include 'com/hiddify/hiddify/privacy/NativeRegionalOptions.kt'
             include 'com/hiddify/hiddify/privacy/NativeRegionalPackages.kt'

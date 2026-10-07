@@ -57,7 +57,6 @@
     <string name="native_settings_disconnect_required">Перед сменой root-режима или раздачи Wi-Fi отключите VPN.</string>
     <string name="native_settings_reconnect_note">После изменения маршрутизации или DNS переподключите VPN, чтобы ядро применило настройки.</string>
 
-    <string name="native_advanced_legacy">Расширенный интерфейс совместимости</string>
     <string name="native_profile_add">Добавить</string>
     <string name="native_profiles_empty">Профилей пока нет</string>
     <string name="native_profiles_empty_summary">Импортируйте ссылку подписки, Hiddify deep link, список proxy-ссылок или готовую конфигурацию.</string>
