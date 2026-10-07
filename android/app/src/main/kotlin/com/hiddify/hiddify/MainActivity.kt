@@ -137,6 +137,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val chainOptions = mutableStateOf(NativeChainRepository().load())
     private val chainBusy = mutableStateOf(false)
     private val outboundGroups = mutableStateOf<List<NativeOutboundGroup>>(emptyList())
+    private val requiresReconnect = mutableStateOf(Settings.nativeReconnectRequired)
+    private val reconnectBusy = mutableStateOf(false)
+    private val activeOutbound = mutableStateOf<com.hiddify.hiddify.nativecore.NativeOutbound?>(null)
     private val outboundBusyTag = mutableStateOf<String?>(null)
     private val systemStats = mutableStateOf(NativeSystemStats())
     private val wifiSharingDetails = mutableStateOf(NativeWifiSharingDetails())
@@ -218,6 +221,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private var profileUpdateJob: Job? = null
     private var logRefreshJob: Job? = null
     private var statsRefreshJob: Job? = null
+    private var activeOutboundRefreshJob: Job? = null
     private var pendingStartAfterVpnPermission = false
     private var notificationRequestInFlight = false
     private var batteryPromptOpen = false
@@ -430,6 +434,11 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 chainOptions = chainOptions.value,
                 chainBusy = chainBusy.value,
                 outboundGroups = outboundGroups.value,
+                activeOutbound = activeOutbound.value,
+                requiresReconnect = requiresReconnect.value,
+                reconnectBusy = reconnectBusy.value,
+                onQuickServiceMode = ::saveQuickServiceMode,
+                onQuickLanSharing = ::saveQuickLanSharing,
                 outboundBusyTag = outboundBusyTag.value,
                 systemStats = systemStats.value,
                 wifiSharingDetails = wifiSharingDetails.value,
@@ -542,6 +551,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         startProfileUpdateLoop()
         startLogRefreshLoop()
         startStatsRefreshLoop()
+        startActiveOutboundRefreshLoop()
         connection.connect()
         restartHealthMonitor()
         startSmartSelectionLoop()
@@ -590,6 +600,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         logRefreshJob = null
         statsRefreshJob?.cancel()
         statsRefreshJob = null
+        activeOutboundRefreshJob?.cancel()
+        activeOutboundRefreshJob = null
+        activeOutbound.value = null
         connection.disconnect()
         super.onStop()
     }
@@ -767,6 +780,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                         outboundsRepository.load()
                     }
                 outboundGroups.value = refreshed
+                val active = withContext(Dispatchers.IO) { outboundsRepository.loadActive() }
+                if (nativeForeground && serviceStatus.value == Status.Started) activeOutbound.value = active
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
@@ -784,6 +799,25 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     delay(LOG_REFRESH_INTERVAL_MS)
                 }
             }
+    }
+
+    private fun startActiveOutboundRefreshLoop() {
+        if (activeOutboundRefreshJob?.isActive == true) return
+        activeOutboundRefreshJob = lifecycleScope.launch {
+            while (isActive && nativeForeground) {
+                if (serviceStatus.value == Status.Started) {
+                    try {
+                        val active = withContext(Dispatchers.IO) { outboundsRepository.loadActive() }
+                        if (nativeForeground && serviceStatus.value == Status.Started) activeOutbound.value = active
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        Log.w(TAG, "failed to refresh active native outbound", error)
+                    }
+                } else activeOutbound.value = null
+                delay(3000)
+            }
+        }
     }
 
     private fun startStatsRefreshLoop() {
@@ -1562,7 +1596,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun scheduleRecovery() {
-        if (!nativeForeground || recoveryJob != null || !connectionOptions.value.recoveryEnabled ||
+        if (!nativeForeground || reconnectBusy.value || recoveryJob != null || !connectionOptions.value.recoveryEnabled ||
             !Settings.connectionDesired || !Settings.startedByUser || serviceStatus.value != Status.Stopped ||
             pendingStartAfterVpnPermission || nativeStartPending || wifiSharingBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value) return
         stableConnectionJob?.cancel()
@@ -1942,6 +1976,64 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    private fun coreChangesSaved() {
+        if (serviceStatus.value == Status.Started) {
+            val applied = Settings.nativeAppliedQuickSettings
+            Settings.nativeReconnectRequired = applied.isBlank() || Settings.quickSettingsSignature(applicationContext) != applied
+        }
+        requiresReconnect.value = Settings.nativeReconnectRequired
+    }
+
+    private fun saveQuickServiceMode(proxyOnly: Boolean) {
+        if (reconnectBusy.value || wifiSharingBusy.value || inboundBusy.value || chainBusy.value ||
+            dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value || privacySetupBusy.value ||
+            proxyPrivacyBusy.value || pendingStartAfterVpnPermission || nativeStartPending ||
+            serviceStatus.value == Status.Starting || serviceStatus.value == Status.Stopping) return
+        val mode = if (proxyOnly) ServiceMode.NORMAL else ServiceMode.VPN
+        if (mode == Settings.serviceMode) return
+        updateSettings { Settings.serviceMode = mode }
+        coreChangesSaved()
+        if (serviceStatus.value == Status.Stopped) connection.reconnect()
+    }
+
+    private fun saveQuickLanSharing(enabled: Boolean, password: String) {
+        if (reconnectBusy.value || inboundBusy.value || wifiSharingBusy.value || chainBusy.value ||
+            privacySetupBusy.value || proxyPrivacyBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value ||
+            tunnelBusy.value || pendingStartAfterVpnPermission || nativeStartPending || serviceStatus.value == Status.Starting ||
+            serviceStatus.value == Status.Stopping) return
+        inboundBusy.value = true
+        inboundSnapshotJob?.cancel()
+        lifecycleScope.launch {
+            try {
+                inboundOptions.value = withContext(Dispatchers.IO) { inboundRepository.saveLanFields(enabled, password) }
+                coreChangesSaved()
+                refreshSettingsSnapshot()
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { errorMessage.value = error.message ?: error.javaClass.simpleName }
+            finally { inboundBusy.value = false }
+        }
+    }
+
+    private fun reconnectWithSavedSettings() {
+        if (reconnectBusy.value) return
+        reconnectBusy.value = true
+        cancelRecovery()
+        lifecycleScope.launch {
+            try {
+                BoxService.stop(preserveIntent = true)
+                withTimeout(30_000) {
+                    while (serviceStatus.value != Status.Stopped || BoxService.hasActiveCore()) delay(100)
+                }
+                connection.reconnect()
+                requestStart()
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) {
+                Settings.connectionDesired = false
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally { reconnectBusy.value = false }
+        }
+    }
+
     private fun saveInboundOptions(value: com.hiddify.hiddify.nativecore.NativeInboundOptions) {
         if (inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value || chainBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || wifiSharingBusy.value) return
         if (serviceStatus.value != Status.Stopped || pendingStartAfterVpnPermission || nativeStartPending) {
@@ -1991,6 +2083,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     withContext(Dispatchers.IO) {
                         chainRepository.save(value)
                     }
+                coreChangesSaved()
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
@@ -2239,7 +2332,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun toggleConnection() {
-        if (privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value) return
+        if (reconnectBusy.value || chainBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value) return
         if (recoveryJob != null || recoveryAttempt.value > 0) {
             connectionHaptic(stopping = true)
             Settings.connectionDesired = false
@@ -2256,6 +2349,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 requestStart()
             }
             Status.Started -> {
+                if (requiresReconnect.value) { reconnectWithSavedSettings(); return }
                 connectionHaptic(stopping = true)
                 cancelRecovery()
                 Settings.connectionDesired = false
@@ -2377,6 +2471,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     override fun onServiceStatusChanged(status: Status) {
         runOnUiThread {
             serviceStatus.value = status
+            requiresReconnect.value = Settings.nativeReconnectRequired
             if (status == Status.Starting || status == Status.Started || status == Status.Stopped) nativeStartPending = false
             if (status == Status.Started) trackStableConnection()
             else {

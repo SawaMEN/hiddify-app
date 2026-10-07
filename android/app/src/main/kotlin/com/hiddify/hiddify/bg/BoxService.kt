@@ -256,7 +256,7 @@ class BoxService(
                 }
                 val proxyPrivacy = com.hiddify.hiddify.privacy.NetworkPrivacySettings.loadProxyPrivacy(service)
                 Mobile.applyDevicePrivacy(Settings.privacyFullTunnel,
-                    proxyPrivacy.effectiveHideLocalProxy(Settings.wifiVpnSharing, Settings.privacyUseRoot),
+                    Settings.privacyHideLocalProxy,
                     proxyPrivacy.hideClashApi, proxyPrivacy.disableSystemProxy, Settings.privacyEncryptedDns)
                 val stored = org.json.JSONObject(Settings.configOptions.ifBlank { "{}" })
                 val policy = org.json.JSONObject()
@@ -275,6 +275,8 @@ class BoxService(
             }
 
             if (destroyed) return
+            Settings.nativeAppliedQuickSettings = Settings.quickSettingsSignature(service)
+            Settings.nativeReconnectRequired = false
             status.postValue(Status.Started)
             withContext(Dispatchers.Main) {
                 if (destroyed) return@withContext

@@ -33,13 +33,13 @@ import java.util.Locale
 private val isoCountryCodes = Locale.getISOCountries().toSet()
 
 @Composable
-internal fun NativeOutboundCountryBadge(countryCode: String) {
+internal fun NativeOutboundCountryBadge(countryCode: String, size: androidx.compose.ui.unit.Dp = 40.dp) {
     val locale = LocalConfiguration.current.locales[0]
     val code = countryCode.uppercase(Locale.ROOT)
     val valid = code.length == 2 && code.all { it in 'A'..'Z' } && code in isoCountryCodes
     val label = if (valid) Locale("", code).getDisplayCountry(locale) else stringResource(R.string.native_outbound_unknown_country)
     val flag = if (valid) code.map { String(Character.toChars(0x1F1E6 + it.code - 'A'.code)) }.joinToString("") else "?"
-    Box(Modifier.size(40.dp).semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
+    Box(Modifier.size(size).semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
         Text(flag, fontSize = 28.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

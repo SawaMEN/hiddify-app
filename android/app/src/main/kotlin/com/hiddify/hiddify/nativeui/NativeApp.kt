@@ -171,6 +171,11 @@ fun NativeApp(
     chainOptions: NativeChainOptions,
     chainBusy: Boolean,
     outboundGroups: List<NativeOutboundGroup>,
+    activeOutbound: com.hiddify.hiddify.nativecore.NativeOutbound?,
+    requiresReconnect: Boolean,
+    reconnectBusy: Boolean,
+    onQuickServiceMode: (Boolean) -> Unit,
+    onQuickLanSharing: (Boolean, String) -> Unit,
     outboundBusyTag: String?,
     systemStats: NativeSystemStats,
     wifiSharingDetails: NativeWifiSharingDetails,
@@ -244,6 +249,7 @@ fun NativeApp(
     onDebugModeChanged: (Boolean) -> Unit,
     onDisableMemoryLimitChanged: (Boolean) -> Unit,
 ) {
+    var quickSettingsOpen by rememberSaveable { mutableStateOf(false) }
     var page by rememberSaveable { mutableStateOf(PAGE_HOME) }
     var regionalAppKind by rememberSaveable { mutableStateOf(NativeRegionalAppKind.DIRECT.name) }
 
@@ -616,9 +622,14 @@ fun NativeApp(
                                     activeProfileName = activeProfileName,
                                     hasActiveProfile = hasActiveProfile,
                                     systemStats = systemStats,
+                                    activeOutbound = activeOutbound,
+                                    outboundBusy = outboundBusyTag != null,
+                                    requiresReconnect = requiresReconnect,
+                                    reconnectBusy = reconnectBusy,
+                                    onTestActive = { onTestOutbound("") },
                                     onToggleConnection = onToggleConnection,
                                     onOpenProfiles = { openPage(PAGE_PROFILES) },
-                                    onOpenSettings = { openCategory(NativeSettingsCategory.VPN) },
+                                    onOpenSettings = { onRefreshWifiSharingDetails(); quickSettingsOpen = true },
                                     onOpenDiagnostics = { openPage(PAGE_DIAGNOSTICS) },
                                     onOpenOutbounds = {
                                         onRefreshOutbounds()
@@ -646,6 +657,19 @@ fun NativeApp(
             }
         }
 
+        if (quickSettingsOpen) {
+            NativeQuickSettingsSheet(
+                serviceMode = settingsState.serviceMode, wifiSharing = settingsState.wifiSharing,
+                inbound = inboundOptions, chain = chainOptions, activeProfileName = activeProfileName,
+                busy = reconnectBusy || inboundBusy || chainBusy || wifiSharingBusy || privacySetupBusy || proxyPrivacyBusy ||
+                    status == Status.Starting || status == Status.Stopping,
+                details = wifiSharingDetails, detailsBusy = wifiSharingDetailsBusy,
+                onServiceMode = onQuickServiceMode, onLanSharing = onQuickLanSharing,
+                onChain = onSaveChainOptions,
+                onOpenChain = { quickSettingsOpen = false; openPage(PAGE_CHAIN) },
+                onDismiss = { quickSettingsOpen = false },
+            )
+        }
         if (errorMessage != null) {
             AlertDialog(
                 onDismissRequest = onDismissError,
@@ -669,6 +693,11 @@ private fun HomeScreen(
     activeProfileName: String,
     hasActiveProfile: Boolean,
     systemStats: NativeSystemStats,
+    activeOutbound: com.hiddify.hiddify.nativecore.NativeOutbound? = null,
+    outboundBusy: Boolean = false,
+    requiresReconnect: Boolean = false,
+    reconnectBusy: Boolean = false,
+    onTestActive: () -> Unit = {},
     onToggleConnection: () -> Unit,
     onOpenProfiles: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -709,8 +738,12 @@ private fun HomeScreen(
                     Column(Modifier.fillMaxWidth().padding(vertical = 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally) {
                         ConnectionCard(status = status, recovering = recoveryAttempt > 0, internetHealth = internetHealth,
+                            requiresReconnect = requiresReconnect, reconnectBusy = reconnectBusy,
                             onToggleConnection = onToggleConnection)
                         Spacer(Modifier.height(12.dp))
+                        if (status == Status.Started && activeOutbound != null) {
+                            NativeActiveProxyDelay(activeOutbound, outboundBusy, onTestActive)
+                        }
                         TextButton(onClick = onOpenDiagnostics, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
                             Text(if (recoveryAttempt > 0) stringResource(R.string.native_recovery_attempt, recoveryAttempt)
                                 else stringResource(if (status != Status.Started) R.string.native_home_health_stopped else when (internetHealth) {
@@ -721,10 +754,8 @@ private fun HomeScreen(
                                 }), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         }
                     }
-                    if (status == Status.Started) {
-                        NativeGlass(Modifier.fillMaxWidth(), radius = 24) {
-                            NativeSettingsLink(R.string.native_outbounds_open, R.drawable.native_route, onOpenOutbounds)
-                        }
+                    if (status == Status.Started && activeOutbound != null) {
+                        NativeActiveProxyFooter(activeOutbound, outboundBusy, onOpenOutbounds, onTestActive)
                     }
                     Spacer(Modifier.height(12.dp))
                     ConnectionStatsCard(systemStats)
@@ -777,14 +808,16 @@ private fun ConnectionCard(
     recovering: Boolean,
     internetHealth: NativeInternetHealth,
     onToggleConnection: () -> Unit,
+    requiresReconnect: Boolean = false,
+    reconnectBusy: Boolean = false,
 ) {
-    val label = stringResource(if (recovering) R.string.native_recovery_cancel else when (status) {
+    val label = stringResource(if (status == Status.Started && requiresReconnect) R.string.native_quick_reconnect else if (recovering) R.string.native_recovery_cancel else when (status) {
         Status.Stopped -> R.string.native_status_stopped
         Status.Starting -> R.string.native_status_starting
         Status.Started -> R.string.native_status_started
         Status.Stopping -> R.string.native_status_stopping
     })
-    val actionLabel = stringResource(if (recovering) R.string.native_recovery_cancel else when (status) {
+    val actionLabel = stringResource(if (status == Status.Started && requiresReconnect) R.string.native_quick_reconnect else if (recovering) R.string.native_recovery_cancel else when (status) {
         Status.Stopped -> R.string.native_connect
         Status.Starting -> R.string.native_connecting
         Status.Started -> R.string.native_disconnect
@@ -792,11 +825,12 @@ private fun ConnectionCard(
     })
     val scheme = MaterialTheme.colorScheme
     val accent = when {
+        status == Status.Started && requiresReconnect -> scheme.secondary
         status == Status.Started && internetHealth == NativeInternetHealth.UNAVAILABLE -> Color(0xFFFFC857)
         status == Status.Started -> scheme.tertiary
         else -> scheme.primary
     }
-    val enabled = recovering || status == Status.Stopped || status == Status.Started
+    val enabled = !reconnectBusy && (recovering || status == Status.Stopped || status == Status.Started)
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.size(176.dp).background(
             Brush.radialGradient(listOf(accent.copy(alpha = .12f), Color.Transparent)), CircleShape,

@@ -42,7 +42,7 @@ object Settings {
         }
     val privacyFullTunnel get() = getBoolean("flutter.privacy-full-tunnel", false)
     val privacyHideLocalProxy get() = NativeProxyPrivacy.hideLocalProxyForCore(
-        getBoolean(NativeProxyPrivacy.HIDE_LOCAL_PROXY_KEY, true), wifiVpnSharing, privacyUseRoot,
+        getBoolean(NativeProxyPrivacy.HIDE_LOCAL_PROXY_KEY, true), wifiVpnSharing || getBoolean("flutter.allow-connection-from-lan", false), privacyUseRoot,
     )
     val privacyHideClashApi get() = getBoolean(NativeProxyPrivacy.HIDE_CLASH_API_KEY, true)
     val privacyEncryptedDns get() = getBoolean("flutter.privacy-encrypted-dns", true)
@@ -118,6 +118,20 @@ object Settings {
     var connectionDesired: Boolean
         get() = getBoolean("flutter.connection_desired", getBoolean("flutter.started_by_user", false))
         set(value) = preferences.edit().putBoolean("flutter.connection_desired", value).apply()
+
+    var nativeAppliedQuickSettings: String
+        get() = getString("native_applied_quick_settings", "")
+        set(value) = preferences.edit().putString("native_applied_quick_settings", value).apply()
+
+    fun quickSettingsSignature(context: Context): String {
+        val inbound = com.hiddify.hiddify.nativecore.NativeInboundOptionsRepository(context).load()
+        val chain = com.hiddify.hiddify.nativecore.NativeChainRepository().load()
+        return com.google.gson.Gson().toJson(listOf(serviceMode, inbound.allowLan, inbound.lanPassword, chain))
+    }
+
+    var nativeReconnectRequired: Boolean
+        get() = getBoolean("native_reconnect_required", false)
+        set(value) = preferences.edit().putBoolean("native_reconnect_required", value).apply()
 
     private const val TAG = "A/Settings"
 

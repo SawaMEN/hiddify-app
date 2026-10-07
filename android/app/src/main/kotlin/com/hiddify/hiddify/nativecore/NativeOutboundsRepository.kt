@@ -44,8 +44,13 @@ class NativeOutboundsRepository {
     private fun client(): CoreClient =
         GrpcClientProvider.grpcClient.create(CoreClient::class)
 
-    fun load(): List<NativeOutboundGroup> {
-        val call = client().OutboundsInfo()
+    fun load(): List<NativeOutboundGroup> = loadGroups(main = false)
+
+    // Same RPC and first group/item as Dart's ActiveProxyNotifier.
+    fun loadActive(): NativeOutbound? = loadGroups(main = true).firstOrNull()?.items?.firstOrNull()
+
+    private fun loadGroups(main: Boolean): List<NativeOutboundGroup> {
+        val call = if (main) client().MainOutboundsInfo() else client().OutboundsInfo()
         call.timeout.timeout(8, java.util.concurrent.TimeUnit.SECONDS)
         try {
             val (requestSink, responseSource) = call.executeBlocking()
@@ -62,7 +67,7 @@ class NativeOutboundsRepository {
                         selectable = group.selectable,
                         items =
                             group.items
-                                .filter { outbound -> outbound.is_visible }
+                                .filter { outbound -> main || outbound.is_visible }
                                 .map { outbound ->
                                     NativeOutbound(
                                         tag = outbound.tag,
