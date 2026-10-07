@@ -1,13 +1,6 @@
-import 'dart:math';
-
 import 'package:material_ui/material_ui.dart';
 import 'package:hiddify/features/settings/data/automatic_hotspot.dart';
-import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
-import 'package:hiddify/features/connection/model/connection_status.dart';
-import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
 import 'package:hiddify/features/common/qr_code_dialog.dart';
-import 'package:hiddify/features/settings/data/config_option_repository.dart';
-import 'package:hiddify/features/settings/notifier/config_option/config_option_notifier.dart';
 import 'package:hiddify/features/settings/widget/lan_sharing_tile.dart';
 import 'package:hiddify/features/settings/widget/wifi_sharing_instructions_page.dart';
 import 'package:hiddify/features/vpn_privacy/vpn_privacy_preferences.dart';
@@ -22,52 +15,11 @@ class WifiSharingTile extends ConsumerStatefulWidget {
 }
 
 class _WifiSharingTileState extends ConsumerState<WifiSharingTile> {
-  bool _busy = false;
-
   Future<void> _update(bool enabled) async {
-    setState(() => _busy = true);
     try {
-      if (PlatformUtils.isAndroid) {
-        if (enabled) {
-          if (await ref.read(activeProfileProvider.future) == null) {
-            throw StateError('Сначала выберите VPN-профиль / Select a VPN profile first');
-          }
-          await ref.read(automaticHotspotProvider.notifier).start(root: ref.read(VpnPrivacyPreferences.useRoot));
-        } else {
-          await ref.read(automaticHotspotProvider.notifier).stop();
-        }
-      }
-      await ref.read(configOptionNotifierProvider.notifier).updateTogether(() async {
-        if (enabled && ref.read(ConfigOptions.lanSharingPassword).isEmpty) {
-          final random = Random.secure();
-          final password = List.generate(24, (_) => random.nextInt(16).toRadixString(16)).join();
-          await ref.read(ConfigOptions.lanSharingPassword.notifier).update(password);
-        }
-        await ref.read(VpnPrivacyPreferences.wifiSharing.notifier).update(enabled);
-      }, applyImmediately: true);
-      if (PlatformUtils.isAndroid && enabled) {
-        final connection = await ref.read(connectionNotifierProvider.future);
-        if (connection is Disconnected) await ref.read(connectionNotifierProvider.notifier).toggleConnection();
-        await ref.read(automaticHotspotProvider.notifier).activate();
-      }
+      await ref.read(hotspotSharingControllerProvider.notifier).update(enabled);
     } catch (error) {
-      if (PlatformUtils.isAndroid) {
-        // A failed VPN startup must never leave an apparently working AP.
-        try {
-          await ref.read(automaticHotspotProvider.notifier).stop();
-        } catch (_) {}
-        try {
-          await ref
-              .read(configOptionNotifierProvider.notifier)
-              .updateTogether(
-                () => ref.read(VpnPrivacyPreferences.wifiSharing.notifier).update(false),
-                applyImmediately: true,
-              );
-        } catch (_) {}
-      }
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
-    } finally {
-      if (mounted) setState(() => _busy = false);
     }
   }
 
@@ -77,11 +29,7 @@ class _WifiSharingTileState extends ConsumerState<WifiSharingTile> {
     final enabled = ref.watch(VpnPrivacyPreferences.wifiSharing);
     final root = PlatformUtils.isAndroid && ref.watch(VpnPrivacyPreferences.useRoot);
     final hotspot = ref.watch(automaticHotspotProvider);
-    ref.listen(automaticHotspotProvider, (previous, next) {
-      if (PlatformUtils.isAndroid && !_busy && previous?['active'] == true && next['active'] != true && enabled) {
-        _update(false);
-      }
-    });
+    final busy = ref.watch(hotspotSharingControllerProvider);
     return Column(
       children: [
         SwitchListTile.adaptive(
@@ -98,7 +46,7 @@ class _WifiSharingTileState extends ConsumerState<WifiSharingTile> {
                       : 'Automatically start the hotspot and VPN. Without root, configure a proxy on connected devices.'),
           ),
           value: PlatformUtils.isAndroid ? hotspot['active'] == true : enabled,
-          onChanged: _busy ? null : _update,
+          onChanged: busy ? null : _update,
         ),
         if (hotspot['active'] == true)
           Card(

@@ -1,4 +1,12 @@
+import 'package:hiddify/features/vpn_privacy/vpn_privacy_preferences.dart';
+import 'package:hiddify/features/profile/notifier/active_profile_notifier.dart';
+import 'package:hiddify/features/connection/model/connection_status.dart';
+import 'package:hiddify/features/connection/notifier/connection_notifier.dart';
+import 'package:hiddify/features/settings/notifier/config_option/config_option_notifier.dart';
+import 'package:hiddify/features/settings/data/config_option_repository.dart';
+
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/services.dart';
 import 'package:hiddify/utils/utils.dart';
@@ -41,5 +49,72 @@ class AutomaticHotspot extends Notifier<Map<String, dynamic>> {
   static String wifiQr(String ssid, String password) {
     String escape(String value) => value.replaceAllMapped(RegExp(r'[\\;,:"]'), (match) => '\\${match[0]}');
     return 'WIFI:T:WPA;S:${escape(ssid)};P:${escape(password)};;';
+  }
+}
+
+final hotspotSharingControllerProvider = NotifierProvider<HotspotSharingController, bool>(HotspotSharingController.new);
+
+/// Keep the operation alive if the user leaves Settings during an Android permission dialog.
+class HotspotSharingController extends Notifier<bool> {
+  @override
+  bool build() {
+    ref.listen(automaticHotspotProvider, (previous, next) {
+      if (PlatformUtils.isAndroid &&
+          !state &&
+          previous?['active'] == true &&
+          next['active'] != true &&
+          ref.read(VpnPrivacyPreferences.wifiSharing)) {
+        unawaited(update(false).catchError((Object error) {}));
+      }
+    });
+    return false;
+  }
+
+  Future<void> update(bool enabled) async {
+    if (state) return;
+    state = true;
+    try {
+      if (PlatformUtils.isAndroid) {
+        if (enabled) {
+          if (await ref.read(activeProfileProvider.future) == null) {
+            throw StateError('Сначала выберите VPN-профиль / Select a VPN profile first');
+          }
+          await ref.read(automaticHotspotProvider.notifier).start(root: ref.read(VpnPrivacyPreferences.useRoot));
+        } else {
+          await ref.read(automaticHotspotProvider.notifier).stop();
+        }
+      }
+      await ref.read(configOptionNotifierProvider.notifier).updateTogether(() async {
+        if (enabled && ref.read(ConfigOptions.lanSharingPassword).isEmpty) {
+          final random = Random.secure();
+          final password = List.generate(24, (_) => random.nextInt(16).toRadixString(16)).join();
+          await ref.read(ConfigOptions.lanSharingPassword.notifier).update(password);
+        }
+        await ref.read(VpnPrivacyPreferences.wifiSharing.notifier).update(enabled);
+      }, applyImmediately: true);
+      if (PlatformUtils.isAndroid && enabled) {
+        final connection = await ref.read(connectionNotifierProvider.future);
+        if (connection is Disconnected) await ref.read(connectionNotifierProvider.notifier).toggleConnection();
+        await ref.read(automaticHotspotProvider.notifier).activate();
+      }
+    } catch (error) {
+      if (PlatformUtils.isAndroid) {
+        // A failed VPN startup must never leave an apparently working AP.
+        try {
+          await ref.read(automaticHotspotProvider.notifier).stop();
+        } catch (_) {}
+        try {
+          await ref
+              .read(configOptionNotifierProvider.notifier)
+              .updateTogether(
+                () => ref.read(VpnPrivacyPreferences.wifiSharing.notifier).update(false),
+                applyImmediately: true,
+              );
+        } catch (_) {}
+      }
+      rethrow;
+    } finally {
+      state = false;
+    }
   }
 }
