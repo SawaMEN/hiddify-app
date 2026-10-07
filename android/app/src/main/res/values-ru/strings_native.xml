@@ -183,4 +183,9 @@
     <string name="native_outbounds_testing">Проверка…</string>
     <string name="native_outbounds_test">Проверить</string>
     <string name="native_outbounds_delay">%1$d мс</string>
+    <string name="native_stats_title">Соединение в реальном времени</string>
+    <string name="native_stats_outbound">Текущий узел: %1$s</string>
+    <string name="native_stats_speed">↑ %1$s/с · ↓ %2$s/с</string>
+    <string name="native_stats_total">Всего ↑ %1$s · ↓ %2$s</string>
+    <string name="native_stats_connections">Соединения: %1$d входящих · %2$d исходящих</string>
 </resources>
