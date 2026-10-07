@@ -188,4 +188,57 @@
     <string name="native_stats_speed">↑ %1$s/с · ↓ %2$s/с</string>
     <string name="native_stats_total">Всего ↑ %1$s · ↓ %2$s</string>
     <string name="native_stats_connections">Соединения: %1$d входящих · %2$d исходящих</string>
+
+    <string name="native_wifi_guide_open">Как подключить устройства</string>
+    <string name="native_wifi_guide_title">Подключение к Wi-Fi этого телефона</string>
+    <string name="native_wifi_guide_receiver_title">Получающее устройство</string>
+    <string name="native_wifi_guide_receiver_text">На этом Android-телефоне запущен VetrOFF, и он раздаёт доступ через свою точку Wi-Fi. Выберите ОС устройства, которое получает Wi-Fi. Все шаги ниже относятся к получающему устройству, а не к этому телефону.</string>
+    <string name="native_wifi_guide_root_note">На этом телефоне включён root-режим. На получающем устройстве ручной прокси включать не нужно.</string>
+    <string name="native_wifi_guide_details">Данные прокси для подключения</string>
+    <string name="native_wifi_guide_host">IP телефона / шлюза</string>
+    <string name="native_wifi_guide_gateway_fallback">Шлюз Wi-Fi получающего устройства</string>
+    <string name="native_wifi_guide_port">Порт</string>
+    <string name="native_wifi_guide_username">Пользователь</string>
+    <string name="native_wifi_guide_password">Пароль прокси</string>
+    <string name="native_wifi_guide_password_missing">Включите раздачу, чтобы создать пароль</string>
+    <string name="native_wifi_guide_refresh_ip">Обновить IP телефона</string>
+    <string name="native_wifi_platform_android">Android</string>
+    <string name="native_wifi_platform_windows">Windows</string>
+    <string name="native_wifi_platform_linux">Linux</string>
+    <string name="native_wifi_platform_macos">macOS</string>
+    <string name="native_wifi_platform_ios">iPhone / iPad</string>
+    <string name="native_wifi_guide_step_connect">Подключитесь к точке доступа телефона</string>
+    <string name="native_wifi_guide_connect_text">На получающем устройстве подключитесь к точке Wi-Fi, созданной этим телефоном, и введите пароль точки доступа. На телефоне с VetrOFF должен оставаться рабочий мобильный интернет или другое подключение к интернету.</string>
+    <string name="native_wifi_guide_step_proxy">Настройте ручной прокси</string>
+    <string name="native_wifi_guide_step_no_proxy">Оставьте прокси клиента выключенным</string>
+    <string name="native_wifi_guide_proxy_text">Используйте локальный IP телефона, показанный выше. Не вводите адрес удалённого VPN-сервера. Эти параметры используют HTTP и приложения с поддержкой прокси; приложения, игнорирующие системный прокси, могут выходить напрямую.</string>
+    <string name="native_wifi_guide_root_client_text">Так как этот телефон использует root-перехват, на получающем устройстве оставьте Прокси = Нет / Выкл. Просто подключитесь к точке доступа — телефон будет направлять трафик клиентов через VPN.</string>
+    <string name="native_wifi_guide_proxy_field">Прокси</string>
+    <string name="native_wifi_guide_server_field">Сервер / адрес</string>
+    <string name="native_wifi_guide_auth_field">Аутентификация</string>
+    <string name="native_wifi_guide_proxy_manual">Вручную</string>
+    <string name="native_wifi_guide_proxy_off">Нет / Выкл.</string>
+    <string name="native_wifi_guide_illustration_note">Упрощённая схема настроек — названия меню могут отличаться в вашей версии ОС.</string>
+    <string name="native_wifi_path_android">Wi-Fi → подключённая сеть → Изменить → Дополнительно → Прокси</string>
+    <string name="native_wifi_path_windows">Параметры → Сеть и Интернет → Прокси → Ручная настройка</string>
+    <string name="native_wifi_path_linux">Настройки → Сеть → Сетевой прокси → Вручную</string>
+    <string name="native_wifi_path_macos">Системные настройки → Сеть → Wi-Fi → Подробнее → Прокси</string>
+    <string name="native_wifi_path_ios">Настройки → Wi-Fi → ⓘ → Настройка прокси → Вручную</string>
+    <string name="native_wifi_auth_browser">Браузер / прокси-клиент</string>
+    <string name="native_wifi_auth_app">Запрос приложения</string>
+    <string name="native_wifi_auth_on">Включена</string>
+    <string name="native_wifi_auth_note_android">В настройках Wi-Fi Android обычно нет полей логина и пароля. Если браузер не спрашивает данные, используйте приложение с поддержкой HTTP/SOCKS-прокси с авторизацией.</string>
+    <string name="native_wifi_auth_note_windows">Системный прокси Windows ограниченно работает с учётными данными. Введите hiddify и пароль прокси при запросе браузера/приложения либо задайте прокси с авторизацией прямо в нужной программе.</string>
+    <string name="native_wifi_auth_note_linux">Рабочие окружения Linux отличаются. Если в системном прокси нет полей авторизации, задайте HTTP/SOCKS-прокси с логином и паролем в браузере или нужном приложении.</string>
+    <string name="native_wifi_auth_note_macos">Если доступна аутентификация прокси, включите её и укажите пользователя hiddify и пароль выше.</string>
+    <string name="native_wifi_auth_note_ios">Включите «Аутентификация» и укажите пользователя hiddify и пароль выше.</string>
+    <string name="native_wifi_guide_step_verify">Проверьте маршрутизацию</string>
+    <string name="native_wifi_guide_verify_text">Откройте проверку внешнего IP на этом телефоне и на получающем устройстве. Для трафика через VPN публичный IP должен совпадать. Дополнительно проверьте DNS и каждое нужное приложение: ручной прокси не перехватывает все протоколы.</string>
+    <string name="native_wifi_guide_step_troubleshoot">Если не работает</string>
+    <string name="native_wifi_guide_troubleshoot_proxy">При тайм-ауте убедитесь, что устройство всё ещё подключено к Wi-Fi этого телефона, обновите IP телефона, проверьте порт и данные авторизации и переподключите VPN после изменения раздачи. Ошибка HTTP 407 означает проблему авторизации прокси.</string>
+    <string name="native_wifi_guide_troubleshoot_root">Если трафик идёт в обход VPN, проверьте root-разрешение на этом телефоне, переподключите VPN и повторите проверку. Если ядро или прошивка не поддерживает root-перехват, отключите root-режим и используйте вариант с прокси и авторизацией.</string>
+    <string name="native_wifi_guide_step_finish">Завершение</string>
+    <string name="native_wifi_guide_finish_proxy">Отключитесь от Wi-Fi телефона и верните Прокси = Нет / Выкл. на получающем устройстве. Сохранённый IP телефона может потом мешать интернету в другой Wi-Fi-сети.</string>
+    <string name="native_wifi_guide_finish_root">После использования отключитесь от точки доступа телефона. Очищать настройки прокси не требуется, потому что на получающем устройстве они оставались выключенными.</string>
+
 </resources>
