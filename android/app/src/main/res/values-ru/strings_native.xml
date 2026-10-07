@@ -443,4 +443,10 @@
     <string name="native_health_checking">Интернет через VPN: проверяется…</string>
     <string name="native_health_available">Интернет через VPN: доступен</string>
     <string name="native_health_unavailable">Интернет через VPN: проверка не пройдена</string>
+    <string name="native_recovery_setting">Переподключаться после сбоя службы</string>
+    <string name="native_recovery_setting_summary">Повторяет запуск после сбоя службы с ограниченным числом попыток, пока приложение видно. Отключение вручную и отзыв VPN-разрешения отменяют попытки. Адаптивный режим также включает восстановление.</string>
+    <string name="native_recovery_attempt">Восстановление соединения: попытка %1$d</string>
+    <string name="native_recovery_cancel">Отменить восстановление</string>
+    <string name="native_recovery_exhausted">Попытки переподключения исчерпаны. Проверьте профиль и сеть, затем подключитесь снова.</string>
+    <string name="native_recovery_permission">Необходимо VPN-разрешение. Нажмите «Подключить», чтобы запросить его снова.</string>
 </resources>

@@ -137,15 +137,36 @@ and bounds its latency-based deadline to 12–30 seconds. A failure restores the
 Successful adaptive checks use a 60-second interval; failures use 30 seconds. With no underlying
 Internet-capable non-VPN network, it waits 15 seconds without starting a probe or incrementing
 failure counters. Timing uses a monotonic clock. A failed health check does not restart the VPN;
-automatic recovery/backoff remains a separate migration step.
+the separate native service-recovery loop below handles unexpected service failures.
 
 The standalone JVM suite now includes the pure hotspot helpers needed by the Wi-Fi-sharing tests
 merged into main, as well as the new connection models and adaptive timing tests.
 
+## Native bounded service recovery
+
+The native connection settings now expose the existing `auto_reconnect` preference (default true).
+Recovery is enabled by that switch or adaptive mode, matching the compatibility UI. It restores an
+unexpectedly stopped service only while the Activity is visible and both native connection intent
+and the started-by-user flag remain true. Explicit disconnect, cancellation on the home screen,
+permission/configuration alerts and exhausted budgets clear or cancel recovery.
+
+The normal retry delays are 2, 4, 8, 16 and 30 seconds; adaptive delays are 5, 10, 20, 40, 60, 90,
+120 and 180 seconds. An actual start consumes a slot; observation and offline waits do not. A
+15-second observation window separates asynchronous launches from subsequent decisions.
+Counters survive Activity recreation through saved state and reset after a fresh manual start or
+one minute of stable foreground connection. Going to the background cancels timers; resuming
+re-evaluates persisted connection intent.
+
+Before starting, the coroutine acquires the core lifecycle barrier and rechecks intent, visibility,
+permission, pending operations and core ownership. It never stops an owned core to repair a stale
+binder observation. A running core is rebound instead. Permission loss asks for a manual Connect
+without opening permission dialogs from a retry. Health-check failures alone still do not trigger
+a restart. The home screen shows the pending attempt and offers Cancel recovery.
+
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and
-`NativeDiagnosticReportTest`, `NativePerAppBackupTest`, `NativePerAppFlagsTest` `NativeTrafficFiltersTest` `NativeRegionalOptionsTest` and `NativeRegionalPackagesTest`, `NativeConnectionOptionsTest`, `NativeHealthProbePolicyTest` and `HotspotSharingTest` cover UTF-8, byte-order marks, size limits,
+`NativeDiagnosticReportTest`, `NativePerAppBackupTest`, `NativePerAppFlagsTest` `NativeTrafficFiltersTest` `NativeRegionalOptionsTest` and `NativeRegionalPackagesTest`, `NativeConnectionOptionsTest`, `NativeHealthProbePolicyTest` `HotspotSharingTest` and `NativeRecoveryPolicyTest` cover UTF-8, byte-order marks, size limits,
 encoded URL tokens, custom ports, IPv6, QR round trips, inverted QR images and oversized QR
 payloads, captive portal responses, probe URL validation and the diagnostic report allowlist, legacy routing backups, validation limits and manual/automatic flag transitions, typed privacy preferences and bulk filter round trips, regional routing modes, override precedence, domain normalization and merged catalogue limits, automatic/manual empty selections, package case preservation, cross-list conflict removal, reset isolation and package limits. Run with the configured Android/Flutter SDK and prepared core:
 

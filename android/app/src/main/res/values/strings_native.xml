@@ -443,4 +443,10 @@
     <string name="native_health_checking">Internet through VPN: checking…</string>
     <string name="native_health_available">Internet through VPN: available</string>
     <string name="native_health_unavailable">Internet through VPN: check failed</string>
+    <string name="native_recovery_setting">Reconnect after service failure</string>
+    <string name="native_recovery_setting_summary">Retry unexpected service failures with bounded backoff while this app is visible. Manual disconnect and VPN permission revocation cancel retries. Adaptive mode also enables recovery.</string>
+    <string name="native_recovery_attempt">Restoring connection: attempt %1$d</string>
+    <string name="native_recovery_cancel">Cancel recovery</string>
+    <string name="native_recovery_exhausted">Reconnect attempts exhausted. Check the profile and network, then connect again.</string>
+    <string name="native_recovery_permission">VPN permission is required. Tap Connect to request permission again.</string>
 </resources>

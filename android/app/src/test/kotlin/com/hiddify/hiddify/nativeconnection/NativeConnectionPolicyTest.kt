@@ -4,6 +4,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeConnectionOptionsTest {
+    @Test fun autoReconnectMatchesLegacyDefaultAndCanBeDisabled() {
+        assertTrue(NativeConnectionOptions.fromPreferences(emptyMap<String, Any>()).autoReconnect)
+        val disabled = NativeConnectionOptions(autoReconnect = false)
+        assertEquals(disabled, NativeConnectionOptions.fromPreferences(disabled.preferences()))
+        assertFalse(disabled.recoveryEnabled)
+        assertTrue(disabled.copy(adaptiveNetwork = true).recoveryEnabled)
+        assertFalse(disabled.corePolicy().containsKey("auto-reconnect"))
+    }
+
     @Test fun absentAndMalformedValuesAreOptOut() {
         assertEquals(NativeConnectionOptions(), NativeConnectionOptions.fromPreferences(emptyMap<String, Any>()))
         assertEquals(NativeConnectionOptions(), NativeConnectionOptions.fromPreferences(mapOf(
@@ -16,7 +25,7 @@ class NativeConnectionOptionsTest {
             val options = NativeConnectionOptions(masked, udp, adaptive)
             assertEquals(options, NativeConnectionOptions.fromPreferences(options.preferences()))
             assertEquals(setOf("flutter.privacy-modern-protocols-only", "flutter.privacy-modern-allow-udp",
-                "flutter.adaptive_network"), options.preferences().keys)
+                "flutter.adaptive_network", "flutter.auto_reconnect"), options.preferences().keys)
             assertEquals(mapOf("privacy-modern-protocols-only" to masked, "privacy-modern-allow-udp" to udp,
                 "adaptive-network" to adaptive), options.corePolicy())
         }

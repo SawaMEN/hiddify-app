@@ -50,6 +50,8 @@ import com.hiddify.hiddify.nativerouting.NativePerAppBackup
 import com.hiddify.hiddify.nativerouting.NativePerAppBackupCodec
 import com.hiddify.hiddify.nativerouting.NativePerAppRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
+import com.hiddify.hiddify.nativeconnection.NativeRecoveryPolicy
+import com.hiddify.hiddify.nativeconnection.NativeRecoveryDecision
 import com.hiddify.hiddify.nativeconnection.NativeConnectionOptions
 import com.hiddify.hiddify.nativeconnection.NativeHealthProbePolicy
 import com.hiddify.hiddify.nativeconnection.NativeHealthRepository
@@ -151,6 +153,11 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val healthRepository = NativeHealthRepository()
     private var healthJob: Job? = null
     private var nativeForeground = false
+    private var recoveryPolicy = NativeRecoveryPolicy()
+    private var recoveryJob: Job? = null
+    private var stableConnectionJob: Job? = null
+    private val recoveryAttempt = mutableStateOf(0)
+    private var nativeStartPending = false
     private val regionalAppsRevision = mutableStateOf(0)
     private val regionalApps = mutableStateOf<NativeRegionalAppSnapshot?>(null)
     private val regionalOperationMutex = Mutex()
@@ -286,6 +293,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
 
     override fun onSaveInstanceState(outState: android.os.Bundle) {
+        outState.putInt("native_recovery_attempts", recoveryPolicy.attempts)
         outState.putString("native_profile_export_id", pendingProfileExportId)
         super.onSaveInstanceState(outState)
     }
@@ -298,6 +306,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         super.onCreate(savedInstanceState)
         AutomaticHotspot.addObserver(hotspotObserver)
         pendingProfileExportId = savedInstanceState?.getString("native_profile_export_id")
+        recoveryPolicy = NativeRecoveryPolicy(savedInstanceState?.getInt("native_recovery_attempts") ?: 0)
 
         if (migrationError != null) {
             errorMessage.value = migrationError.message ?: migrationError.javaClass.simpleName
@@ -316,6 +325,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 connectionOptions = connectionOptions.value,
                 connectionOptionsBusy = connectionOptionsBusy.value,
                 internetHealth = internetHealth.value,
+                recoveryAttempt = recoveryAttempt.value,
                 onSaveConnectionOptions = ::saveConnectionOptions,
                 activeProfileName = activeProfileName.value,
                 hasActiveProfile = activeProfilePath.value.isNotBlank(),
@@ -478,6 +488,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
             maybePromptBatteryOptimization()
         }
         restartHealthMonitor()
+        if (serviceStatus.value == Status.Started) trackStableConnection() else scheduleRecovery()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -489,6 +500,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     override fun onStop() {
         nativeForeground = false
         stopHealthMonitor()
+        cancelRecovery()
         cancelDiagnostics()
         profileUpdateJob?.cancel()
         profileUpdateJob = null
@@ -1159,6 +1171,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 withContext(Dispatchers.IO) { NetworkPrivacySettings.saveConnection(applicationContext, options) }
                 connectionOptions.value = NetworkPrivacySettings.loadConnection(applicationContext)
                 restartHealthMonitor()
+                cancelRecovery()
+                if (serviceStatus.value == Status.Started) trackStableConnection() else scheduleRecovery()
                 Toast.makeText(this@NativeMainActivity, R.string.native_connection_saved, Toast.LENGTH_SHORT).show()
             } catch (error: CancellationException) {
                 throw error
@@ -1167,6 +1181,108 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
             } finally {
                 connectionOptionsBusy.value = false
             }
+        }
+    }
+
+    private fun cancelRecovery() {
+        recoveryJob?.cancel()
+        recoveryJob = null
+        stableConnectionJob?.cancel()
+        stableConnectionJob = null
+        recoveryAttempt.value = 0
+    }
+
+    private fun scheduleRecovery() {
+        if (!nativeForeground || recoveryJob != null || !connectionOptions.value.recoveryEnabled ||
+            !Settings.connectionDesired || !Settings.startedByUser || serviceStatus.value != Status.Stopped ||
+            pendingStartAfterVpnPermission || nativeStartPending || wifiSharingBusy.value) return
+        stableConnectionJob?.cancel()
+        recoveryJob = lifecycleScope.launch(start = kotlinx.coroutines.CoroutineStart.LAZY) {
+            try {
+                while (isActive && nativeForeground && Settings.connectionDesired && Settings.startedByUser &&
+                    connectionOptions.value.recoveryEnabled && serviceStatus.value == Status.Stopped) {
+                    if (BoxService.isStarted()) {
+                        connection.reconnect()
+                        break
+                    }
+                    val adaptive = connectionOptions.value.adaptiveNetwork
+                    val wait = recoveryPolicy.nextDelaySeconds(adaptive)
+                    if (wait == null) {
+                        Settings.connectionDesired = false
+                        Settings.startedByUser = false
+                        errorMessage.value = getString(R.string.native_recovery_exhausted)
+                        break
+                    }
+                    if (adaptive && !withContext(Dispatchers.IO) { healthRepository.underlyingNetworkAvailable() }) {
+                        recoveryAttempt.value = recoveryPolicy.attempts + 1
+                        delay(15_000)
+                        continue
+                    }
+                    recoveryAttempt.value = recoveryPolicy.attempts + 1
+                    delay(wait * 1_000)
+                    val result = BoxService.withNativeLifecycle {
+                        val permission = Settings.serviceMode != ServiceMode.VPN || Settings.privacyUseRoot ||
+                            VpnService.prepare(this@NativeMainActivity) == null
+                        val network = !adaptive || withContext(Dispatchers.IO) { healthRepository.underlyingNetworkAvailable() }
+                        val decision = NativeRecoveryPolicy.decision(
+                            Settings.connectionDesired && Settings.startedByUser,
+                            connectionOptions.value.recoveryEnabled, nativeForeground, permission,
+                            pendingStartAfterVpnPermission || nativeStartPending || wifiSharingBusy.value ||
+                                serviceStatus.value != Status.Stopped,
+                            adaptive, network, BoxService.hasActiveCore(),
+                        )
+                        if (!permission) {
+                            Settings.connectionDesired = false
+                            Settings.startedByUser = false
+                            errorMessage.value = getString(R.string.native_recovery_permission)
+                        }
+                        if (decision == NativeRecoveryDecision.START) {
+                            if (Settings.activeConfigPath.isBlank()) {
+                                Settings.connectionDesired = false
+                                Settings.startedByUser = false
+                                errorMessage.value = getString(R.string.native_no_active_profile)
+                                NativeRecoveryDecision.STOP
+                            } else {
+                                recoveryPolicy.recordAttempt()
+                                Settings.startCoreAfterStartingService = true
+                                nativeStartPending = true
+                                try { BoxService.start() } catch (error: Exception) {
+                                    nativeStartPending = false
+                                    errorMessage.value = error.message ?: error.javaClass.simpleName
+                                }
+                                NativeRecoveryDecision.START
+                            }
+                        } else decision
+                    }
+                    if (result == NativeRecoveryDecision.STOP) break
+                    if (BoxService.isStarted()) {
+                        connection.reconnect()
+                        break
+                    }
+                    // Observe ownership/binder state without stopping a potentially healthy core.
+                    delay(15_000)
+                    if (nativeStartPending && !BoxService.hasActiveCore() && !BoxService.isRunning()) nativeStartPending = false
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Settings.connectionDesired = false
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                if (recoveryJob == currentCoroutineContext()[Job]) {
+                    recoveryJob = null
+                    recoveryAttempt.value = 0
+                }
+            }
+        }
+        recoveryJob?.start()
+    }
+
+    private fun trackStableConnection() {
+        cancelRecovery()
+        stableConnectionJob = lifecycleScope.launch {
+            delay(60_000)
+            if (Settings.connectionDesired && BoxService.isStarted()) recoveryPolicy.reset()
         }
     }
 
@@ -1553,9 +1669,19 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun toggleConnection() {
+        if (recoveryJob != null || recoveryAttempt.value > 0) {
+            Settings.connectionDesired = false
+            Settings.startedByUser = false
+            nativeStartPending = false
+            pendingStartAfterVpnPermission = false
+            cancelRecovery()
+            BoxService.stop()
+            return
+        }
         when (serviceStatus.value) {
             Status.Stopped -> requestStart()
             Status.Started -> {
+                cancelRecovery()
                 Settings.connectionDesired = false
                 BoxService.stop()
             }
@@ -1565,6 +1691,9 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun requestStart() {
+        cancelRecovery()
+        recoveryPolicy.reset()
+        nativeStartPending = false
         errorMessage.value = null
         refreshProfileSnapshot()
 
@@ -1601,8 +1730,10 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         try {
             Settings.connectionDesired = true
             Settings.startCoreAfterStartingService = true
+            nativeStartPending = true
             BoxService.start()
         } catch (error: Exception) {
+            nativeStartPending = false
             Settings.connectionDesired = false
             errorMessage.value = error.message ?: error.javaClass.simpleName
         }
@@ -1673,6 +1804,12 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     override fun onServiceStatusChanged(status: Status) {
         runOnUiThread {
             serviceStatus.value = status
+            if (status == Status.Starting || status == Status.Started || status == Status.Stopped) nativeStartPending = false
+            if (status == Status.Started) trackStableConnection()
+            else {
+                stableConnectionJob?.cancel()
+                if (status == Status.Stopped) scheduleRecovery()
+            }
             restartHealthMonitor()
             refreshVpnProtection()
             if (status != Status.Started) cancelDiagnostics()
@@ -1706,9 +1843,13 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     override fun onServiceAlert(type: Alert, message: String?) {
         runOnUiThread {
-            Settings.connectionDesired = false
-            errorMessage.value =
-                message ?: getString(R.string.native_service_error, type.name)
+            nativeStartPending = false
+            if (type != Alert.StartService && type != Alert.CreateService) {
+                Settings.connectionDesired = false
+                cancelRecovery()
+            }
+            errorMessage.value = message ?: getString(R.string.native_service_error, type.name)
+            scheduleRecovery()
         }
     }
 }

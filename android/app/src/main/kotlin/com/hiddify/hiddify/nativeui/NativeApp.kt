@@ -78,6 +78,7 @@ fun NativeApp(
     connectionOptions: NativeConnectionOptions,
     connectionOptionsBusy: Boolean,
     internetHealth: NativeInternetHealth,
+    recoveryAttempt: Int,
     onSaveConnectionOptions: (NativeConnectionOptions) -> Unit,
     activeProfileName: String,
     hasActiveProfile: Boolean,
@@ -447,6 +448,7 @@ fun NativeApp(
                         HomeScreen(
                             status = status,
                             internetHealth = internetHealth,
+                            recoveryAttempt = recoveryAttempt,
                             activeProfileName = activeProfileName,
                             hasActiveProfile = hasActiveProfile,
                             serviceMode = settingsState.serviceMode,
@@ -488,6 +490,7 @@ fun NativeApp(
 private fun HomeScreen(
     status: Status,
     internetHealth: NativeInternetHealth,
+    recoveryAttempt: Int,
     activeProfileName: String,
     hasActiveProfile: Boolean,
     serviceMode: String,
@@ -515,11 +518,15 @@ private fun HomeScreen(
 
         ConnectionCard(
             status = status,
+            recovering = recoveryAttempt > 0,
             activeProfileName = activeProfileName,
             hasActiveProfile = hasActiveProfile,
             onToggleConnection = onToggleConnection,
         )
 
+        if (recoveryAttempt > 0) {
+            Text(stringResource(R.string.native_recovery_attempt, recoveryAttempt))
+        }
         if (status == Status.Started) {
             Text(stringResource(when (internetHealth) {
                 NativeInternetHealth.UNCHECKED -> R.string.native_health_unchecked
@@ -695,6 +702,7 @@ private fun formatTraffic(value: Long): String {
 @Composable
 private fun ConnectionCard(
     status: Status,
+    recovering: Boolean,
     activeProfileName: String,
     hasActiveProfile: Boolean,
     onToggleConnection: () -> Unit,
@@ -707,7 +715,7 @@ private fun ConnectionCard(
             Status.Stopping -> stringResource(R.string.native_status_stopping)
         }
 
-    val buttonText =
+    val buttonText = if (recovering) stringResource(R.string.native_recovery_cancel) else
         when (status) {
             Status.Started -> stringResource(R.string.native_disconnect)
             Status.Stopped -> stringResource(R.string.native_connect)
@@ -743,7 +751,7 @@ private fun ConnectionCard(
 
             Button(
                 onClick = onToggleConnection,
-                enabled = status == Status.Stopped || status == Status.Started,
+                enabled = recovering || status == Status.Stopped || status == Status.Started,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(buttonText)

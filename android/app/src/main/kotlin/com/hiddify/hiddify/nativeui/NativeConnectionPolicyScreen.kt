@@ -38,6 +38,8 @@ fun NativeConnectionPolicyScreen(options: NativeConnectionOptions, busy: Boolean
             options.allowUdp, !busy && options.maskedProtocolsOnly) { onSave(options.copy(allowUdp = it)) }
         ConnectionPolicySwitch(R.string.native_connection_adaptive, R.string.native_connection_adaptive_summary,
             options.adaptiveNetwork, !busy) { onSave(options.copy(adaptiveNetwork = it)) }
+        ConnectionPolicySwitch(R.string.native_recovery_setting, R.string.native_recovery_setting_summary,
+            options.autoReconnect, !busy) { onSave(options.copy(autoReconnect = it)) }
         Text(stringResource(R.string.native_connection_probe_summary), style = MaterialTheme.typography.bodySmall)
     }
 }

@@ -6,11 +6,15 @@ data class NativeConnectionOptions(
     val maskedProtocolsOnly: Boolean = false,
     val allowUdp: Boolean = false,
     val adaptiveNetwork: Boolean = false,
+    val autoReconnect: Boolean = true,
 ) {
+    val recoveryEnabled: Boolean get() = autoReconnect || adaptiveNetwork
+
     fun preferences(): Map<String, Boolean> = mapOf(
         "flutter.privacy-modern-protocols-only" to maskedProtocolsOnly,
         "flutter.privacy-modern-allow-udp" to allowUdp,
         "flutter.adaptive_network" to adaptiveNetwork,
+        "flutter.auto_reconnect" to autoReconnect,
     )
 
     fun corePolicy(): Map<String, Boolean> = mapOf(
@@ -24,6 +28,7 @@ data class NativeConnectionOptions(
             values["flutter.privacy-modern-protocols-only"] == true,
             values["flutter.privacy-modern-allow-udp"] == true,
             values["flutter.adaptive_network"] == true,
+            (values["flutter.auto_reconnect"] as? Boolean) ?: true,
         )
     }
 }
