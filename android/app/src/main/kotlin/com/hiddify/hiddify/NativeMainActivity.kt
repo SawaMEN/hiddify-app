@@ -50,6 +50,8 @@ import com.hiddify.hiddify.nativerouting.NativePerAppBackup
 import com.hiddify.hiddify.nativerouting.NativePerAppBackupCodec
 import com.hiddify.hiddify.nativerouting.NativePerAppRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
+import com.hiddify.hiddify.privacy.NativeRegionalOptions
+import com.hiddify.hiddify.privacy.NativeRegionalRepository
 import com.hiddify.hiddify.privacy.NativeTrafficFilters
 import com.hiddify.hiddify.privacy.NetworkPrivacySettings
 import com.hiddify.hiddify.nativeui.NativeApp
@@ -117,6 +119,9 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val diagnosticBusy = mutableStateOf(false)
     private val vpnProtection = mutableStateOf(NativeVpnProtection())
     private val errorMessage = mutableStateOf<String?>(null)
+    private val regionalOptions = mutableStateOf(NativeRegionalOptions())
+    private val regionalBusy = mutableStateOf(false)
+    private val regionalRepository by lazy { NativeRegionalRepository(applicationContext) }
     private val trafficFilters = mutableStateOf(NativeTrafficFilters())
     private val trafficFiltersBusy = mutableStateOf(false)
     private val nativeSettings = mutableStateOf(readNativeSettings())
@@ -276,6 +281,9 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 hasActiveProfile = activeProfilePath.value.isNotBlank(),
                 rootMode = Settings.privacyUseRoot,
                 settingsState = nativeSettings.value,
+                regionalOptions = regionalOptions.value,
+                regionalBusy = regionalBusy.value,
+                onSaveRegionalOptions = ::saveRegionalOptions,
                 trafficFilters = trafficFilters.value,
                 trafficFiltersBusy = trafficFiltersBusy.value,
                 onSaveTrafficFilters = ::saveTrafficFilters,
@@ -1098,7 +1106,23 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun refreshSettingsSnapshot() {
         nativeSettings.value = readNativeSettings()
+        regionalOptions.value = regionalRepository.load()
         trafficFilters.value = NetworkPrivacySettings.loadFilters(this)
+    }
+
+    private fun saveRegionalOptions(value: NativeRegionalOptions) {
+        if (regionalBusy.value) return
+        regionalBusy.value = true
+        lifecycleScope.launch {
+            try {
+                regionalOptions.value = withContext(Dispatchers.IO) { regionalRepository.save(value) }
+                Toast.makeText(this@NativeMainActivity, R.string.native_regional_saved, Toast.LENGTH_SHORT).show()
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                regionalBusy.value = false
+            }
+        }
     }
 
     private fun saveTrafficFilters(value: NativeTrafficFilters) {

@@ -389,4 +389,25 @@
     <string name="native_filters_lan">Изолировать локальную сеть</string>
     <string name="native_filters_lan_summary">Блокирует TUN-трафик приложений к приватным адресам LAN. Принтеры, телевизоры, роутеры и NAS могут стать недоступны.</string>
     <string name="native_filters_limits">Эти фильтры не изменяют отпечаток браузера, User-Agent, Canvas/WebGL или данные внутри HTTPS. Они не расшифровывают HTTPS и не гарантируют полную анонимность.</string>
+    <string name="native_regional_title">Региональная маршрутизация</string>
+    <string name="native_regional_summary">Настройте региональные правила приложений, российских доменов/IP и дополнительные домены. Отключение категории сохраняет выбранные приложения. Исключения приложений также зависят от настроек VPN по приложениям.</string>
+    <string name="native_regional_full_tunnel">Полный туннель имеет приоритет над прямыми исключениями. Сохранённые правила применятся после его отключения.</string>
+    <string name="native_regional_handbook">Ручная маршрутизация имеет приоритет над автоматической региональной. Региональные настройки сохраняются.</string>
+    <string name="native_regional_mode">Режим автоматической маршрутизации приложений</string>
+    <string name="native_regional_off">Выключено</string>
+    <string name="native_regional_bypass">Российские сервисы напрямую</string>
+    <string name="native_regional_selected">Выбранные сервисы через VPN</string>
+    <string name="native_regional_selected_summary">В режиме выбранных сервисов остальной трафик идёт напрямую. Прямой доступ к российским доменам/IP настраивается отдельно.</string>
+    <string name="native_regional_network">Российские домены и IP напрямую</string>
+    <string name="native_regional_network_summary">Использует правила .ru, .рф, .su, российских IP и встроенные списки доменов.</string>
+    <string name="native_regional_apps">Российские приложения напрямую</string>
+    <string name="native_regional_apps_summary">Использует сохранённый список российских приложений. При отключении выбор приложений сохраняется.</string>
+    <string name="native_regional_restricted">Выбранные сервисы через VPN</string>
+    <string name="native_regional_restricted_summary">Использует сохранённый список сервисов и дополнительные проксируемые домены. При ручном выборе в обоих списках прямой маршрут приложения имеет приоритет.</string>
+    <string name="native_regional_direct_domains">Дополнительные прямые домены</string>
+    <string name="native_regional_proxy_domains">Дополнительные проксируемые домены</string>
+    <string name="native_regional_domains_hint">Только домены через пробел, запятую или новую строку; *.example.com также охватывает поддомены. До 8192 символов и 256 записей вместе со встроенными правилами.</string>
+    <string name="native_regional_invalid">Проверьте домены и размер списка. URL, порты и IP-адреса не принимаются.</string>
+    <string name="native_regional_save">Сохранить маршрутизацию</string>
+    <string name="native_regional_saved">Маршрутизация сохранена. Переподключите VPN для применения.</string>
 </resources>

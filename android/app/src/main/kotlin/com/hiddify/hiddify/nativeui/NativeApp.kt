@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.nativediagnostics.NativeDiagnosticSnapshot
 import com.hiddify.hiddify.nativediagnostics.NativeVpnProtection
+import com.hiddify.hiddify.privacy.NativeRegionalOptions
 import com.hiddify.hiddify.privacy.NativeTrafficFilters
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.constant.ServiceMode
@@ -61,6 +62,7 @@ private const val PAGE_WIFI_GUIDE = "wifi_guide"
 private const val PAGE_ABOUT = "about"
 private const val PAGE_CHAIN = "chain"
 private const val PAGE_DIAGNOSTICS = "diagnostics"
+private const val PAGE_REGIONAL = "regional"
 private const val PAGE_TRAFFIC_FILTERS = "traffic_filters"
 private const val PAGE_PROTECTION = "protection"
 
@@ -71,6 +73,9 @@ fun NativeApp(
     hasActiveProfile: Boolean,
     rootMode: Boolean,
     settingsState: NativeSettingsState,
+    regionalOptions: NativeRegionalOptions,
+    regionalBusy: Boolean,
+    onSaveRegionalOptions: (NativeRegionalOptions) -> Unit,
     trafficFilters: NativeTrafficFilters,
     trafficFiltersBusy: Boolean,
     onSaveTrafficFilters: (NativeTrafficFilters) -> Unit,
@@ -175,6 +180,7 @@ fun NativeApp(
                 PAGE_CORE_OPTIONS -> PAGE_SETTINGS
                 PAGE_CHAIN -> PAGE_SETTINGS
                 PAGE_WIFI_GUIDE -> PAGE_SETTINGS
+                PAGE_REGIONAL -> PAGE_SETTINGS
                 PAGE_TRAFFIC_FILTERS -> PAGE_SETTINGS
                 PAGE_PROTECTION -> PAGE_SETTINGS
                 else -> PAGE_HOME
@@ -204,6 +210,16 @@ fun NativeApp(
                             onRun = onRunDiagnostics,
                             onCancel = onCancelDiagnostics,
                             onShareReport = onShareDiagnosticReport,
+                        )
+
+                    PAGE_REGIONAL ->
+                        NativeRegionalRoutingScreen(
+                            options = regionalOptions,
+                            busy = regionalBusy,
+                            fullTunnel = settingsState.fullTunnel,
+                            handbookRouting = settingsState.handbookRouting,
+                            onBack = { page = PAGE_SETTINGS },
+                            onSave = onSaveRegionalOptions,
                         )
 
                     PAGE_TRAFFIC_FILTERS ->
@@ -347,6 +363,7 @@ fun NativeApp(
                                 onRefreshVpnProtection()
                                 page = PAGE_PROTECTION
                             },
+                            onOpenRegionalRouting = { page = PAGE_REGIONAL },
                             onOpenTrafficFilters = { page = PAGE_TRAFFIC_FILTERS },
                             onOpenPerAppRouting = { page = PAGE_PER_APP },
                             onOpenCoreOptions = { page = PAGE_CORE_OPTIONS },

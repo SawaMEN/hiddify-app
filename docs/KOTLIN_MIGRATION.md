@@ -83,12 +83,27 @@ SharedPreferences transaction on IO. The core policy reads the same model, avoid
 mapping that could diverge from the UI. Modern-protocol and adaptive-network settings remain
 independent. Save failures are surfaced through the native error dialog.
 
+## Native regional routing controls
+
+The Kotlin settings page now opens a regional-routing form with the existing off, Russian-bypass
+and selected-services modes, independent Russian domain/IP, Russian app and proxied-service
+switches, and additional direct/proxied domains. The form preserves drafts across rotation and
+explains when full tunnel or manual routing overrides automatic choices. Changes apply on reconnect.
+Application selections and their manual/automatic semantics are retained; this screen does not
+replace the separate application-selection editor that remains to be migrated.
+
+The repository validates and normalizes domain lists before an atomic preferences write on IO.
+It checks the candidate policy against the real bundled catalogue before saving, including the
+256-entry merged limits. The shared parser is used by the core policy and JVM tests. The native
+form bounds each domain field to 8192 characters and rejects URLs, ports and IP literals; ASCII
+and punycode domain names use the existing routing grammar. Unknown stored modes resolve to off.
+
 ## Validation
 
 `NativeProfileTransferTest`, `NativeQrCodecTest`, `NativeProbePolicyTest` and
-`NativeDiagnosticReportTest`, `NativePerAppBackupTest`, `NativePerAppFlagsTest` and `NativeTrafficFiltersTest` cover UTF-8, byte-order marks, size limits,
+`NativeDiagnosticReportTest`, `NativePerAppBackupTest`, `NativePerAppFlagsTest` `NativeTrafficFiltersTest` and `NativeRegionalOptionsTest` cover UTF-8, byte-order marks, size limits,
 encoded URL tokens, custom ports, IPv6, QR round trips, inverted QR images and oversized QR
-payloads, captive portal responses, probe URL validation and the diagnostic report allowlist, legacy routing backups, validation limits and manual/automatic flag transitions, typed privacy preferences and bulk filter round trips. Run with the configured Android/Flutter SDK and prepared core:
+payloads, captive portal responses, probe URL validation and the diagnostic report allowlist, legacy routing backups, validation limits and manual/automatic flag transitions, typed privacy preferences and bulk filter round trips, regional routing modes, override precedence, domain normalization and merged catalogue limits. Run with the configured Android/Flutter SDK and prepared core:
 
 ```sh
 cd android

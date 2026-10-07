@@ -53,6 +53,7 @@ fun NativeSettingsScreen(
     canChangeServiceMode: Boolean,
     onBack: () -> Unit,
     onOpenPerAppRouting: () -> Unit,
+    onOpenRegionalRouting: () -> Unit,
     onOpenTrafficFilters: () -> Unit,
     onOpenVpnProtection: () -> Unit,
     onOpenCoreOptions: () -> Unit,
@@ -181,6 +182,9 @@ fun NativeSettingsScreen(
         }
 
         SettingsSection(title = stringResource(R.string.native_settings_custom_routing)) {
+            OutlinedButton(onClick = onOpenRegionalRouting, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.native_regional_title))
+            }
             SettingSwitch(
                 title = stringResource(R.string.native_setting_custom_routing),
                 summary = stringResource(R.string.native_setting_custom_routing_summary),

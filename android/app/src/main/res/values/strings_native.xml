@@ -389,4 +389,25 @@
     <string name="native_filters_lan">Isolate the local network</string>
     <string name="native_filters_lan_summary">Reject app TUN traffic to private LAN addresses. Printers, TVs, routers and NAS devices may become unavailable.</string>
     <string name="native_filters_limits">These filters do not change browser fingerprints, User-Agent, Canvas/WebGL or data inside HTTPS. They do not decrypt HTTPS or guarantee complete anonymity.</string>
+    <string name="native_regional_title">Regional routing</string>
+    <string name="native_regional_summary">Configure regional app rules, Russian domains and IP ranges, and extra domain rules. Turning a category off preserves its saved selections. App exclusions also depend on your VPN per-app settings.</string>
+    <string name="native_regional_full_tunnel">Full tunnel takes priority over direct exceptions. These saved rules apply when full tunnel is disabled.</string>
+    <string name="native_regional_handbook">Manual routing takes priority over automatic regional routing. Saved regional choices are retained.</string>
+    <string name="native_regional_mode">Automatic app routing mode</string>
+    <string name="native_regional_off">Off</string>
+    <string name="native_regional_bypass">Russian services directly</string>
+    <string name="native_regional_selected">Proxy selected services</string>
+    <string name="native_regional_selected_summary">In selected-services mode, other traffic goes directly. Russian domain/IP bypass is a separate setting.</string>
+    <string name="native_regional_network">Russian domains and IPs direct</string>
+    <string name="native_regional_network_summary">Uses .ru, .рф, .su and Russian IP rules, plus bundled domain suggestions.</string>
+    <string name="native_regional_apps">Russian apps direct</string>
+    <string name="native_regional_apps_summary">Uses the saved Russian app list. Turning off keeps application selections.</string>
+    <string name="native_regional_restricted">Selected services through VPN</string>
+    <string name="native_regional_restricted_summary">Uses the saved service list and additional proxied domains. Direct app choices take priority when both lists are manual.</string>
+    <string name="native_regional_direct_domains">Additional direct domains</string>
+    <string name="native_regional_proxy_domains">Additional proxied domains</string>
+    <string name="native_regional_domains_hint">Domains only, separated by spaces, commas or newlines; *.example.com also matches subdomains. Up to 8192 characters and 256 entries including bundled rules.</string>
+    <string name="native_regional_invalid">Check domain names and list size. URLs, ports and IP literals are not accepted.</string>
+    <string name="native_regional_save">Save routing</string>
+    <string name="native_regional_saved">Routing saved. Reconnect the VPN to apply it.</string>
 </resources>
