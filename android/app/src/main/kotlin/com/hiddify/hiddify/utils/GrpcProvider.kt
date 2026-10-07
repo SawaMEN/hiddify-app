@@ -50,6 +50,24 @@ object GrpcClientProvider {
         .writeTimeout(10, TimeUnit.SECONDS)
         .build()
 
+    // A selected-outbound probe can legitimately take 30 seconds on an adaptive network.
+    // Keep this client separate from the shorter deadlines used for normal UI RPCs.
+    private val diagnosticsOkHttpClient = okHttpClient.newBuilder()
+        .readTimeout(35, TimeUnit.SECONDS)
+        .build()
+    private var cachedDiagnosticsPort = -1
+    private var cachedDiagnosticsClient: GrpcClient? = null
+    val diagnosticsGrpcClient: GrpcClient
+        @Synchronized get() {
+            val port = Settings.grpcServiceModePort
+            if (cachedDiagnosticsClient == null || cachedDiagnosticsPort != port) {
+                cachedDiagnosticsClient = GrpcClient.Builder().client(diagnosticsOkHttpClient)
+                    .baseUrl("http://127.0.0.1:$port").build()
+                cachedDiagnosticsPort = port
+            }
+            return cachedDiagnosticsClient!!
+        }
+
     private var cachedPort = -1
     private var cachedClient: GrpcClient? = null
     val grpcClient: GrpcClient

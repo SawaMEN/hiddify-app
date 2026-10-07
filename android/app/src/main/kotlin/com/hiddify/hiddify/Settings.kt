@@ -10,7 +10,9 @@ import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.SettingsKey
 import com.hiddify.hiddify.privacy.VpnServiceVisibility
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.io.ObjectInputStream
+import java.io.ObjectOutputStream
 
 object Settings {
 
@@ -44,6 +46,60 @@ object Settings {
     val privacyPublicDns get() = getBoolean("flutter.privacy-public-dns", false)
     val privacyDisableSystemProxy get() = getBoolean("flutter.privacy-disable-system-proxy", true)
     val privacyDisableIpv6 get() = getString("flutter.ipv6-mode", "ipv4_only") == "ipv4_only"
+    val privacyUseRootRequested get() = getBoolean("flutter.privacy-use-root", false)
+
+    fun setPrivacyUseRoot(enabled: Boolean) {
+        preferences.edit().putBoolean("flutter.privacy-use-root", enabled).apply()
+        VpnServiceVisibility.sync(Application.application, enabled && serviceMode == ServiceMode.VPN)
+    }
+
+    fun setWifiVpnSharing(enabled: Boolean) {
+        preferences.edit().putBoolean("flutter.wifi-vpn-sharing", enabled).apply()
+    }
+
+    fun setPrivacyFullTunnel(enabled: Boolean) {
+        preferences.edit().putBoolean("flutter.privacy-full-tunnel", enabled).apply()
+    }
+
+    fun setPrivacyEncryptedDns(enabled: Boolean) {
+        preferences.edit().putBoolean("flutter.privacy-encrypted-dns", enabled).apply()
+    }
+
+    fun setPrivacyPublicDns(enabled: Boolean) {
+        preferences.edit().putBoolean("flutter.privacy-public-dns", enabled).apply()
+    }
+
+    fun setPrivacyDisableSystemProxy(disabled: Boolean) {
+        preferences.edit().putBoolean("flutter.privacy-disable-system-proxy", disabled).apply()
+    }
+
+    fun setPrivacyDisableIpv6(disabled: Boolean) {
+        preferences.edit().putString("flutter.ipv6-mode", if (disabled) "ipv4_only" else "auto").apply()
+    }
+
+    fun setPrivacyRoutingMode(mode: String) {
+        preferences.edit().putString("flutter.privacy-routing-mode", mode).apply()
+    }
+
+    fun setHandbookRouting(enabled: Boolean) {
+        preferences.edit().putBoolean("flutter.handbook-routing", enabled).apply()
+    }
+
+    fun setHandbookProxy(enabled: Boolean) {
+        preferences.edit().putBoolean("flutter.handbook-proxy", enabled).apply()
+    }
+
+    fun setHandbookDirect(enabled: Boolean) {
+        preferences.edit().putBoolean("flutter.handbook-direct", enabled).apply()
+    }
+
+    fun setHandbookProxySites(value: String) {
+        preferences.edit().putString("flutter.handbook-proxy-sites", value).apply()
+    }
+
+    fun setHandbookDirectSites(value: String) {
+        preferences.edit().putString("flutter.handbook-direct-sites", value).apply()
+    }
     val grpcFrontPort get() = getInt("local_control_front_port", 17078).takeIf { it in 1..65535 } ?: 17078
     val grpcBackPort get() = getInt("local_control_back_port", 17079).takeIf { it in 1..65535 && it != grpcFrontPort } ?: 17079
     val grpcAuthToken: String
@@ -85,6 +141,21 @@ object Settings {
         get() = getString(SettingsKey.PER_APP_PROXY_MODE, PerAppProxyMode.OFF)
         set(value) = preferences.edit().putString(SettingsKey.PER_APP_PROXY_MODE, value).apply()
 
+    fun setPerAppProxyPackages(mode: String, packages: Collection<String>) {
+        val key = when (mode) {
+            PerAppProxyMode.INCLUDE -> SettingsKey.PER_APP_PROXY_INCLUDE_LIST
+            PerAppProxyMode.EXCLUDE -> SettingsKey.PER_APP_PROXY_EXCLUDE_LIST
+            else -> return
+        }
+        val normalized = ArrayList(packages.filter { it.isNotBlank() }.distinct())
+        val encoded = ByteArrayOutputStream().use { bytes ->
+            ObjectOutputStream(bytes).use { it.writeObject(normalized) }
+            LIST_IDENTIFIER + Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
+        }
+        // This is the same legacy shared_preferences encoding that Dart getStringList() expects.
+        preferences.edit().putString(key, encoded).apply()
+    }
+
     val perAppProxyEnabled: Boolean
         get() = perAppProxyMode != PerAppProxyMode.OFF
 
@@ -105,6 +176,14 @@ object Settings {
                 emptyList()
             }
         }
+
+    private fun encodeListString(values: List<String>): String {
+        val bytes = ByteArrayOutputStream()
+        ObjectOutputStream(bytes).use { stream ->
+            stream.writeObject(ArrayList(values))
+        }
+        return LIST_IDENTIFIER + Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
+    }
 
     @Suppress("UNCHECKED_CAST")
     private fun decodeListString(listString: String): List<String> {

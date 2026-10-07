@@ -233,3 +233,7 @@ message StopRequest{
 message LANIPResponse {
   string ip = 1;
 }
+
+// Selected-outbound diagnostics, matching the pinned hiddify-core schema.
+message NetworkProbeRequest { string url = 1; }
+message NetworkProbeResponse { int32 status_code = 1; }
