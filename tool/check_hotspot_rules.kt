@@ -22,6 +22,7 @@ fun main() {
     val dir = Files.createTempDirectory("hotspot-rules").toFile()
     try {
         val state = File(dir, "forwarding").apply { writeText("0") }
+        val state6 = File(dir, "forwarding6").apply { writeText("0") }
         val log = File(dir, "log")
         for (tool in listOf("iptables", "ip6tables")) {
             File(dir, tool).apply {
@@ -35,7 +36,8 @@ exit 0
             }
         }
         fun run(script: String, fail: String = ""): Int {
-            val process = ProcessBuilder("/bin/sh", "-c", script.replace("/proc/sys/net/ipv4/ip_forward", state.path))
+            val process = ProcessBuilder("/bin/sh", "-c", script.replace("/proc/sys/net/ipv4/ip_forward", state.path)
+                .replace("/proc/sys/net/ipv6/conf/all/forwarding", state6.path))
             process.environment()["PATH"] = dir.path + ":" + System.getenv("PATH")
             process.environment()["HOTSPOT_LOG"] = log.path
             process.environment()["FAIL_TOOL"] = fail
@@ -43,10 +45,13 @@ exit 0
         }
         check(run(script, "ip6tables") != 0)
         check(state.readText().trim() == "0") { "Partial firewall failure must not enable forwarding" }
+        check(state6.readText().trim() == "0")
         check(run(script) == 0)
         check(state.readText().trim() == "1")
+        check(state6.readText().trim() == "1")
         check(run(HotspotRootRules.remove(chain, "0")) == 0)
         check(state.readText().trim() == "0") { "Restore the original forwarding state" }
+        check(state6.readText().trim() == "0")
         check(run(HotspotRootRules.remove(chain, "0")) == 0) { "Cleanup is repeatable" }
         check(log.readLines().none { it.matches(Regex(".*-F(?! VTR_AP_).*")) }) { "Never flush system chains" }
     } finally { dir.deleteRecursively() }

@@ -60,7 +60,14 @@ class _InstructionsState extends ConsumerState<WifiSharingInstructionsPage> {
         ),
         body: TabBarView(
           children: List.generate(5, (platform) {
-            final guide = sharingGuide(platform, ru, host, effectivePort, root: root);
+            final guide = sharingGuide(
+              platform,
+              ru,
+              host,
+              effectivePort,
+              root: root,
+              ssid: hotspot['ssid'] as String? ?? 'VPN-WiFi',
+            );
             return ListView(
               key: PageStorageKey('wifi-guide-$platform'),
               padding: const EdgeInsets.all(20),
@@ -134,16 +141,6 @@ class _InstructionsState extends ConsumerState<WifiSharingInstructionsPage> {
                       ru
                           ? 'На раздатчике и клиенте откройте один и тот же сайт проверки внешнего IP. Для сайта, направленного через VPN, адреса должны совпадать. Выберите сайт без исключения «напрямую», либо временно включите полный туннель. Верните прежний режим после проверки.'
                           : 'Open the same external IP check site on host and client. For a site routed through the VPN the addresses should match. Use a site without a direct exception, or temporarily enable full tunnel. Restore your previous mode after the check.',
-                      if (hotspot['active'] == true)
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: SelectableText(
-                              '${ru ? 'Подключитесь к сети' : 'Join network'}: ${hotspot['ssid']}\n'
-                              '${ru ? 'Пароль Wi-Fi' : 'Wi-Fi password'}: ${hotspot['password']}',
-                            ),
-                          ),
-                        ),
                       if (!root)
                         ru
                             ? 'Если браузер запрашивает пароль, укажите hiddify и пароль прокси. Ошибка 407 означает проблему авторизации; проверьте логин, пароль и поддержку авторизации клиентом.'
@@ -168,8 +165,8 @@ class _InstructionsState extends ConsumerState<WifiSharingInstructionsPage> {
                   ru: ru,
                   section: SharingGuideSection(ru ? 'Если не подключается' : 'If it does not connect', [
                     ru
-                        ? 'Сеть не видна: проверьте, что включена системная точка доступа, а не только переключатель приложения; попробуйте 2,4 ГГц. «Подключено без интернета» не всегда означает ошибку: системная проверка Android может не использовать прокси. Проверьте сайт в настроенном браузере.'
-                        : 'Network missing: check the system hotspot, not just the app switch; try 2.4 GHz. Connected without internet does not always mean failure: Android connectivity checks may not use the proxy. Test a site in the configured browser.',
+                        ? 'Сеть не видна: проверьте, что приложение показало имя и пароль созданной точки доступа. Если Android сообщил о конфликте, выключите ранее созданную системную точку доступа и повторите включение в приложении. «Подключено без интернета» не всегда означает ошибку: системная проверка Android может не использовать прокси. Проверьте сайт в настроенном браузере.'
+                        : 'Network missing: check that the app displayed the created hotspot name and password. If Android reported a conflict, stop the existing system hotspot and enable sharing again in the app. Connected without internet does not always mean failure: Android connectivity checks may not use the proxy. Test a site in the configured browser.',
                     ru
                         ? 'Тайм-аут или отказ подключения: проверьте сеть, локальный IP, порт, запущенный VPN и пароль. Обновите IP после перезапуска точки доступа. Если данные верны, проверьте доступность раздачи на телефоне. На получающем компьютере не нужно открывать входящий порт: он подключается к прокси телефона.'
                         : 'Timeout or connection refused: check the network, local IP, port, running VPN and password. Refresh the IP after restarting the hotspot. If the details are correct, check sharing availability on the phone. The receiving computer does not need an incoming port opened: it connects to the phone proxy.',

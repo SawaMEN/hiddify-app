@@ -44,9 +44,11 @@ object HotspotRoot {
 
     suspend fun install(context: Context, iface: String, address: String) {
         val original = run("cat /proc/sys/net/ipv4/ip_forward")
+        val original6 = run("cat /proc/sys/net/ipv6/conf/all/forwarding")
         check(original in listOf("0", "1")) { "Cannot read forwarding state" }
+        check(original6 in listOf("0", "1")) { "Cannot read IPv6 forwarding state" }
         val chain = HotspotRootRules.chain(context.packageName.hashCode())
-        val state = JSONObject().put("chain", chain).put("forward", original)
+        val state = JSONObject().put("chain", chain).put("forward", original).put("forward6", original6)
             .put("interface", iface).put("address", address)
         // Persist rollback before any privileged mutation, including partial failures.
         record(context).writeText(state.toString())
@@ -57,7 +59,7 @@ object HotspotRoot {
         val file = record(context)
         if (!file.exists()) return
         val state = JSONObject(file.readText())
-        run(HotspotRootRules.remove(state.getString("chain"), state.getString("forward")))
+        run(HotspotRootRules.remove(state.getString("chain"), state.getString("forward"), state.optString("forward6", "0")))
         check(file.delete()) { "Cannot clear hotspot rollback state" }
     }
 

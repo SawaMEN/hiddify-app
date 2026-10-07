@@ -27,12 +27,14 @@ object HotspotRootRules {
               ${'$'}tool -w 5 -I FORWARD 1 -j $chain
             done
             echo 1 > /proc/sys/net/ipv4/ip_forward
+            echo 1 > /proc/sys/net/ipv6/conf/all/forwarding
         """.trimIndent()
     }
 
-    fun remove(chain: String, previousForwarding: String): String {
+    fun remove(chain: String, previousForwarding: String, previousIPv6Forwarding: String = "0"): String {
         require(chain.matches(Regex("VTR_AP_[a-f0-9]{1,8}")))
         require(previousForwarding in listOf("0", "1"))
+        require(previousIPv6Forwarding in listOf("0", "1"))
         return """
             for tool in iptables ip6tables; do
               while ${'$'}tool -w 5 -C FORWARD -j $chain 2>/dev/null; do
@@ -45,6 +47,9 @@ object HotspotRootRules {
             done
             if [ "${'$'}(cat /proc/sys/net/ipv4/ip_forward)" = 1 ]; then
               echo $previousForwarding > /proc/sys/net/ipv4/ip_forward
+            fi
+            if [ "${'$'}(cat /proc/sys/net/ipv6/conf/all/forwarding)" = 1 ]; then
+              echo $previousIPv6Forwarding > /proc/sys/net/ipv6/conf/all/forwarding
             fi
         """.trimIndent()
     }
