@@ -32,6 +32,8 @@ import com.hiddify.hiddify.nativecore.NativeOutboundGroup
 import com.hiddify.hiddify.nativecore.NativeOutboundsRepository
 import com.hiddify.hiddify.nativecore.NativeStatsRepository
 import com.hiddify.hiddify.nativecore.NativeSystemStats
+import com.hiddify.hiddify.nativecore.NativeWifiSharingDetails
+import com.hiddify.hiddify.nativecore.NativeWifiSharingRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
 import com.hiddify.hiddify.nativeui.NativeApp
@@ -86,6 +88,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val outboundGroups = mutableStateOf<List<NativeOutboundGroup>>(emptyList())
     private val outboundBusyTag = mutableStateOf<String?>(null)
     private val systemStats = mutableStateOf(NativeSystemStats())
+    private val wifiSharingDetails = mutableStateOf(NativeWifiSharingDetails())
+    private val wifiSharingDetailsBusy = mutableStateOf(false)
     private val errorMessage = mutableStateOf<String?>(null)
     private val nativeSettings = mutableStateOf(readNativeSettings())
 
@@ -95,6 +99,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val coreOptionsRepository by lazy { NativeCoreOptionsRepository() }
     private val outboundsRepository by lazy { NativeOutboundsRepository() }
     private val statsRepository by lazy { NativeStatsRepository() }
+    private val wifiSharingRepository by lazy { NativeWifiSharingRepository() }
     private val profileOperationMutex = Mutex()
     private val connection = ServiceConnection(this, this)
 
@@ -140,6 +145,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
         enableEdgeToEdge()
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
+        refreshWifiSharingDetails()
         refreshProfiles(syncActive = true)
         refreshPerApp()
 
@@ -163,6 +169,8 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 outboundGroups = outboundGroups.value,
                 outboundBusyTag = outboundBusyTag.value,
                 systemStats = systemStats.value,
+                wifiSharingDetails = wifiSharingDetails.value,
+                wifiSharingDetailsBusy = wifiSharingDetailsBusy.value,
                 errorMessage = errorMessage.value,
                 onDismissError = { errorMessage.value = null },
                 onToggleConnection = ::toggleConnection,
@@ -182,6 +190,7 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onSelectOutbound = ::selectOutbound,
                 onTestOutbound = ::testOutbound,
                 onTestActiveOutbounds = ::testActiveOutbounds,
+                onRefreshWifiSharingDetails = ::refreshWifiSharingDetails,
                 onOpenLegacy = ::openLegacyUi,
                 onProxyOnlyChanged = { proxyOnly ->
                     if (serviceStatus.value != Status.Stopped) {
@@ -205,7 +214,13 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
                     if (serviceStatus.value != Status.Stopped) {
                         errorMessage.value = getString(R.string.native_profile_disconnect_required)
                     } else {
-                        updateSettings { Settings.setWifiVpnSharing(value) }
+                        try {
+                            updateSettings { Settings.setWifiVpnSharing(value) }
+                            coreOptions.value = coreOptionsRepository.setLanSharing(value)
+                            refreshWifiSharingDetails()
+                        } catch (error: Exception) {
+                            errorMessage.value = error.message ?: error.javaClass.simpleName
+                        }
                     }
                 },
                 onFullTunnelChanged = { value -> updateSettings { Settings.setPrivacyFullTunnel(value) } },
@@ -739,6 +754,23 @@ class NativeMainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun refreshCoreOptions() {
         coreOptions.value = coreOptionsRepository.load()
+    }
+
+    private fun refreshWifiSharingDetails() {
+        if (wifiSharingDetailsBusy.value) return
+        wifiSharingDetailsBusy.value = true
+        lifecycleScope.launch {
+            try {
+                wifiSharingDetails.value =
+                    withContext(Dispatchers.IO) {
+                        wifiSharingRepository.load()
+                    }
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                wifiSharingDetailsBusy.value = false
+            }
+        }
     }
 
     private fun saveCoreOptions(value: NativeCoreOptions) {
