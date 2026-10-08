@@ -157,6 +157,9 @@ fun NativeApp(
     onChangeTheme: (NativeThemeMode) -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onOpenBatterySettings: () -> Unit,
+    showBackgroundPermissionDialog: Boolean,
+    onAllowBackgroundPermission: () -> Unit,
+    onDismissBackgroundPermission: () -> Unit,
     status: Status,
     connectionFailed: Boolean,
     smartSelected: Boolean,
@@ -797,7 +800,31 @@ fun NativeApp(
                 onDismiss = { quickSettingsOpen = false },
             )
         }
-        if (errorMessage != null && !outboundsOpen) {
+        if (showBackgroundPermissionDialog) {
+            AlertDialog(
+                onDismissRequest = onDismissBackgroundPermission,
+                icon = {
+                    Icon(
+                        painterResource(R.drawable.native_info),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                },
+                title = { Text(stringResource(R.string.native_background_title)) },
+                text = { Text(stringResource(R.string.native_background_message)) },
+                confirmButton = {
+                    NativeButton(onClick = onAllowBackgroundPermission) {
+                        Text(stringResource(R.string.native_background_allow))
+                    }
+                },
+                dismissButton = {
+                    NativeTextButton(onClick = onDismissBackgroundPermission) {
+                        Text(stringResource(R.string.native_background_later))
+                    }
+                },
+            )
+        }
+        if (errorMessage != null && !outboundsOpen && !showBackgroundPermissionDialog) {
             AlertDialog(
                 onDismissRequest = onDismissError,
                 confirmButton = {

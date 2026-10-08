@@ -50,6 +50,7 @@ sourceSets {
             include 'com/hiddify/hiddify/privacy/NativeRegionalOptions.kt'
             include 'com/hiddify/hiddify/privacy/NativeRegionalPackages.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeConnectionPolicy.kt'
+            include 'com/hiddify/hiddify/nativeconnection/NativeBackgroundPermissionPolicy.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeRecoveryPolicy.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeServerRanker.kt'
             include 'com/hiddify/hiddify/nativeprivacy/NativePrivacySetup.kt'

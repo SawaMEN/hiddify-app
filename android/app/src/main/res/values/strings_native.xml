@@ -24,8 +24,9 @@
     <string name="native_vpn_permission_denied">Android VPN permission was not granted.</string>
     <string name="native_service_error">VPN service error: %1$s</string>
     <string name="native_background_title">Allow background VPN operation</string>
-    <string name="native_background_message">Battery optimization can stop the VPN in the background. Allow VetrOFF Client to run without battery optimization for more reliable connections.</string>
-    <string name="native_background_allow">Open settings</string>
+    <string name="native_background_message">Android may stop the VPN when the app is in the background. Allow VetrOFF Client to run without battery restrictions to keep the connection active. Confirm the request in the Android system dialog.</string>
+    <string name="native_background_allow">Allow</string>
+    <string name="native_background_later">Not now</string>
 
     <string name="native_back">Back</string>
     <string name="native_settings_vpn">VPN and routing</string>
