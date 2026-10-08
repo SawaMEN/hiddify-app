@@ -112,3 +112,17 @@ existing JVM suite. Resource/font/version, source inventory, six Python tool tes
 Kotlin grammar and whitespace checks pass locally. Local JVM execution remains
 unavailable because Gradle has not downloaded; the preceding commit's CI succeeded.
 This batch requires CI compilation and device interaction checks. No APK is awaited.
+
+
+## Local domain corrections
+
+The selected `repo` service includes `docker.io`; the selected `pornhub.com`
+service includes `phncdn.com` and `pornhub.org`. The core appends these corrections
+after reading either live or cached provider exports, deduplicates them and creates
+the normal domain-suffix/DNS routing rules. They follow the destination of their
+selected service and do not apply to unrelated or disabled lists. No extra provider
+`site` IDs are sent. Catalogue previews show these domains first, including old
+metadata caches, without changing stored selections. Go and Kotlin regression tests
+cover exact domains, duplicate suppression, cache preservation and unaffected services.
+Source/resource checks pass; local Go/JVM execution is unavailable. The app pins the
+updated core commit; no APK build is awaited.

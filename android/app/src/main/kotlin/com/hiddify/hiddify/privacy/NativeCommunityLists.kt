@@ -30,8 +30,15 @@ object NativeCommunityLists {
                 require(it.isJsonPrimitive && it.asJsonPrimitive.isString) { "Invalid service domain" }
                 it.asString.also { domain -> require(domain.length in 1..253 && domain.none(Char::isISOControl)) }
             }
-            NativeCommunityService(id, domains.take(3), group)
+            NativeCommunityService(id, (extraDomains(id) + domains).distinct().take(3), group)
         }.sortedBy { it.id.lowercase() }
+    }
+
+    // Keep previews aligned with the core correction; selected site identifiers stay unchanged.
+    private fun extraDomains(id: String): List<String> = when (id.lowercase()) {
+        "repo" -> listOf("docker.io")
+        "pornhub.com" -> listOf("phncdn.com", "pornhub.org")
+        else -> emptyList()
     }
 
     fun parseGroups(text: String): Map<String, String> {

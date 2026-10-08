@@ -91,4 +91,16 @@ class NativeCommunityListsTest {
             assertThrows(Exception::class.java) { NativeCommunityLists.parseGroups(text) }
         }
     }
+
+    @Test fun localDomainsAreShownForSelectedServiceWithoutBecomingProviderIds() {
+        val repo = NativeCommunityLists.parse("""{"repo":["github.com"]}""").single()
+        assertEquals("repo", repo.id)
+        assertEquals(listOf("docker.io", "github.com"), repo.domains)
+        val porn = NativeCommunityLists.parse("""{"pornhub.com":["pornhub.com","phncdn.com"]}""").single()
+        assertEquals(listOf("phncdn.com", "pornhub.org", "pornhub.com"), porn.domains)
+        assertEquals("pornhub.com,repo", NativeCommunityLists.selection(false, setOf(repo.id, porn.id)).sites)
+        assertEquals(listOf("youtube.com"), NativeCommunityLists.parse("""{"youtube.com":["youtube.com"]}""").single().domains)
+        assertEquals(listOf(repo, porn).sortedBy { it.id },
+            NativeCommunityLists.parse(NativeCommunityLists.encodeCache(listOf(repo, porn))))
+    }
 }
