@@ -137,7 +137,7 @@ private fun NativeCommunityListsDialog(source: NativeCommunitySource, active: Bo
                             val open = if (query.isNotBlank()) group !in searchCollapsed else group in expanded
                             item(key = "group:$group") {
                                 Row(Modifier.animateItem(fadeInSpec = if (itemMotion) androidx.compose.animation.core.tween(160) else null,
-                                    placementSpec = if (itemMotion) androidx.compose.animation.core.spring() else null,
+                                    placementSpec = if (itemMotion) androidx.compose.animation.core.tween(220) else null,
                                     fadeOutSpec = if (itemMotion) androidx.compose.animation.core.tween(120) else null).fillMaxWidth().clickable {
                                     if (query.isNotBlank()) searchCollapsed = if (group in searchCollapsed) searchCollapsed - group else searchCollapsed + group
                                     else expanded = if (group in expanded) expanded - group else expanded + group
@@ -160,7 +160,7 @@ private fun NativeCommunityListsDialog(source: NativeCommunitySource, active: Bo
                             if (open) items(visible, key = { "service:${it.id}" }) { service ->
                                 val selectedService = all || service.id in selected
                                 Row(Modifier.animateItem(fadeInSpec = if (itemMotion) androidx.compose.animation.core.tween(160) else null,
-                                    placementSpec = if (itemMotion) androidx.compose.animation.core.spring() else null,
+                                    placementSpec = if (itemMotion) androidx.compose.animation.core.tween(220) else null,
                                     fadeOutSpec = if (itemMotion) androidx.compose.animation.core.tween(120) else null).fillMaxWidth().toggleable(selectedService, enabled = interactive, role = Role.Checkbox) { value ->
                                     selected = NativeCommunityLists.toggle(all, selected.toSet(), known, service.id, value).toList()
                                     all = false

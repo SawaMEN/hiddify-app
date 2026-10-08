@@ -834,4 +834,11 @@
     <string name="native_community_collapse">Collapse %1$s</string>
     <string name="native_community_groups_unavailable">Category updates are unavailable. Saved categories are used where possible.</string>
     <string name="native_community_category_hint">Check a category to select its services, or expand it to choose individually.</string>
+    <string name="native_speed_download">Download</string>
+    <string name="native_speed_upload">Upload</string>
+    <string name="native_speed_unit">%1$s/s</string>
+    <string name="native_speed_waiting">Waiting for data</string>
+    <string name="native_traffic_session">Session: %1$s %2$s</string>
+    <string name="native_status_failed">Connection failed</string>
+    <string-array name="native_traffic_units"><item>B</item><item>KiB</item><item>MiB</item><item>GiB</item><item>TiB</item><item>PiB</item><item>EiB</item></string-array>
 </resources>

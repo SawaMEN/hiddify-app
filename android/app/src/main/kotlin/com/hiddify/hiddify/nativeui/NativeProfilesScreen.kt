@@ -92,7 +92,7 @@ fun NativeProfilesScreen(
             else -> LazyColumn(modifier, contentPadding = PaddingValues(start = 12.dp, top = 12.dp,
                 end = 12.dp, bottom = if (isSheet) 12.dp else 84.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(sorted, key = { it.id }) { profile ->
-                    NativeProfileTile(profile, modifier = Modifier.animateItem(fadeInSpec = if (motion) androidx.compose.animation.core.tween(160) else null, placementSpec = if (motion) androidx.compose.animation.core.spring() else null, fadeOutSpec = if (motion) androidx.compose.animation.core.tween(120) else null), busy = busy, onShare = { shareId = profile.id },
+                    NativeProfileTile(profile, modifier = Modifier.animateItem(fadeInSpec = if (motion) androidx.compose.animation.core.tween(160) else null, placementSpec = if (motion) androidx.compose.animation.core.tween(220) else null, fadeOutSpec = if (motion) androidx.compose.animation.core.tween(120) else null), busy = busy, onShare = { shareId = profile.id },
                         onClick = { onSelect(profile) }, onDelete = { deleteId = profile.id },
                         onRefresh = { onRefresh(profile) }, onEdit = { onEdit(profile) })
                 }

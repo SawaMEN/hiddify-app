@@ -29,6 +29,14 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInRoot
+import com.hiddify.hiddify.nativecore.nativeTrafficAmount
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
@@ -43,21 +51,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.shrinkHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -349,7 +346,13 @@ fun NativeApp(
 
     NativeAppTheme(themeMode) {
         NativeAtmosphere {
-            Column(
+            val backdrop = androidx.compose.ui.graphics.rememberGraphicsLayer()
+            var backdropOrigin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+            var dockHeight by remember { mutableStateOf(96.dp) }
+            val gridColor = MaterialTheme.colorScheme.onSurface.copy(alpha = .035f)
+            val backgroundColor = MaterialTheme.colorScheme.background
+            val density = LocalDensity.current
+            Box(
                 modifier =
                     Modifier
                         .fillMaxSize()
@@ -357,7 +360,26 @@ fun NativeApp(
                         .navigationBarsPadding()
                         .padding(top = if (page in setOf(PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS, PAGE_DIAGNOSTICS, PAGE_PROTECTION, PAGE_TRAFFIC_FILTERS, PAGE_WIFI_GUIDE, PAGE_PER_APP, PAGE_DNS, PAGE_TLS, PAGE_INBOUND, PAGE_GENERAL_OPTIONS)) 0.dp else 8.dp),
             ) {
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                Box(Modifier.fillMaxSize()
+                    .onGloballyPositioned { backdropOrigin = it.positionInRoot() }
+                    .drawWithContent {
+                        backdrop.record {
+                            drawRect(backgroundColor)
+                            val step = 32.dp.toPx()
+                            var x = 0f
+                            while (x < size.width) {
+                                drawLine(gridColor, androidx.compose.ui.geometry.Offset(x, 0f), androidx.compose.ui.geometry.Offset(x, size.height))
+                                x += step
+                            }
+                            var y = 0f
+                            while (y < size.height) {
+                                drawLine(gridColor, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y))
+                                y += step
+                            }
+                            this@drawWithContent.drawContent()
+                        }
+                        drawLayer(backdrop)
+                    }.padding(bottom = if (page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY)) dockHeight else 0.dp), contentAlignment = Alignment.TopCenter) {
                     Box((if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY || page == PAGE_SETTINGS) Modifier else Modifier.widthIn(max = 680.dp))
                         .fillMaxWidth().padding(horizontal = when (page) { PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS, PAGE_DIAGNOSTICS, PAGE_PROTECTION, PAGE_TRAFFIC_FILTERS, PAGE_WIFI_GUIDE, PAGE_PER_APP, PAGE_DNS, PAGE_TLS, PAGE_INBOUND, PAGE_GENERAL_OPTIONS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
                         Crossfade(targetState = page,
@@ -739,8 +761,10 @@ fun NativeApp(
                     }
                 }
                 if (page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY)) {
-                    NativeGlass(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(bottom = 8.dp), radius = 24) {
-                        NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp, modifier = Modifier.height(72.dp)) {
+                    NativeDock(backdrop, backdropOrigin, Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                        .onSizeChanged { dockHeight = with(density) { it.height.toDp() } }
+                        .padding(horizontal = 12.dp).padding(bottom = 8.dp)) {
+                        NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp, modifier = Modifier.heightIn(min = 80.dp)) {
                             listOf(
                                 Triple(PAGE_HOME, R.drawable.native_power, R.string.native_home),
                                 Triple(PAGE_PRIVACY, R.drawable.native_shield, R.string.native_privacy_title),
@@ -752,7 +776,7 @@ fun NativeApp(
                                         selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary,
                                         indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = .14f),
                                         unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant),
-                                    label = { Text(stringResource(label), maxLines = 1) })
+                                    label = { Text(stringResource(label), maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center) })
                             }
                         }
                     }
@@ -889,7 +913,7 @@ private fun HomeScreen(
         confirmButton = { NativeTextButton(onClick = { noProfileNotice = false; onAddProfile() }) { Text(stringResource(android.R.string.ok)) } },
     )
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 16.dp),
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Image(painterResource(R.drawable.vetroff_app_logo), contentDescription = null, modifier = Modifier.size(28.dp))
             Spacer(Modifier.width(12.dp))
@@ -998,38 +1022,36 @@ private fun HomeScreen(
 @Composable
 private fun ConnectionStatsCard(stats: NativeSystemStats, smartSelected: Boolean) {
     NativeGlass(Modifier.fillMaxWidth(), radius = 20) {
-        Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                listOf(Triple(R.drawable.native_sub_download, stats.downlink, MaterialTheme.colorScheme.primary),
-                    Triple(R.drawable.native_sub_upload, stats.uplink, MaterialTheme.colorScheme.secondary)).forEach { (icon, value, accent) ->
-                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center) {
-                        Icon(painterResource(icon), null, Modifier.size(18.dp), tint = accent)
-                        Spacer(Modifier.width(6.dp))
-                        Text("${formatTraffic(value)}/s", style = MaterialTheme.typography.labelLarge,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
+        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val stacked = maxWidth < (280 * LocalDensity.current.fontScale).dp
+                if (stacked) Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                    TrafficMetric(R.string.native_speed_download, stats.downlink, stats.downlinkTotal, stats)
+                    TrafficMetric(R.string.native_speed_upload, stats.uplink, stats.uplinkTotal, stats)
+                } else Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    TrafficMetric(R.string.native_speed_download, stats.downlink, stats.downlinkTotal, stats, Modifier.weight(1f))
+                    TrafficMetric(R.string.native_speed_upload, stats.uplink, stats.uplinkTotal, stats, Modifier.weight(1f))
                 }
             }
-            if (smartSelected) Text(stringResource(R.string.native_home_selection_reason), Modifier.fillMaxWidth(),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.bodyLarge)
+            if (smartSelected) Text(stringResource(R.string.native_home_selection_reason),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
-private fun formatTraffic(value: Long): String {
-    val safe = value.coerceAtLeast(0)
-    val units = arrayOf("B", "KiB", "MiB", "GiB", "TiB")
-    var scaled = safe.toDouble()
-    var unit = 0
-    while (scaled >= 1024.0 && unit < units.lastIndex) {
-        scaled /= 1024.0
-        unit++
-    }
-    return if (unit == 0 || scaled >= 100.0) {
-        "%.0f %s".format(scaled, units[unit])
-    } else {
-        "%.1f %s".format(scaled, units[unit])
+@Composable
+private fun TrafficMetric(label: Int, rate: Long, total: Long, stats: NativeSystemStats, modifier: Modifier = Modifier) {
+    val amount = nativeTrafficAmount(rate)
+    val units = androidx.compose.ui.res.stringArrayResource(R.array.native_traffic_units)
+    val session = nativeTrafficAmount(total)
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(stringResource(label), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(if (stats.speedAvailable) amount.value else "—", style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"))
+        Text(if (stats.speedAvailable) stringResource(R.string.native_speed_unit, units[amount.unitIndex]) else stringResource(R.string.native_speed_waiting),
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (stats.trafficAvailable) Text(stringResource(R.string.native_traffic_session, session.value, units[session.unitIndex]),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -1043,7 +1065,7 @@ private fun ConnectionCard(
     reconnectBusy: Boolean = false,
     failed: Boolean = false,
 ) {
-    val label = stringResource(if (status == Status.Started && requiresReconnect) R.string.native_quick_reconnect else if (failed && status == Status.Stopped) R.string.native_status_starting else when (status) {
+    val label = stringResource(if (status == Status.Started && requiresReconnect) R.string.native_quick_reconnect else if (failed && status == Status.Stopped) R.string.native_status_failed else when (status) {
         Status.Stopped -> R.string.native_status_stopped
         Status.Starting -> R.string.native_status_starting
         Status.Started -> R.string.native_status_started
@@ -1056,53 +1078,44 @@ private fun ConnectionCard(
         Status.Stopping -> R.string.native_disconnecting
     })
     val scheme = MaterialTheme.colorScheme
-    val targetAccent = when {
-        status == Status.Started && requiresReconnect -> scheme.secondary
-        status == Status.Started && (delayMs <= 0 || delayMs >= 65000) -> Color(0xFFFFC857)
-        status == Status.Started -> scheme.tertiary
-        failed -> scheme.error
-        else -> scheme.primary
-    }
-    val motionDuration = if (LocalNativeMotionEnabled.current) 180 else 0
-    val textDuration = if (LocalNativeMotionEnabled.current) 250 else 0
-    val accent by animateColorAsState(targetAccent, tween(motionDuration), label = "Connection color")
-    val enabled = reconnectBusy || recovering || status != Status.Stopping
-    val scale by animateFloatAsState(if (enabled) 1f else .94f, tween(motionDuration), label = "Connection scale")
-    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(176.dp).graphicsLayer { scaleX = scale; scaleY = scale }.background(
-            Brush.radialGradient(listOf(accent.copy(alpha = .12f), Color.Transparent)), CircleShape,
-        ).border(2.dp, accent.copy(alpha = .28f), CircleShape), contentAlignment = Alignment.Center) {
-            NativeConnectionAura(accent, status == Status.Started || status == Status.Starting, Modifier.fillMaxSize())
-            NativeGlass(Modifier.padding(14.dp).fillMaxSize(), radius = 100, accent = accent) {
-                Box(Modifier.fillMaxSize().clip(CircleShape)
-                    .clickable(enabled = enabled, role = Role.Button, onClick = onToggleConnection)
-                    .semantics { contentDescription = actionLabel }, contentAlignment = Alignment.Center) {
-                    Icon(painterResource(R.drawable.home_power), null, Modifier.size(64.dp), tint = accent)
-                }
+    val connected = status == Status.Started
+    val accent by animateColorAsState(if (connected) scheme.primary else scheme.surfaceContainerHigh,
+        tween(if (LocalNativeMotionEnabled.current) 180 else 0), label = "Connection color")
+    val enabled = !reconnectBusy && (recovering || status != Status.Stopping)
+    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        androidx.compose.material3.Surface(
+            onClick = onToggleConnection, enabled = enabled,
+            modifier = Modifier.size(144.dp).semantics { contentDescription = actionLabel },
+            shape = CircleShape, color = accent,
+            contentColor = if (connected) scheme.onPrimary else scheme.onSurface,
+        ) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Icon(painterResource(R.drawable.home_power), null, Modifier.size(52.dp))
             }
-            if (!enabled) CircularProgressIndicator(Modifier.fillMaxSize(), strokeWidth = 2.dp)
         }
-        AnimatedContent(label, Modifier.padding(top = 24.dp), contentAlignment = Alignment.Center,
-            transitionSpec = {
-                (fadeIn(tween(textDuration)) + slideInVertically(tween(textDuration)) { -(it * .2f).toInt() } +
-                    expandHorizontally(tween(textDuration), expandFrom = Alignment.CenterHorizontally) { (it * .88f).toInt() })
-                    .togetherWith(fadeOut(tween(textDuration)) + slideOutVertically(tween(textDuration)) { -(it * .2f).toInt() } +
-                        shrinkHorizontally(tween(textDuration), shrinkTowards = Alignment.CenterHorizontally) { (it * .88f).toInt() })
-            }, label = "Connection label") { text ->
-            Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text(actionLabel, style = MaterialTheme.typography.titleLarge,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        Row(Modifier.heightIn(min = 28.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (status == Status.Starting || status == Status.Stopping || reconnectBusy)
+                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+            Text(label, style = MaterialTheme.typography.bodyMedium,
+                color = if (failed) scheme.error else scheme.onSurfaceVariant,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
     }
 }
 
-@androidx.compose.ui.tooling.preview.Preview(name = "Dart appearance · dark", widthDp = 390, heightDp = 844)
+@androidx.compose.ui.tooling.preview.Preview(name = "Readable · dark", widthDp = 390, heightDp = 844)
 @Composable
 private fun DarkHomePreview() = NativeHomePreview(NativeThemeMode.DARK)
 
-@androidx.compose.ui.tooling.preview.Preview(name = "Dart appearance · light", widthDp = 390, heightDp = 844)
+@androidx.compose.ui.tooling.preview.Preview(name = "Readable · light", widthDp = 390, heightDp = 844)
 @Composable
 private fun LightHomePreview() = NativeHomePreview(NativeThemeMode.LIGHT)
 
-@androidx.compose.ui.tooling.preview.Preview(name = "Dart appearance · black", widthDp = 390, heightDp = 844)
+@androidx.compose.ui.tooling.preview.Preview(name = "Readable · black", widthDp = 390, heightDp = 844)
 @Composable
 private fun BlackHomePreview() = NativeHomePreview(NativeThemeMode.BLACK)
 
@@ -1123,7 +1136,7 @@ private fun NativeHomePreview(mode: NativeThemeMode, empty: Boolean = false, fai
                     recoveryAttempt = 0, activeProfileName = "VetrOFF", hasActiveProfile = !empty,
                     activeProfile = if (empty) null else profile,
                     activeOutbound = if (empty || failed) null else outbound,
-                    systemStats = NativeSystemStats(downlink = 1258291, uplink = 52428, trafficAvailable = true),
+                    systemStats = NativeSystemStats(downlink = 1258291, uplink = 52428, trafficAvailable = true, speedAvailable = true),
                     onToggleConnection = {}, onOpenProfiles = {}, onOpenSettings = {},
                     onOpenDiagnostics = {}, onOpenOutbounds = {},
                 )

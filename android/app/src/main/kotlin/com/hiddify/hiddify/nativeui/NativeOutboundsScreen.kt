@@ -160,7 +160,7 @@ internal fun NativeOutboundsScreen(
                             OutboundTile(outbound, group?.selectedTag == outbound.tag,
                                 group?.selectable == true && busyTag == null && !smartSelectionBusy,
                                 { group?.let { onSelect(it.tag, outbound.tag) } }, { detailsTag = outbound.tag },
-                                modifier = Modifier.animateItem(fadeInSpec = if (motion) androidx.compose.animation.core.tween(160) else null, placementSpec = if (motion) androidx.compose.animation.core.spring() else null, fadeOutSpec = if (motion) androidx.compose.animation.core.tween(120) else null))
+                                modifier = Modifier.animateItem(fadeInSpec = if (motion) androidx.compose.animation.core.tween(160) else null, placementSpec = if (motion) androidx.compose.animation.core.tween(220) else null, fadeOutSpec = if (motion) androidx.compose.animation.core.tween(120) else null))
                         }
                     }
                 }
