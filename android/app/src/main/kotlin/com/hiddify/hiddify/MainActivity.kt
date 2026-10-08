@@ -130,6 +130,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val generalOptionsRepository by lazy { com.hiddify.hiddify.nativecore.NativeGeneralOptionsRepository(applicationContext) }
     private val generalOptions = mutableStateOf<com.hiddify.hiddify.nativecore.NativeGeneralOptions?>(null)
     private val generalOptionsBusy = mutableStateOf(false)
+    private val generalOptionsLoadFailed = mutableStateOf(false)
     private var generalOptionsSnapshotJob: Job? = null
     private val tlsRepository by lazy { com.hiddify.hiddify.nativecore.NativeTlsOptionsRepository(applicationContext) }
     private val tlsOptions = mutableStateOf<com.hiddify.hiddify.nativecore.NativeTlsOptions?>(null)
@@ -390,7 +391,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onSaveTunnelOptions = ::saveTunnelOptions,
                 generalOptions = generalOptions.value,
                 generalOptionsBusy = generalOptionsBusy.value,
-                onSaveGeneralOptions = ::saveGeneralOptions,
+                generalOptionsLoadFailed = generalOptionsLoadFailed.value,
+                onReloadGeneralOptions = ::refreshGeneralOptions,
+                onSaveGeneralOption = ::saveGeneralOption,
                 tlsOptions = tlsOptions.value,
                 tlsBusy = tlsBusy.value,
                 onSaveTlsOptions = ::saveTlsOptions,
@@ -1917,6 +1920,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun refreshGeneralOptions() {
+        if (generalOptionsBusy.value) return
+        generalOptionsLoadFailed.value = false
         generalOptionsSnapshotJob?.cancel()
         generalOptionsSnapshotJob = lifecycleScope.launch {
             try {
@@ -1926,29 +1931,27 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
+                generalOptionsLoadFailed.value = true
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             }
         }
     }
 
-    private fun saveGeneralOptions(value: com.hiddify.hiddify.nativecore.NativeGeneralOptions) {
-        if (generalOptionsBusy.value || tunnelBusy.value || tlsBusy.value || dnsBusy.value || inboundBusy.value || chainBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || wifiSharingBusy.value) return
-        if (serviceStatus.value != Status.Stopped || pendingStartAfterVpnPermission || nativeStartPending) {
-            errorMessage.value = getString(R.string.native_general_disconnect)
-            return
-        }
+    private fun saveGeneralOption(field: com.hiddify.hiddify.nativecore.NativeGeneralOptionField, input: String) {
+        if (generalOptionsBusy.value || reconnectBusy.value || tunnelBusy.value || tlsBusy.value || dnsBusy.value || inboundBusy.value || chainBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || wifiSharingBusy.value ||
+            serviceStatus.value == Status.Starting || serviceStatus.value == Status.Stopping || pendingStartAfterVpnPermission || nativeStartPending) return
         generalOptionsBusy.value = true
         generalOptionsSnapshotJob?.cancel()
-        cancelRecovery()
         lifecycleScope.launch {
             try {
                 generalOptions.value = BoxService.withNativeLifecycle {
-                    check(serviceStatus.value == Status.Stopped && !BoxService.hasActiveCore() && !nativeStartPending &&
-                        !pendingStartAfterVpnPermission) { getString(R.string.native_general_disconnect) }
-                    withContext(Dispatchers.IO) { generalOptionsRepository.save(value) }
+                    check(serviceStatus.value != Status.Starting && serviceStatus.value != Status.Stopping &&
+                        !nativeStartPending && !pendingStartAfterVpnPermission)
+                    withContext(Dispatchers.IO) { generalOptionsRepository.saveField(field, input) }
                 }
-                refreshImportedSettingsSnapshots()
-                Toast.makeText(this@MainActivity, R.string.native_general_saved, Toast.LENGTH_LONG).show()
+                coreChangesSaved()
+                restartHealthMonitor()
+                startSmartSelectionLoop()
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {

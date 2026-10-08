@@ -2,29 +2,6 @@ package com.hiddify.hiddify.nativecore
 
 import android.content.Context
 import org.json.JSONObject
-import java.net.URI
-
-data class NativeGeneralOptions(
-    val balancer: String = "round-robin",
-    val resolveDestination: Boolean = false,
-    val logLevel: String = "warn",
-    val testUrl: String = "http://captive.apple.com/hotspot-detect.html",
-    val intervalSeconds: Int = 600,
-    val clashPort: Int = 16756,
-    val useXray: Boolean = false,
-) {
-    fun validated(): NativeGeneralOptions {
-        require(balancer in NativeConfigChoices.balancerChoices) { "Invalid balancing strategy" }
-        require(logLevel in listOf("trace", "debug", "info", "warn", "error", "fatal", "panic")) { "Invalid log level" }
-        require(intervalSeconds in 1..86400 && clashPort in 1..65535) { "Invalid interval or API port" }
-        val url = testUrl.trim()
-        require(url.length in 1..2048 && url.none(Char::isISOControl)) { "Invalid connection test URL" }
-        val uri = URI(url)
-        require(uri.scheme?.lowercase() in listOf("http", "https") && !uri.host.isNullOrBlank() &&
-            (uri.port == -1 || uri.port in 1..65535)) { "Invalid connection test URL" }
-        return copy(testUrl = url)
-    }
-}
 
 class NativeGeneralOptionsRepository(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
@@ -48,23 +25,18 @@ class NativeGeneralOptionsRepository(context: Context) {
         )
     }
 
-    fun save(input: NativeGeneralOptions): NativeGeneralOptions {
-        val value = input.validated()
+    fun saveField(field: NativeGeneralOptionField, input: String): NativeGeneralOptions {
+        // Merge the edited field into a fresh snapshot, preserving imported and unknown options.
+        val updated = field.applyTo(load(), input)
+        val item = field.value(updated)
         val root = root(preferences.all)
-        val fields = mapOf<String, Any>(
-            "balancer-strategy" to value.balancer, "resolve-destination" to value.resolveDestination,
-            "log-level" to value.logLevel, "connection-test-url" to value.testUrl,
-            "url-test-interval" to value.intervalSeconds, "clash-api-port" to value.clashPort,
-            "use-xray-core-when-possible" to value.useXray,
-        )
+        root.put(field.storageKey, item)
         val editor = preferences.edit()
-        fields.forEach { (key, item) ->
-            root.put(key, item)
-            when (item) {
-                is String -> editor.putString("flutter.$key", item)
-                is Boolean -> editor.putBoolean("flutter.$key", item)
-                is Int -> editor.putLong("flutter.$key", item.toLong())
-            }
+        val key = "flutter.${field.storageKey}"
+        when (item) {
+            is String -> editor.putString(key, item)
+            is Boolean -> editor.putBoolean(key, item)
+            is Int -> editor.putLong(key, item.toLong())
         }
         editor.putString("config_options_json", root.toString())
         check(editor.commit()) { "Could not save connection settings" }

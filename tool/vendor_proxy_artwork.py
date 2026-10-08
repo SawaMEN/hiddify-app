@@ -59,7 +59,8 @@ def color(value):
 def convert(source, destination, monochrome=False):
     svg = ET.parse(source).getroot()
     _, _, w, h = svg.attrib['viewBox'].split()
-    vector = ET.Element('vector', attr(width='48dp', height='48dp', viewportWidth=w, viewportHeight=h))
+    size = '24dp' if monochrome else '48dp'
+    vector = ET.Element('vector', attr(width=size, height=size, viewportWidth=w, viewportHeight=h))
     definitions = {e.attrib['id']: e for e in svg.iter() if 'id' in e.attrib}
 
     def visit(node, parent, inherited='black'):

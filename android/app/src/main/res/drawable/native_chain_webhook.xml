@@ -1,5 +1,5 @@
 <!-- Converted to Android vector from google/material-design-icons src/action/webhook/materialiconsround/24px.svg; Apache-2.0. -->
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="48dp" android:height="48dp" android:viewportWidth="24" android:viewportHeight="24">
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
     <group>
         <group>
             <path android:pathData="M0.0,0.0h24.0v24.0h-24.0z" android:fillColor="#ffffff" />

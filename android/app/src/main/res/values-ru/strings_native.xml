@@ -662,4 +662,7 @@
     <string name="native_free_continue">Продолжить</string>
     <string name="native_outbounds_reconnecting">Восстановление обновлений прокси (%1$d/5)…</string>
     <string name="native_quick_password_invalid">Некорректный пароль: не более 128 символов без управляющих символов.</string>
+    <string name="native_setting_memory_limit">Ограничение памяти</string>
+    <string name="native_setting_memory_limit_summary">Включите, если вы сталкиваетесь с ошибками нехватки памяти или частыми сбоями приложения</string>
+    <string name="native_setting_debug_notice">Перезапустите приложение, чтобы применить это изменение</string>
 </resources>

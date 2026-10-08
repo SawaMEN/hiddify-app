@@ -122,7 +122,9 @@ fun NativeApp(
     onSaveTunnelOptions: (com.hiddify.hiddify.nativecore.NativeTunnelOptions) -> Unit,
     generalOptions: com.hiddify.hiddify.nativecore.NativeGeneralOptions?,
     generalOptionsBusy: Boolean,
-    onSaveGeneralOptions: (com.hiddify.hiddify.nativecore.NativeGeneralOptions) -> Unit,
+    generalOptionsLoadFailed: Boolean,
+    onReloadGeneralOptions: () -> Unit,
+    onSaveGeneralOption: (com.hiddify.hiddify.nativecore.NativeGeneralOptionField, String) -> Unit,
     generalPreferences: com.hiddify.hiddify.nativepreferences.NativeGeneralPreferences,
     generalPreferencesBusy: Boolean,
     onChangeLanguage: (com.hiddify.hiddify.nativepreferences.NativeLanguage) -> Unit,
@@ -535,8 +537,9 @@ fun NativeApp(
 
                             PAGE_GENERAL_OPTIONS -> NativeGeneralOptionsScreen(
                                 options = generalOptions, busy = generalOptionsBusy,
-                                canSave = status == Status.Stopped && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy && !tlsBusy,
-                                onBack = { goBack() }, onSave = onSaveGeneralOptions,
+                                loadFailed = generalOptionsLoadFailed, onRetry = onReloadGeneralOptions,
+                                canSave = status != Status.Starting && status != Status.Stopping && !reconnectBusy && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy && !tlsBusy && !tunnelBusy && !privacySetupBusy && !proxyPrivacyBusy,
+                                onBack = { goBack() }, onSave = onSaveGeneralOption,
                             )
 
                             PAGE_TLS -> NativeTlsOptionsScreen(

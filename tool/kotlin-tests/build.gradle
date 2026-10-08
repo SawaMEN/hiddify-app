@@ -22,6 +22,8 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeprofile/NativeJsonDocument.kt'
             include 'com/hiddify/hiddify/nativecore/NativeOutboundModels.kt'
             include 'com/hiddify/hiddify/nativecore/NativeLanSharingLink.kt'
+            include 'com/hiddify/hiddify/nativecore/NativeGeneralOptions.kt'
+            include 'com/hiddify/hiddify/nativecore/NativeConfigChoices.kt'
             include 'com/hiddify/hiddify/nativecore/NativeOutboundPresentation.kt'
             include 'com/hiddify/hiddify/nativepreferences/NativeOutboundSort.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeFreeProfiles.kt'

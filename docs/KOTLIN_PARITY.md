@@ -280,3 +280,33 @@ Four JVM regression scenarios cover LAN URI fallback, whitespace/reserved charac
 Unicode round trips and malformed authority rejection. Source/resource/whitespace checks pass.
 JVM execution remains blocked by the unavailable Gradle distribution; no APK build is awaited.
 Dialog typography, adaptive menu behavior and device screenshot parity remain to verify.
+
+## General preference dialogs and immediate saving
+
+The seven core general options now save per field from their dialog/switch, without a page-level
+Save button or a forced VPN disconnect. Saving is guarded during startup, stopping, reconnect
+and other settings transactions. Edits merge only the chosen key into fresh config JSON and
+its legacy typed preference, preserving unknown and unrelated imported values. General options
+are included in the applied-settings signature, so connected edits request reconnect and restoring
+the applied value clears that requirement. Health monitoring and smart selection refresh after
+saving. Snapshot refresh cannot overwrite an in-flight edit. Initial load failures expose Retry.
+
+Choice rows save on selection. Reset saves the original field default and closes; Cancel discards
+input. URL/port dialogs focus LTR input, support IME Done and show invalid-input feedback. URL
+suggestions use the original case-insensitive filter and fallback. Interval editing matches the
+1–60 minute, 60-division slider; imported second-level intervals remain intact until edited.
+The page uses plain preference rows with the source Material rounded icons and a fixed header.
+Language Reset selects English; theme Reset selects System, and theme rows are fully selectable.
+Memory-limit checked state is the inverse of the stored disable flag. Enabling debug mode shows
+the original restart notice before persisting the flag.
+
+Monochrome converted vectors now have 24 dp intrinsic size, correcting oversized Wi-Fi and
+LAN-action icons that relied on their resource dimensions. Flag vectors remain 48 dp, and
+explicitly sized provider/chain icons retain their requested display size.
+
+Four JVM regression scenarios cover scoped changes with legacy invalid values, URL validation,
+invalid typed input and per-field defaults. They are registered in the standalone JVM suite;
+execution remains unverified because the pinned Gradle distribution is unavailable locally.
+Native source/resource, drawable/font-reference and whitespace checks pass. No APK build is
+awaited. Full GeneralPage ordering/navigation, remaining application icons, original URL
+suggestion popup geometry and same-device screenshot parity still need verification/work.
