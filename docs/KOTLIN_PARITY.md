@@ -396,3 +396,28 @@ Native boundary/resource, all screen string/drawable references and whitespace c
 No APK build was started. Compose previews cover light/dark themes; rendered previews,
 Kotlin/Android compilation and same-device screenshot/interaction parity remain unverified.
 The existing Kotlin requirement to disconnect before automatic setup/root changes is retained.
+
+
+## QR scanner screen parity
+
+The Scan tile now opens a full-screen Compose dialog directly, matching the active
+`QrCodeScannerDialog` in `lib/features/common/qr_code_scanner_screen.dart` before Flutter
+removal (`7197f9e4^`). It restores the safe-area camera preview with cover scaling, centered
+70%-of-screen-width frame, 16 dp corners, 4 dp primaryContainer border and the top-start
+48 dp circular close control with an 8 dp margin. The loading spinner and exact EN/RU
+permission-denied text replace ZXing's standard CaptureActivity prompt/laser/finder UI.
+No torch/camera-switch toolbar is added: those controls only existed in commented-out Dart.
+
+The existing ZXing BarcodeView decodes QR codes across the full visible preview; the frame
+is an overlay rather than a crop, just as the source MobileScanner with no scanWindow.
+Only the first nonempty result is imported verbatim. Close/system Back accept cancellation
+once and release the camera. Preview/decoding stop on pause/disposal and restart on resume;
+camera permission is requested on opening and rechecked after returning from settings.
+The existing QR-from-image import remains available through File's image document selection,
+so choosing Scan no longer opens an extra camera/image choice dialog.
+
+JourneyApps 4.3.0 CameraPreview/BarcodeView/callback/decoder APIs and MobileScanner 7.2.0's
+cover/placeholder/error/overlay ordering were checked against their upstream source.
+Native boundary/resource and whitespace checks pass. Light/dark/permission-error Compose
+previews are included. APK compilation was not started; camera hardware, permission round
+trips, lifecycle/rotation behavior and same-device screenshot parity still need device QA.

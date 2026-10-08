@@ -716,4 +716,6 @@
     <string name="native_privacy_proxy_services_summary">Применяет список «Заблокированные сервисы». При отключении выбранные галочки сохраняются.</string>
     <string name="native_privacy_system_proxy">Не объявлять системный HTTP-прокси</string>
     <string name="native_privacy_system_proxy_summary">Не добавляет HTTP-прокси в сведения о VPN-сети.</string>
+    <string name="native_qr_permission_denied">Доступ запрещен</string>
+    <string name="native_qr_close">Закрыть сканер</string>
 </resources>

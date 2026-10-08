@@ -25,8 +25,6 @@ import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativeprofile.NativeProfileTransfer
 import com.hiddify.hiddify.nativeprofile.NativeQrImages
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -56,7 +54,7 @@ internal fun NativeAddProfileSheet(
     var fileBusy by remember { mutableStateOf(false) }
     var importError by remember { mutableStateOf<String?>(null) }
     var validate by rememberSaveable { mutableStateOf(false) }
-    var qrOptions by rememberSaveable { mutableStateOf(false) }
+    var scannerOpen by rememberSaveable { mutableStateOf(false) }
     var helpOpen by rememberSaveable { mutableStateOf(false) }
     val enabled = !busy && !fileBusy
 
@@ -73,45 +71,27 @@ internal fun NativeAddProfileSheet(
         if (uri != null) {
             fileBusy = true
             scope.launch {
+                var qrImage = false
                 try {
                     val text = withContext(Dispatchers.IO) {
-                        context.contentResolver.openInputStream(uri)?.use(NativeProfileTransfer::readText)
-                            ?: throw java.io.FileNotFoundException()
+                        qrImage = context.contentResolver.getType(uri)?.startsWith("image/") == true
+                        if (qrImage) {
+                            NativeQrImages.read(context.contentResolver, uri)
+                        } else {
+                            context.contentResolver.openInputStream(uri)?.use(NativeProfileTransfer::readText)
+                                ?: throw java.io.FileNotFoundException()
+                        }
                     }
                     importSource(text)
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Exception) {
-                    importError = context.getString(R.string.native_profile_file_read_failed,
+                    importError = if (qrImage) context.getString(R.string.native_profile_qr_not_found)
+                    else context.getString(R.string.native_profile_file_read_failed,
                         error.message ?: error.javaClass.simpleName)
                 } finally { fileBusy = false }
             }
         }
-    }
-    val scanner = rememberLauncherForActivityResult(ScanContract()) { result ->
-        result.contents?.let(::importSource)
-    }
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            fileBusy = true
-            scope.launch {
-                try {
-                    importSource(withContext(Dispatchers.IO) { NativeQrImages.read(context.contentResolver, uri) })
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (_: Exception) {
-                    importError = context.getString(R.string.native_profile_qr_not_found)
-                } finally { fileBusy = false }
-            }
-        }
-    }
-    fun scan() {
-        qrOptions = false
-        runCatching {
-            scanner.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                .setPrompt(context.getString(R.string.native_profile_qr_prompt))
-                .setBeepEnabled(false).setOrientationLocked(false))
-        }.onFailure { importError = context.getString(R.string.native_profile_qr_camera_failed) }
     }
     fun paste() {
         val clip = context.getSystemService(ClipboardManager::class.java)?.primaryClip
@@ -145,9 +125,9 @@ internal fun NativeAddProfileSheet(
                         AddSourceTile(R.string.native_add_clipboard, R.drawable.native_clipboard, tileSize,
                             Modifier.weight(1f), ::paste)
                         AddSourceTile(R.string.native_add_file, R.drawable.native_file, tileSize,
-                            Modifier.weight(1f), { filePicker.launch(arrayOf("text/*", "application/json", "application/octet-stream")) })
+                            Modifier.weight(1f), { filePicker.launch(arrayOf("text/*", "application/json", "application/octet-stream", "image/*")) })
                         AddSourceTile(R.string.native_add_scan, R.drawable.native_qr, tileSize,
-                            Modifier.weight(1f), { qrOptions = true })
+                            Modifier.weight(1f), { scannerOpen = true })
                         AddSourceTile(R.string.native_add_manual, R.drawable.native_add, tileSize,
                             Modifier.weight(1f), { manual = true; importError = null })
                     }
@@ -215,13 +195,10 @@ internal fun NativeAddProfileSheet(
             }
         }
     }
-    if (qrOptions) AlertDialog(onDismissRequest = { qrOptions = false },
-        title = { Text(stringResource(R.string.native_profile_scan_qr)) },
-        text = { Text(stringResource(R.string.native_profile_qr_prompt)) },
-        confirmButton = { TextButton(onClick = ::scan) { Text(stringResource(R.string.native_add_scan)) } },
-        dismissButton = { TextButton(onClick = { qrOptions = false; imagePicker.launch(arrayOf("image/*")) }) {
-            Text(stringResource(R.string.native_profile_qr_image))
-        } })
+    if (scannerOpen) NativeQrScannerDialog(
+        onDismiss = { scannerOpen = false },
+        onDetected = { value -> scannerOpen = false; importSource(value) },
+    )
     if (helpOpen) AlertDialog(onDismissRequest = { helpOpen = false },
         title = { Text(stringResource(R.string.native_profile_help_title)) },
         text = { Text(stringResource(R.string.native_profile_help_message)) },

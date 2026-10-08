@@ -716,4 +716,6 @@ Don’t have a VPN server yet? No worries—just follow the tutorial below to se
     <string name="native_privacy_proxy_services_summary">Applies the Restricted services list. Saved selections are preserved while disabled.</string>
     <string name="native_privacy_system_proxy">Disable system HTTP proxy</string>
     <string name="native_privacy_system_proxy_summary">Does not advertise an HTTP proxy on the VPN network.</string>
+    <string name="native_qr_permission_denied">Permission denied</string>
+    <string name="native_qr_close">Close scanner</string>
 </resources>
