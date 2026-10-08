@@ -834,4 +834,11 @@
     <string name="native_community_collapse">Свернуть: %1$s</string>
     <string name="native_community_groups_unavailable">Категории не удалось обновить. Где возможно, используются сохранённые категории.</string>
     <string name="native_community_category_hint">Отметьте категорию целиком или раскройте её для выбора отдельных сервисов.</string>
+    <string name="native_speed_download">Загрузка</string>
+    <string name="native_speed_upload">Отдача</string>
+    <string name="native_speed_unit">%1$s/с</string>
+    <string name="native_speed_waiting">Ожидание данных</string>
+    <string name="native_traffic_session">За сеанс: %1$s %2$s</string>
+    <string name="native_status_failed">Не удалось подключиться</string>
+    <string-array name="native_traffic_units"><item>Б</item><item>КиБ</item><item>МиБ</item><item>ГиБ</item><item>ТиБ</item><item>ПиБ</item><item>ЭиБ</item></string-array>
 </resources>

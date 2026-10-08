@@ -162,6 +162,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val outboundOperationRevision = mutableStateOf(0)
     private val outboundBusyTag = mutableStateOf<String?>(null)
     private val systemStats = mutableStateOf(NativeSystemStats())
+    private val trafficRateMeter = com.hiddify.hiddify.nativecore.NativeTrafficRateMeter()
+    private var statsGeneration = 0L
     private val wifiSharingDetails = mutableStateOf(NativeWifiSharingDetails())
     private val wifiSharingBusy = mutableStateOf(false)
     private var hotspotPermission: CompletableDeferred<Boolean>? = null
@@ -666,6 +668,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         profileUpdateJob = null
         logRefreshJob?.cancel()
         logRefreshJob = null
+        resetTrafficStats()
         statsRefreshJob?.cancel()
         statsRefreshJob = null
         activeOutboundRefreshJob?.cancel()
@@ -948,26 +951,37 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    private fun resetTrafficStats() {
+        statsGeneration++
+        trafficRateMeter.reset()
+        systemStats.value = NativeSystemStats()
+    }
+
     private fun startStatsRefreshLoop() {
         if (statsRefreshJob?.isActive == true) return
-        statsRefreshJob =
-            lifecycleScope.launch {
-                while (isActive) {
-                    if (serviceStatus.value == Status.Started) {
-                        try {
-                            systemStats.value =
-                                withContext(Dispatchers.IO) {
-                                    statsRepository.load()
-                                }
-                        } catch (error: Exception) {
-                            Log.w(TAG, "failed to refresh native core statistics", error)
+        resetTrafficStats()
+        statsRefreshJob = lifecycleScope.launch {
+            while (isActive && nativeForeground) {
+                if (serviceStatus.value == Status.Started) {
+                    val generation = statsGeneration
+                    try {
+                        val snapshot = withContext(Dispatchers.IO) { statsRepository.load() }
+                        if (nativeForeground && serviceStatus.value == Status.Started && generation == statsGeneration) {
+                            systemStats.value = trafficRateMeter.sample(snapshot, android.os.SystemClock.elapsedRealtime())
                         }
-                    } else if (systemStats.value != NativeSystemStats()) {
-                        systemStats.value = NativeSystemStats()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (error: Exception) {
+                        if (generation == statsGeneration) {
+                            trafficRateMeter.reset()
+                            systemStats.value = systemStats.value.copy(trafficAvailable = false, speedAvailable = false, uplink = 0, downlink = 0)
+                        }
+                        Log.w(TAG, "failed to refresh native core statistics", error)
                     }
-                    delay(1_000L)
-                }
+                } else trafficRateMeter.reset()
+                delay(1_000L)
             }
+        }
     }
 
     private fun appendServiceLog(message: String) {
@@ -2848,6 +2862,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             // A queued Starting/Started callback must never undo a user's stop intent.
             if (!Settings.connectionDesired && serviceStatus.value == Status.Stopping &&
                 (status == Status.Starting || status == Status.Started)) return@runOnUiThread
+            if (serviceStatus.value != status) resetTrafficStats()
             serviceStatus.value = status
             if (status == Status.Starting || status == Status.Started) homeConnectionFailed.value = false
             requiresReconnect.value = Settings.nativeReconnectRequired

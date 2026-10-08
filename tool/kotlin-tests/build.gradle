@@ -40,6 +40,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativecore/NativeConfigChoices.kt'
             include 'com/hiddify/hiddify/nativecore/NativeServiceModeOptions.kt'
             include 'com/hiddify/hiddify/nativecore/NativeCoreOptionsProjection.kt'
+            include 'com/hiddify/hiddify/nativecore/NativeTrafficStats.kt'
             include 'com/hiddify/hiddify/nativecore/NativeOutboundPresentation.kt'
             include 'com/hiddify/hiddify/nativepreferences/NativeOutboundSort.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeFreeProfiles.kt'

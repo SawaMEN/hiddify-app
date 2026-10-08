@@ -20,7 +20,7 @@ internal fun NativeGlassDialog(
     title: (@Composable () -> Unit)? = null,
     text: (@Composable () -> Unit)? = null,
     shape: Shape = MaterialTheme.shapes.extraLarge,
-    containerColor: Color = Color.Transparent,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLow,
     iconContentColor: Color = MaterialTheme.colorScheme.primary,
     titleContentColor: Color = MaterialTheme.colorScheme.onSurface,
     textContentColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -1,11 +1,7 @@
 package com.hiddify.hiddify.nativeui
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
@@ -18,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 
-/** Glass inputs keep text opaque and the focus/error outline clearly visible. */
+/** Opaque inputs with distinct focus/error outlines. */
 @Composable
 internal fun NativeTextField(
     value: String,
@@ -41,11 +37,8 @@ internal fun NativeTextField(
 ) {
     val scheme = MaterialTheme.colorScheme
     val interaction = remember { MutableInteractionSource() }
-    val focused by interaction.collectIsFocusedAsState()
-    val accent by animateColorAsState(if (isError) scheme.error else if (focused) scheme.primary else scheme.outlineVariant,
-        tween(if (LocalNativeMotionEnabled.current) 150 else 0), label = "Input focus")
     androidx.compose.material3.OutlinedTextField(
-        value = value, onValueChange = onValueChange, modifier = modifier.nativeGlassDecoration(RoundedCornerShape(16.dp), accent), enabled = enabled, interactionSource = interaction,
+        value = value, onValueChange = onValueChange, modifier = modifier, enabled = enabled, interactionSource = interaction,
         label = label, placeholder = placeholder, leadingIcon = leadingIcon, trailingIcon = trailingIcon,
         supportingText = supportingText, isError = isError, visualTransformation = visualTransformation,
         keyboardOptions = keyboardOptions, keyboardActions = keyboardActions, textStyle = textStyle, singleLine = singleLine, maxLines = maxLines, minLines = minLines,
