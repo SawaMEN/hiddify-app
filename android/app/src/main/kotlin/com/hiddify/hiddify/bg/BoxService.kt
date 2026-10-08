@@ -50,12 +50,13 @@ class BoxService(
         private fun initialize() {
             if (initializeOnce) return
 
+            com.hiddify.hiddify.nativecore.NativeCoreLibrary.ensureLoaded()
+
             val baseDir = Application.application.filesDir.apply { mkdirs() }
             workingDir = (Application.application.getExternalFilesDir(null) ?: File(baseDir, "working")).apply { mkdirs() }
             val tempDir = Application.application.cacheDir.apply { mkdirs() }
 
-            // Tile/boot startup can happen before Flutter writes these paths. Never pass "./"
-            // into gomobile in that case.
+            // Tile/boot startup can precede the activity. Never pass "./" to gomobile.
             if (Settings.baseDir.isBlank() || Settings.baseDir == "./") Settings.baseDir = baseDir.path
             if (Settings.workingDir.isBlank() || Settings.workingDir == "./") Settings.workingDir = workingDir.path
             if (Settings.tempDir.isBlank() || Settings.tempDir == "./") Settings.tempDir = tempDir.path

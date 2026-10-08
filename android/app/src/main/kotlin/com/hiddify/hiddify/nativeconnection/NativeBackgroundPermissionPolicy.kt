@@ -1,6 +1,6 @@
 package com.hiddify.hiddify.nativeconnection
 
-/** One automatic reminder per app version; manual entry in Settings always remains available. */
+/** One automatic system request; manual entry in Settings always remains available. */
 internal object NativeBackgroundPermissionPolicy {
     fun shouldPrompt(
         vpnStarted: Boolean,

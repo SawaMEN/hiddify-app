@@ -23,10 +23,6 @@
     <string name="native_no_active_profile">Перед подключением выберите или импортируйте профиль.</string>
     <string name="native_vpn_permission_denied">Разрешение Android на создание VPN не предоставлено.</string>
     <string name="native_service_error">Ошибка VPN-сервиса: %1$s</string>
-    <string name="native_background_title">Разрешить работу VPN в фоне</string>
-    <string name="native_background_message">Android может останавливать VPN после сворачивания приложения. Разрешите VetrOFF Client работать без ограничений батареи, чтобы соединение оставалось активным в фоне. Подтвердите разрешение в системном окне Android.</string>
-    <string name="native_background_allow">Разрешить</string>
-    <string name="native_background_later">Не сейчас</string>
 
     <string name="native_back">Назад</string>
     <string name="native_settings_vpn">VPN и маршрутизация</string>

@@ -27,7 +27,7 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
             stopSelf()
             return START_NOT_STICKY
         }
-        // A system Always-on start can happen before the Flutter engine exists.
+        // A system Always-on start can happen before the activity exists.
         if (intent?.getBooleanExtra("started_by_app", false) != true) {
             Settings.connectionDesired = true
             Settings.startCoreAfterStartingService = true

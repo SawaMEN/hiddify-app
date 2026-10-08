@@ -3,7 +3,7 @@ package com.hiddify.hiddify.privacy
 import android.content.Context
 import com.hiddify.hiddify.nativeconnection.NativeConnectionOptions
 
-/** Shared traffic policy for both Kotlin and the compatibility UI. */
+/** Shared traffic policy for native UI and core configuration. */
 object NetworkPrivacySettings {
     fun loadProxyPrivacy(context: Context): NativeProxyPrivacy = NativeProxyPrivacy.fromPreferences(
         context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE).all,

@@ -251,9 +251,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private var activeOutboundRefreshJob: Job? = null
     private var pendingStartAfterVpnPermission = false
     private var notificationRequestInFlight = false
-    private val batteryPromptVisible = mutableStateOf(false)
-    // New key intentionally supersedes the old one-shot flag which hid the prompt
-    // forever, including after the user had only pressed Cancel.
+    private var backgroundPermissionRequestInFlight = false
+    // Preserve the reminder history from existing installations.
     private val backgroundPromptPreferenceKey = "battery_prompt_material_v2_shown"
     private var pendingSettingsExport: String? = null
     private var pendingProfileExportId: String? = null
@@ -362,6 +361,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
 
     override fun onSaveInstanceState(outState: android.os.Bundle) {
+        outState.putBoolean("background_permission_in_flight", backgroundPermissionRequestInFlight)
         outState.putInt("native_recovery_attempts", recoveryPolicy.attempts)
         outState.putString("native_profile_export_id", pendingProfileExportId)
         outState.putString("native_profile_editor_id", profileEditorId)
@@ -379,6 +379,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 .exceptionOrNull()
 
         super.onCreate(savedInstanceState)
+        backgroundPermissionRequestInFlight = savedInstanceState?.getBoolean("background_permission_in_flight") == true
         AutomaticHotspot.addObserver(hotspotObserver)
         pendingProfileExportId = savedInstanceState?.getString("native_profile_export_id")
         savedInstanceState?.getString("native_profile_editor_id")?.let(::loadProfileEditor)
@@ -443,9 +444,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onChangeTheme = ::saveTheme,
                 onOpenNotificationSettings = { openSystemSettings(com.hiddify.hiddify.bg.ServiceNotification.settingsIntent()) },
                 onOpenBatterySettings = ::openBackgroundPermissionSettings,
-                showBackgroundPermissionDialog = batteryPromptVisible.value,
-                onAllowBackgroundPermission = ::requestBackgroundPermission,
-                onDismissBackgroundPermission = ::dismissBackgroundPermissionPrompt,
                 status = serviceStatus.value,
                 connectionFailed = homeConnectionFailed.value,
                 smartSelected = homeSmartSelected.value,
@@ -2800,40 +2798,34 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun backgroundPromptPreferences() =
         getSharedPreferences("background_permissions", MODE_PRIVATE)
 
-    private fun dismissBackgroundPermissionPrompt() {
-        batteryPromptVisible.value = false
-        backgroundPromptPreferences().edit()
-            .putBoolean(backgroundPromptPreferenceKey, true)
-            .apply()
-    }
+    private val backgroundPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            backgroundPermissionRequestInFlight = false
+        }
 
     private fun openBackgroundPermissionSettings() {
         if (Application.powerManager.isIgnoringBatteryOptimizations(packageName)) {
             openSystemSettings(Intent(AndroidSettings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
         } else {
-            // Settings is an explicit user action: allow reopening even after a decline.
-            batteryPromptVisible.value = true
+            requestBackgroundPermission()
         }
     }
 
     private fun requestBackgroundPermission() {
-        dismissBackgroundPermissionPrompt()
-        if (Application.powerManager.isIgnoringBatteryOptimizations(packageName)) return
-        // Android presents its normal system permission sheet for the current app.
-        // If an OEM blocks that intent, fall back to the optimization settings list.
-        val request = Intent(
-            AndroidSettings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-            Uri.parse("package:$packageName"),
-        )
-        if (request.resolveActivity(packageManager) != null) {
-            try {
-                startActivity(request)
-                return
-            } catch (error: Exception) {
-                Log.w(TAG, "Could not open Android background execution permission", error)
-            }
+        if (backgroundPermissionRequestInFlight || Application.powerManager.isIgnoringBatteryOptimizations(packageName)) return
+        val request = Intent(AndroidSettings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+            Uri.parse("package:$packageName"))
+        backgroundPermissionRequestInFlight = true
+        // Set the persisted gate before opening Android, so onResume and service callbacks
+        // cannot launch a second request, including after activity recreation.
+        backgroundPromptPreferences().edit().putBoolean(backgroundPromptPreferenceKey, true).apply()
+        try {
+            backgroundPermissionLauncher.launch(request)
+        } catch (error: Exception) {
+            backgroundPermissionRequestInFlight = false
+            Log.w(TAG, "Could not open Android background execution permission", error)
+            openSystemSettings(Intent(AndroidSettings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
         }
-        openSystemSettings(Intent(AndroidSettings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
     }
 
     private fun maybePromptBatteryOptimization() {
@@ -2846,10 +2838,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 notificationPermissionPending = notificationRequestInFlight,
                 batteryExempt = exempt,
                 alreadyShown = alreadyShown,
-                dialogVisible = batteryPromptVisible.value,
+                dialogVisible = backgroundPermissionRequestInFlight,
             )
         ) return
-        batteryPromptVisible.value = true
+        requestBackgroundPermission()
     }
 
     override fun onServiceStatusChanged(status: Status) {
