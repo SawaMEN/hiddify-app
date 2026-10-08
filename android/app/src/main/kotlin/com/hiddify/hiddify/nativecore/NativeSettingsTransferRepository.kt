@@ -18,6 +18,9 @@ class NativeSettingsTransferRepository(context: Context) {
             root.optJSONObject("unblocker")
                 ?.optJSONObject("warp")
                 ?.remove("license-key")
+            for (stage in listOf("extra-security", "unblocker")) {
+                root.optJSONObject(stage)?.optJSONObject("psiphon")?.remove("conduit-pairing-id")
+            }
         }
         return root.toString(2)
     }

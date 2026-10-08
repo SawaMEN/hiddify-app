@@ -1,23 +1,30 @@
 # Аудит Android/VPN — 2026-10-08
 
-База: `d872e03b` (`main`). Закреплённое ядро: `ea0838f1`.
+База: `d872e03b` (`main`). Исходное закреплённое ядро: `ea0838f1`. Новое ядро: `96e19a9c`; sing-box: `60e1fd48`.
 
-В этом проходе исправлено **60 групп подтверждённых дефектов**. Это не 200 ошибок: отличия Dart/Kotlin, число тестовых случаев и ранее исправленные ошибки не прибавлялись. Подтверждение здесь означает воспроизводимую ветвь исходного кода или JVM regression test; испытание VPN на физическом Android не выполнялось.
+Изменения: [app PR #55](https://github.com/SawaMEN/hiddify-app/pull/55), [core PR #6](https://github.com/SawaMEN/hiddify-core/pull/6), [sing-box PR #3](https://github.com/SawaMEN/hiddify-sing-box/pull/3).
+
+В этом проходе исправлено **70 групп подтверждённых дефектов**. Это не 200 ошибок: отличия Dart/Kotlin, число тестовых случаев и ранее исправленные ошибки не прибавлялись. Подтверждение здесь означает воспроизводимую ветвь исходного кода или JVM regression test; испытание VPN на физическом Android не выполнялось.
 
 ## Проверки
 
-- 235 JVM-тестов production Kotlin: PASS. Компиляция K2 JVM 2.4.10/JDK17 и JUnitCore; исходники перечислены в tool/kotlin-tests/build.gradle. Это проверка чистой Kotlin-логики, а не всего Android приложения.
+- 240 JVM-тестов production Kotlin: PASS. Компиляция K2 JVM 2.4.10/JDK17 и JUnitCore; исходники перечислены в tool/kotlin-tests/build.gradle. Это проверка чистой Kotlin-логики, а не всего Android приложения.
 - 6 Python tests утилит: PASS.
 - tool/check_native_project.py: PASS; XML resources, standalone project, version 1.0.1+40201.
 - tool/check_dart_parity_audit.py: PASS. Его 200 отличий не являются 200 ошибками.
 - git diff --check: PASS.
 - Gradle wrapper не смог загрузиться из Java (Network is unreachable); для локальных JVM-тестов compiler и зависимости загружены отдельно через доступный transport.
-- Добавлена отдельная CI native-kotlin-tests.yml: тесты без Android SDK, JNI и APK.
+- Добавлена отдельная CI native-kotlin-tests.yml: JVM и Go-тесты без Android SDK, JNI и APK.
+- Go suites v2/config, v2/hcore, platform/mobile и protocol/psiphon, protocol/hiddify/dnstt: PASS (в том числе -race).
 - APK не собирался и не ожидался. compileReleaseKotlin/Android runtime не проверены локально.
 
 ## Ограничения цепочек
 
-Закреплённый HiddifyOptions принимает `warp/warp2`, но не новую схему `chain-status/extra-security/unblocker`. WARP stage преобразуется в известную ядру схему. Отдельные стадии Psiphon/Profile теперь выдают понятную ошибку; их полная реализация в ядре остаётся незавершённой. Профили, содержащие поддерживаемый ядром outbound непосредственно, продолжают использовать обычный parser. Проекция WARP подтверждена на уровне конфигурации, без проверки handshake, лицензии или noise на устройстве.
+Новая реализация добавляет `chain-stage` в ядро. Kotlin перед запуском разрешает ID второго профиля в актуальное содержимое локального файла под блокировкой обновления/удаления. Ядро использует общий parser и создаёт отдельную группу с пространством имён для тегов. `extra_security`: трафик → второе звено → основной профиль. `unblocker`: трафик → основной профиль → второе звено. Во втором профиле используются outbound/endpoints; отдельные inbounds, DNS, rules и settings overrides второго профиля не объединяются с основным. Это изменение конфигурации и транспорта; реальный handshake на Android ещё не проверен.
+
+Psiphon поддерживает TCP, не UDP. Psiphon bootstrap TCP проходит через частный аутентифицированный CONNECT bridge и sing-box dialer; локальный слушатель и существующие соединения закрываются вместе с outbound. Conduit pairing передаётся в `InproxyClientPersonalCompartmentID`, требует прямого транспорта; сочетание с detour и root routing marks отклоняется. Два экземпляра Psiphon в одной цепочке не допускаются из-за глобального хранилища библиотеки. Отдельная стадия несовместима с execute-config-as-is. Runtime JSON ограничен 3 MiB до RPC (его стандартный предел 4 MiB); обычные профили сохраняют предел 8 MiB. Самоссылки, удалённые профили и selectable direct в дополнительном профиле отклоняются без fallback.
+
+WARP остаётся на старой проекции; handshake, лицензия, clean-IP и noise не проверены и не исправлялись в этом проходе. Импорт проверяет сам источник без подключения текущей цепочки; составленная цепочка проверяется при запуске ядра.
 
 ## Реестр
 
@@ -55,7 +62,7 @@
 | A030 | Выключенные слушатели остаются включёнными в ядре | enable-mixed/direct-port=false при ненулевом port | Для ядра disabled switch преобразуется в port=0 | `nativecore/NativeCoreOptionsProjection.kt` |
 | A031 | Режим исполнения исходного конфига игнорируется | execute-config-as-is=true | Преобразуется в enable-full-config, известный закреплённому ядру | `nativecore/NativeCoreOptionsProjection.kt` |
 | A032 | WARP stage из нового формата chain settings игнорируется | chain-status extra_security/unblocker с mode=warp | Проекция в warp.enable/mode с направлением цепочки | `nativecore/NativeCoreOptionsProjection.kt` |
-| A033 | Неподдерживаемая стадия цепочки сообщает обычное успешное подключение | Отдельная Psiphon/Profile stage в новом формате | Явная ошибка вместо молчаливого игнорирования; полная поддержка остаётся ограничением | `nativecore/NativeCoreOptionsProjection.kt` |
+| A033 | Неподдерживаемая стадия цепочки сообщает обычное успешное подключение | Отдельная Psiphon/Profile stage в новом формате | Реализованы обе стадии в ядре и разрешение профиля перед запуском; несовместимые сочетания отклоняются | `nativecore/NativeCoreOptionsProjection.kt` |
 | A034 | Отключение новой цепочки оставляет legacy WARP включённым | chain-status=off и warp.enable=true | Явный off выключает legacy warp/warp2 | `nativecore/NativeCoreOptionsProjection.kt` |
 | A035 | Ранее сохранённый IPv6 auto не распознаётся ядром | ipv6-mode=auto | Перед запуском преобразуется в prefer_ipv4 | `nativecore/NativeServiceModeOptions.kt` |
 | A036 | Проверка импорта использует другие настройки, чем запуск | Legacy/default/mode options отличаются от runtime | Одинаковая проекция и service-mode policy при validation и startup | `nativeprofile/NativeProfileRepository.kt` |
@@ -83,6 +90,16 @@
 | A058 | Диагностика накапливает задания и может оставить открытый Socket | Зависшие DNS workers, повторные запуски, отказ executor.submit | Очередь ограничена, cancelled tasks удаляются, socket закрывается в outer finally | `nativediagnostics/NativeDiagnosticsRepository.kt` |
 | A059 | Server ranker теряет свежие valid history и растит live cache без лимита | History >128, ранние invalid samples либо множество новых тегов | Сортировка, лимит после проверки и bounded live eviction | `nativeconnection/NativeServerRanker.kt` |
 | A060 | Отключение memory limit сбрасывается при Mobile.start | disableMemoryLimit=true; wrapper создаёт StartRequest с false | После запуска восстанавливается выбранный флаг | `bg/BoxService.kt` |
+| A061 | Psiphon создаёт dialer, но bootstrap контроллера обходит его | Psiphon outbound с detour либо root routing mark | Частный CONNECT bridge направляет bootstrap TCP через заданный dialer | `hiddify-core/hiddify-sing-box/protocol/psiphon/upstream_bridge.go` |
+| A062 | Закрытие незапущенного Psiphon вызывает nil panic | Проверка конфига/ошибка запуска до Start | Cancel создаётся в конструкторе; Close идемпотентен | `hiddify-core/hiddify-sing-box/protocol/psiphon/psiphon.go` |
+| A063 | Смена интерфейса до готовности Psiphon вызывает nil panic | Network callback приходит до создания controller | Синхронизированный guard в NetworkChanged | `hiddify-core/hiddify-sing-box/protocol/psiphon/psiphon.go` |
+| A064 | Psiphon может публиковать controller после закрытия и читать connected с гонкой | Остановка во время Start/notice/Dial | Cancel, mutex, ожидание завершения Start и controller.Run | `hiddify-core/hiddify-sing-box/protocol/psiphon/psiphon.go` |
+| A065 | Утрата туннеля сохраняет connected=true | Notice Tunnels count=0 после подключения | Состояние обновляется и при нулевом числе туннелей | `hiddify-core/hiddify-sing-box/protocol/psiphon/psiphon.go` |
+| A066 | Start повторно открывает datastore, не отслеживая ownership | PreStart успешно открыл store, затем Start/ошибка/Close | Одно открытие в PreStart; закрытие после остановки контроллера | `hiddify-core/hiddify-sing-box/protocol/psiphon/psiphon.go` |
+| A067 | Удаление chained profile подменяет его основным | Удалён профиль, nextActive выбран вместо него | Ссылка очищается; main и stage должны различаться | `nativecore/NativeChainRepository.kt; NativeCoreOptionsProjection.kt` |
+| A068 | Параллельные BuildConfig смешивают глобальные цели DNS/route | RPC generate одновременно со стартом либо вторым build | Полные снимки сериализованы; parser WARP читает постоянный bootstrap target | `hiddify-core/v2/config/builder.go; warp.go; chain_test.go` |
+| A069 | Создание нескольких libbox contexts одновременно вызывает fatal concurrent map writes | Параллельная проверка импортов/запуск создают OutboundRegistry | DNSTT resolver tables загружаются один раз через sync.Once | `hiddify-core/hiddify-sing-box/protocol/hiddify/dnstt/tools.go` |
+| A070 | Экспорт без приватных настроек раскрывает Conduit pairing ID | exportJson(includePrivate=false) при заполненном Psiphon pairing | Pairing ID удаляется из обеих стадий при публичном экспорте | `nativecore/NativeSettingsTransferRepository.kt` |
 
 ## Дополнительная проверка RPC
 
@@ -92,4 +109,4 @@
 
 - [Android VpnService.Builder](https://developer.android.com/reference/android/net/VpnService.Builder): требования к Builder и setMetered (false наследует meteredness underlying network; прежнее поведение сохранено).
 - [Android direct boot](https://developer.android.com/privacy-and-security/direct-boot): credential-protected storage недоступен до unlock.
-- Закреплённые исходники: hiddify-core/platform/mobile/mobile.go, hiddify-core/v2/hcore/start.go, hiddify-core/v2/config/hiddify_option.go и builder.go. Gitlink не менялся.
+- Закреплённые исходники: hiddify-core/platform/mobile/mobile.go, hiddify-core/v2/hcore/start.go, hiddify-core/v2/config/hiddify_option.go и builder.go. Gitlink обновлён; изменения Psiphon также закреплены в зависимом hiddify-sing-box.

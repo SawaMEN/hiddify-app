@@ -47,12 +47,64 @@ class NativeCoreOptionsProjectionTest {
         assertEquals("proxy_over_warp", unblocker.getAsJsonObject("warp").get("mode").asString)
     }
 
-    @Test fun unavailableChainStagesCannotSilentlyConnectWithoutTheRequestedStage() {
-        for (mode in listOf("psiphon", "profile")) {
-            val error = runCatching { project("""{"chain-status":"extra_security","extra-security":{"mode":"$mode"}}""") }.exceptionOrNull()
-            assertTrue(error is IllegalArgumentException)
-            assertTrue(error!!.message!!.contains(mode))
+    @Test fun psiphonStageProjectsRegionAndDirectionWithoutEnablingLegacyWarp() {
+        for (direction in listOf("extra_security", "unblocker")) {
+            val key = if (direction == "extra_security") "extra-security" else "unblocker"
+            val root = project("""{"chain-status":"$direction","warp":{"enable":true},"$key":{"mode":"psiphon","psiphon":{"region":"de","conduit-pairing-id":"pair"}}}""")
+            val stage = root.getAsJsonObject("chain-stage")
+            assertEquals(direction, stage.get("direction").asString)
+            assertEquals("psiphon", stage.get("mode").asString)
+            assertEquals("DE", stage.get("region").asString)
+            assertEquals("pair", stage.get("conduit-pairing-id").asString)
+            assertFalse(root.getAsJsonObject("warp").get("enable").asBoolean)
         }
+        assertEquals("", project("""{"chain-status":"unblocker","unblocker":{"mode":"psiphon"}}""").getAsJsonObject("chain-stage").get("region").asString)
+    }
+
+    @Test fun chainProfileUsesCurrentLocalContentAndCannotTrustBackupRuntimePayload() {
+        var loaded: String? = null
+        val root = NativeJsonDocument.parse(NativeCoreOptionsProjection.apply(
+            """{"chain-status":"unblocker","unblocker":{"mode":"profile","profile":{"id":"stage-id"}},"chain-stage":{"profile-content":"injected"}}""",
+            currentProfileId = "main-id",
+            profileContent = { loaded = it; "current file" },
+        )).asJsonObject
+        assertEquals("stage-id", loaded)
+        assertEquals("current file", root.getAsJsonObject("chain-stage").get("profile-content").asString)
+        assertFalse(project("""{"chain-status":"off","chain-stage":{"mode":"psiphon"}}""").has("chain-stage"))
+    }
+
+    @Test fun chainProfileRejectsMissingSelfAndUnsafeIdsBeforeFileAccess() {
+        for (id in listOf("", "main-id", "../escape")) {
+            var loaded = false
+            val error = runCatching {
+                NativeCoreOptionsProjection.apply("""{"chain-status":"unblocker","unblocker":{"mode":"profile","profile":{"id":"$id"}}}""", "main-id") { loaded = true; "file" }
+            }.exceptionOrNull()
+            assertTrue(error is IllegalArgumentException)
+            assertFalse(loaded)
+        }
+    }
+
+    @Test fun deletedOrUnreadableChainProfileDoesNotFallBackToPlainConnection() {
+        val error = runCatching {
+            NativeCoreOptionsProjection.apply("""{"chain-status":"unblocker","unblocker":{"mode":"profile","profile":{"id":"deleted"}}}""", "main-id") { error("Chain profile was deleted") }
+        }.exceptionOrNull()
+        assertTrue(error!!.message!!.contains("deleted"))
+    }
+
+    @Test fun largeEscapedChainPayloadIsRejectedBeforeRpc() {
+        val error = runCatching {
+            NativeCoreOptionsProjection.apply("""{"chain-status":"unblocker","unblocker":{"mode":"profile","profile":{"id":"stage"}}}""", "main-id") { "\"".repeat(2 * 1024 * 1024) }
+        }.exceptionOrNull()
+        assertTrue(error is IllegalArgumentException)
+        assertTrue(error!!.message!!.contains("message limit"))
+    }
+
+    @Test fun importingSourceDoesNotRequireOrResolveTheCurrentlySelectedChain() {
+        val root = NativeJsonDocument.parse(NativeCoreOptionsProjection.forProfileValidation(
+            """{"chain-status":"unblocker","unblocker":{"mode":"profile","profile":{"id":"main-id"}}}""",
+        )).asJsonObject
+        assertEquals("off", root.get("chain-status").asString)
+        assertFalse(root.has("chain-stage"))
     }
 
     @Test fun explicitOffDisablesLegacyWarpButAbsentChainSettingPreservesIt() {

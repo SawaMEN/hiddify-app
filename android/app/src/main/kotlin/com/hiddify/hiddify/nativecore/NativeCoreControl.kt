@@ -19,7 +19,8 @@ object NativeCoreControl {
         GrpcClientProvider.grpcClient.create(CoreClient::class)
 
     fun effectiveOptions(context: android.content.Context): String {
-        val profile = com.hiddify.hiddify.nativeprofile.NativeProfileRepository(context).activeProfile()
+        val repository = com.hiddify.hiddify.nativeprofile.NativeProfileRepository(context)
+        val profile = repository.activeProfile()
         // A VPN service must always ask sing-box to create its Android TUN inbound.
         // The core's default enable-tun=false otherwise lets startup report Started
         // while there is no Android VPN interface and no traffic can pass through it.
@@ -27,7 +28,7 @@ object NativeCoreControl {
             NativeSettingsTransferRepository(context).exportJson(includePrivate = true), profile?.populatedHeaders, profile?.userOverride,
         )
         return NativeServiceModeOptions.apply(
-            NativeCoreOptionsProjection.apply(overrides),
+            NativeCoreOptionsProjection.apply(overrides, profile?.id, repository::chainProfileContent),
             vpnMode = Settings.serviceMode == ServiceMode.VPN,
             ipv4Only = Settings.privacyDisableIpv6,
         )

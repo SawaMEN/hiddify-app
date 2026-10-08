@@ -311,7 +311,7 @@ class NativeProfileRepository(private val context: Context) {
             }
         }
         syncSettings(nextActive)
-        com.hiddify.hiddify.nativecore.NativeChainRepository().replaceDeletedProfile(id, nextActive?.id)
+        com.hiddify.hiddify.nativecore.NativeChainRepository().replaceDeletedProfile(id)
     }
 
     fun refreshRemote(id: String): NativeProfile {
@@ -573,7 +573,7 @@ class NativeProfileRepository(private val context: Context) {
         val options = NativeProfileOverrides.apply(com.hiddify.hiddify.nativecore.NativeSettingsTransferRepository(context).exportJson(includePrivate = true),
             profile.populatedHeaders, profile.userOverride)
         val effective = com.hiddify.hiddify.nativecore.NativeServiceModeOptions.apply(
-            com.hiddify.hiddify.nativecore.NativeCoreOptionsProjection.apply(options),
+            com.hiddify.hiddify.nativecore.NativeCoreOptionsProjection.forProfileValidation(options),
             vpnMode = Settings.serviceMode == com.hiddify.hiddify.constant.ServiceMode.VPN,
             ipv4Only = Settings.privacyDisableIpv6,
         )
@@ -965,6 +965,26 @@ class NativeProfileRepository(private val context: Context) {
             """.trimIndent(),
             null,
         ).use { cursor -> if (cursor.moveToFirst()) cursor.toProfile() else null }
+
+    /** Snapshot under the same lock as refresh/delete so a chain cannot read a partial replacement. */
+    fun chainProfileContent(id: String): String = synchronized(mutationLock) {
+        openDatabase().use { db -> requireNotNull(getById(db, id)) { "Chain profile was deleted" } }
+        val file = profileFile(id)
+        require(file.isFile && file.length() in 1..(8L * 1024 * 1024)) { "Chain profile file is missing or too large" }
+        file.inputStream().use { input ->
+            val output = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                require(output.size() + count <= 8 * 1024 * 1024) { "Chain profile exceeds 8 MiB" }
+                output.write(buffer, 0, count)
+            }
+            val bytes = output.toByteArray()
+            require(bytes.size <= 8 * 1024 * 1024) { "Chain profile exceeds 8 MiB" }
+            bytes.toString(Charsets.UTF_8)
+        }
+    }
 
     private fun profileFile(id: String): File {
         require(id.matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "Invalid profile ID" }
