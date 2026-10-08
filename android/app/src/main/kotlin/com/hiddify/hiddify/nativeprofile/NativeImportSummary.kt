@@ -10,6 +10,7 @@ data class NativeImportSummary(
     val unknownTypes: Int,
     val overrides: List<String>,
     val insecureHttp: Boolean = false,
+    val unsupportedProtocols: List<String> = emptyList(),
 ) {
     companion object {
         private val known = setOf(
@@ -18,7 +19,11 @@ data class NativeImportSummary(
             "http", "shadowtls", "anytls", "snell", "mieru", "warp", "psiphon", "openvpn",
             "openvpn-client", "openvpn-server", "openconnect", "tailscale", "tailcat", "cloudflared",
             "masque", "masque-client", "masque-server", "trusttunnel", "hiddify", "tunnel_client",
-            "tunnel_server", "hysteria2_legacy",
+            "tunnel_server", "hysteria2_legacy", "vpn", "tt", "mierus", "naive", "naive+https", "naive+quic", "socks5", "sudoku", "fptn", "openflux", "pingtunnel",
+        )
+        private val unavailable = mapOf(
+            "vk-turn-proxy" to "VK TURN Proxy", "wingsv" to "VK TURN Proxy",
+            "tg" to "MTProto (Telegram)", "mtproto" to "MTProto (Telegram)",
         )
         private val utility = setOf("direct", "block", "dns", "selector", "urltest", "url-test", "reject")
 
@@ -39,36 +44,42 @@ data class NativeImportSummary(
             var servers = 0
             var duplicates = 0
             var unknown = 0
+            val unsupported = linkedSetOf<String>()
             fun add(type: String, fingerprint: String) {
                 if (type in utility) return
                 servers++
                 if (!seen.add(fingerprint)) duplicates++
                 if (type !in known) unknown++
+                unavailable[type]?.let(unsupported::add)
             }
-            fun summary() = NativeImportSummary(servers, duplicates, unknown, overrides.toList(), insecureHttp)
+            fun summary() = NativeImportSummary(servers, duplicates, unknown, overrides.toList(), insecureHttp, unsupported.toList())
 
             val json = runCatching { NativeJsonDocument.parse(content) }.getOrNull()
-            if (json?.isJsonObject == true) {
-                val root = json.asJsonObject
-                listOf("dns", "route", "routing").filterTo(overrides, root::has)
-                for (key in listOf("outbounds", "endpoints")) {
-                    val entries = root.get(key)?.takeIf { it.isJsonArray }?.asJsonArray ?: continue
-                    for (item in entries) {
-                        if (!item.isJsonObject) continue
-                        val entry = item.asJsonObject
-                        val type = entry.get("type") ?: entry.get("protocol")
-                        val name = type?.takeIf { it.isJsonPrimitive }?.asString ?: "unknown"
-                        val fingerprint = entry.deepCopy().apply { remove("tag"); remove("name") }
+            if (json != null) {
+                fun visit(value: com.google.gson.JsonElement) {
+                    if (value.isJsonArray) { value.asJsonArray.forEach(::visit); return }
+                    if (!value.isJsonObject) return
+                    val root = value.asJsonObject
+                    listOf("dns", "route", "routing").filterTo(overrides, root::has)
+                    if (root.has("outbounds") || root.has("endpoints")) {
+                        for (key in listOf("outbounds", "endpoints")) {
+                            root.get(key)?.takeIf { it.isJsonArray }?.asJsonArray?.forEach(::visit)
+                        }
+                    } else {
+                        val type = root.get("type") ?: root.get("protocol") ?: return
+                        val name = type.takeIf { it.isJsonPrimitive }?.asString?.lowercase() ?: "unknown"
+                        val fingerprint = root.deepCopy().apply { remove("tag"); remove("name") }
                         add(name, fingerprint.toString())
                     }
                 }
+                visit(json)
                 return summary()
             }
             for (line in content.lineSequence()) {
                 val text = line.trim()
                 val uri = runCatching { URI(text) }.getOrNull() ?: continue
                 val scheme = uri.scheme?.lowercase() ?: continue
-                if (!text.contains("://") || scheme in setOf("http", "https", "hiddify")) continue
+                if ((!text.contains("://") && scheme != "fptn") || scheme in setOf("http", "https", "hiddify")) continue
                 add(scheme, text.substringBefore('#'))
             }
             if (servers == 0) {

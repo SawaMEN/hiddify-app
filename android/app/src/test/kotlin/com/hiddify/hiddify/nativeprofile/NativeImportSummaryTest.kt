@@ -5,6 +5,37 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeImportSummaryTest {
+    @Test fun panelNativeShareSchemesAreKnown() {
+        val summary = NativeImportSummary.parse("""
+            vpn://Q29uZmln
+            tt://?AQAB
+            mieru://Q29uZmln
+            mierus://user:pass@server.example?port=443&protocol=TCP
+            naive+https://user:pass@server.example:443
+            naive+quic://user:pass@server.example:443
+            snell://psk@server.example:443?userkey=user
+        """.trimIndent())
+        assertEquals(7, summary.servers)
+        assertEquals(0, summary.unknownTypes)
+        assertTrue(summary.unsupportedProtocols.isEmpty())
+    }
+
+    @Test fun panelConfigurationArraysCountProxiesAndEndpoints() {
+        val summary = NativeImportSummary.parse("""[
+          {"outbounds":[{"type":"direct"},{"type":"snell","tag":"one","server":"one.example"}],"route":{}},
+          {"outbounds":[{"type":"direct"}],"endpoints":[{"type":"masque-client","tag":"two","server":"two.example"}]}
+        ]""")
+        assertEquals(2, summary.servers)
+        assertEquals(0, summary.unknownTypes)
+        assertEquals(listOf("route"), summary.overrides)
+    }
+
+    @Test fun unavailablePanelTransportsAreReportedWithoutCredentials() {
+        val summary = NativeImportSummary.parse("fptn:secret\nsudoku://secret\nopenflux://v1/secret\ntg://proxy?server=example.org&secret=secret\nwingsv://secret")
+        assertEquals(5, summary.servers)
+        assertEquals(listOf("MTProto (Telegram)", "VK TURN Proxy"), summary.unsupportedProtocols)
+        assertFalse(summary.toString().contains("secret"))
+    }
     @Test fun jsonCountsEndpointsAndDuplicatesWithoutUtilityOutbounds() {
         val summary = NativeImportSummary.parse("""{
           "dns": {}, "route": {},

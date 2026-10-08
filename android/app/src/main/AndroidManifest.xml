@@ -76,6 +76,30 @@
                 <data android:scheme="clash" />
                 <data android:scheme="clashmeta" />
                 <data android:scheme="sing-box" />
+                <data android:scheme="vless" />
+                <data android:scheme="vmess" />
+                <data android:scheme="trojan" />
+                <data android:scheme="ss" />
+                <data android:scheme="tuic" />
+                <data android:scheme="hysteria2" />
+                <data android:scheme="hy2" />
+                <data android:scheme="wireguard" />
+                <data android:scheme="wg" />
+                <data android:scheme="awg" />
+                <data android:scheme="vpn" />
+                <data android:scheme="snell" />
+                <data android:scheme="sudoku" />
+                <data android:scheme="fptn" />
+                <data android:scheme="openflux" />
+                <data android:scheme="pingtunnel" />
+                <data android:scheme="mieru" />
+                <data android:scheme="mierus" />
+                <data android:scheme="tt" />
+                <data android:scheme="trusttunnel" />
+                <data android:scheme="anytls" />
+                <data android:scheme="naive" />
+                <data android:scheme="naive+https" />
+                <data android:scheme="naive+quic" />
             </intent-filter>
 
             <intent-filter>

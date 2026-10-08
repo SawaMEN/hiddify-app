@@ -564,6 +564,10 @@ class NativeProfileRepository(private val context: Context) {
         content: String,
         cancellation: NativeProfileImportCancellation?,
     ) {
+        val unsupported = NativeImportSummary.parse(content).unsupportedProtocols
+        require(unsupported.isEmpty()) {
+            context.getString(com.hiddify.hiddify.R.string.native_import_unsupported_protocols, unsupported.joinToString(", "))
+        }
         val options = NativeProfileOverrides.apply(com.hiddify.hiddify.nativecore.NativeSettingsTransferRepository(context).exportJson(includePrivate = true),
             profile.populatedHeaders, profile.userOverride)
         val effective = com.hiddify.hiddify.nativecore.NativeServiceModeOptions.apply(
@@ -806,10 +810,17 @@ class NativeProfileRepository(private val context: Context) {
                     "hy2", "hysteria2" -> "Hysteria 2"
                     "hy", "hysteria" -> "Hysteria"
                     "ssh" -> "SSH"
-                    "wg" -> "WireGuard"
-                    "awg" -> "AmneziaWG"
+                    "wg", "wireguard" -> "WireGuard"
+                    "awg", "vpn" -> "AmneziaWG"
+                    "tt", "trusttunnel" -> "TrustTunnel"
+                    "naive", "naive+https", "naive+quic" -> "NaïveProxy"
+                    "snell" -> "Snell"
+                    "sudoku" -> "Sudoku"
+                    "fptn" -> "FPTN"
+                    "openflux" -> "OpenFlux"
+                    "pingtunnel" -> "PingTunnel"
                     "shadowtls" -> "ShadowTLS"
-                    "mieru" -> "Mieru"
+                    "mieru", "mierus" -> "Mieru"
                     "warp" -> "WARP"
                     else -> scheme.replaceFirstChar { it.uppercase() }
                 }
