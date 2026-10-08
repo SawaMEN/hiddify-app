@@ -2296,23 +2296,22 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun saveInboundOptions(value: com.hiddify.hiddify.nativecore.NativeInboundOptions) {
-        if (inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value || chainBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || wifiSharingBusy.value) return
-        if (serviceStatus.value != Status.Stopped || pendingStartAfterVpnPermission || nativeStartPending) {
+        if (reconnectBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value || chainBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || wifiSharingBusy.value) return
+        if (serviceStatus.value == Status.Starting || serviceStatus.value == Status.Stopping || pendingStartAfterVpnPermission || nativeStartPending) {
             errorMessage.value = getString(R.string.native_inbound_disconnect)
             return
         }
         inboundBusy.value = true
         inboundSnapshotJob?.cancel()
-        cancelRecovery()
         lifecycleScope.launch {
             try {
                 inboundOptions.value = BoxService.withNativeLifecycle {
-                    check(serviceStatus.value == Status.Stopped && !BoxService.hasActiveCore() && !nativeStartPending &&
+                    check(serviceStatus.value != Status.Starting && serviceStatus.value != Status.Stopping && !nativeStartPending &&
                         !pendingStartAfterVpnPermission) { getString(R.string.native_inbound_disconnect) }
                     withContext(Dispatchers.IO) { inboundRepository.save(value) }
                 }
-                refreshImportedSettingsSnapshots()
-                Toast.makeText(this@MainActivity, R.string.native_inbound_saved, Toast.LENGTH_LONG).show()
+                coreChangesSaved()
+                refreshWifiSharingDetails()
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {

@@ -23,8 +23,9 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun NativePreferenceTile(title: Int, icon: Int, value: String?, enabled: Boolean,
-    checked: Boolean? = null, onClick: () -> Unit) {
-    val interaction = if (checked == null) Modifier.clickable(enabled = enabled, onClick = onClick)
+    checked: Boolean? = null, onToggle: ((Boolean) -> Unit)? = null,
+    switchEnabled: Boolean = enabled, onClick: () -> Unit) {
+    val interaction = if (checked == null || onToggle != null) Modifier.clickable(enabled = enabled, onClick = onClick)
         else Modifier.toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = { onClick() })
     Row(Modifier.fillMaxWidth().then(interaction).heightIn(min = if (value == null) 56.dp else 72.dp)
         .padding(horizontal = 16.dp, vertical = 4.dp),
@@ -36,6 +37,6 @@ internal fun NativePreferenceTile(title: Int, icon: Int, value: String?, enabled
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else .38f))
             if (value != null) Text(value, style = MaterialTheme.typography.bodyMedium, color = tint)
         }
-        if (checked != null) Switch(checked, onCheckedChange = null, enabled = enabled)
+        if (checked != null) Switch(checked, onCheckedChange = onToggle, enabled = switchEnabled)
     }
 }

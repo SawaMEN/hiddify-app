@@ -1,35 +1,24 @@
 package com.hiddify.hiddify.nativeui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -106,49 +95,43 @@ internal fun NativeGeneralOptionsScreen(
         }
         val input = if (field == NativeGeneralOptionField.INTERVAL) (minutes.toInt() * 60).toString() else text
         val valid = runCatching { field.applyTo(options, input) }.isSuccess
-        val focus = remember(field) { FocusRequester() }
-        LaunchedEffect(field) {
-            if (field == NativeGeneralOptionField.TEST_URL || field == NativeGeneralOptionField.CLASH_PORT) focus.requestFocus()
-        }
-        AlertDialog(onDismissRequest = { editor = null }, title = { Text(stringResource(title)) },
-            text = {
-                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (choices.isNotEmpty()) choices.forEach { choice ->
-                        val selected = field.value(options) == choice
-                        Row(Modifier.fillMaxWidth().selectable(selected, enabled, Role.RadioButton) { save(field, choice) }
-                            .heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected, onClick = null, enabled = enabled)
-                            Text(if (field == NativeGeneralOptionField.BALANCER) stringResource(BalancerLabels.first { it.first == choice }.second)
-                                else choice.uppercase(), Modifier.padding(start = 8.dp))
-                        }
-                    } else if (field == NativeGeneralOptionField.INTERVAL) {
-                        Text(stringResource(R.string.native_general_minutes, minutes.toInt()))
-                        Slider(value = minutes, onValueChange = { minutes = it }, valueRange = 1f..60f,
-                            steps = 59, enabled = enabled)
-                    } else {
-                        NativePreferenceInput(text, { value ->
-                            if (field == NativeGeneralOptionField.CLASH_PORT) {
-                                if (value.length <= 5 && value.all { it in '0'..'9' }) text = value
-                            } else if (value.length <= 2048) text = value
-                        }, possibleValues = if (field == NativeGeneralOptionField.TEST_URL) TestUrls else emptyList(),
-                            modifier = Modifier.focusRequester(focus), enabled = enabled, valid = valid,
-                            invalidMessage = stringResource(R.string.native_general_invalid),
-                            keyboardOptions = KeyboardOptions(keyboardType = if (field == NativeGeneralOptionField.CLASH_PORT)
-                                KeyboardType.Number else KeyboardType.Uri, imeAction = ImeAction.Done),
-                            onDone = { save(field, input) })
-                    }
+        if (choices.isNotEmpty()) {
+            val labels = choices.map { choice -> choice to
+                if (field == NativeGeneralOptionField.BALANCER)
+                    stringResource(BalancerLabels.first { it.first == choice }.second) else choice.uppercase() }
+            NativeSettingPickerDialog(stringResource(title), field.value(options).toString(), labels, enabled,
+                onSelect = { save(field, it) },
+                onReset = { save(field, field.value(NativeGeneralOptions()).toString()) }, onDismiss = { editor = null })
+        } else if (field == NativeGeneralOptionField.INTERVAL) {
+            AlertDialog(onDismissRequest = { editor = null }, title = { Text(stringResource(title)) }, text = {
+                Column {
+                    Text(stringResource(R.string.native_general_minutes, minutes.toInt()))
+                    Slider(value = minutes, onValueChange = { minutes = it }, valueRange = 1f..60f,
+                        steps = 59, enabled = enabled)
                 }
             }, confirmButton = {
-                if (choices.isEmpty()) NativeTextButton(onClick = { save(field, input) }, enabled = enabled && valid) {
-                    Text(stringResource(android.R.string.ok))
+                NativeTextButton(onClick = { save(field, input) }, enabled = enabled && valid) {
+                    Text(stringResource(android.R.string.ok).uppercase())
                 }
             }, dismissButton = {
                 Row {
                     NativeTextButton(onClick = { save(field, field.value(NativeGeneralOptions()).toString()) }, enabled = enabled) {
                         Text(stringResource(R.string.native_quick_reset))
                     }
-                    NativeTextButton(onClick = { editor = null }) { Text(stringResource(android.R.string.cancel)) }
+                    NativeTextButton(onClick = { editor = null }) { Text(stringResource(android.R.string.cancel).uppercase()) }
                 }
             })
+        } else {
+            NativeSettingInputDialog(stringResource(title), text, onValueChange = { value ->
+                if (field == NativeGeneralOptionField.CLASH_PORT) {
+                    if (value.length <= 5 && value.all { it in '0'..'9' }) text = value
+                } else if (value.length <= 2048) text = value
+            }, valid = valid, enabled = enabled, invalidMessage = stringResource(R.string.native_general_invalid),
+                onDismiss = { editor = null }, onConfirm = { save(field, input) },
+                onReset = { save(field, field.value(NativeGeneralOptions()).toString()) },
+                possibleValues = if (field == NativeGeneralOptionField.TEST_URL) TestUrls else emptyList(),
+                keyboardOptions = KeyboardOptions(keyboardType = if (field == NativeGeneralOptionField.CLASH_PORT)
+                    KeyboardType.Number else KeyboardType.Uri, imeAction = ImeAction.Done))
+        }
     }
 }

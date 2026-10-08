@@ -136,3 +136,16 @@ internal fun NativeTextButton(
         content = content,
     )
 }
+
+@Composable
+internal fun NativeElevatedButton(onClick: () -> Unit, enabled: Boolean = true,
+    modifier: Modifier = Modifier, content: @Composable RowScope.() -> Unit) {
+    val scheme = MaterialTheme.colorScheme
+    val shape = RoundedCornerShape(20.dp)
+    androidx.compose.material3.ElevatedButton(onClick = onClick, enabled = enabled,
+        modifier = modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp).background(
+            Brush.linearGradient(listOf(Color.White.copy(alpha = .12f).compositeOver(scheme.surfaceContainerLow), scheme.surfaceContainerLow)), shape),
+        shape = shape, contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp),
+        colors = ButtonDefaults.elevatedButtonColors(containerColor = Color.Transparent, contentColor = scheme.primary),
+        elevation = ButtonDefaults.elevatedButtonElevation(defaultElevation = 1.dp), content = content)
+}

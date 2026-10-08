@@ -47,13 +47,13 @@ class NativeInboundOptionsRepository(context: Context) {
         )
     }
 
-    /** Called on IO while the native core is stopped. Merge only this page's keys. */
+    /** Called on IO under the native lifecycle barrier. Merge only this page's keys. */
     fun save(input: NativeInboundOptions): NativeInboundOptions {
         val value = input.validated()
         val root = root(preferences.all)
-        val password = if (value.allowLan && value.lanPassword.isBlank()) {
-            generatePassword()
-        } else value.lanPassword
+        // Manual LAN preferences allow an explicitly empty password, as in Dart.
+        // Hotspot setup still provisions a password through setLanSharing().
+        val password = value.lanPassword
         val fields = mapOf<String, Any>(
             "strict-route" to value.strictRoute, "tun-implementation" to value.tunImplementation,
             "enable-mixed-port" to value.mixedEnabled, "mixed-port" to value.mixedPort,

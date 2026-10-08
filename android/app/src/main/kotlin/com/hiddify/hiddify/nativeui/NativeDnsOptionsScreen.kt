@@ -1,33 +1,21 @@
 package com.hiddify.hiddify.nativeui
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -94,36 +82,16 @@ internal fun NativeDnsOptionsScreen(
             if (remote) R.string.native_core_remote_dns_strategy else R.string.native_core_direct_dns_strategy
         } else if (remote) R.string.native_core_remote_dns else R.string.native_core_direct_dns
         val valid = runCatching { field.applyTo(options, address) }.isSuccess
-        val focus = remember(field) { FocusRequester() }
-        LaunchedEffect(field) { if (!strategy) focus.requestFocus() }
-        AlertDialog(onDismissRequest = { editor = null }, title = { Text(stringResource(title)) },
-            text = {
-                if (strategy) Column(Modifier.verticalScroll(rememberScrollState())) {
-                    DnsStrategies.forEach { (key, label) ->
-                        val selected = field.value(options) == key
-                        Row(Modifier.fillMaxWidth().selectable(selected, enabled, Role.RadioButton) { save(field, key) }
-                            .heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected, onClick = null, enabled = enabled)
-                            Text(stringResource(label), Modifier.padding(start = 8.dp))
-                        }
-                    }
-                } else NativePreferenceInput(address, { if (it.length <= 2048) address = it },
-                    possibleValues = if (remote) RemoteDnsPresets else DirectDnsPresets,
-                    enabled = enabled, valid = valid, invalidMessage = stringResource(R.string.native_dns_invalid),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
-                    onDone = { save(field, address) }, modifier = Modifier.focusRequester(focus))
-            }, confirmButton = {
-                if (!strategy) NativeTextButton(onClick = { save(field, address) }, enabled = enabled && valid) {
-                    Text(stringResource(android.R.string.ok))
-                }
-            }, dismissButton = {
-                Row {
-                    NativeTextButton(onClick = { save(field, field.value(NativeDnsOptions()).toString()) }, enabled = enabled) {
-                        Text(stringResource(R.string.native_quick_reset))
-                    }
-                    NativeTextButton(onClick = { editor = null }) { Text(stringResource(android.R.string.cancel)) }
-                }
-            })
+        if (strategy) NativeSettingPickerDialog(title = stringResource(title), selected = field.value(options).toString(),
+            choices = DnsStrategies.map { (key, label) -> key to stringResource(label) }, enabled = enabled,
+            onSelect = { save(field, it) }, onReset = { save(field, field.value(NativeDnsOptions()).toString()) },
+            onDismiss = { editor = null })
+        else NativeSettingInputDialog(title = stringResource(title), value = address,
+            onValueChange = { if (it.length <= 2048) address = it }, valid = valid, enabled = enabled,
+            invalidMessage = stringResource(R.string.native_dns_invalid), onDismiss = { editor = null },
+            onConfirm = { save(field, address) }, onReset = { save(field, field.value(NativeDnsOptions()).toString()) },
+            possibleValues = if (remote) RemoteDnsPresets else DirectDnsPresets,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done))
     }
 }
 
@@ -131,7 +99,7 @@ internal fun NativeDnsOptionsScreen(
 @Composable
 private fun DnsPreview() {
     NativeAppTheme(com.hiddify.hiddify.nativepreferences.NativeThemeMode.DARK) {
-        NativeAtmosphere { Column(Modifier.padding(horizontal = 20.dp)) {
+        NativeAtmosphere { Column {
             NativeDnsOptionsScreen(NativeDnsOptions(), false, true, false, {}, {}, { _, _ -> })
         } }
     }

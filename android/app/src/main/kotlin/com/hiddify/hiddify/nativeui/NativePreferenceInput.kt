@@ -30,6 +30,7 @@ internal fun NativePreferenceInput(
     value: String, onValueChange: (String) -> Unit, possibleValues: List<String>,
     enabled: Boolean, valid: Boolean, invalidMessage: String,
     keyboardOptions: KeyboardOptions, onDone: () -> Unit, modifier: Modifier = Modifier,
+    showInvalid: Boolean = true, hint: String? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
     var dismissed by remember { mutableStateOf(false) }
@@ -40,15 +41,17 @@ internal fun NativePreferenceInput(
     Box(Modifier.fillMaxWidth()) {
         NativeTextField(value, {
             dismissed = false
-            onValueChange(it)
+            onValueChange(it.replace("\r", "").replace("\n", ""))
         }, modifier = modifier.fillMaxWidth().onSizeChanged { width = it.width }.onFocusChanged {
             focused = it.isFocused
             if (!focused) dismissed = false
         }, enabled = enabled, singleLine = true,
             textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr),
+            placeholder = if (hint != null) ({ Text(hint) }) else null,
             keyboardOptions = keyboardOptions,
-            keyboardActions = KeyboardActions(onDone = { if (valid && enabled) onDone() }),
-            isError = !valid, supportingText = { if (!valid) Text(invalidMessage) })
+            keyboardActions = KeyboardActions(onDone = { if (enabled) onDone() }),
+            isError = showInvalid && !valid,
+            supportingText = if (showInvalid && !valid) ({ Text(invalidMessage) }) else null)
         if (possibleValues.isNotEmpty()) DropdownMenu(
             expanded = enabled && focused && !dismissed,
             onDismissRequest = { dismissed = true },

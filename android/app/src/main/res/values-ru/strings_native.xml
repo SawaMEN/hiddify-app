@@ -159,9 +159,9 @@
     <string name="native_core_strict_route">Строгая маршрутизация</string>
     <string name="native_core_tun_stack">Реализация TUN</string>
     <string name="native_core_mixed_port_enabled">Включить mixed proxy port</string>
-    <string name="native_core_mixed_port">Mixed proxy port</string>
+    <string name="native_core_mixed_port">Смешанный порт</string>
     <string name="native_core_direct_port_enabled">Включить direct proxy port</string>
-    <string name="native_core_direct_port">Direct proxy port</string>
+    <string name="native_core_direct_port">Локальный порт direct</string>
     <string name="native_core_mtu">MTU интерфейса TUN</string>
     <string name="native_core_tls_fragment">Включить фрагментацию</string>
     <string name="native_core_tls_fragment_size">Размер фрагмента</string>
@@ -490,11 +490,11 @@
     <string name="native_proxy_wifi_exception">Раздаче VPN без root нужен локальный прокси. Сохранённое ограничение остаётся включённым и снова действует после отключения раздачи.</string>
     <string name="native_proxy_core_summary">Настройка портов HTTP/SOCKS, порта Clash API и доступа из локальной сети.</string>
     <string name="native_proxy_saved">Настройки прокси сохранены. Переподключите VPN для применения.</string>
-    <string name="native_inbound_title">Входящие подключения</string>
+    <string name="native_inbound_title">Входящие</string>
     <string name="native_inbound_strict_summary">Использовать строгую маршрутизацию туннеля. Изменения применяются при следующем подключении.</string>
     <string name="native_inbound_mixed_summary">Локальный слушатель HTTP и SOCKS. Настройки скрытия VPN могут отключить этот слушатель.</string>
     <string name="native_inbound_direct_summary">Слушатель прямого прокси. Настройки скрытия VPN могут отключить этот слушатель.</string>
-    <string name="native_inbound_lan">Разрешить подключения из локальной сети</string>
+    <string name="native_inbound_lan">Общий доступ к VPN</string>
     <string name="native_inbound_lan_summary">Разрешить другим устройствам подключаться к включённым прокси. Раздача VPN по Wi-Fi управляется отдельно.</string>
     <string name="native_inbound_password">Пароль прокси в локальной сети</string>
     <string name="native_inbound_password_hint">При включённом доступе из локальной сети пустой пароль будет сгенерирован автоматически.</string>
@@ -784,4 +784,10 @@
     <string name="native_diagnostics_tunnel_hint">HTTP-проверка через локальный прокси VPN без прямого обхода</string>
     <string name="native_editor_total">Всего трафика</string>
     <string name="native_editor_expire_date">Дата окончания</string>
+    <string name="native_inbound_service_mode">Режим службы</string>
+    <string name="native_inbound_proxy_service">Только прокси-служба</string>
+    <string name="native_inbound_sharing_password">Пароль общего доступа VPN</string>
+    <string name="native_inbound_password_not_set">Пароль не установлен</string>
+    <string name="native_inbound_copy_link">Копировать ссылку</string>
+    <string name="native_inbound_qr">QR-код</string>
 </resources>

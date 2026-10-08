@@ -276,7 +276,7 @@ private fun modeTitle(mode: String): String = when (mode) {
 }
 
 @Composable
-private fun LanQrDialog(link: String, onDismiss: () -> Unit) {
+internal fun LanQrDialog(link: String, onDismiss: () -> Unit) {
     var bitmap by remember(link) { mutableStateOf<android.graphics.Bitmap?>(null) }
     var failed by remember(link) { mutableStateOf(false) }
     LaunchedEffect(link) {

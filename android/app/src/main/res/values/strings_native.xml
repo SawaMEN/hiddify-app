@@ -159,9 +159,9 @@
     <string name="native_core_strict_route">Strict route</string>
     <string name="native_core_tun_stack">TUN implementation</string>
     <string name="native_core_mixed_port_enabled">Enable mixed proxy port</string>
-    <string name="native_core_mixed_port">Mixed proxy port</string>
+    <string name="native_core_mixed_port">Mixed port</string>
     <string name="native_core_direct_port_enabled">Enable direct proxy port</string>
-    <string name="native_core_direct_port">Direct proxy port</string>
+    <string name="native_core_direct_port">Direct port</string>
     <string name="native_core_mtu">TUN MTU</string>
     <string name="native_core_tls_fragment">Enable fragment</string>
     <string name="native_core_tls_fragment_size">Fragment size</string>
@@ -490,11 +490,11 @@
     <string name="native_proxy_wifi_exception">VPN sharing without root requires a local proxy listener. The saved restriction stays enabled and applies again when sharing is disabled.</string>
     <string name="native_proxy_core_summary">Configure HTTP/SOCKS ports, the Clash API port and LAN access.</string>
     <string name="native_proxy_saved">Proxy settings saved. Reconnect the VPN to apply.</string>
-    <string name="native_inbound_title">Inbound options</string>
+    <string name="native_inbound_title">Inbound</string>
     <string name="native_inbound_strict_summary">Use strict tunnel routing. Changes apply on the next connection.</string>
     <string name="native_inbound_mixed_summary">Local HTTP and SOCKS listener. VPN privacy settings may suppress this listener.</string>
     <string name="native_inbound_direct_summary">Direct proxy listener. VPN privacy settings may suppress this listener.</string>
-    <string name="native_inbound_lan">Allow connections from LAN</string>
+    <string name="native_inbound_lan">VPN sharing</string>
     <string name="native_inbound_lan_summary">Allow other devices to access enabled proxy listeners. Wi-Fi VPN sharing is managed separately.</string>
     <string name="native_inbound_password">LAN proxy password</string>
     <string name="native_inbound_password_hint">An empty password is generated securely when LAN access is enabled.</string>
@@ -784,4 +784,10 @@
     <string name="native_diagnostics_tunnel_hint">HTTP check through the local VPN proxy without direct fallback</string>
     <string name="native_editor_total">Total traffic</string>
     <string name="native_editor_expire_date">Expire date</string>
+    <string name="native_inbound_service_mode">Service mode</string>
+    <string name="native_inbound_proxy_service">Proxy service only</string>
+    <string name="native_inbound_sharing_password">VPN sharing password</string>
+    <string name="native_inbound_password_not_set">Password not set</string>
+    <string name="native_inbound_copy_link">Copy link</string>
+    <string name="native_inbound_qr">QR Code</string>
 </resources>

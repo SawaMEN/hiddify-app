@@ -623,3 +623,34 @@ start because the Gradle distribution download is unreachable. No APK was awaite
 All 200 entries describe implemented source changes, not successful compilation or a
 rendered device comparison. Remaining differences elsewhere in the app may exist.
 Full functional and pixel parity requires CI compilation and same-device comparison.
+
+
+## Inbound preferences and setting dialogs (2026-10-08)
+
+The recreated `kotlin-rewrite` branch starts from main `67cb47b`. This batch compares
+Dart `8d8655916b115417e1f736966108c29ca87ba530` against the native preference screens.
+
+| Dart reference | Native change |
+| --- | --- |
+| `inbound_options_page.dart` | Restore immediate rows in the same Android order: service mode, strict route, TUN implementation, mixed port, direct port and LAN sharing. Port switches act independently of their input dialogs; remove the extra whole-page Save action. |
+| `lan_sharing_tile.dart` | Restore password editing/reset, password subtitle, sharing switch, conditional copy-link and QR actions. Read current LAN credentials after address lookup; retain the original LAN-only QR payload. |
+| `setting_input_dialog.dart` | Shared input dialogs for DNS, TLS, general core options and inbound preferences: reset/cancel/OK, title hint, autofocus, validation on OK, IME Done focuses OK, and existing TypeAhead presets. Remove empty supporting-text space. |
+| `setting_picker_dialog.dart` | Shared scrollable radio dialogs: choose immediately, reset/cancel, no redundant OK action. |
+| `dns_options_page.dart`, `tls_tricks_page.dart` | Remove outer route padding, retain the original row spacing and icons. TLS accepts stored empty ranges but rejects empty typed input, matching OptionalRange's distinct JSON/editor rules. |
+| Inbound Material rounded icons and translations | Restore tune, merge, trip_origin, device_hub and share contours and the original English/Russian titles. Apache license is included in `docs/licenses/material-design-icons.txt`. |
+
+Inbound edits can be saved while connected, like the original preferences. They use
+the lifecycle barrier, block transitional states, and update the existing reconnect
+indicator; applying a changed core configuration still requires reconnecting. Manual
+LAN password reset remains empty instead of generating a replacement. Hotspot setup
+continues to generate a password when needed. All OS instructions remain present.
+
+The LAN action row wraps on narrow screens to avoid clipped Russian labels. Full
+general-settings navigation and slider rendering are not addressed by this batch.
+This is source-level restoration, not a claim of complete application or pixel parity.
+
+Resource/font/version checks, the existing 200-item source inventory, whitespace
+checks and Python tool tests pass. A Kotlin grammar scan reports only the two existing
+annotated-function-type parser limitations; it is not compilation. The previous main
+commit's CI tests and Android build succeeded. This batch still requires CI compilation
+and same-device screenshots/interaction checks; no new APK build is awaited.
