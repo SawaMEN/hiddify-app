@@ -2,6 +2,7 @@ package com.hiddify.hiddify.nativecore
 
 import com.hiddify.core.api.v2.hcore.ChangeHiddifySettingsRequest
 import com.hiddify.core.api.v2.hcore.CoreClient
+import com.hiddify.core.api.v2.hcore.MessageType
 import com.hiddify.hiddify.Settings
 import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.utils.GrpcClientProvider
@@ -23,10 +24,10 @@ object NativeCoreControl {
         // The core's default enable-tun=false otherwise lets startup report Started
         // while there is no Android VPN interface and no traffic can pass through it.
         val overrides = com.hiddify.hiddify.nativeprofile.NativeProfileOverrides.apply(
-            Settings.configOptions, profile?.populatedHeaders, profile?.userOverride,
+            NativeSettingsTransferRepository(context).exportJson(includePrivate = true), profile?.populatedHeaders, profile?.userOverride,
         )
         return NativeServiceModeOptions.apply(
-            overrides,
+            NativeCoreOptionsProjection.apply(overrides),
             vpnMode = Settings.serviceMode == ServiceMode.VPN,
             ipv4Only = Settings.privacyDisableIpv6,
         )
@@ -34,8 +35,10 @@ object NativeCoreControl {
 
     fun applyStoredSettings(context: android.content.Context) {
         val json = effectiveOptions(context)
-        client()
-            .ChangeHiddifySettings()
-            .executeBlocking(ChangeHiddifySettingsRequest(hiddify_settings_json = json))
+        val call = client().ChangeHiddifySettings()
+        call.timeout.timeout(10, java.util.concurrent.TimeUnit.SECONDS)
+        val response = try { call.executeBlocking(ChangeHiddifySettingsRequest(hiddify_settings_json = json)) }
+            finally { call.cancel() }
+        check(response.message_type == MessageType.EMPTY) { response.message.ifBlank { "Core rejected connection settings" } }
     }
 }

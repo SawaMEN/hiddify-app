@@ -94,6 +94,7 @@ class BoxService(
         fun start() {
             val intent = Intent(Application.application, Settings.serviceClass()).putExtra("started_by_app", true)
             Settings.connectionDesired = true
+            Settings.startCoreAfterStartingService = true
             ContextCompat.startForegroundService(Application.application, intent)
         }
 
@@ -107,7 +108,7 @@ class BoxService(
         }
     }
 
-    var fileDescriptor: ParcelFileDescriptor? = null
+    @Volatile var fileDescriptor: ParcelFileDescriptor? = null
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile private var destroyed = false
@@ -119,9 +120,15 @@ class BoxService(
     private val packagesReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)) return
-            if (Settings.privacyRoutingMode == "off" || Settings.privacyFullTunnel) return
-            Settings.startCoreAfterStartingService = true
-            serviceReload()
+            val perApp = Settings.perAppProxyEnabled
+            if (!perApp && (Settings.privacyRoutingMode == "off" || Settings.privacyFullTunnel)) return
+            serviceScope.launch {
+                try {
+                    if (perApp) com.hiddify.hiddify.nativerouting.NativePerAppRepository(service).snapshot()
+                    Settings.startCoreAfterStartingService = true
+                    serviceReload()
+                } catch (error: Exception) { Log.w(TAG, "Cannot update application routing after package change", error) }
+            }
         }
     }
 
@@ -169,7 +176,16 @@ class BoxService(
     private suspend fun startService() {
         try {
             if (destroyed) return
-            coreOwner?.takeIf { it !== this }?.releaseNative("replacement")
+            coreOwner?.takeIf { it !== this }?.let { previous ->
+                previous.stopRequested = true
+                previous.releaseNative("replacement")
+                withContext(Dispatchers.Main) {
+                    previous.unregisterReceiver()
+                    previous.notification.close()
+                    previous.status.value = Status.Stopped
+                    previous.service.stopSelf()
+                }
+            }
             if (!Settings.connectionDesired || stopRequested) {
                 finishCancelledStart("cancelled before setup")
                 return
@@ -283,6 +299,9 @@ class BoxService(
                             return
                         }
                         Mobile.start(selectedConfigPath, "")
+                        // Mobile.start builds a StartRequest with disable_memory_limit=false,
+                        // overriding the flag applied before setup. Restore the requested policy.
+                        Libbox.setMemoryLimit(!Settings.disableMemoryLimit)
                         // A successful core start is not enough for Android VPN mode:
                         // when enable-tun is missing the core can start only proxy listeners.
                         // Never display Connected unless Android actually established a TUN.
@@ -339,12 +358,7 @@ class BoxService(
             val closeError = runCatching { closeCore() }.exceptionOrNull()
             if (closeError != null) {
                 Log.e(TAG, "failed to close mobile core for reload", closeError)
-                status.postValue(Status.Started)
-                withContext(Dispatchers.Main) {
-                    if (destroyed) return@withContext
-                    notification.show(activeProfileName, R.string.status_started)
-                    binder.broadcast { it.onServiceAlert(Alert.StartService.ordinal, closeError.message) }
-                }
+                stopAndAlert(Alert.StartService, closeError.message)
                 return
             }
             closeTun("reload")
@@ -370,9 +384,14 @@ class BoxService(
     }
 
     private fun serviceUpdateIdleMode() {
-        if (!rootActive && !Application.powerManager.isDeviceIdleMode) {
-            runCatching { Mobile.wake() }
-                .onFailure { Log.w(TAG, "failed to wake mobile core", it) }
+        serviceScope.launch {
+            lifecycleMutex.withLock {
+                if (!destroyed && coreOwner === this@BoxService && !rootActive &&
+                    !Application.powerManager.isDeviceIdleMode) {
+                    runCatching { Mobile.wake() }
+                        .onFailure { Log.w(TAG, "failed to wake mobile core", it) }
+                }
+            }
         }
     }
 

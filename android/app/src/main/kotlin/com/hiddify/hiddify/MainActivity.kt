@@ -216,6 +216,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val serviceStartTracker = ServiceStartTracker()
     private var reconnectJob: Job? = null
     private var serviceStartWatchdog: Job? = null
+    private var reconnectCheckJob: Job? = null
     private val regionalAppsRevision = mutableStateOf(0)
     private val regionalApps = mutableStateOf<NativeRegionalAppSnapshot?>(null)
     private val regionalOperationMutex = Mutex()
@@ -1139,6 +1140,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                                 name = name,
                                 disableAutoUpdate = disableAutoUpdate,
                                 updateIntervalHours = updateIntervalHours,
+                                expectedLastUpdate = editor.profile.lastUpdate,
                             )
                             profileRepository.synchronizeActiveProfile()
                             profileRepository.loadEditor(editor.profile.id) to profileRepository.listProfiles()
@@ -1148,6 +1150,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 profiles.value = result.second
                 refreshProfileSnapshot()
                 profileEditorSavedRevision.value += 1
+                coreChangesSaved()
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
                 profileEditorLoadFailed.value = profileEditor.value == null
@@ -1189,6 +1192,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             }
         profiles.value = loaded
         refreshProfileSnapshot()
+        coreChangesSaved()
     }
 
     private fun selectProfile(profile: NativeProfile) {
@@ -1329,6 +1333,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 profilesLoadFailed.value = false
                 refreshProfileSnapshot()
                 if (stopBeforeDeletingId != null) runCatching { refreshChainOptions() }
+                coreChangesSaved()
                 onSuccess()
             } catch (cancelled: CancellationException) {
                 // User cancellation returns to the retained import draft without an error dialog.
@@ -2226,11 +2231,20 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun coreChangesSaved() {
-        if (serviceStatus.value == Status.Started) {
-            val applied = Settings.nativeAppliedQuickSettings
-            Settings.nativeReconnectRequired = applied.isBlank() || Settings.quickSettingsSignature(applicationContext) != applied
-        }
         requiresReconnect.value = Settings.nativeReconnectRequired
+        reconnectCheckJob?.cancel()
+        if (serviceStatus.value != Status.Started) return
+        val applied = Settings.nativeAppliedQuickSettings
+        reconnectCheckJob = lifecycleScope.launch {
+            val changed = withContext(Dispatchers.IO) {
+                runCatching { applied.isBlank() || Settings.quickSettingsSignature(applicationContext) != applied }
+                    .getOrElse { Log.w(TAG, "Cannot compare saved connection settings", it); true }
+            }
+            if (serviceStatus.value == Status.Started && Settings.nativeAppliedQuickSettings == applied) {
+                Settings.nativeReconnectRequired = changed
+                requiresReconnect.value = changed
+            }
+        }
     }
 
     private fun saveCommunitySelection(proxy: Boolean, enabled: Boolean, sites: String) {
@@ -2852,6 +2866,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             refreshVpnProtection()
             if (status != Status.Started) cancelDiagnostics()
             if (status == Status.Started) {
+                coreChangesSaved()
                 refreshOutbounds(showError = false)
                 maybeRequestNotificationPermission()
                 maybePromptBatteryOptimization()

@@ -19,6 +19,7 @@ data class NativeGeneralOptions(
         require(url.length in 1..2048 && url.none(Char::isISOControl)) { "Invalid connection test URL" }
         val uri = URI.create(url)
         require(uri.scheme?.lowercase() in listOf("http", "https") && !uri.host.isNullOrBlank() &&
+            uri.userInfo == null && uri.fragment == null &&
             (uri.port == -1 || uri.port in 1..65535)) { "Invalid connection test URL" }
         return copy(testUrl = url)
     }

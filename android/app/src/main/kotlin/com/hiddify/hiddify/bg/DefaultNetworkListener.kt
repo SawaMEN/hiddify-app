@@ -17,18 +17,21 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 object DefaultNetworkListener {
     private const val TAG = "DefaultNetworkListener"
 
     private sealed class NetworkMessage {
-        class Start(val key: Any, val listener: (Network?) -> Unit) : NetworkMessage()
+        class Start(val key: Any, val listener: (Network?) -> Unit, val done: CompletableDeferred<Unit>) : NetworkMessage()
         class Get(val response: CompletableDeferred<Network>) : NetworkMessage()
         class CancelGet(val response: CompletableDeferred<Network>) : NetworkMessage()
-        class Stop(val key: Any) : NetworkMessage()
-        class Put(val network: Network) : NetworkMessage()
-        class Update(val network: Network) : NetworkMessage()
-        class Lost(val network: Network) : NetworkMessage()
+        class Stop(val key: Any, val done: CompletableDeferred<Unit>) : NetworkMessage()
+        class Put(val network: Network, val epoch: Int) : NetworkMessage()
+        class Update(val network: Network, val epoch: Int) : NetworkMessage()
+        class Lost(val network: Network, val epoch: Int) : NetworkMessage()
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -54,14 +57,15 @@ object DefaultNetworkListener {
                             if (listeners.isEmpty()) {
                                 register()
                                 if (fallback) {
-                                    network = underlyingNetwork()
+                                    network = runCatching { underlyingNetwork() }.getOrNull()
                                 }
                             }
                             listeners[message.key] = message.listener
-                            network?.let { current ->
-                                runCatching { message.listener(current) }
+                            run {
+                                runCatching { message.listener(network) }
                                     .onFailure { Log.e(TAG, "initial network listener callback failed", it) }
                             }
+                            message.done.complete(Unit)
                         }
 
                         is NetworkMessage.Get -> {
@@ -96,9 +100,11 @@ object DefaultNetworkListener {
                                 }
                                 pendingRequests.clear()
                             }
+                            message.done.complete(Unit)
                         }
 
                         is NetworkMessage.Put -> {
+                            if (listeners.isEmpty() || message.epoch != callbackEpoch) continue
                             network = message.network
                             pendingRequests.forEach { request ->
                                 if (!request.isCompleted) request.complete(message.network)
@@ -108,10 +114,12 @@ object DefaultNetworkListener {
                         }
 
                         is NetworkMessage.Update -> {
+                            if (listeners.isEmpty() || message.epoch != callbackEpoch) continue
                             if (network == message.network) notifyListeners(network)
                         }
 
                         is NetworkMessage.Lost -> {
+                            if (listeners.isEmpty() || message.epoch != callbackEpoch) continue
                             if (network == message.network) {
                                 network = null
                                 notifyListeners(null)
@@ -123,13 +131,17 @@ object DefaultNetworkListener {
                     if (message is NetworkMessage.Get && !message.response.isCompleted) {
                         message.response.completeExceptionally(t)
                     }
+                    if (message is NetworkMessage.Start) message.done.completeExceptionally(t)
+                    if (message is NetworkMessage.Stop) message.done.completeExceptionally(t)
                 }
             }
         }
     }
 
     suspend fun start(key: Any, listener: (Network?) -> Unit) {
-        messages.send(NetworkMessage.Start(key, listener))
+        val done = CompletableDeferred<Unit>()
+        messages.send(NetworkMessage.Start(key, listener, done))
+        done.await()
     }
 
     suspend fun get(): Network {
@@ -145,7 +157,9 @@ object DefaultNetworkListener {
     }
 
     suspend fun stop(key: Any) {
-        messages.send(NetworkMessage.Stop(key))
+        val done = CompletableDeferred<Unit>()
+        messages.send(NetworkMessage.Stop(key, done))
+        done.await()
     }
 
     /** activeNetwork may be the TUN itself during startup or a network transition. */
@@ -167,26 +181,29 @@ object DefaultNetworkListener {
         }
     }
 
-    private object Callback : ConnectivityManager.NetworkCallback() {
+    private class Callback(private val epoch: Int) : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
-            enqueue(NetworkMessage.Put(network))
+            enqueue(NetworkMessage.Put(network, epoch))
         }
 
         override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
-            enqueue(NetworkMessage.Update(network))
+            enqueue(NetworkMessage.Update(network, epoch))
         }
 
         override fun onLinkPropertiesChanged(network: Network, linkProperties: LinkProperties) {
-            enqueue(NetworkMessage.Update(network))
+            enqueue(NetworkMessage.Update(network, epoch))
         }
 
         override fun onLost(network: Network) {
-            enqueue(NetworkMessage.Lost(network))
+            enqueue(NetworkMessage.Lost(network, epoch))
         }
     }
 
     @Volatile
     private var fallback = false
+    private var callbackEpoch = 0
+    private var registeredCallback: Callback? = null
+    private var fallbackJob: Job? = null
 
     private val request =
         NetworkRequest.Builder().apply {
@@ -199,24 +216,42 @@ object DefaultNetworkListener {
 
     private fun register() {
         fallback = false
+        val epoch = ++callbackEpoch
+        val callback = Callback(epoch)
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                Application.connectivity.registerBestMatchingNetworkCallback(request, Callback, mainHandler)
+                Application.connectivity.registerBestMatchingNetworkCallback(request, callback, mainHandler)
             } else {
-                Application.connectivity.requestNetwork(request, Callback, mainHandler)
+                Application.connectivity.requestNetwork(request, callback, mainHandler)
             }
+            registeredCallback = callback
         } catch (e: RuntimeException) {
             fallback = true
             Log.w(TAG, "network callback registration failed; using activeNetwork fallback", e)
+            fallbackJob = scope.launch {
+                var previous: Network? = null
+                while (isActive) {
+                    val current = runCatching { underlyingNetwork() }.getOrNull()
+                    if (current != null) enqueue(NetworkMessage.Put(current, epoch))
+                    else previous?.let { enqueue(NetworkMessage.Lost(it, epoch)) }
+                    previous = current
+                    delay(1000)
+                }
+            }
         }
     }
 
     private fun unregister() {
+        callbackEpoch++
+        fallbackJob?.cancel()
+        fallbackJob = null
         if (fallback) {
             fallback = false
             return
         }
-        runCatching { Application.connectivity.unregisterNetworkCallback(Callback) }
+        val callback = registeredCallback ?: return
+        registeredCallback = null
+        runCatching { Application.connectivity.unregisterNetworkCallback(callback) }
             .onFailure { Log.w(TAG, "failed to unregister network callback", it) }
     }
 }
