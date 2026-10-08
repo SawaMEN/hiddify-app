@@ -343,10 +343,10 @@ fun NativeApp(
                         .fillMaxSize()
                         .statusBarsPadding()
                         .navigationBarsPadding()
-                        .padding(top = if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS) 0.dp else 8.dp),
+                        .padding(top = if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY) 0.dp else 8.dp),
             ) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    Box((if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS) Modifier else Modifier.widthIn(max = 680.dp))
+                    Box((if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY) Modifier else Modifier.widthIn(max = 680.dp))
                         .fillMaxWidth().padding(horizontal = when (page) { PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
                         when (page) {
                             PAGE_DIAGNOSTICS ->
@@ -580,7 +580,7 @@ fun NativeApp(
                             PAGE_PRIVACY -> NativePrivacyOverviewScreen(
                                 configured = privacyConfigured,
                                 canRestore = privacyCanRestore,
-                                busy = privacySetupBusy,
+                                busy = privacySetupBusy || regionalBusy || connectionOptionsBusy || proxyPrivacyBusy || dnsBusy || tlsBusy || generalOptionsBusy || tunnelBusy || inboundBusy || wifiSharingBusy,
                                 canApply = status == Status.Stopped && !wifiSharingBusy && !regionalBusy && !connectionOptionsBusy && !proxyPrivacyBusy,
                                 onConfigure = onConfigurePrivacy,
                                 onRestore = onRestorePrivacy,
@@ -590,19 +590,25 @@ fun NativeApp(
                                     if (!expanded.add(category)) expanded.remove(category)
                                     privacyExpanded = expanded.sorted().joinToString("|")
                                 },
-                                onOpenRegional = { openPage(PAGE_REGIONAL) },
-                                onOpenPerApp = { openPage(PAGE_PER_APP) },
-                                onOpenTunnel = { openPage(PAGE_TUNNEL) },
-                                onOpenPolicy = { openPage(PAGE_CONNECTION_POLICY) },
-                                onOpenProxyPrivacy = { openPage(PAGE_PROXY_PRIVACY) },
-                                onOpenProtection = {
-                                    onRefreshVpnProtection()
-                                    openPage(PAGE_PROTECTION)
-                                },
-                                onOpenFilters = { openPage(PAGE_TRAFFIC_FILTERS) },
-                                onOpenDns = { openPage(PAGE_DNS) },
-                                onOpenCoreOptions = { openPage(PAGE_CORE_OPTIONS) },
-                                onOpenCategory = { openCategory(it) },
+                                settings = settingsState,
+                                regional = regionalOptions,
+                                regionalRevision = regionalAppsRevision,
+                                connection = connectionOptions,
+                                proxy = proxyPrivacy,
+                                canChangeRoot = status == Status.Stopped && !wifiSharingBusy,
+                                onSaveRegional = onSaveRegionalOptions,
+                                onSaveConnection = onSaveConnectionOptions,
+                                onSaveProxy = onSaveProxyPrivacy,
+                                onOpenApps = { kind -> onOpenRegionalApps(kind); openPage(PAGE_REGIONAL_APPS) },
+                                onFullTunnel = onFullTunnelChanged,
+                                onRoot = onRootModeChanged,
+                                onEncryptedDns = onEncryptedDnsChanged,
+                                onPublicDns = onPublicDnsChanged,
+                                onHandbook = onHandbookRoutingChanged,
+                                onHandbookProxy = onHandbookProxyChanged,
+                                onHandbookDirect = onHandbookDirectChanged,
+                                onHandbookProxySites = onHandbookProxySitesChanged,
+                                onHandbookDirectSites = onHandbookDirectSitesChanged,
                             )
 
                             PAGE_PREFERENCES ->

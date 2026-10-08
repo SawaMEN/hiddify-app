@@ -1659,6 +1659,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             try {
                 withContext(Dispatchers.IO) { NetworkPrivacySettings.saveConnection(applicationContext, options) }
                 connectionOptions.value = NetworkPrivacySettings.loadConnection(applicationContext)
+                refreshPrivacySetupState()
                 restartHealthMonitor()
                 startSmartSelectionLoop()
                 cancelRecovery()
@@ -1858,6 +1859,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         lifecycleScope.launch {
             try {
                 regionalOptions.value = withContext(Dispatchers.IO) { regionalOperationMutex.withLock { regionalRepository.save(value) } }
+                refreshPrivacySetupState()
                 Toast.makeText(this@MainActivity, R.string.native_regional_saved, Toast.LENGTH_SHORT).show()
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName

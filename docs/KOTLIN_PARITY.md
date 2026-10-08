@@ -369,3 +369,30 @@ model is registered in the standalone JVM suite. Native source/resource, drawabl
 and whitespace checks pass; JVM execution is still blocked by the unavailable pinned Gradle
 distribution. No APK completion is awaited. Same-device visuals, focus/keyboard/accessibility
 behavior and remaining settings/navigation parity still need verification/work.
+
+
+## VPN privacy overview layout and controls
+
+`NativePrivacyOverviewScreen` now mirrors `VpnPrivacyOverviewPage` and `HandbookRoutingTile`
+at the parent of Flutter removal commit `7197f9e4`. The fixed app bar, 16/12/16/28 body
+padding, status icon container, routing badge and package counts, 52/48 dp setup/restore buttons,
+four feature rows and indented dividers, protocol card, conditional UDP row, section captions,
+four expandable categories and final limitations text follow the source order. Titles and
+summaries use the original English/Russian copy. Material SVG paths are vendored as Android
+vectors from Google's material-design-icons repository (Apache-2.0; license in docs/licenses).
+Expanded headers and switches use the original theme colors, sizes and 200 ms expansion;
+reduced-motion settings disable that animation.
+
+The category children operate existing Kotlin preferences directly: My Handbook and its
+conditional list controls/domain dialogs/catalogue links; independent Russian network/apps/
+restricted-service toggles; adaptive networking/full tunnel/root; encrypted/public DNS;
+local proxy/Clash API/system proxy. Feature rows open the existing direct/proxy app selectors.
+Root discovery runs on IO without invoking su. Routing status/counts refresh after selection,
+setup, routing, full-tunnel and Handbook changes. The setup status also refreshes after
+connection-policy and regional preference saves. In-flight preference transactions disable
+controls; existing native restrictions on setup/restore and root mode remain in place.
+
+Native boundary/resource, all screen string/drawable references and whitespace checks pass.
+No APK build was started. Compose previews cover light/dark themes; rendered previews,
+Kotlin/Android compilation and same-device screenshot/interaction parity remain unverified.
+The existing Kotlin requirement to disconnect before automatic setup/root changes is retained.
