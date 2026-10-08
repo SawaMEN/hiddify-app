@@ -6,7 +6,7 @@
 
 Это **не полная реализация всех протоколов панели**. Панель содержит 25 типов
 inbound, включая служебные входы и протоколы отдельных внешних процессов.
-Добавлены отсутствовавшие пути импорта для уже реализованных транспортов;
+Добавлены пути импорта и native-транспорты Sudoku, FPTN, OpenFlux и PingTunnel;
 AmneziaWG обновлён до совместимой с панелью версии wire-протокола.
 
 | Тип панели | Поддержка в клиенте после изменений | Формат / ограничение |
@@ -31,11 +31,11 @@ AmneziaWG обновлён до совместимой с панелью вер�
 | Tunnel | Служебный серверный inbound | Не является самостоятельным удалённым VPN-протоколом |
 | TUN | Локальный сетевой интерфейс | Клиент уже использует Android VpnService; не импортируется как сервер |
 | MTProto | Не является VPN для устройства | `tg://proxy` предназначен для Telegram; выдаётся понятная ошибка |
-| Sudoku | Не реализован | Требуется отдельный транспорт Sudoku, а не только декодирование `sudoku://` |
-| FPTN | Не реализован | `fptn:<base64>`; отдельная реализация протокола и проверки сертификата |
-| OpenFlux | Не реализован | `openflux://v1/<deflate+base64url>`; нужен OpenFlux transport/codec |
+| Sudoku | Реализован | `sudoku://`, native JSON; KIP handshake, AEAD, appearance tables, packed/pure downlink, HTTPMask, multiplex и UDP-over-TCP |
+| FPTN | Реализован | `fptn:<base64>`, native JSON; TLS2 obfuscation / SNI decoy, login/JWT, Protobuf WebSocket IP tunnel, IPv4/IPv6, обязательный pin сертификата |
+| OpenFlux | Реализован | `openflux://v1/<deflate+base64url>`, native JSON; OpenFlux 0.3.0 session negotiation, AES-GCM, batched codec, direct/yandex/vyandex/boards/mailru; IPv4 |
 | VK TURN Proxy | Не реализован | Панель выдаёт **`wingsv://`**, protobuf + DEFLATE; нужен TURN и внешний WireGuard-транспорт |
-| PingTunnel | Не реализован | Отдельный ICMP-транспорт; отсутствует в штатном генераторе подписки панели |
+| PingTunnel | Реализован | Native JSON и `pingtunnel://host?key=123`; ICMP + reliability/SOCKS TCP/UDP; панель не выдаёт share URI |
 
 ## Реальные ошибки, устранённые в этой работе
 
@@ -64,6 +64,37 @@ AmneziaWG обновлён до совместимой с панелью вер�
 - Android обрабатывает прямые ссылки поддерживаемых протоколов. Предпросмотр
   правильно считает серверы в JSON-массивах; редактор получил native шаблоны.
 
+## Новые транспорты
+
+Sudoku использует закреплённый snapshot upstream с сохранением лицензии. Персональный
+private key преобразуется в public seed по upstream-алгоритму. Dialer и HTTPMask
+подключены к защищённым сокетам ядра, включая multiplex и UDP-over-TCP.
+
+FPTN реализован внутри Go-ядра. Сохраняются TLS Session ID timestamp markers,
+TLS2 XOR/padding, переходы обфускации между handshake и HTTP, SNI decoy, JWT и
+формат Protobuf batch/IP assignment. Панель закрепляет сервер 0.4.4 и клиент 0.4.6;
+у обеих версий сервер принимает Protobuf при отсутствии `X-Serializer: yaff`.
+MD5 здесь применяется только для точного сравнения сертификата с pin из токена,
+по формату FPTN. Нет режима пропуска этой проверки. Оба списка серверов токена
+импортируются с удалением одинаковых endpoints.
+
+OpenFlux использует snapshot 0.3.0 — тот же, что панель. Все HTTP/WebSocket/TCP
+carrier-сокеты используют отдельный dialer профиля, без изменения глобальных
+сетевых настроек процесса. IP-стек изолирован; системный TUN и root не требуются.
+Публичные каналы yandex/vyandex/boards/mailru доступны; интерактивный вход в
+аккаунты и WebView для человеческой CAPTCHA не реализованы. Direct не зависит
+от этих сервисов. IPv6 отсутствует в upstream 0.3.0 и отклоняется явно.
+
+PingTunnel использует upstream framing, reliability, SOCKS и encryption с
+исправлениями гонок счётчиков, lifecycle-флагов и времён активности. Android
+открывает ICMP datagram socket и вызывает VpnService protection до использования.
+Если устройство запрещает такой сокет, соединение завершается явной ошибкой;
+root/raw fallback на Android не запускается. Linux требует CAP_NET_RAW.
+ICMP нельзя провести через обычный TCP/UDP detour, такие настройки отклоняются.
+Ключ панели и параметры `encrypt`/`encrypt_key` соответствуют JSON-полям клиента
+`key`/`encryption`/`encryption_key`. Пример ручной ссылки:
+`pingtunnel://server.example?key=123&encrypt=chacha20&encrypt_key=YOUR_SECRET`.
+
 ## Ограничения
 
 TrustTunnel `subscription_url` deep links требуют отдельного механизма загрузки
@@ -88,6 +119,15 @@ mKCP не реализован этим преобразователем и не
   HeaderProtectionKey и ContentPaddingAddition.
 - Прошли проверки гонок данных AWG/Mieru и компиляция изменённых Go-транспортов
   для Android ARM64 (`GOOS=android GOARCH=arm64 CGO_ENABLED=0`).
+- TCP/UDP loopback Sudoku: upstream handshake, AEAD, pure и packed downlink.
+- TCP/UDP и unconnected UDP loopback OpenFlux: negotiated encrypted direct session.
+- TCP/UDP и unconnected UDP loopback FPTN: независимый серверный TLS2 framing,
+  TLS с обязательным pin, login/JWT, Protobuf IP assignment/batches; неверные
+  credentials и certificate pin отклоняются.
+- PingTunnel TCP/UDP: upstream клиент и сервер с сохранением ICMP packet framing.
+  В этой среде CAP_NET_RAW отсутствует, поэтому packet IO теста заменён локальным
+  datagram каналом. Подключение к настоящему внешнему ICMP-серверу не проверено.
+- Race checks новых четырёх адаптеров и Go vet пройдены.
 - TrustTunnel fuzz: 7 229 входов, без падений.
 - Прошли 9 Kotlin/JUnit тестов импорта, с компиляцией production-файлов Kotlin
   2.4.20. Gradle wrapper не смог скачать distribution из этой среды, поэтому
@@ -106,3 +146,8 @@ mKCP не реализован этим преобразователем и не
   `hiddify-core/hiddify-sing-box/include/registry.go`.
 - [TrustTunnel Deep Link Specification](https://github.com/TrustTunnel/TrustTunnel/blob/master/DEEP_LINK.md).
 - [AmneziaWG UAPI](https://github.com/amnezia-vpn/amneziawg-go/blob/v3.1.20260828/device/uapi.go).
+
+- [Sudoku upstream](https://github.com/SUDOKU-ASCII/sudoku).
+- [OpenFlux 0.3.0](https://github.com/p1neappleXpress/OpenFlux/tree/v0.3.0).
+- [FPTN 0.4.6](https://github.com/fptn-project/fptn/tree/0.4.6).
+- [PingTunnel upstream](https://github.com/esrrhs/pingtunnel).

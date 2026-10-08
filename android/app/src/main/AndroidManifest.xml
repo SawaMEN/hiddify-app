@@ -88,6 +88,10 @@
                 <data android:scheme="awg" />
                 <data android:scheme="vpn" />
                 <data android:scheme="snell" />
+                <data android:scheme="sudoku" />
+                <data android:scheme="fptn" />
+                <data android:scheme="openflux" />
+                <data android:scheme="pingtunnel" />
                 <data android:scheme="mieru" />
                 <data android:scheme="mierus" />
                 <data android:scheme="tt" />

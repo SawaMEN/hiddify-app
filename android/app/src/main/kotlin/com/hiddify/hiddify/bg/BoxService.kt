@@ -25,6 +25,18 @@ import com.hiddify.hiddify.constant.Action
 import com.hiddify.hiddify.constant.Alert
 import com.hiddify.hiddify.constant.Status
 import java.io.File
+import android.net.VpnService
+import com.hiddify.hiddify.nativeconnection.NativeHealthProbePolicy
+import com.hiddify.hiddify.nativeconnection.NativeHealthRepository
+import com.hiddify.hiddify.nativeconnection.NativeInternetHealth
+import com.hiddify.hiddify.nativeconnection.NativeRecoveryPolicy
+import com.hiddify.hiddify.nativeconnection.NativeServiceState
+import com.hiddify.hiddify.nativecore.NativeStatsFeed
+import com.hiddify.hiddify.privacy.NetworkPrivacySettings
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -92,6 +104,8 @@ class BoxService(
             } else mapOf("alwaysOn" to null, "lockdown" to null)
         }
 
+        fun refreshConnectionPolicy() { coreOwner?.let { owner -> owner.serviceScope.launch { owner.startConnectionMonitor() } } }
+
         fun start() {
             val intent = Intent(Application.application, Settings.serviceClass()).putExtra("started_by_app", true)
             Settings.connectionDesired = true
@@ -148,6 +162,12 @@ class BoxService(
         }
     }
 
+    private var monitorJob: Job? = null
+    private var recoveryJob: Job? = null
+    private val recoveryPolicy = NativeRecoveryPolicy()
+    private var lastGoodProfile: String? = null
+    private var lastGoodOptions: String? = null
+    private var connectedAt = 0L
     private var activeProfileName = ""
     @Volatile private var stopRequested = false
     @Volatile private var nativeStarting = false
@@ -158,6 +178,8 @@ class BoxService(
     private suspend fun finishCancelledStart(reason: String) {
         startCancellation?.join()
         if (!Settings.connectionDesired) Settings.startedByUser = false
+        NativeServiceState.reset()
+        NativeStatsFeed.reset(); com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
         runCatching { com.hiddify.hiddify.sharing.AutomaticHotspot.stop() }
         val closeError = runCatching { releaseNative(reason) }.exceptionOrNull()
         closeTun(reason)
@@ -175,6 +197,7 @@ class BoxService(
     }
 
     private suspend fun startService() {
+        NativeStatsFeed.reset(); com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
         try {
             if (destroyed) return
             coreOwner?.takeIf { it !== this }?.let { previous ->
@@ -331,6 +354,11 @@ class BoxService(
                 notification.show(activeProfileName, R.string.status_started)
             }
             notification.start()
+            lastGoodProfile = Settings.activeConfigPath
+            lastGoodOptions = Settings.configOptions
+            connectedAt = android.os.SystemClock.elapsedRealtime()
+            NativeServiceState.recovery(0)
+            startConnectionMonitor()
         } catch (e: Exception) {
             if (stopRequested || !Settings.connectionDesired) finishCancelledStart("cancelled startup")
             else stopAndAlert(Alert.StartService, e.message)
@@ -349,6 +377,8 @@ class BoxService(
     suspend fun serviceReload0() {
         lifecycleMutex.withLock {
             if (destroyed || coreOwner !== this@BoxService) return
+            monitorJob?.cancel(); monitorJob = null
+            NativeStatsFeed.reset(); com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
             status.postValue(Status.Starting)
             withContext(Dispatchers.Main) {
                 if (destroyed) return@withContext
@@ -415,6 +445,10 @@ class BoxService(
         if (status.value == Status.Stopped && coreOwner !== this) return
 
         stopRequested = true
+        recoveryJob?.cancel(); recoveryJob = null
+        monitorJob?.cancel(); monitorJob = null
+        NativeServiceState.reset()
+        NativeStatsFeed.reset(); com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
         status.value = Status.Stopping
         cancelNativeStartup()
         serviceScope.launch {
@@ -463,27 +497,127 @@ class BoxService(
         }
     }
 
+    private fun recoveryAllowed(type: Alert): Boolean {
+        val options = NetworkPrivacySettings.loadConnection(service)
+        val permission = service !is VPNService || Settings.privacyUseRoot || VpnService.prepare(service) == null
+        // Never loop on a first-use error or on newly edited invalid configuration.
+        return type == Alert.StartService && NativeRecoveryPolicy.canRecover(
+            lastGoodProfile != null,
+            lastGoodProfile == Settings.activeConfigPath && lastGoodOptions == Settings.configOptions,
+            options.recoveryEnabled, Settings.connectionDesired, Settings.startedByUser, permission, stopRequested, destroyed)
+    }
+
     private suspend fun stopAndAlert(type: Alert, message: String? = null) {
         if (destroyed) return
         if (stopRequested || !Settings.connectionDesired) {
             finishCancelledStart("cancelled before reporting error")
             return
         }
+        monitorJob?.cancel(); monitorJob = null
+        NativeStatsFeed.reset(); com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
         startCancellation?.join()
-        Log.e(TAG, "VPN/core startup failed ($type): ${message ?: "unknown error"}")
-        // Initial setup/configuration failures require user correction, not repeated retries.
-        if (status.value != Status.Started) Settings.connectionDesired = false
-        if (!Settings.connectionDesired) Settings.startedByUser = false
-        runCatching { com.hiddify.hiddify.sharing.AutomaticHotspot.stop() }
+        Log.e(TAG, "VPN/core failed ($type): ${message ?: "unknown error"}")
+        val recover = recoveryAllowed(type) && recoveryPolicy.nextDelaySeconds(NetworkPrivacySettings.loadConnection(service).adaptiveNetwork) != null
+        if (!recover) { Settings.connectionDesired = false; Settings.startedByUser = false }
         val closeError = runCatching { releaseNative("service error") }.exceptionOrNull()
         closeTun("service error")
-
+        if (recover && closeError == null && Settings.connectionDesired && !stopRequested) {
+            withContext(Dispatchers.Main) {
+                status.value = Status.Starting
+                notification.show(activeProfileName, R.string.status_starting)
+            }
+            scheduleServiceRecovery()
+            return
+        }
+        Settings.connectionDesired = false
+        Settings.startedByUser = false
+        NativeServiceState.reset()
+        runCatching { com.hiddify.hiddify.sharing.AutomaticHotspot.stop() }
         withContext(Dispatchers.Main) {
             unregisterReceiver()
             notification.close()
             binder.broadcast { callback -> callback.onServiceAlert(type.ordinal, message ?: closeError?.message) }
             status.value = Status.Stopped
             service.stopSelf()
+        }
+    }
+
+    private fun scheduleServiceRecovery() {
+        if (recoveryJob?.isActive == true) return
+        recoveryJob = serviceScope.launch {
+            try {
+                while (isActive && !destroyed && !stopRequested && Settings.connectionDesired) {
+                    val options = NetworkPrivacySettings.loadConnection(service)
+                    val wait = recoveryPolicy.nextDelaySeconds(options.adaptiveNetwork)
+                    if (!recoveryAllowed(Alert.StartService) || wait == null) {
+                        lifecycleMutex.withLock {
+                            stopAndAlert(Alert.StartService, service.getString(R.string.native_recovery_exhausted))
+                        }
+                        break
+                    }
+                    NativeServiceState.recovery(recoveryPolicy.attempts + 1)
+                    if (!NativeHealthRepository().underlyingNetworkAvailable()) { delay(15_000); continue }
+                    delay(wait * 1000)
+                    lifecycleMutex.withLock {
+                        if (!recoveryAllowed(Alert.StartService) || coreOwner != null || !isActive) return@withLock
+                        recoveryPolicy.recordAttempt()
+                        withContext(Dispatchers.Main) { status.value = Status.Starting }
+                        startService()
+                    }
+                    if (coreOwner === this@BoxService && status.value == Status.Started) break
+                }
+            } catch (cancelled: CancellationException) { throw cancelled }
+              catch (error: Exception) {
+                Log.e(TAG, "service recovery failed", error)
+                lifecycleMutex.withLock {
+                    stopAndAlert(Alert.CreateService, error.message)
+                }
+            } finally { NativeServiceState.recovery(0) }
+        }
+    }
+
+    private fun startConnectionMonitor() {
+        monitorJob?.cancel()
+        monitorJob = serviceScope.launch {
+            val repository = NativeHealthRepository()
+            var coreFailures = 0
+            var policy = NativeHealthProbePolicy(false)
+            delay(3000)
+            while (isActive && !destroyed && coreOwner === this@BoxService && status.value == Status.Started) {
+                if (android.os.SystemClock.elapsedRealtime() - connectedAt >= 60_000) recoveryPolicy.reset()
+                val options = NetworkPrivacySettings.loadConnection(service)
+                if (policy.adaptive != options.adaptiveNetwork) policy = NativeHealthProbePolicy(options.adaptiveNetwork)
+                if (!repository.underlyingNetworkAvailable()) {
+                    NativeServiceState.health(NativeInternetHealth.UNAVAILABLE)
+                    coreFailures = 0
+                    delay(15_000)
+                    continue
+                }
+                NativeServiceState.health(NativeInternetHealth.CHECKING)
+                val url = runCatching { com.hiddify.hiddify.nativecore.NativeGeneralOptionsRepository(service).load().testUrl }
+                    .getOrDefault("https://www.gstatic.com/generate_204")
+                val started = android.os.SystemClock.elapsedRealtime()
+                val healthy = repository.probe(url, policy.timeoutSeconds)
+                policy.record(healthy, android.os.SystemClock.elapsedRealtime() - started)
+                NativeServiceState.health(if (healthy) NativeInternetHealth.AVAILABLE else NativeInternetHealth.PROBE_FAILED)
+                if (healthy) coreFailures = 0 else {
+                    // Probe-site failure alone must never tear down a working VPN.
+                    val responds = try { com.hiddify.hiddify.nativecore.NativeStatsRepository().load(); true }
+                        catch (cancelled: CancellationException) { throw cancelled }
+                        catch (_: Exception) { false }
+                    coreFailures = if (responds) 0 else coreFailures + 1
+                }
+                if (options.recoveryEnabled && coreFailures >= 3 && recoveryAllowed(Alert.StartService)) {
+                    serviceScope.launch {
+                        lifecycleMutex.withLock {
+                            if (!destroyed && coreOwner === this@BoxService && !stopRequested && Settings.connectionDesired)
+                                stopAndAlert(Alert.StartService, "Core control channel is unavailable")
+                        }
+                    }
+                    break
+                }
+                delay(if (healthy) maxOf(60L, policy.intervalSeconds) * 1000 else policy.intervalSeconds * 1000)
+            }
         }
     }
 
@@ -597,6 +731,9 @@ class BoxService(
         stopRequested = true
         cancelNativeStartup()
         destroyed = true
+        recoveryJob?.cancel(); recoveryJob = null
+        monitorJob?.cancel(); monitorJob = null
+        if (coreOwner === this) { NativeServiceState.reset(); NativeStatsFeed.reset(); com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset() }
         unregisterReceiver()
         notification.destroy()
         binder.close()

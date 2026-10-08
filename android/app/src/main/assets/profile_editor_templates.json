@@ -295,6 +295,57 @@
           ]
         }
       ]
+    },
+    "sudoku": {
+      "type": "sudoku",
+      "tag": "sudoku-out",
+      "server": "server.example",
+      "server_port": 443,
+      "key": "",
+      "ascii": "entropy",
+      "aead": "chacha20-poly1305",
+      "enable_pure_downlink": true,
+      "padding_min": 5,
+      "padding_max": 15,
+      "httpmask": {
+        "disable": false,
+        "mode": "legacy",
+        "multiplex": "off"
+      }
+    },
+    "openflux": {
+      "type": "openflux",
+      "tag": "openflux-out",
+      "secret": "",
+      "context": "",
+      "codec": "batched",
+      "negotiate": true,
+      "transports": [
+        {
+          "type": "direct",
+          "dial": "server.example:443",
+          "priority": 0
+        }
+      ]
+    },
+    "fptn": {
+      "type": "fptn",
+      "tag": "fptn-out",
+      "server": "server.example",
+      "server_port": 443,
+      "username": "",
+      "password": "",
+      "md5_fingerprint": "",
+      "sni": "www.google.com",
+      "bypass": "obfuscation",
+      "mtu": 1500
+    },
+    "pingtunnel": {
+      "type": "pingtunnel",
+      "tag": "pingtunnel-out",
+      "server": "server.example",
+      "key": 0,
+      "encryption": "none"
     }
   },
   "exampleSchemaValues": {
@@ -539,7 +590,11 @@
       "naive",
       "anytls",
       "snell",
-      "trusttunnel"
+      "trusttunnel",
+      "sudoku",
+      "fptn",
+      "openflux",
+      "pingtunnel"
     ],
     "config.endpoints.type": [
       "wireguard",

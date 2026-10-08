@@ -43,7 +43,7 @@ fun NativeProfileDetailsScreen(
     var validateName by remember { mutableStateOf(false) }
     val ready = editor != null && session.identity == "${editor.profile.id}:${editor.profile.lastUpdate}"
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack, enabled = !busy) {
                 Icon(painterResource(R.drawable.native_back_arrow), stringResource(R.string.native_back))
             }

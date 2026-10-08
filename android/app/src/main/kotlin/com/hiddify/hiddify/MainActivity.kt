@@ -56,11 +56,7 @@ import com.hiddify.hiddify.nativerouting.NativePerAppRepository
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
 import com.hiddify.hiddify.nativepreferences.NativeAppearanceRepository
 import com.hiddify.hiddify.nativepreferences.NativeThemeMode
-import com.hiddify.hiddify.nativeconnection.NativeRecoveryPolicy
-import com.hiddify.hiddify.nativeconnection.NativeRecoveryDecision
 import com.hiddify.hiddify.nativeconnection.NativeConnectionOptions
-import com.hiddify.hiddify.nativeconnection.NativeHealthProbePolicy
-import com.hiddify.hiddify.nativeconnection.NativeHealthRepository
 import com.hiddify.hiddify.nativeconnection.NativeInternetHealth
 import com.hiddify.hiddify.privacy.NativeRegionalAppKind
 import com.hiddify.hiddify.privacy.NativeRegionalAppSnapshot
@@ -71,9 +67,11 @@ import com.hiddify.hiddify.privacy.NetworkPrivacySettings
 import com.hiddify.hiddify.nativeui.NativeApp
 import com.hiddify.hiddify.nativeui.NativeSettingsState
 import com.hiddify.hiddify.sharing.AutomaticHotspot
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -84,6 +82,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 
 /** Standalone Kotlin/Compose Android entry point. */
@@ -162,8 +161,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val outboundOperationRevision = mutableStateOf(0)
     private val outboundBusyTag = mutableStateOf<String?>(null)
     private val systemStats = mutableStateOf(NativeSystemStats())
-    private val trafficRateMeter = com.hiddify.hiddify.nativecore.NativeTrafficRateMeter()
-    private var statsGeneration = 0L
     private val wifiSharingDetails = mutableStateOf(NativeWifiSharingDetails())
     private val wifiSharingBusy = mutableStateOf(false)
     private var hotspotPermission: CompletableDeferred<Boolean>? = null
@@ -205,14 +202,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val connectionOptions = mutableStateOf(NativeConnectionOptions())
     private val connectionOptionsBusy = mutableStateOf(false)
     private val internetHealth = mutableStateOf(NativeInternetHealth.UNCHECKED)
-    private val healthRepository = NativeHealthRepository()
     private var healthJob: Job? = null
     private var smartSelectionJob: Job? = null
     private val serverHistoryRepository by lazy { com.hiddify.hiddify.nativeconnection.NativeServerHistoryRepository(applicationContext) }
     private var nativeForeground = false
-    private var recoveryPolicy = NativeRecoveryPolicy()
-    private var recoveryJob: Job? = null
-    private var stableConnectionJob: Job? = null
     private val recoveryAttempt = mutableStateOf(0)
     private var nativeStartPending = false
     private val serviceStartTracker = ServiceStartTracker()
@@ -234,7 +227,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val logRepository by lazy { NativeLogRepository(applicationContext) }
     private val chainRepository by lazy { NativeChainRepository() }
     private val outboundsRepository by lazy { NativeOutboundsRepository() }
-    private val statsRepository by lazy { NativeStatsRepository() }
     private val wifiSharingRepository by lazy { NativeWifiSharingRepository() }
     private val settingsTransferRepository by lazy { NativeSettingsTransferRepository(this) }
     private val updateRepository by lazy { NativeUpdateRepository() }
@@ -362,7 +354,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     override fun onSaveInstanceState(outState: android.os.Bundle) {
         outState.putBoolean("background_permission_in_flight", backgroundPermissionRequestInFlight)
-        outState.putInt("native_recovery_attempts", recoveryPolicy.attempts)
         outState.putString("native_profile_export_id", pendingProfileExportId)
         outState.putString("native_profile_editor_id", profileEditorId)
         super.onSaveInstanceState(outState)
@@ -383,7 +374,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         AutomaticHotspot.addObserver(hotspotObserver)
         pendingProfileExportId = savedInstanceState?.getString("native_profile_export_id")
         savedInstanceState?.getString("native_profile_editor_id")?.let(::loadProfileEditor)
-        recoveryPolicy = NativeRecoveryPolicy(savedInstanceState?.getInt("native_recovery_attempts") ?: 0)
 
         if (migrationError != null) {
             errorMessage.value = migrationError.message ?: migrationError.javaClass.simpleName
@@ -487,6 +477,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 perAppBusy = perAppBusy.value,
                 pendingPerAppImport = pendingPerAppImport.value,
                 logSnapshot = logSnapshot.value,
+                onLogVisibilityChange = ::setLogsVisible,
                 logBusy = logBusy.value,
                 chainOptions = chainOptions.value,
                 chainBusy = chainBusy.value,
@@ -634,13 +625,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             return
         }
         refreshVpnProtection()
-        refreshProfileSnapshot()
-        refreshSettingsSnapshot()
-        refreshCoreOptions()
-        refreshProfiles()
-        refreshPerApp()
         if (serviceStatus.value == Status.Started) {
-            refreshOutbounds(showError = false)
             maybeRequestNotificationPermission()
             maybePromptBatteryOptimization()
         }
@@ -666,6 +651,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         profileUpdateJob = null
         logRefreshJob?.cancel()
         logRefreshJob = null
+        logsRefreshJob?.cancel(); logsRefreshJob = null
+        logReadGeneration++
+        profilesSnapshotJob?.cancel(); profilesSnapshotJob = null
         resetTrafficStats()
         statsRefreshJob?.cancel()
         statsRefreshJob = null
@@ -709,7 +697,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     progress.checks.lastOrNull()?.takeIf { it.stage == com.hiddify.hiddify.nativediagnostics.NativeDiagnosticStage.TUNNEL }?.let {
                         internetHealth.value = when (it.outcome) {
                             com.hiddify.hiddify.nativediagnostics.NativeDiagnosticOutcome.PASSED -> NativeInternetHealth.AVAILABLE
-                            com.hiddify.hiddify.nativediagnostics.NativeDiagnosticOutcome.FAILED -> NativeInternetHealth.UNAVAILABLE
+                            com.hiddify.hiddify.nativediagnostics.NativeDiagnosticOutcome.FAILED -> NativeInternetHealth.PROBE_FAILED
                             else -> NativeInternetHealth.UNCHECKED
                         }
                     }
@@ -748,8 +736,12 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         activeProfilePath.value = Settings.activeConfigPath
     }
 
+    private var profilesSnapshotJob: Job? = null
+    private var profilesSnapshotGeneration = 0L
     private fun refreshProfiles(syncActive: Boolean = false) {
-        lifecycleScope.launch {
+        profilesSnapshotJob?.cancel()
+        val generation = ++profilesSnapshotGeneration
+        profilesSnapshotJob = lifecycleScope.launch {
             try {
                 val loaded =
                     withContext(Dispatchers.IO) {
@@ -758,6 +750,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                             profileRepository.listProfiles()
                         }
                     }
+                if (generation != profilesSnapshotGeneration || !nativeForeground) return@launch
                 profiles.value = loaded
                 profilesLoadFailed.value = false
                 refreshProfileSnapshot()
@@ -768,16 +761,17 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     errorMessage.value = error.message ?: error.javaClass.simpleName
                 }
             } finally {
-                profilesLoading.value = false
+                if (generation == profilesSnapshotGeneration) profilesLoading.value = false
             }
         }
     }
 
+    private var logsVisible = false
     private var logsRefreshJob: Job? = null
     private var logReadGeneration = 0L
 
     private fun refreshLogs() {
-        if (logBusy.value) return
+        if (!logsVisible || !nativeForeground || logBusy.value) return
         logsRefreshJob?.cancel()
         val generation = ++logReadGeneration
         val serviceLines = serviceLogLines.toList()
@@ -919,65 +913,56 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    private fun setLogsVisible(visible: Boolean) {
+        logsVisible = visible
+        if (visible && nativeForeground) startLogRefreshLoop() else {
+            logRefreshJob?.cancel(); logRefreshJob = null
+            logsRefreshJob?.cancel(); logsRefreshJob = null
+            logReadGeneration++
+        }
+    }
+
     private fun startLogRefreshLoop() {
-        if (logRefreshJob?.isActive == true) return
-        logRefreshJob =
-            lifecycleScope.launch {
-                while (isActive) {
-                    refreshLogs()
-                    delay(LOG_REFRESH_INTERVAL_MS)
-                }
+        if (!logsVisible || !nativeForeground || logRefreshJob?.isActive == true) return
+        logRefreshJob = lifecycleScope.launch {
+            while (isActive && nativeForeground && logsVisible) {
+                refreshLogs()
+                delay(LOG_REFRESH_INTERVAL_MS)
             }
+        }
     }
 
     private fun startActiveOutboundRefreshLoop() {
         if (activeOutboundRefreshJob?.isActive == true) return
         activeOutboundRefreshJob = lifecycleScope.launch {
+            var previousOutbound = ""
             while (isActive && nativeForeground) {
+                val snapshot = withTimeoutOrNull(15_000) {
+                    com.hiddify.hiddify.nativecore.NativeStatsFeed.snapshots.first {
+                        it.currentOutbound.isNotBlank() && it.currentOutbound != previousOutbound
+                    }
+                }
+                previousOutbound = snapshot?.currentOutbound ?: com.hiddify.hiddify.nativecore.NativeStatsFeed.snapshots.value.currentOutbound
                 if (serviceStatus.value == Status.Started) {
+                    val profile = Settings.activeConfigPath
                     try {
                         val active = withContext(Dispatchers.IO) { outboundsRepository.loadActive() }
-                        if (nativeForeground && serviceStatus.value == Status.Started) activeOutbound.value = active
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (error: Exception) {
-                        Log.w(TAG, "failed to refresh active native outbound", error)
-                    }
-                } else activeOutbound.value = null
-                delay(3000)
+                        if (nativeForeground && serviceStatus.value == Status.Started && profile == Settings.activeConfigPath)
+                            activeOutbound.value = active
+                    } catch (cancelled: CancellationException) { throw cancelled }
+                      catch (error: Exception) { Log.w(TAG, "failed to refresh active native outbound", error) }
+                } else { activeOutbound.value = null; previousOutbound = ""; delay(1000) }
             }
         }
     }
 
-    private fun resetTrafficStats() {
-        statsGeneration++
-        trafficRateMeter.reset()
-        systemStats.value = NativeSystemStats()
-    }
+    private fun resetTrafficStats() { systemStats.value = NativeSystemStats() }
 
     private fun startStatsRefreshLoop() {
         if (statsRefreshJob?.isActive == true) return
-        resetTrafficStats()
         statsRefreshJob = lifecycleScope.launch {
-            while (isActive && nativeForeground) {
-                if (serviceStatus.value == Status.Started) {
-                    val generation = statsGeneration
-                    try {
-                        val snapshot = withContext(Dispatchers.IO) { statsRepository.load() }
-                        if (nativeForeground && serviceStatus.value == Status.Started && generation == statsGeneration) {
-                            systemStats.value = trafficRateMeter.sample(snapshot, android.os.SystemClock.elapsedRealtime())
-                        }
-                    } catch (cancelled: CancellationException) {
-                        throw cancelled
-                    } catch (error: Exception) {
-                        if (generation == statsGeneration) {
-                            trafficRateMeter.reset()
-                            systemStats.value = systemStats.value.copy(trafficAvailable = false, speedAvailable = false, uplink = 0, downlink = 0)
-                        }
-                        Log.w(TAG, "failed to refresh native core statistics", error)
-                    }
-                } else trafficRateMeter.reset()
-                delay(1_000L)
+            com.hiddify.hiddify.nativecore.NativeStatsFeed.snapshots.collect { snapshot ->
+                if (nativeForeground) systemStats.value = snapshot
             }
         }
     }
@@ -1341,6 +1326,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                             mutate()
                         } else mutate()
                     }
+                if (generation != profilesSnapshotGeneration || !nativeForeground) return@launch
                 profiles.value = loaded
                 profilesLoadFailed.value = false
                 refreshProfileSnapshot()
@@ -1696,7 +1682,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     if (wasEnabled != enabled) homeSmartSelected.value = false
                     wasEnabled = enabled
                     if (!enabled && !leaveBalancer) continue
-                    if (outboundBusyTag.value != null || generalPreferencesBusy.value || connectionOptionsBusy.value) continue
+                    if (outboundBusyTag.value != null || generalPreferencesBusy.value || connectionOptionsBusy.value ||
+                        com.hiddify.hiddify.nativecore.NativeSpeedTestRepository.running) continue
                     outboundBusyTag.value = busyToken
                     try {
                         val path = Settings.activeConfigPath
@@ -1719,12 +1706,15 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                             profile = path
                         }
                         if (path.isBlank()) continue
-                        val groups = withContext(Dispatchers.IO) { outboundsRepository.load() }
+                        val groups = withTimeoutOrNull(10_000) {
+                            com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.updates.first { it.group != null && com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.isCurrent(it) }
+                                .group?.let { listOf(it) }.orEmpty()
+                        } ?: continue
                         if (!nativeForeground || serviceStatus.value != Status.Started || path != Settings.activeConfigPath) continue
                         outboundGroups.value = groups
                         val group = groups.firstOrNull()?.takeIf { it.selectable } ?: continue
                         val balancer = group.items.firstOrNull { it.isGroup && it.tag == "lowest" }
-                        val direct = group.items.filter { !it.isGroup }.take(128)
+                        val direct = group.items.filter { it.visible && !it.isGroup }.take(128)
                         val now = System.currentTimeMillis()
                         val target = if (enabled) {
                             if (balancer != null) balancer.tag.takeIf { it != group.selectedTag }
@@ -1824,6 +1814,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             try {
                 withContext(Dispatchers.IO) { NetworkPrivacySettings.saveConnection(applicationContext, options) }
                 connectionOptions.value = NetworkPrivacySettings.loadConnection(applicationContext)
+                BoxService.refreshConnectionPolicy()
                 refreshPrivacySetupState()
                 restartHealthMonitor()
                 startSmartSelectionLoop()
@@ -1840,140 +1831,20 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
-    private fun cancelRecovery() {
-        recoveryJob?.cancel()
-        recoveryJob = null
-        stableConnectionJob?.cancel()
-        stableConnectionJob = null
-        recoveryAttempt.value = 0
-    }
-
-    private fun scheduleRecovery() {
-        if (!nativeForeground || reconnectBusy.value || recoveryJob != null || !connectionOptions.value.recoveryEnabled ||
-            !Settings.connectionDesired || !Settings.startedByUser || serviceStatus.value != Status.Stopped ||
-            pendingStartAfterVpnPermission || nativeStartPending || wifiSharingBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value) return
-        stableConnectionJob?.cancel()
-        recoveryJob = lifecycleScope.launch(start = kotlinx.coroutines.CoroutineStart.LAZY) {
-            try {
-                while (isActive && nativeForeground && Settings.connectionDesired && Settings.startedByUser &&
-                    connectionOptions.value.recoveryEnabled && serviceStatus.value == Status.Stopped) {
-                    if (BoxService.isStarted()) {
-                        connection.reconnect()
-                        break
-                    }
-                    val adaptive = connectionOptions.value.adaptiveNetwork
-                    val wait = recoveryPolicy.nextDelaySeconds(adaptive)
-                    if (wait == null) {
-                        Settings.connectionDesired = false
-                        Settings.startedByUser = false
-                        errorMessage.value = getString(R.string.native_recovery_exhausted)
-                        break
-                    }
-                    if (adaptive && !withContext(Dispatchers.IO) { healthRepository.underlyingNetworkAvailable() }) {
-                        recoveryAttempt.value = recoveryPolicy.attempts + 1
-                        delay(15_000)
-                        continue
-                    }
-                    recoveryAttempt.value = recoveryPolicy.attempts + 1
-                    delay(wait * 1_000)
-                    val result = BoxService.withNativeLifecycle {
-                        val permission = Settings.serviceMode != ServiceMode.VPN || Settings.privacyUseRoot ||
-                            VpnService.prepare(this@MainActivity) == null
-                        val network = !adaptive || withContext(Dispatchers.IO) { healthRepository.underlyingNetworkAvailable() }
-                        val decision = NativeRecoveryPolicy.decision(
-                            Settings.connectionDesired && Settings.startedByUser,
-                            connectionOptions.value.recoveryEnabled, nativeForeground, permission,
-                            pendingStartAfterVpnPermission || nativeStartPending || wifiSharingBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value ||
-                                serviceStatus.value != Status.Stopped,
-                            adaptive, network, BoxService.hasActiveCore(),
-                        )
-                        if (!permission) {
-                            Settings.connectionDesired = false
-                            Settings.startedByUser = false
-                            errorMessage.value = getString(R.string.native_recovery_permission)
-                        }
-                        if (decision == NativeRecoveryDecision.START) {
-                            if (Settings.activeConfigPath.isBlank()) {
-                                Settings.connectionDesired = false
-                                Settings.startedByUser = false
-                                errorMessage.value = getString(R.string.native_no_active_profile)
-                                NativeRecoveryDecision.STOP
-                            } else {
-                                recoveryPolicy.recordAttempt()
-                                Settings.startCoreAfterStartingService = true
-                                nativeStartPending = true
-                                observeIssuedServiceStart()
-                                serviceStatus.value = Status.Starting
-                                try { BoxService.start() } catch (error: Exception) {
-                                    nativeStartPending = false
-                                    serviceStartTracker.reset()
-                                    serviceStatus.value = Status.Stopped
-                                    errorMessage.value = error.message ?: error.javaClass.simpleName
-                                }
-                                NativeRecoveryDecision.START
-                            }
-                        } else decision
-                    }
-                    if (result == NativeRecoveryDecision.STOP) break
-                    if (BoxService.isStarted()) {
-                        connection.reconnect()
-                        break
-                    }
-                    // Observe ownership/binder state without stopping a potentially healthy core.
-                    delay(15_000)
-                    if (nativeStartPending && !BoxService.hasActiveCore() && !BoxService.isRunning()) nativeStartPending = false
-                }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                Settings.connectionDesired = false
-                errorMessage.value = error.message ?: error.javaClass.simpleName
-            } finally {
-                if (recoveryJob == currentCoroutineContext()[Job]) {
-                    recoveryJob = null
-                    recoveryAttempt.value = 0
-                }
-            }
-        }
-        recoveryJob?.start()
-    }
-
-    private fun trackStableConnection() {
-        cancelRecovery()
-        stableConnectionJob = lifecycleScope.launch {
-            delay(60_000)
-            if (Settings.connectionDesired && BoxService.isStarted()) recoveryPolicy.reset()
-        }
-    }
+    private fun cancelRecovery() { recoveryAttempt.value = 0 }
+    private fun scheduleRecovery() { recoveryAttempt.value = com.hiddify.hiddify.nativeconnection.NativeServiceState.recovery.value }
+    private fun trackStableConnection() { scheduleRecovery() }
 
     private fun stopHealthMonitor() {
-        healthJob?.cancel()
-        healthJob = null
+        healthJob?.cancel(); healthJob = null
         internetHealth.value = NativeInternetHealth.UNCHECKED
     }
 
     private fun restartHealthMonitor() {
-        stopHealthMonitor()
-        if (!nativeForeground || serviceStatus.value != Status.Started) return
-        val policy = NativeHealthProbePolicy(connectionOptions.value.adaptiveNetwork)
-        val url = generalOptions.value?.testUrl ?: return
+        if (!nativeForeground || healthJob?.isActive == true) return
         healthJob = lifecycleScope.launch {
-            delay(3_000)
-            while (isActive && nativeForeground && serviceStatus.value == Status.Started) {
-                val network = withContext(Dispatchers.IO) { healthRepository.underlyingNetworkAvailable() }
-                if (policy.adaptive && !network) {
-                    internetHealth.value = NativeInternetHealth.UNAVAILABLE
-                    delay(15_000)
-                    continue
-                }
-                internetHealth.value = NativeInternetHealth.CHECKING
-                val started = android.os.SystemClock.elapsedRealtime()
-                val healthy = healthRepository.probe(url, policy.timeoutSeconds)
-                currentCoroutineContext().ensureActive()
-                policy.record(healthy, android.os.SystemClock.elapsedRealtime() - started)
-                internetHealth.value = if (healthy) NativeInternetHealth.AVAILABLE else NativeInternetHealth.UNAVAILABLE
-                delay(policy.intervalSeconds * 1_000)
-            }
+            launch { com.hiddify.hiddify.nativeconnection.NativeServiceState.health.collect { internetHealth.value = it } }
+            launch { com.hiddify.hiddify.nativeconnection.NativeServiceState.recovery.collect { recoveryAttempt.value = it } }
         }
     }
 
@@ -2678,7 +2549,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun toggleConnection() {
         // Stop must remain available while startup, recovery or settings reconnect is pending.
-        if (reconnectBusy.value || recoveryJob != null || recoveryAttempt.value > 0 ||
+        if (reconnectBusy.value || recoveryAttempt.value > 0 ||
             nativeStartPending || pendingStartAfterVpnPermission || serviceStatus.value == Status.Starting) {
             connectionHaptic(stopping = true)
             requestStop()
@@ -2706,7 +2577,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             chainBusy.value || busyProfileId.value != null || profileEditorBusy.value || nativeStartPending ||
             pendingStartAfterVpnPermission || serviceStatus.value != Status.Stopped || BoxService.hasActiveCore()) return
         cancelRecovery()
-        recoveryPolicy.reset()
         nativeStartPending = false
         homeConnectionFailed.value = false
         errorMessage.value = null
@@ -2864,10 +2734,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 serviceStartWatchdog = null
             }
             if (status == Status.Started) trackStableConnection()
-            else {
-                stableConnectionJob?.cancel()
-                if (status == Status.Stopped) scheduleRecovery()
-            }
+            else if (status == Status.Stopped) scheduleRecovery()
             restartHealthMonitor()
             startSmartSelectionLoop()
             refreshVpnProtection()

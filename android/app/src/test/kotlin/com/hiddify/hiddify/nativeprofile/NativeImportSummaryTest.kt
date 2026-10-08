@@ -33,7 +33,7 @@ class NativeImportSummaryTest {
     @Test fun unavailablePanelTransportsAreReportedWithoutCredentials() {
         val summary = NativeImportSummary.parse("fptn:secret\nsudoku://secret\nopenflux://v1/secret\ntg://proxy?server=example.org&secret=secret\nwingsv://secret")
         assertEquals(5, summary.servers)
-        assertEquals(listOf("FPTN", "Sudoku", "OpenFlux", "MTProto (Telegram)", "VK TURN Proxy"), summary.unsupportedProtocols)
+        assertEquals(listOf("MTProto (Telegram)", "VK TURN Proxy"), summary.unsupportedProtocols)
         assertFalse(summary.toString().contains("secret"))
     }
     @Test fun jsonCountsEndpointsAndDuplicatesWithoutUtilityOutbounds() {

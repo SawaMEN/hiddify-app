@@ -11,23 +11,19 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
-import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.StringRes
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
-import com.hiddify.core.api.v2.hcommon.Empty
-import com.hiddify.core.api.v2.hcore.CoreClient
-import com.hiddify.core.api.v2.hcore.SystemInfo
 import com.hiddify.hiddify.Application
 import com.hiddify.hiddify.MainActivity
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.Settings
 import com.hiddify.hiddify.constant.Action
 import com.hiddify.core.libbox.Libbox
-import com.hiddify.hiddify.utils.GrpcClientProvider
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
@@ -165,17 +161,13 @@ class ServiceNotification(private val service: Service) : BroadcastReceiver() {
         receiverRegistered = true
     }
 
-    fun updateStatus(previous:SystemInfo,status: SystemInfo, elapsedMillis: Long) {
+    private fun updateStatus(status: com.hiddify.hiddify.nativecore.NativeSystemStats) {
         if (closed || foregroundOwner !== this || !checkPermission()) return
-        val seconds = elapsedMillis.coerceAtLeast(1).toDouble() / 1000
-        val uplink = ((status.uplink_total - previous.uplink_total).coerceAtLeast(0) / seconds).toLong()
-        val downlink = ((status.downlink_total - previous.downlink_total).coerceAtLeast(0) / seconds).toLong()
-        val content = "${Libbox.formatBytes(uplink)}/s ↑\t${Libbox.formatBytes(downlink)}/s ↓ \n${status.current_outbound}"
-        val title = status.current_profile.takeIf { it.isNotBlank() } ?: profileName
-        Application.notificationManager.notify(
-                notificationId,
-                notificationBuilder.setContentTitle(title).setContentText(content).build()
-        )
+        fun rate(bytes: Long) = if (status.speedAvailable) "${Libbox.formatBytes(bytes)}/s" else "—"
+        val content = "${rate(status.uplink)} ↑  ${rate(status.downlink)} ↓\n${status.currentOutbound}"
+        val title = status.currentProfile.takeIf { it.isNotBlank() } ?: profileName
+        Application.notificationManager.notify(notificationId,
+            notificationBuilder.setContentTitle(title).setContentText(content).build())
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -206,47 +198,12 @@ class ServiceNotification(private val service: Service) : BroadcastReceiver() {
     private var streamingJob: Job? = null
 
     fun startListenSystemInfo() {
-        // Cancel any previous stream if still running
-        Log.d("notification","startListenSystemInfo")
         if (closed || foregroundOwner !== this || !Settings.dynamicNotification || !checkPermission() ||
-            !Application.powerManager.isInteractive) return
-        streamingJob?.cancel()
+            !Application.powerManager.isInteractive || streamingJob?.isActive == true) return
         val generation = ++pollingGeneration
-
-        streamingJob = streamingCoroutineScope.launch(Dispatchers.IO) {
-            Log.d("notification", "startListenSystemInfo-launch")
-
-            var coreClient: CoreClient? = null
-
-            var previous: SystemInfo? = null
-            var previousTime = 0L
-            var failures = 0
-            while (isActive && !closed && generation == pollingGeneration) {
-                try {
-                    if (!Settings.dynamicNotification || !checkPermission()) break
-                    val client = coreClient ?: GrpcClientProvider.grpcClient.create(CoreClient::class).also { coreClient = it }
-                    val current = client.GetSystemInfo().execute(Empty())
-                    val now = SystemClock.elapsedRealtime()
-                    val baseline = previous
-                    if (baseline != null) {
-                        val elapsed = now - previousTime
-                        withContext(Dispatchers.Main) {
-                            if (!closed && generation == pollingGeneration) updateStatus(baseline, current, elapsed)
-                        }
-                    }
-                    previous = current
-                    previousTime = now
-                    failures = 0
-                    delay(1_000)
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Exception) {
-                    Log.w("notification", "SystemInfo polling failed; retrying", error)
-                    previous = null
-                    coreClient = null
-                    failures = (failures + 1).coerceAtMost(5)
-                    delay(1_000L * failures)
-                }
+        streamingJob = streamingCoroutineScope.launch(Dispatchers.Main.immediate) {
+            com.hiddify.hiddify.nativecore.NativeStatsFeed.snapshots.collect { snapshot ->
+                if (!closed && generation == pollingGeneration) updateStatus(snapshot)
             }
         }
     }

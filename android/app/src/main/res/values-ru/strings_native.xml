@@ -735,7 +735,7 @@
     <string name="native_settings_page_confirm_import_message">Это перезапишет все параметры конфигурации предоставленными значениями. Вы уверены?</string>
     <string name="native_settings_page_menu">Другие действия</string>
     <string name="native_home_choose_profile">Выберите профиль</string>
-    <string name="native_home_selection_reason">Выбран после повторных успешных проверок</string>
+    <string name="native_home_selection_reason">Автовыбор учитывает доступность и задержку; скорость загрузки проверяется отдельно.</string>
     <string name="native_home_version">Версия</string>
     <string name="native_connection_stop_timeout">Не удалось остановить VPN за 30 секунд. Дождитесь завершения остановки и повторите действие.</string>
     <string name="native_connection_service_unavailable">Служба VPN не запустилась. Попробуйте подключиться снова.</string>
@@ -838,4 +838,11 @@
     <string name="native_traffic_session">За сеанс: %1$s %2$s</string>
     <string name="native_status_failed">Не удалось подключиться</string>
     <string-array name="native_traffic_units"><item>Б</item><item>КиБ</item><item>МиБ</item><item>ГиБ</item><item>ТиБ</item><item>ПиБ</item><item>ЭиБ</item></string-array>
+    <string name="native_health_probe_failed">VPN запущен · проверочные сайты недоступны</string>
+    <string name="native_speed_test_run">Проверить скорость загрузки</string>
+    <string name="native_speed_test_cancel">Отменить тест скорости</string>
+    <string name="native_speed_test_hint">Короткий тест через выбранный VPN-сервер до Cloudflare: до 5 МиБ данных, до 30 секунд. Оценка скорости загрузки, а не пинга.</string>
+    <string name="native_speed_test_result">%1$s Мбит/с</string>
+    <string name="native_speed_test_failed">Тест не завершён. Проверочный сервер может быть недоступен.</string>
+    <string name="native_mtu_presets_hint">Сравнивайте MTU на одном сервере и в одной сети. Универсально самого быстрого значения нет.</string>
 </resources>

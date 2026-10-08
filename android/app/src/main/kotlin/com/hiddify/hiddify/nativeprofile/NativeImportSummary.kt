@@ -19,11 +19,10 @@ data class NativeImportSummary(
             "http", "shadowtls", "anytls", "snell", "mieru", "warp", "psiphon", "openvpn",
             "openvpn-client", "openvpn-server", "openconnect", "tailscale", "tailcat", "cloudflared",
             "masque", "masque-client", "masque-server", "trusttunnel", "hiddify", "tunnel_client",
-            "tunnel_server", "hysteria2_legacy", "vpn", "tt", "mierus", "naive", "naive+https", "naive+quic", "socks5",
+            "tunnel_server", "hysteria2_legacy", "vpn", "tt", "mierus", "naive", "naive+https", "naive+quic", "socks5", "sudoku", "fptn", "openflux", "pingtunnel",
         )
         private val unavailable = mapOf(
-            "sudoku" to "Sudoku", "fptn" to "FPTN", "openflux" to "OpenFlux",
-            "vk-turn-proxy" to "VK TURN Proxy", "wingsv" to "VK TURN Proxy", "pingtunnel" to "PingTunnel",
+            "vk-turn-proxy" to "VK TURN Proxy", "wingsv" to "VK TURN Proxy",
             "tg" to "MTProto (Telegram)", "mtproto" to "MTProto (Telegram)",
         )
         private val utility = setOf("direct", "block", "dns", "selector", "urltest", "url-test", "reject")

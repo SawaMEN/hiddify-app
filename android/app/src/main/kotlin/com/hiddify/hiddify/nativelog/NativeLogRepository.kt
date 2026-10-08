@@ -19,6 +19,8 @@ class NativeLogRepository(private val context: Context) {
         private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss")
     }
 
+    private val tailCache = NativeLogTailCache()
+
     private fun workingDir(): File {
         val configured = Settings.workingDir
         return if (configured.isNotBlank() && configured != "./") {
@@ -45,7 +47,7 @@ class NativeLogRepository(private val context: Context) {
         val sources = ArrayList<String>()
         for (file in candidateFiles()) {
             if (!file.isFile || file.length() <= 0L) continue
-            val text = try { NativeLogFiles.readTail(file, MAX_SOURCE_BYTES) }
+            val text = try { tailCache.read(file, MAX_SOURCE_BYTES) }
             catch (_: IOException) { continue }
             catch (_: SecurityException) { continue }
             val fileLines =
@@ -89,7 +91,7 @@ class NativeLogRepository(private val context: Context) {
         }
     }
 
-    fun clear() = NativeLogFiles.clear(candidateFiles())
+    fun clear() { tailCache.clear(); NativeLogFiles.clear(candidateFiles()) }
 
     fun decorateServiceLine(message: String): String {
         val clean = message.trim()
