@@ -10,13 +10,17 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,17 +36,22 @@ internal fun NativeActiveProxyDelay(outbound: NativeOutbound, busy: Boolean, onT
         outbound.delayMs <= 0 -> R.string.native_active_delay_testing
         else -> R.string.native_active_delay_result
     }, outbound.delayMs)
+    val delayStyle = MaterialTheme.typography.titleMedium.toSpanStyle().copy(fontWeight = FontWeight.Bold)
+    val delayText = if (timeout) stringResource(R.string.native_active_timeout) else outbound.delayMs.toString()
     Row(Modifier.semantics { contentDescription = description }
         .clickable(enabled = !busy, onClick = onTest).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Icon(painterResource(R.drawable.native_wifi_signal), null)
         if (outbound.delayMs > 0) {
-            Text(if (timeout) stringResource(R.string.native_active_timeout) else outbound.delayMs.toString(),
-                fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium,
+            Text(buildAnnotatedString {
+                withStyle(delayStyle) {
+                    append(delayText)
+                }
+                if (!timeout) append(" ms")
+            }, style = MaterialTheme.typography.bodyLarge,
                 color = if (timeout) MaterialTheme.colorScheme.error else LocalContentColor.current)
-            if (!timeout) Text("ms", style = MaterialTheme.typography.bodyMedium)
         } else Box(Modifier.size(width = 48.dp, height = 18.dp)
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(4.dp)))
+            .background(LocalContentColor.current.copy(alpha = .16f), RoundedCornerShape(8.dp)))
     }
 }
 
@@ -53,20 +62,33 @@ internal fun NativeActiveProxyFooter(
     busy: Boolean,
     onOpen: () -> Unit,
     onTest: () -> Unit,
+    ipVisibilitySession: NativeIpVisibilitySession? = null,
+    hapticFeedback: Boolean = true,
+    operationRevision: Int = 0,
 ) {
-    var showIp by rememberSaveable { mutableStateOf(false) }
+    val visibility = ipVisibilitySession ?: remember { NativeIpVisibilitySession() }
+    val view = LocalView.current
+    val emojiFont = remember { FontFamily(Font(R.font.emoji)) }
+    DisposableEffect(visibility) {
+        visibility.attach()
+        onDispose { visibility.detach() }
+    }
     var inspectPending by remember { mutableStateOf(false) }
     var inspecting by remember { mutableStateOf(false) }
-    LaunchedEffect(inspectPending, busy) {
-        if (inspectPending && !busy) { inspectPending = false; inspecting = true }
+    var requestedAtRevision by remember { mutableIntStateOf(0) }
+    LaunchedEffect(inspectPending, busy, operationRevision) {
+        if (inspectPending && operationRevision != requestedAtRevision && !busy) {
+            inspectPending = false; inspecting = true
+        }
     }
     val ip = outbound.ipInfo?.ip.orEmpty()
     val ipLabel = stringResource(R.string.native_outbound_ip)
     NativeGlass(Modifier.fillMaxWidth(), radius = 24) {
         Row(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 8.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.clickable(enabled = !busy) { inspectPending = true; onTest() }.padding(horizontal = 8.dp)) {
-                NativeOutboundCountryBadge(outbound.ipInfo?.countryCode.orEmpty(), size = 48.dp)
+            Box(Modifier.clickable(enabled = !busy) { requestedAtRevision = operationRevision; inspectPending = true; onTest() }.padding(horizontal = 8.dp)) {
+                NativeOutboundCountryBadge(outbound.ipInfo?.countryCode.orEmpty(), size = 48.dp,
+                    organization = outbound.ipInfo?.organization.orEmpty())
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(outbound.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold,
@@ -74,11 +96,16 @@ internal fun NativeActiveProxyFooter(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f).semantics { contentDescription = ipLabel }) {
                         if (ip.isNotBlank()) {
-                            Crossfade(showIp, animationSpec = tween(200), label = "Active proxy IP") { visible ->
+                            Crossfade(visibility.visible, animationSpec = tween(200), label = "Active proxy IP") { visible ->
                                 Text(if (visible) ip else obscureActiveIp(ip),
-                                    Modifier.combinedClickable(onClick = { showIp = !showIp },
+                                    Modifier.combinedClickable(onClick = {
+                                        if (!visibility.visible && hapticFeedback) {
+                                            view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                                        }
+                                        visibility.toggle()
+                                    },
                                         onLongClick = { if (!busy) onTest() }).padding(horizontal = 2.dp),
-                                    style = MaterialTheme.typography.labelMedium.copy(textDirection = TextDirection.Ltr),
+                                    style = MaterialTheme.typography.labelMedium.copy(textDirection = TextDirection.Ltr, fontFamily = emojiFont),
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         } else Text(stringResource(R.string.native_active_unknown_ip),
@@ -90,7 +117,7 @@ internal fun NativeActiveProxyFooter(
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            Icon(painterResource(R.drawable.native_chevron), null, Modifier.padding(16.dp))
+            Icon(painterResource(R.drawable.settings_chevron), null, Modifier.padding(16.dp))
         }
     }
     if (inspecting) NativeOutboundInfoDialog(outbound, onDismiss = { inspecting = false })

@@ -45,6 +45,18 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -110,7 +122,9 @@ fun NativeApp(
     onSaveTunnelOptions: (com.hiddify.hiddify.nativecore.NativeTunnelOptions) -> Unit,
     generalOptions: com.hiddify.hiddify.nativecore.NativeGeneralOptions?,
     generalOptionsBusy: Boolean,
-    onSaveGeneralOptions: (com.hiddify.hiddify.nativecore.NativeGeneralOptions) -> Unit,
+    generalOptionsLoadFailed: Boolean,
+    onReloadGeneralOptions: () -> Unit,
+    onSaveGeneralOption: (com.hiddify.hiddify.nativecore.NativeGeneralOptionField, String) -> Unit,
     generalPreferences: com.hiddify.hiddify.nativepreferences.NativeGeneralPreferences,
     generalPreferencesBusy: Boolean,
     onChangeLanguage: (com.hiddify.hiddify.nativepreferences.NativeLanguage) -> Unit,
@@ -119,10 +133,14 @@ fun NativeApp(
     onChangeOutboundSort: (com.hiddify.hiddify.nativepreferences.NativeOutboundSort) -> Unit,
     tlsOptions: com.hiddify.hiddify.nativecore.NativeTlsOptions?,
     tlsBusy: Boolean,
-    onSaveTlsOptions: (com.hiddify.hiddify.nativecore.NativeTlsOptions) -> Unit,
+    tlsLoadFailed: Boolean,
+    onReloadTlsOptions: () -> Unit,
+    onSaveTlsOption: (com.hiddify.hiddify.nativecore.NativeTlsOptionField, String) -> Unit,
     dnsOptions: com.hiddify.hiddify.nativecore.NativeDnsOptions?,
     dnsBusy: Boolean,
-    onSaveDnsOptions: (com.hiddify.hiddify.nativecore.NativeDnsOptions) -> Unit,
+    dnsLoadFailed: Boolean,
+    onReloadDnsOptions: () -> Unit,
+    onSaveDnsOption: (com.hiddify.hiddify.nativecore.NativeDnsOptionField, String) -> Unit,
     inboundOptions: com.hiddify.hiddify.nativecore.NativeInboundOptions,
     inboundBusy: Boolean,
     onSaveInboundOptions: (com.hiddify.hiddify.nativecore.NativeInboundOptions) -> Unit,
@@ -140,6 +158,8 @@ fun NativeApp(
     onOpenNotificationSettings: () -> Unit,
     onOpenBatterySettings: () -> Unit,
     status: Status,
+    connectionFailed: Boolean,
+    smartSelected: Boolean,
     connectionOptions: NativeConnectionOptions,
     connectionOptionsBusy: Boolean,
     internetHealth: NativeInternetHealth,
@@ -186,7 +206,10 @@ fun NativeApp(
     reconnectBusy: Boolean,
     onQuickServiceMode: (Boolean) -> Unit,
     onQuickLanSharing: (Boolean, String) -> Unit,
+    onQuickChainMode: (Boolean, String?) -> Unit,
+    onResolveLanSharing: suspend () -> NativeWifiSharingDetails,
     outboundBusyTag: String?,
+    outboundOperationRevision: Int,
     systemStats: NativeSystemStats,
     wifiSharingDetails: NativeWifiSharingDetails,
     wifiSharingDetailsBusy: Boolean,
@@ -206,6 +229,7 @@ fun NativeApp(
     onOpenVpnSettings: () -> Unit,
     onDismissError: () -> Unit,
     onToggleConnection: () -> Unit,
+    ipVisibilitySession: NativeIpVisibilitySession,
     onSelectProfile: (NativeProfile) -> Unit,
     onDeleteProfile: (NativeProfile) -> Unit,
     onRefreshProfile: (NativeProfile) -> Unit,
@@ -321,11 +345,11 @@ fun NativeApp(
                         .fillMaxSize()
                         .statusBarsPadding()
                         .navigationBarsPadding()
-                        .padding(top = if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS) 0.dp else 8.dp),
+                        .padding(top = if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY || page == PAGE_SETTINGS) 0.dp else 8.dp),
             ) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    Box((if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS) Modifier else Modifier.widthIn(max = 680.dp))
-                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
+                    Box((if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY || page == PAGE_SETTINGS) Modifier else Modifier.widthIn(max = 680.dp))
+                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_SETTINGS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
                         when (page) {
                             PAGE_DIAGNOSTICS ->
                                 NativeDiagnosticsScreen(
@@ -500,15 +524,23 @@ fun NativeApp(
                                 )
 
                             PAGE_SETTINGS -> NativeSettingsOverviewScreen(
+                                hasProfiles = profiles.isNotEmpty(),
+                                busy = privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy ||
+                                    generalOptionsBusy || tunnelBusy || generalPreferencesBusy || regionalBusy ||
+                                    connectionOptionsBusy || wifiSharingBusy || chainBusy || reconnectBusy,
                                 onOpenProfiles = { openPage(PAGE_PROFILES) },
-                                onOpenCategory = { openCategory(it) },
-                                onOpenCoreOptions = { openPage(PAGE_CORE_OPTIONS) },
+                                onOpenGeneral = { openCategory(NativeSettingsCategory.APP) },
                                 onOpenDns = { openPage(PAGE_DNS) },
                                 onOpenTls = { openPage(PAGE_TLS) },
                                 onOpenInbound = { openPage(PAGE_INBOUND) },
                                 onOpenChain = { openPage(PAGE_CHAIN) },
                                 onOpenLogs = { openPage(PAGE_LOGS) },
                                 onOpenAbout = { openPage(PAGE_ABOUT) },
+                                onImportClipboard = onImportSettingsClipboard,
+                                onImportFile = onImportSettingsFile,
+                                onExportClipboard = onExportSettingsClipboard,
+                                onExportFile = onExportSettingsFile,
+                                onReset = onResetSettings,
                             )
 
                             PAGE_TUNNEL -> NativeTunnelOptionsScreen(
@@ -519,21 +551,23 @@ fun NativeApp(
 
                             PAGE_GENERAL_OPTIONS -> NativeGeneralOptionsScreen(
                                 options = generalOptions, busy = generalOptionsBusy,
-                                canSave = status == Status.Stopped && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy && !tlsBusy,
-                                onBack = { goBack() }, onSave = onSaveGeneralOptions,
+                                loadFailed = generalOptionsLoadFailed, onRetry = onReloadGeneralOptions,
+                                canSave = status != Status.Starting && status != Status.Stopping && !reconnectBusy && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy && !tlsBusy && !tunnelBusy && !privacySetupBusy && !proxyPrivacyBusy,
+                                onBack = { goBack() }, onSave = onSaveGeneralOption,
                             )
 
                             PAGE_TLS -> NativeTlsOptionsScreen(
                                 options = tlsOptions, busy = tlsBusy,
-                                canSave = status == Status.Stopped && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy,
-                                onBack = { goBack() }, onSave = onSaveTlsOptions,
+                                canSave = status != Status.Starting && status != Status.Stopping && !reconnectBusy && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy && !generalOptionsBusy && !tunnelBusy && !privacySetupBusy && !proxyPrivacyBusy,
+                                loadFailed = tlsLoadFailed, onRetry = onReloadTlsOptions,
+                                onBack = { goBack() }, onSave = onSaveTlsOption,
                             )
 
                             PAGE_DNS -> NativeDnsOptionsScreen(
                                 options = dnsOptions, busy = dnsBusy,
-                                canSave = status == Status.Stopped && !wifiSharingBusy && !chainBusy && !inboundBusy && !tlsBusy,
-                                onBack = { goBack() }, onSave = onSaveDnsOptions,
-                                onOpenPrivacy = { openCategory(NativeSettingsCategory.DNS) },
+                                canSave = status != Status.Starting && status != Status.Stopping && !reconnectBusy && !wifiSharingBusy && !chainBusy && !inboundBusy && !tlsBusy && !generalOptionsBusy && !tunnelBusy && !privacySetupBusy && !proxyPrivacyBusy,
+                                loadFailed = dnsLoadFailed, onRetry = onReloadDnsOptions,
+                                onBack = { goBack() }, onSave = onSaveDnsOption,
                             )
 
                             PAGE_INBOUND -> NativeInboundOptionsScreen(
@@ -556,7 +590,7 @@ fun NativeApp(
                             PAGE_PRIVACY -> NativePrivacyOverviewScreen(
                                 configured = privacyConfigured,
                                 canRestore = privacyCanRestore,
-                                busy = privacySetupBusy,
+                                busy = privacySetupBusy || regionalBusy || connectionOptionsBusy || proxyPrivacyBusy || dnsBusy || tlsBusy || generalOptionsBusy || tunnelBusy || inboundBusy || wifiSharingBusy,
                                 canApply = status == Status.Stopped && !wifiSharingBusy && !regionalBusy && !connectionOptionsBusy && !proxyPrivacyBusy,
                                 onConfigure = onConfigurePrivacy,
                                 onRestore = onRestorePrivacy,
@@ -566,19 +600,25 @@ fun NativeApp(
                                     if (!expanded.add(category)) expanded.remove(category)
                                     privacyExpanded = expanded.sorted().joinToString("|")
                                 },
-                                onOpenRegional = { openPage(PAGE_REGIONAL) },
-                                onOpenPerApp = { openPage(PAGE_PER_APP) },
-                                onOpenTunnel = { openPage(PAGE_TUNNEL) },
-                                onOpenPolicy = { openPage(PAGE_CONNECTION_POLICY) },
-                                onOpenProxyPrivacy = { openPage(PAGE_PROXY_PRIVACY) },
-                                onOpenProtection = {
-                                    onRefreshVpnProtection()
-                                    openPage(PAGE_PROTECTION)
-                                },
-                                onOpenFilters = { openPage(PAGE_TRAFFIC_FILTERS) },
-                                onOpenDns = { openPage(PAGE_DNS) },
-                                onOpenCoreOptions = { openPage(PAGE_CORE_OPTIONS) },
-                                onOpenCategory = { openCategory(it) },
+                                settings = settingsState,
+                                regional = regionalOptions,
+                                regionalRevision = regionalAppsRevision,
+                                connection = connectionOptions,
+                                proxy = proxyPrivacy,
+                                canChangeRoot = status == Status.Stopped && !wifiSharingBusy,
+                                onSaveRegional = onSaveRegionalOptions,
+                                onSaveConnection = onSaveConnectionOptions,
+                                onSaveProxy = onSaveProxyPrivacy,
+                                onOpenApps = { kind -> onOpenRegionalApps(kind); openPage(PAGE_REGIONAL_APPS) },
+                                onFullTunnel = onFullTunnelChanged,
+                                onRoot = onRootModeChanged,
+                                onEncryptedDns = onEncryptedDnsChanged,
+                                onPublicDns = onPublicDnsChanged,
+                                onHandbook = onHandbookRoutingChanged,
+                                onHandbookProxy = onHandbookProxyChanged,
+                                onHandbookDirect = onHandbookDirectChanged,
+                                onHandbookProxySites = onHandbookProxySitesChanged,
+                                onHandbookDirectSites = onHandbookDirectSitesChanged,
                             )
 
                             PAGE_PREFERENCES ->
@@ -641,6 +681,8 @@ fun NativeApp(
                             else ->
                                 HomeScreen(
                                     status = status,
+                                    connectionFailed = connectionFailed,
+                                    smartSelected = smartSelected,
                                     internetHealth = internetHealth,
                                     recoveryAttempt = recoveryAttempt,
                                     activeProfileName = activeProfileName,
@@ -655,9 +697,12 @@ fun NativeApp(
                                     systemStats = systemStats,
                                     activeOutbound = activeOutbound,
                                     outboundBusy = outboundBusyTag != null,
+                                    outboundOperationRevision = outboundOperationRevision,
                                     requiresReconnect = requiresReconnect,
                                     reconnectBusy = reconnectBusy,
                                     onTestActive = { onTestOutbound("") },
+                                    ipVisibilitySession = ipVisibilitySession,
+                                    hapticFeedback = generalPreferences.hapticFeedback,
                                     onToggleConnection = onToggleConnection,
                                     onOpenProfiles = { profilesSheetOpen = true },
                                     onOpenSettings = { onRefreshWifiSharingDetails(); quickSettingsOpen = true },
@@ -722,10 +767,11 @@ fun NativeApp(
                 serviceMode = settingsState.serviceMode, wifiSharing = settingsState.wifiSharing,
                 inbound = inboundOptions, chain = chainOptions, activeProfileName = activeProfileName,
                 busy = reconnectBusy || inboundBusy || chainBusy || wifiSharingBusy || privacySetupBusy || proxyPrivacyBusy ||
-                    status == Status.Starting || status == Status.Stopping,
-                details = wifiSharingDetails, detailsBusy = wifiSharingDetailsBusy,
+                    dnsBusy || tlsBusy || generalOptionsBusy || tunnelBusy || status == Status.Starting || status == Status.Stopping,
+                detailsBusy = wifiSharingDetailsBusy,
                 onServiceMode = onQuickServiceMode, onLanSharing = onQuickLanSharing,
-                onChain = onSaveChainOptions,
+                onChain = onQuickChainMode,
+                onResolveLanSharing = onResolveLanSharing,
                 onOpenChain = { quickSettingsOpen = false; openPage(PAGE_CHAIN) },
                 onDismiss = { quickSettingsOpen = false },
             )
@@ -748,6 +794,8 @@ fun NativeApp(
 @Composable
 private fun HomeScreen(
     status: Status,
+    connectionFailed: Boolean = false,
+    smartSelected: Boolean = false,
     internetHealth: NativeInternetHealth,
     recoveryAttempt: Int,
     activeProfileName: String,
@@ -763,15 +811,26 @@ private fun HomeScreen(
     systemStats: NativeSystemStats,
     activeOutbound: com.hiddify.hiddify.nativecore.NativeOutbound? = null,
     outboundBusy: Boolean = false,
+    outboundOperationRevision: Int = 0,
     requiresReconnect: Boolean = false,
     reconnectBusy: Boolean = false,
     onTestActive: () -> Unit = {},
     onToggleConnection: () -> Unit,
+    ipVisibilitySession: NativeIpVisibilitySession? = null,
+    hapticFeedback: Boolean = true,
     onOpenProfiles: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenDiagnostics: () -> Unit,
     onOpenOutbounds: () -> Unit,
 ) {
+    val versionLabel = stringResource(R.string.native_home_version)
+    var noProfileNotice by rememberSaveable { mutableStateOf(false) }
+    if (noProfileNotice) AlertDialog(
+        onDismissRequest = { noProfileNotice = false; onAddProfile() },
+        title = { Text(stringResource(R.string.native_home_choose_profile)) },
+        text = { Text(stringResource(R.string.native_profile_help_message)) },
+        confirmButton = { TextButton(onClick = { noProfileNotice = false; onAddProfile() }) { Text(stringResource(android.R.string.ok)) } },
+    )
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically) {
@@ -782,28 +841,29 @@ private fun HomeScreen(
             Spacer(Modifier.width(8.dp))
             Text(if (BuildConfig.CHANNEL == "prod") BuildConfig.VERSION_NAME
                 else "${BuildConfig.VERSION_NAME} ${BuildConfig.CHANNEL}",
-                modifier = Modifier.background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(4.dp))
+                modifier = Modifier.semantics { contentDescription = versionLabel }
+                    .background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(4.dp))
                     .padding(horizontal = 4.dp, vertical = 1.dp),
                 color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.bodySmall,
                 maxLines = 1)
             Spacer(Modifier.weight(1f))
             IconButton(onClick = onOpenDiagnostics) {
-                Icon(painterResource(R.drawable.native_shield), stringResource(R.string.native_diagnostics_title))
+                Icon(painterResource(R.drawable.home_health), stringResource(R.string.native_diagnostics_title))
             }
             FilledTonalIconButton(onClick = onAddProfile, enabled = busyProfileId == null) {
-                Icon(painterResource(R.drawable.native_add), stringResource(R.string.native_profile_add))
+                Icon(painterResource(R.drawable.home_add), stringResource(R.string.native_profile_add))
             }
         }
         if (!hasProfiles && !hasActiveProfile && !profilesLoading && !profilesLoadFailed) {
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Icon(painterResource(R.drawable.native_shield), null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.primary)
+                Icon(painterResource(R.drawable.home_add_moderator), null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(24.dp))
                 Text(stringResource(R.string.native_profile_help_message), style = MaterialTheme.typography.titleMedium,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 Spacer(Modifier.height(16.dp))
                 androidx.compose.material3.Button(onClick = onAddProfile, enabled = busyProfileId == null) {
-                    Icon(painterResource(R.drawable.native_add), null)
+                    Icon(painterResource(R.drawable.home_add), null)
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.native_profile_add))
                 }
@@ -824,11 +884,11 @@ private fun HomeScreen(
                         activeProfile != null -> NativeProfileTile(profile = activeProfile, isMain = true,
                             busy = busyProfileId != null,
                             onClick = onOpenProfiles, onRefresh = { onRefreshProfile(activeProfile) })
-                        else -> Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp),
+                        else -> Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically) {
-                            Text(stringResource(R.string.native_no_profile_selected), Modifier.weight(1f))
+                            Text(stringResource(R.string.native_profile_help_message), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
                             IconButton(onClick = onOpenProfiles) {
-                                Icon(painterResource(R.drawable.native_list), stringResource(R.string.native_profiles))
+                                Icon(painterResource(R.drawable.settings_view_list), stringResource(R.string.native_profiles))
                             }
                         }
                     }
@@ -836,9 +896,12 @@ private fun HomeScreen(
                 Column(Modifier.fillMaxWidth().padding(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 20.dp)) {
                     Column(Modifier.fillMaxWidth().padding(vertical = 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally) {
-                        ConnectionCard(status = status, recovering = recoveryAttempt > 0, internetHealth = internetHealth,
-                            requiresReconnect = requiresReconnect, reconnectBusy = reconnectBusy,
-                            onToggleConnection = onToggleConnection)
+                        ConnectionCard(status = status, recovering = recoveryAttempt > 0, delayMs = activeOutbound?.delayMs ?: 0,
+                            requiresReconnect = requiresReconnect, reconnectBusy = reconnectBusy, failed = connectionFailed,
+                            onToggleConnection = {
+                                if (status == Status.Stopped && !hasActiveProfile && !profilesLoading && !profilesLoadFailed) noProfileNotice = true
+                                else onToggleConnection()
+                            })
                         Spacer(Modifier.height(12.dp))
                         if (status == Status.Started && activeOutbound != null) {
                             NativeActiveProxyDelay(activeOutbound, outboundBusy, onTestActive)
@@ -854,17 +917,19 @@ private fun HomeScreen(
                         }
                     }
                     if (status == Status.Started && activeOutbound != null) {
-                        NativeActiveProxyFooter(activeOutbound, outboundBusy, onOpenOutbounds, onTestActive)
+                        NativeActiveProxyFooter(activeOutbound, outboundBusy, onOpenOutbounds, onTestActive,
+                            ipVisibilitySession = ipVisibilitySession, hapticFeedback = hapticFeedback,
+                            operationRevision = outboundOperationRevision)
                     }
                     Spacer(Modifier.height(12.dp))
-                    ConnectionStatsCard(systemStats)
+                    ConnectionStatsCard(systemStats, smartSelected)
                     Spacer(Modifier.height(16.dp))
                     NativeGlass(Modifier.fillMaxWidth().clickable(onClick = onOpenSettings), radius = 20) {
                         Row(Modifier.padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(painterResource(R.drawable.native_tune), null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(painterResource(R.drawable.home_tune), null, tint = MaterialTheme.colorScheme.primary)
                             Text(stringResource(R.string.native_quick_settings), Modifier.weight(1f).padding(start = 12.dp),
                                 style = MaterialTheme.typography.titleSmall)
-                            Icon(painterResource(R.drawable.native_arrow_up), null)
+                            Icon(painterResource(R.drawable.home_arrow_up), null)
                         }
                     }
                 }
@@ -874,13 +939,15 @@ private fun HomeScreen(
 }
 
 @Composable
-private fun ConnectionStatsCard(stats: NativeSystemStats) {
-    NativeGlass(Modifier.fillMaxWidth()) {
+private fun ConnectionStatsCard(stats: NativeSystemStats, smartSelected: Boolean) {
+    NativeGlass(Modifier.fillMaxWidth(), radius = 20) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.fillMaxWidth()) {
                 Text("↓ ${formatTraffic(stats.downlink)}/s", Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 Text("↑ ${formatTraffic(stats.uplink)}/s", Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
+            if (smartSelected) Text(stringResource(R.string.native_home_selection_reason), Modifier.fillMaxWidth(),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.bodyLarge)
         }
     }
 }
@@ -905,12 +972,13 @@ private fun formatTraffic(value: Long): String {
 private fun ConnectionCard(
     status: Status,
     recovering: Boolean,
-    internetHealth: NativeInternetHealth,
+    delayMs: Int,
     onToggleConnection: () -> Unit,
     requiresReconnect: Boolean = false,
     reconnectBusy: Boolean = false,
+    failed: Boolean = false,
 ) {
-    val label = stringResource(if (status == Status.Started && requiresReconnect) R.string.native_quick_reconnect else if (recovering) R.string.native_recovery_cancel else when (status) {
+    val label = stringResource(if (status == Status.Started && requiresReconnect) R.string.native_quick_reconnect else if (failed && status == Status.Stopped) R.string.native_status_starting else when (status) {
         Status.Stopped -> R.string.native_status_stopped
         Status.Starting -> R.string.native_status_starting
         Status.Started -> R.string.native_status_started
@@ -923,28 +991,40 @@ private fun ConnectionCard(
         Status.Stopping -> R.string.native_disconnecting
     })
     val scheme = MaterialTheme.colorScheme
-    val accent = when {
+    val targetAccent = when {
         status == Status.Started && requiresReconnect -> scheme.secondary
-        status == Status.Started && internetHealth == NativeInternetHealth.UNAVAILABLE -> Color(0xFFFFC857)
+        status == Status.Started && (delayMs <= 0 || delayMs >= 65000) -> Color(0xFFFFC857)
         status == Status.Started -> scheme.tertiary
+        failed -> scheme.error
         else -> scheme.primary
     }
-    val enabled = !reconnectBusy && (recovering || status == Status.Stopped || status == Status.Started)
+    val motionDuration = if (LocalNativeMotionEnabled.current) 180 else 0
+    val textDuration = if (LocalNativeMotionEnabled.current) 250 else 0
+    val accent by animateColorAsState(targetAccent, tween(motionDuration), label = "Connection color")
+    val enabled = reconnectBusy || recovering || status != Status.Stopping
+    val scale by animateFloatAsState(if (enabled) 1f else .94f, tween(motionDuration), label = "Connection scale")
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(176.dp).background(
+        Box(Modifier.size(176.dp).graphicsLayer { scaleX = scale; scaleY = scale }.background(
             Brush.radialGradient(listOf(accent.copy(alpha = .12f), Color.Transparent)), CircleShape,
         ).border(2.dp, accent.copy(alpha = .28f), CircleShape), contentAlignment = Alignment.Center) {
             NativeGlass(Modifier.padding(14.dp).fillMaxSize(), radius = 100, accent = accent) {
                 Box(Modifier.fillMaxSize().clip(CircleShape)
                     .clickable(enabled = enabled, role = Role.Button, onClick = onToggleConnection)
                     .semantics { contentDescription = actionLabel }, contentAlignment = Alignment.Center) {
-                    Icon(painterResource(R.drawable.native_power), null, Modifier.size(64.dp), tint = accent)
+                    Icon(painterResource(R.drawable.home_power), null, Modifier.size(64.dp), tint = accent)
                 }
             }
             if (!enabled) CircularProgressIndicator(Modifier.fillMaxSize(), strokeWidth = 2.dp)
         }
-        Text(label, Modifier.padding(top = 24.dp), style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold)
+        AnimatedContent(label, Modifier.padding(top = 24.dp), contentAlignment = Alignment.Center,
+            transitionSpec = {
+                (fadeIn(tween(textDuration)) + slideInVertically(tween(textDuration)) { -(it * .2f).toInt() } +
+                    expandHorizontally(tween(textDuration), expandFrom = Alignment.CenterHorizontally) { (it * .88f).toInt() })
+                    .togetherWith(fadeOut(tween(textDuration)) + slideOutVertically(tween(textDuration)) { -(it * .2f).toInt() } +
+                        shrinkHorizontally(tween(textDuration), shrinkTowards = Alignment.CenterHorizontally) { (it * .88f).toInt() })
+            }, label = "Connection label") { text ->
+            Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 
@@ -961,13 +1041,22 @@ private fun LightHomePreview() = NativeHomePreview(NativeThemeMode.LIGHT)
 private fun BlackHomePreview() = NativeHomePreview(NativeThemeMode.BLACK)
 
 @Composable
-private fun NativeHomePreview(mode: NativeThemeMode) {
+private fun NativeHomePreview(mode: NativeThemeMode, empty: Boolean = false, failed: Boolean = false) {
+    val profile = NativeProfile("preview", "remote", true, "VetrOFF", "https://example.invalid", "", 3600L,
+        0L, 1073741824L, 10737418240L, null, null, null, null, null)
+    val outbound = com.hiddify.hiddify.nativecore.NativeOutbound("preview", "Netherlands", "VLESS", true, true,
+        42, "example.invalid", 443, 0L, 0L, null,
+        ipInfo = com.hiddify.hiddify.nativecore.NativeOutboundIpInfo(ip = "192.0.2.1", countryCode = "NL"))
     NativeAppTheme(mode) {
         NativeAtmosphere {
             Box(Modifier.fillMaxSize()) {
                 HomeScreen(
-                    status = Status.Started, internetHealth = NativeInternetHealth.AVAILABLE,
-                    recoveryAttempt = 0, activeProfileName = "VetrOFF", hasActiveProfile = true,
+                    status = if (empty || failed) Status.Stopped else Status.Started,
+                    connectionFailed = failed, smartSelected = !empty && !failed,
+                    internetHealth = NativeInternetHealth.AVAILABLE,
+                    recoveryAttempt = 0, activeProfileName = "VetrOFF", hasActiveProfile = !empty,
+                    activeProfile = if (empty) null else profile,
+                    activeOutbound = if (empty || failed) null else outbound,
                     systemStats = NativeSystemStats(downlink = 1258291, uplink = 52428, trafficAvailable = true),
                     onToggleConnection = {}, onOpenProfiles = {}, onOpenSettings = {},
                     onOpenDiagnostics = {}, onOpenOutbounds = {},
@@ -976,3 +1065,11 @@ private fun NativeHomePreview(mode: NativeThemeMode) {
         }
     }
 }
+
+@androidx.compose.ui.tooling.preview.Preview(name = "Home · empty", widthDp = 390, heightDp = 844)
+@Composable
+private fun EmptyHomePreview() = NativeHomePreview(NativeThemeMode.LIGHT, empty = true)
+
+@androidx.compose.ui.tooling.preview.Preview(name = "Home · connection error", widthDp = 390, heightDp = 844)
+@Composable
+private fun FailedHomePreview() = NativeHomePreview(NativeThemeMode.DARK, failed = true)

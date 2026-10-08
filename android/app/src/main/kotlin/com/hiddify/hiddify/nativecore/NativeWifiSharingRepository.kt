@@ -22,6 +22,12 @@ class NativeWifiSharingRepository {
 
     fun load(): NativeWifiSharingDetails {
         val hotspot = AutomaticHotspot.snapshot()
+        val host = (hotspot["ip"] as? String)?.takeIf { hotspot["active"] == true && it.isNotBlank() } ?: runCatching {
+                val call = client().GetLANIP()
+                call.timeout.timeout(8, java.util.concurrent.TimeUnit.SECONDS)
+                try { call.executeBlocking(Empty()).ip.trim() } finally { call.cancel() }
+            }.getOrDefault("")
+        // Read current credentials after the potentially asynchronous LAN lookup, as in Dart.
         val root =
             runCatching {
                 Settings.configOptions.trim()
@@ -34,12 +40,8 @@ class NativeWifiSharingRepository {
             root.optInt("mixed-port", 12334)
                 .takeIf { it in 1..65535 }
                 ?: 12334
-        val password = root.optString("lan-sharing-password").trim()
-        val host = (hotspot["ip"] as? String)?.takeIf { hotspot["active"] == true && it.isNotBlank() } ?: runCatching {
-                val call = client().GetLANIP()
-                call.timeout.timeout(8, java.util.concurrent.TimeUnit.SECONDS)
-                try { call.executeBlocking(Empty()).ip.trim() } finally { call.cancel() }
-            }.getOrDefault("")
+        val password = root.optString("lan-sharing-password")
+
 
         return NativeWifiSharingDetails(
             ssid = hotspot["ssid"] as? String ?: "",

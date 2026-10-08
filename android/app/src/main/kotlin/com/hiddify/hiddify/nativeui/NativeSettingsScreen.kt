@@ -110,6 +110,7 @@ fun NativeSettingsScreen(
 ) {
     var languagePickerOpen by rememberSaveable { mutableStateOf(false) }
     var themePickerOpen by rememberSaveable { mutableStateOf(false) }
+    var debugNoticeOpen by rememberSaveable { mutableStateOf(false) }
     var includePrivateExport by rememberSaveable { mutableStateOf(false) }
     var resetSettingsOpen by rememberSaveable { mutableStateOf(false) }
 
@@ -300,16 +301,16 @@ fun NativeSettingsScreen(
             NativePreferenceSwitch(R.string.native_haptic_title, R.string.native_haptic_summary,
                 R.drawable.native_layers, generalPreferences.hapticFeedback, !generalPreferencesBusy, onChangeHapticFeedback)
             SettingSwitch(
-                title = stringResource(R.string.native_setting_disable_memory_limit),
-                summary = stringResource(R.string.native_setting_disable_memory_limit_summary),
-                checked = state.disableMemoryLimit,
-                onCheckedChange = onDisableMemoryLimitChanged,
+                title = stringResource(R.string.native_setting_memory_limit),
+                summary = stringResource(R.string.native_setting_memory_limit_summary),
+                checked = !state.disableMemoryLimit,
+                onCheckedChange = { onDisableMemoryLimitChanged(!it) },
             )
             SettingSwitch(
                 title = stringResource(R.string.native_setting_debug),
                 summary = stringResource(R.string.native_setting_debug_summary),
                 checked = state.debugMode,
-                onCheckedChange = onDebugModeChanged,
+                onCheckedChange = { if (it) debugNoticeOpen = true else onDebugModeChanged(false) },
             )
         }
 
@@ -347,7 +348,12 @@ fun NativeSettingsScreen(
                     Text(stringResource(R.string.native_language_available), style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-            }, confirmButton = {}, dismissButton = {
+            }, confirmButton = {
+                TextButton(enabled = !generalPreferencesBusy, onClick = {
+                    languagePickerOpen = false
+                    onChangeLanguage(com.hiddify.hiddify.nativepreferences.NativeLanguage.ENGLISH)
+                }) { Text(stringResource(R.string.native_quick_reset)) }
+            }, dismissButton = {
                 TextButton(onClick = { languagePickerOpen = false }) { Text(stringResource(android.R.string.cancel)) }
             })
     }
@@ -359,21 +365,37 @@ fun NativeSettingsScreen(
             text = {
                 Column {
                     NativeThemeMode.entries.forEach { mode ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            val choose = {
-                                themePickerOpen = false
-                                onChangeTheme(mode)
-                            }
-                            RadioButton(selected = mode == themeMode, enabled = !themeBusy, onClick = choose)
-                            TextButton(enabled = !themeBusy, onClick = choose) { Text(stringResource(themeTitle(mode))) }
+                        val selected = mode == themeMode
+                        Row(Modifier.fillMaxWidth().selectable(selected, !themeBusy, Role.RadioButton) {
+                            themePickerOpen = false
+                            onChangeTheme(mode)
+                        }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = selected, enabled = !themeBusy, onClick = null)
+                            Text(stringResource(themeTitle(mode)), Modifier.padding(start = 12.dp))
                         }
                     }
                 }
             },
             confirmButton = {
+                TextButton(enabled = !themeBusy, onClick = {
+                    themePickerOpen = false
+                    onChangeTheme(NativeThemeMode.SYSTEM)
+                }) { Text(stringResource(R.string.native_quick_reset)) }
+            }, dismissButton = {
                 TextButton(onClick = { themePickerOpen = false }) { Text(stringResource(android.R.string.cancel)) }
             },
         )
+    }
+
+    if (debugNoticeOpen) {
+        val enableDebug = {
+            debugNoticeOpen = false
+            onDebugModeChanged(true)
+        }
+        AlertDialog(onDismissRequest = enableDebug,
+            title = { Text(stringResource(R.string.native_setting_debug)) },
+            text = { Text(stringResource(R.string.native_setting_debug_notice)) },
+            confirmButton = { TextButton(onClick = enableDebug) { Text(stringResource(android.R.string.ok)) } })
     }
 
     if (resetSettingsOpen) {

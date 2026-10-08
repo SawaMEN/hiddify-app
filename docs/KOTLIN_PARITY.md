@@ -13,11 +13,11 @@ Seven workstreams remain; a stream can contain multiple implementation/review it
 
 | Workstream | Known work remaining | Acceptance evidence |
 | --- | --- | --- |
-| Home/profile state | Exact empty-state shield artwork; connection color/reconnect state | Same state, data and action targets as Dart HomePage/ProfileTile/ConnectionButton |
+| Home/profile state | Device checks of connection/reconnect state | Same state, data and action targets as Dart HomePage/ProfileTile/ConnectionButton |
 | Profile flows | Match import/add/detail/editor/QR sheets and dialogs, list container/navigation, sorting/filtering and confirmation behavior | Compare each original flow and round-trip identical profiles |
-| Proxy presentation | Original circular country/provider artwork; IP visibility lifetime/haptics; stream recovery and active URL-test inspection sequence | Same selected/active proxy, operations, layout and state transitions |
+| Proxy presentation | Device checks of country/provider artwork, IP visibility and stream recovery; settings/dialog source audit | Same selected/active proxy, operations, layout and state transitions |
 | Settings/navigation | Quick-settings rendering/dialog details; preference pages and picker/input/confirmation dialogs; back/deep-link behavior | One-to-one route/action/preferences audit against original widgets |
-| Shared visual system | Exact Material/Fluent/provider icons, Emoji font where used, blur, shimmer and motion; theme/spacing refinements across remaining screens | Device screenshot comparisons in light/dark/black themes, matching font scale |
+| Shared visual system | Remaining Material/Fluent icons, blur and motion in secondary screens; theme/spacing refinements | Device screenshot comparisons in light/dark/black themes, matching font scale |
 | Functional edge cases | Audit IP auto-check/manual refresh, notices/consent, subscriptions/errors, profile upgrades and stored preferences; reconnect/network switching/background operation/root/sharing | Reproduce original user-visible behavior without changing persisted settings |
 | Device parity verification | Same-device screenshots and interaction comparison; small/large widths, landscape, Russian/English, font scaling and accessibility | Recorded visual comparisons and scenario results; successful CI alone is insufficient |
 
@@ -204,3 +204,295 @@ visual/interaction comparison still need work. NativeOutboundPresentationTest ex
 ordering/search, group precedence, unknown-delay ordering and usage overflow against the
 production model. Native/resource and whitespace checks pass. JVM execution remains blocked
 by the Gradle distribution download; no APK build is awaited.
+
+
+## Offline proxy artwork and home interaction parity
+
+The original 301 country/region SVGs from flutter_circle_flags at the Dart lockfile commit
+`19d83cba` are converted to Android vectors, including ir-shir, unknown-region fallback,
+rounded corners and masks/clips. Country badges use the original size-minus-8 artwork and
+provider overlays at size/2.5. Eleven organization keywords preserve their precedence and
+colors; eight brand paths are from the pinned Simple Icons snapshot, and cloud/storage use
+the original Material shapes. The Fluent question-circle and WiFi glyphs and Material
+add-moderator empty-state artwork replace approximations. The existing Emoji font is now
+available to native IP text. Artwork is offline and has packaged license notices.
+
+`tool/vendor_proxy_artwork.py` checks all three source repository commits before conversion.
+The flag conversion was rendered and compared with the pinned SVGs using Cairo, with
+opaque masks normalized to clips and a one-pixel antialias boundary excluded. This validates
+asset geometry, not Android rendering or whole-screen screenshot parity.
+
+The connection button now uses the active proxy delay (<=0 or >=65000 is amber), with
+reconnect taking precedence. Idle/connected colors follow the actual AppTheme extension
+(primary/tertiary), including Android dynamic colors. Native canvas uses surfaceContainerLowest
+as in Dart. Color/scale motion is 180 ms, label fade/size/slide is 250 ms, and TalkBack
+exploration disables those transitions; Compose also honors Android animator scale. Connecting
+can be cancelled, clearing user intent before broadcasting stop so native startup sees it.
+Always-on disconnection opens VPN settings; explicit reconnect remains available.
+
+IP reveal state lives in an Activity ViewModel, survives rotation, and resets after 20 seconds
+without a footer listener. Remaining on the screen does not time out the visible IP. Reveal
+uses the original medium-impact Android haptic mapping and honors the stored haptic switch.
+Inspection waits for an operation completion revision, then resolves refreshed active metadata;
+it cannot open prematurely because a busy transition was missed by composition. Cancellation
+is no longer presented as an outbound-operation error.
+
+The primary-group stream reconnects after failure with 1/2/4/8/8-second backoff, retaining
+the last snapshot and displaying progress. Five consecutive failures expose Error/Retry.
+Receiving a snapshot resets the failure count; closing/backgrounding cancels the Wire read
+and backoff. Resource/whitespace checks pass. The JVM task still cannot start because the
+Gradle distribution download reports Network is unreachable. No APK build is awaited.
+
+Remaining: secondary-screen icon/dialog audit, measured same-device layouts and interactions,
+and connection-error presentation. The Simple Icons snapshot is newer than the Dart package;
+brand path differences need device/source comparison before claiming exact provider parity.
+
+
+## Quick settings chain diagram and LAN actions
+
+The quick sheet now restores the Android phone/filtering icons, actual arrow directions,
+webhook header, Psiphon/WARP/Profile mode icons and colors, and the original menu order.
+Both active/inactive pills use their matching foreground colors. Final IP uses the original
+light/dark green and a 500 ms opacity transition. Material rounded glyphs replace text arrows
+and chevrons. LAN copy/QR actions include the original link/QR icons; their row wraps only
+when width or font scale cannot accommodate both buttons.
+
+The LAN password dialog opens with the currently saved value, focuses its LTR input and
+supports IME Done. Cancel/back/outside dismissal discard the draft. Reset persists the empty
+default and closes immediately, matching SettingInputDialog's reset callback. Invalid input
+shows an error rather than silently dropping characters. Existing 128-character/control
+validation remains. Reset/save retain the LAN switch state.
+
+Copy/QR resolves the current hotspot/core LAN address at the time of the action, using the
+existing bounded GetLANIP call, and reads the current persisted port/password. Password
+whitespace is retained; UTF-8 credentials are percent encoded once, IPv6 hosts are bracketed,
+and disabled/nonpositive mixed ports use the original 12334 fallback. Sheet dismissal cancels
+its action scope; no late clipboard or QR action executes after cancellation. QR payload
+still includes the original LAN-only title. The short QR link survives rotation.
+
+Quick chain selection now merges only chain-status and the chosen stage's mode into fresh
+persisted JSON. It does not rewrite WARP/Psiphon/profile fields from a UI snapshot. Disabling
+an inactive stage preserves the active stage. Startup/stopping and settings transactions are
+guarded; connected edits continue to request explicit reconnect. The full chain editor retains
+its complete save operation.
+
+Four JVM regression scenarios cover LAN URI fallback, whitespace/reserved characters, IPv6/
+Unicode round trips and malformed authority rejection. Source/resource/whitespace checks pass.
+JVM execution remains blocked by the unavailable Gradle distribution; no APK build is awaited.
+Dialog typography, adaptive menu behavior and device screenshot parity remain to verify.
+
+## General preference dialogs and immediate saving
+
+The seven core general options now save per field from their dialog/switch, without a page-level
+Save button or a forced VPN disconnect. Saving is guarded during startup, stopping, reconnect
+and other settings transactions. Edits merge only the chosen key into fresh config JSON and
+its legacy typed preference, preserving unknown and unrelated imported values. General options
+are included in the applied-settings signature, so connected edits request reconnect and restoring
+the applied value clears that requirement. Health monitoring and smart selection refresh after
+saving. Snapshot refresh cannot overwrite an in-flight edit. Initial load failures expose Retry.
+
+Choice rows save on selection. Reset saves the original field default and closes; Cancel discards
+input. URL/port dialogs focus LTR input, support IME Done and show invalid-input feedback. URL
+suggestions use the original case-insensitive filter and fallback. Interval editing matches the
+1–60 minute, 60-division slider; imported second-level intervals remain intact until edited.
+The page uses plain preference rows with the source Material rounded icons and a fixed header.
+Language Reset selects English; theme Reset selects System, and theme rows are fully selectable.
+Memory-limit checked state is the inverse of the stored disable flag. Enabling debug mode shows
+the original restart notice before persisting the flag.
+
+Monochrome converted vectors now have 24 dp intrinsic size, correcting oversized Wi-Fi and
+LAN-action icons that relied on their resource dimensions. Flag vectors remain 48 dp, and
+explicitly sized provider/chain icons retain their requested display size.
+
+Four JVM regression scenarios cover scoped changes with legacy invalid values, URL validation,
+invalid typed input and per-field defaults. They are registered in the standalone JVM suite;
+execution remains unverified because the pinned Gradle distribution is unavailable locally.
+Native source/resource, drawable/font-reference and whitespace checks pass. No APK build is
+awaited. Full GeneralPage ordering/navigation, remaining application icons, original URL
+suggestion popup geometry and same-device screenshot parity still need verification/work.
+
+## DNS preference parity and editable suggestions
+
+The DNS page now follows the original five-row order, with the rounded VPN lock, bidirectional
+sync, private connectivity and public icons. Plain preference rows replace draft cards and the
+page-level Save button. Its header stays outside the scrolling content. DNS protection settings
+remain reachable from the DNS category on the privacy page, rather than adding a sixth row to
+DnsOptionsPage. Address inputs focus LTR text and support IME Done; choice rows persist immediately.
+Reset persists only that field's original default (including the empty Auto strategy) and closes.
+Cancel/back/dismissal leave the saved value intact. Initial loading errors show Retry.
+
+DNS writes merge one chosen key into freshly read core JSON and its legacy typed preference.
+Unrelated options, custom resolver schemes and unedited imported addresses are preserved. The
+existing nonempty/2048-character/control-character checks apply only to the edited address.
+Connected changes request reconnect through the applied-settings signature; startup, stopping,
+reconnect and concurrent settings transactions block edits. Snapshot refresh skips an active save.
+
+General and DNS pages now share a preference row and an editable input component. Suggestions
+use a dropdown anchored to the field, remain editable with the keyboard open, and follow Dart's
+case-insensitive contains filter and pattern-plus-presets fallback. Selecting a suggestion updates
+the draft; persistence still requires OK/IME Done. Suggestion text uses bodySmall, LTR and the
+source's 10/3 dp item padding. The shared general input also restores the Xray explanation and
+corrects the loading-error text that previously described Android application settings.
+
+Four DNS JVM scenarios cover scoped edits with legacy values, bare/IPv6/custom resolvers,
+invalid input and reset isolation. They are registered in the JVM suite but have not run locally:
+the pinned Gradle distribution remains unavailable. Native boundary/resource, drawable/font
+reference and whitespace checks pass. APK completion is not awaited. Dropdown placement with
+IME, accessibility, large text and same-device visual/interaction parity still require device QA.
+
+## TLS tricks preferences and nested field saving
+
+The TLS page restores the original six plain rows, rounded cut/ruler/snooze/text/expand icons
+and exact EN/RU captions. Its header remains outside the scrolling body. The explanatory card,
+extra subtitles and page-level Save button are removed. Fragmentation gates all five subordinate
+controls, including the padding size when padding itself is off. That dependency is rechecked
+against persisted state under the native lifecycle barrier before a subordinate field is saved.
+
+Switches save immediately. Range dialogs focus their LTR editable input, support IME Done and
+persist on OK. Reset writes the original range default and closes; cancellation leaves stored
+values unchanged. Display/input formatting canonicalizes valid numeric ranges while preserving
+unedited imported values in storage. Empty fragment size/sleep display Not set; empty padding
+keeps the original empty subtitle. Imported empty ranges stay valid, but a new empty edit is
+rejected, matching OptionalRange.tryParse. The existing Kotlin signed-32-bit/21-character bound
+is retained; Dart's wider integer edge cases remain to audit against downstream core consumers.
+
+TLS saves modify only the chosen key inside tls-tricks and mirror its separately named legacy
+Flutter preference. All unrelated nested/root keys and switch/range values remain untouched.
+Core JSON field names were checked against pinned hiddify-core ffc52b3 v2/config/hiddify_option.go.
+Connected changes use the applied-settings signature to request reconnect. Startup, stopping,
+reconnect and other settings transactions block saves; snapshot reload skips an in-flight edit.
+Initial TLS load failures expose Retry rather than an endless indicator.
+
+Five JVM scenarios cover switch isolation with legacy ranges, canonicalization and bounds,
+invalid ranges/booleans, empty imported ranges and per-field reset isolation. The production
+model is registered in the standalone JVM suite. Native source/resource, drawable/font-reference
+and whitespace checks pass; JVM execution is still blocked by the unavailable pinned Gradle
+distribution. No APK completion is awaited. Same-device visuals, focus/keyboard/accessibility
+behavior and remaining settings/navigation parity still need verification/work.
+
+
+## VPN privacy overview layout and controls
+
+`NativePrivacyOverviewScreen` now mirrors `VpnPrivacyOverviewPage` and `HandbookRoutingTile`
+at the parent of Flutter removal commit `7197f9e4`. The fixed app bar, 16/12/16/28 body
+padding, status icon container, routing badge and package counts, 52/48 dp setup/restore buttons,
+four feature rows and indented dividers, protocol card, conditional UDP row, section captions,
+four expandable categories and final limitations text follow the source order. Titles and
+summaries use the original English/Russian copy. Material SVG paths are vendored as Android
+vectors from Google's material-design-icons repository (Apache-2.0; license in docs/licenses).
+Expanded headers and switches use the original theme colors, sizes and 200 ms expansion;
+reduced-motion settings disable that animation.
+
+The category children operate existing Kotlin preferences directly: My Handbook and its
+conditional list controls/domain dialogs/catalogue links; independent Russian network/apps/
+restricted-service toggles; adaptive networking/full tunnel/root; encrypted/public DNS;
+local proxy/Clash API/system proxy. Feature rows open the existing direct/proxy app selectors.
+Root discovery runs on IO without invoking su. Routing status/counts refresh after selection,
+setup, routing, full-tunnel and Handbook changes. The setup status also refreshes after
+connection-policy and regional preference saves. In-flight preference transactions disable
+controls; existing native restrictions on setup/restore and root mode remain in place.
+
+Native boundary/resource, all screen string/drawable references and whitespace checks pass.
+No APK build was started. Compose previews cover light/dark themes; rendered previews,
+Kotlin/Android compilation and same-device screenshot/interaction parity remain unverified.
+The existing Kotlin requirement to disconnect before automatic setup/root changes is retained.
+
+
+## QR scanner screen parity
+
+The Scan tile now opens a full-screen Compose dialog directly, matching the active
+`QrCodeScannerDialog` in `lib/features/common/qr_code_scanner_screen.dart` before Flutter
+removal (`7197f9e4^`). It restores the safe-area camera preview with cover scaling, centered
+70%-of-screen-width frame, 16 dp corners, 4 dp primaryContainer border and the top-start
+48 dp circular close control with an 8 dp margin. The loading spinner and exact EN/RU
+permission-denied text replace ZXing's standard CaptureActivity prompt/laser/finder UI.
+No torch/camera-switch toolbar is added: those controls only existed in commented-out Dart.
+
+The existing ZXing BarcodeView decodes QR codes across the full visible preview; the frame
+is an overlay rather than a crop, just as the source MobileScanner with no scanWindow.
+Only the first nonempty result is imported verbatim. Close/system Back accept cancellation
+once and release the camera. Preview/decoding stop on pause/disposal and restart on resume;
+camera permission is requested on opening and rechecked after returning from settings.
+The existing QR-from-image import remains available through File's image document selection,
+so choosing Scan no longer opens an extra camera/image choice dialog.
+
+JourneyApps 4.3.0 CameraPreview/BarcodeView/callback/decoder APIs and MobileScanner 7.2.0's
+cover/placeholder/error/overlay ordering were checked against their upstream source.
+Native boundary/resource and whitespace checks pass. Light/dark/permission-error Compose
+previews are included. APK compilation was not started; camera hardware, permission round
+trips, lifecycle/rotation behavior and same-device screenshot parity still need device QA.
+
+
+## Main settings screen and options menu
+
+The mobile `SettingsPage` from `7197f9e4^` is now mirrored by a dedicated
+`NativeSettingsOverviewScreen`: Profiles, General, conditional Chain (with its original
+subtitle), DNS, Inbound, TLS tricks, Logs and About. The native-only VPN/core/routing/transfer
+cards no longer alter that list. The app bar stays outside the scrolling body; body padding
+is 20/12/20/24 dp, cards have 12 dp bottom gaps and 24 dp glass corners, and ListTile content
+uses the original 20/8 dp padding and bodyLarge/bodyMedium text. Ten original rounded
+Material icons are converted to Android vectors with transparent SVG paths excluded.
+
+The app bar restores the more-vertical menu and Import/Export submenus. Both import sources
+require the source's confirmation message before calling the existing import action. Four
+export entries distinguish anonymous/all options and clipboard/file; Reset calls the existing
+native reset action directly, as the Dart menu did. Menu mutation actions are disabled during
+in-flight native settings transactions. Route callbacks, has-profile visibility and the
+include-private export flags are connected to the existing native state and repositories.
+
+Native boundary/resources, all new string/drawable references and whitespace checks pass.
+Light/dark Compose previews are provided. No APK build was started; Android compilation,
+submenu placement/keyboard/accessibility and same-device screenshot parity remain unverified.
+This iteration covers the main Settings tab; the General/Chain/Inbound child pages remain
+separate parity work. Profile/Logs/About cards remain available on wide Android windows until
+the original tablet/desktop navigation rail is ported. Existing native import/reset restrictions
+and repository behavior are retained, including the requirement to disconnect first.
+
+
+## Main home screen
+
+The remaining HomePage differences from `7197f9e4^` are ported: original rounded
+health/add/power/tune/arrow icons and outlined empty-profile icon, version badge,
+empty/no-active profile text with preserved paragraph breaks, the choose-profile notice,
+connection failure accent and source status/recovery labels. Latency uses a single rich
+text span with the original space before ms. The speed card has 20 dp corners and shows
+the original selection reason after a successful automatic server selection. Connection
+errors are tracked independently of the dismissible error dialog; restarting clears them.
+
+Light/dark/black previews now include an actual profile and active outbound; empty and
+connection-error previews cover the additional states. Native boundary, resource-reference
+and whitespace checks pass. No APK build was started. Android compilation, runtime
+animations and same-device screenshot parity still require device verification.
+
+
+## Connection and profile deletion functionality fixes
+
+Android no longer waits for the lifecycle mutex to cancel a blocking `Mobile.start()`.
+`Mobile.stop()` cancels Go's startup context concurrently; cancellation is repeated while
+startup is active to cover a stop arriving just before Go installs that context. Cleanup
+waits for that cancellation worker before releasing ownership or reusing the service.
+Destroy/revoke and explicit stop also cancel startup. Native close retries once after a
+teardown error, avoiding ownership stuck on a service still bound by the UI. Expected cancellation is cleaned up
+without presenting a startup error, and initial setup/configuration errors no longer trigger
+an automatic retry loop. Unexpected failures after an established connection retain recovery.
+
+MainActivity marks issued starts immediately, ignores initial binding Stopped snapshots,
+blocks duplicate starts and allows stop during pending permission/start/recovery/reconnect.
+Stopping cancels queued reconnect and recovery work, clears user intent and ignores stale
+Starting/Started callbacks. A start with no running service or owner after 20 seconds returns
+a useful error instead of leaving the UI pending indefinitely. Connection start cannot race
+profile edits/deletion; offline mutations also acquire the native lifecycle barrier.
+
+Deleting an inactive profile no longer requires disconnecting. Deleting the active or a
+chain-referenced profile stops VPN first and waits up to 30 seconds for status and ownership
+to clear. Timeout leaves the profile intact. The config file is renamed before the database
+transaction, restored on transaction failure, and cleaned up after commit. Chain profile
+references move to the next active profile, matching the original Dart deletion flow.
+
+The standalone `tool/check_connection_functionality.kt` runner compiles production helpers
+and passes regression checks for initial binding snapshots, failed/retried startup, cancellation
+arriving before Go startup, successful file removal, rollback, missing config and invalid file
+paths. It was run with Kotlin 2.2.0 and coroutines 1.8.0. All production Kotlin files also pass
+PSI syntax parsing, native boundary/resource checks and whitespace checks. No APK was built.
+These checks do not establish Android type/link compatibility or on-device VPN connectivity;
+real tunnel/permission/OEM behavior and reported device errors still require runtime validation.

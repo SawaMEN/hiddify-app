@@ -141,11 +141,15 @@ class BoxService(
     }
 
     private var activeProfileName = ""
-    private var rootActive = false
+    @Volatile private var stopRequested = false
+    @Volatile private var nativeStarting = false
+    @Volatile private var startCancellation: kotlinx.coroutines.Job? = null
+    @Volatile private var rootActive = false
     private var rootMonitor: kotlinx.coroutines.Job? = null
 
     private suspend fun finishCancelledStart(reason: String) {
-        Settings.startedByUser = false
+        startCancellation?.join()
+        if (!Settings.connectionDesired) Settings.startedByUser = false
         runCatching { com.hiddify.hiddify.sharing.AutomaticHotspot.stop() }
         val closeError = runCatching { releaseNative(reason) }.exceptionOrNull()
         closeTun(reason)
@@ -166,7 +170,7 @@ class BoxService(
         try {
             if (destroyed) return
             coreOwner?.takeIf { it !== this }?.releaseNative("replacement")
-            if (!Settings.connectionDesired) {
+            if (!Settings.connectionDesired || stopRequested) {
                 finishCancelledStart("cancelled before setup")
                 return
             }
@@ -193,7 +197,7 @@ class BoxService(
                 binder.broadcast { it.onServiceResetLogs(listOf()) }
             }
 
-            if (!Settings.connectionDesired) {
+            if (!Settings.connectionDesired || stopRequested) {
                 finishCancelledStart("cancelled before native setup")
                 return
             }
@@ -202,7 +206,7 @@ class BoxService(
             if (Settings.privacyUseRoot) {
                 rootActive = true
                 com.hiddify.hiddify.privacy.RootCore.start(service)
-                if (!Settings.connectionDesired) {
+                if (!Settings.connectionDesired || stopRequested) {
                     finishCancelledStart("cancelled during root setup")
                     return
                 }
@@ -244,7 +248,7 @@ class BoxService(
                     return
                 }
 
-                if (!Settings.connectionDesired) {
+                if (!Settings.connectionDesired || stopRequested) {
                     finishCancelledStart("cancelled during native setup")
                     return
                 }
@@ -265,8 +269,18 @@ class BoxService(
                 }
                 Mobile.applyRegionalPrivacy(policy.toString())
                 if (Settings.startCoreAfterStartingService) {
-                    Mobile.start(selectedConfigPath, "")
-                    if (!Settings.connectionDesired) {
+                    // Stop() cancels the Go startup context before taking its lifecycle lock.
+                    // It must be issued concurrently: waiting for our mutex first cannot abort Start().
+                    nativeStarting = true
+                    try {
+                        if (!Settings.connectionDesired || stopRequested) {
+                            nativeStarting = false
+                            finishCancelledStart("cancelled before native start")
+                            return
+                        }
+                        Mobile.start(selectedConfigPath, "")
+                    } finally { nativeStarting = false }
+                    if (!Settings.connectionDesired || stopRequested) {
                         finishCancelledStart("cancelled during native start")
                         return
                     }
@@ -275,6 +289,10 @@ class BoxService(
             }
 
             if (destroyed) return
+            if (stopRequested || !Settings.connectionDesired) {
+                finishCancelledStart("cancelled before publishing started")
+                return
+            }
             Settings.nativeAppliedQuickSettings = Settings.quickSettingsSignature(service)
             Settings.nativeReconnectRequired = false
             status.postValue(Status.Started)
@@ -284,7 +302,8 @@ class BoxService(
             }
             notification.start()
         } catch (e: Exception) {
-            stopAndAlert(Alert.StartService, e.message)
+            if (stopRequested || !Settings.connectionDesired) finishCancelledStart("cancelled startup")
+            else stopAndAlert(Alert.StartService, e.message)
         }
     }
 
@@ -347,14 +366,31 @@ class BoxService(
         }
     }
 
+    private fun cancelNativeStartup() {
+        if (startCancellation?.isActive != true && nativeStarting && coreOwner === this && !rootActive) {
+            startCancellation = serviceScope.launch {
+                com.hiddify.hiddify.nativeconnection.NativeStartupCancellation.cancelWhileStarting(
+                    isStarting = { nativeStarting && coreOwner === this@BoxService },
+                    stopNative = {
+                        runCatching { Mobile.stop() }
+                            .onFailure { Log.w(TAG, "native startup cancellation failed", it) }
+                    },
+                )
+            }
+        }
+    }
+
     private fun stopService(preserveIntent: Boolean = false) {
         if (destroyed || status.value == Status.Stopping) return
         if (status.value == Status.Stopped && coreOwner !== this) return
 
+        stopRequested = true
         status.value = Status.Stopping
+        cancelNativeStartup()
         serviceScope.launch {
             lifecycleMutex.withLock {
                 if (destroyed) return@withLock
+                startCancellation?.join()
 
                 // Keep Android network discovery alive until gomobile has actually stopped using it.
                 if (coreOwner !== this@BoxService) {
@@ -399,6 +435,13 @@ class BoxService(
 
     private suspend fun stopAndAlert(type: Alert, message: String? = null) {
         if (destroyed) return
+        if (stopRequested || !Settings.connectionDesired) {
+            finishCancelledStart("cancelled before reporting error")
+            return
+        }
+        startCancellation?.join()
+        // Initial setup/configuration failures require user correction, not repeated retries.
+        if (status.value != Status.Started) Settings.connectionDesired = false
         if (!Settings.connectionDesired) Settings.startedByUser = false
         runCatching { com.hiddify.hiddify.sharing.AutomaticHotspot.stop() }
         val closeError = runCatching { releaseNative("service error") }.exceptionOrNull()
@@ -418,7 +461,18 @@ class BoxService(
         if (rootActive) {
             com.hiddify.hiddify.privacy.RootCore.stop()
             rootActive = false
-        } else Mobile.close(4L)
+        } else {
+            try { Mobile.close(4L) } catch (firstError: Exception) {
+                // Go closes the control server even when Stop returns a teardown error. A second
+                // idempotent close can release ownership instead of waiting for a bound service
+                // to be destroyed (stopSelf alone does not destroy a service still bound by UI).
+                Log.w(TAG, "retrying native close after teardown error", firstError)
+                try { Mobile.close(4L) } catch (retryError: Exception) {
+                    firstError.addSuppressed(retryError)
+                    throw firstError
+                }
+            }
+        }
     }
 
     private fun closeTun(reason: String) {
@@ -431,6 +485,8 @@ class BoxService(
     internal fun onStartCommand(): Int {
         if (destroyed) return Service.START_NOT_STICKY
         if (status.value != Status.Stopped) return if (Settings.connectionDesired) Service.START_STICKY else Service.START_NOT_STICKY
+        stopRequested = false
+        startCancellation = null
         status.value = Status.Starting
         try {
             // Android's foreground deadline starts before IO/setup, not after it.
@@ -454,6 +510,8 @@ class BoxService(
             }
         } catch (e: Exception) {
             Log.e(TAG, "foreground registration failed", e)
+            Settings.connectionDesired = false
+            Settings.startedByUser = false
             binder.broadcast { it.onServiceAlert(Alert.StartService.ordinal, e.message ?: e.javaClass.simpleName) }
             status.value = Status.Stopped
             unregisterReceiver()
@@ -505,6 +563,8 @@ class BoxService(
 
     fun onDestroy() {
         if (destroyed) return
+        stopRequested = true
+        cancelNativeStartup()
         destroyed = true
         unregisterReceiver()
         notification.destroy()
@@ -514,6 +574,7 @@ class BoxService(
         serviceScope.launch {
             try {
                 lifecycleMutex.withLock {
+                    startCancellation?.join()
                     if (coreOwner === this@BoxService && !Settings.connectionDesired) {
                         runCatching { com.hiddify.hiddify.sharing.AutomaticHotspot.stop() }
                     }

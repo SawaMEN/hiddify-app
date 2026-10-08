@@ -126,7 +126,10 @@ object Settings {
     fun quickSettingsSignature(context: Context): String {
         val inbound = com.hiddify.hiddify.nativecore.NativeInboundOptionsRepository(context).load()
         val chain = com.hiddify.hiddify.nativecore.NativeChainRepository().load()
-        return com.google.gson.Gson().toJson(listOf(serviceMode, inbound.allowLan, inbound.lanPassword, chain))
+        val general = com.hiddify.hiddify.nativecore.NativeGeneralOptionsRepository(context).load()
+        val dns = com.hiddify.hiddify.nativecore.NativeDnsOptionsRepository(context).load()
+        val tls = com.hiddify.hiddify.nativecore.NativeTlsOptionsRepository(context).load()
+        return com.google.gson.Gson().toJson(listOf(serviceMode, inbound.allowLan, inbound.lanPassword, chain, general, dns, tls))
     }
 
     var nativeReconnectRequired: Boolean

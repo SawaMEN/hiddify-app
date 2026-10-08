@@ -248,10 +248,7 @@ class NativeProfileRepository(private val context: Context) {
     fun delete(id: String) {
         var nextActive: NativeProfile? = null
         val config = profileFile(id)
-        val backup = File(config.parentFile, "${config.name}.delete-${UUID.randomUUID()}")
-
-        if (config.exists()) config.copyTo(backup, overwrite = true)
-        try {
+        NativeProfileFileRemoval.remove(config) {
             openDatabase().use { db ->
                 db.beginTransaction()
                 try {
@@ -290,16 +287,9 @@ class NativeProfileRepository(private val context: Context) {
                     db.endTransaction()
                 }
             }
-            if (config.exists() && !config.delete()) error("Unable to delete profile file")
-            if (backup.exists()) backup.delete()
-            syncSettings(nextActive)
-        } catch (error: Exception) {
-            if (backup.exists()) {
-                config.parentFile?.mkdirs()
-                backup.copyTo(config, overwrite = true)
-            }
-            throw error
         }
+        syncSettings(nextActive)
+        com.hiddify.hiddify.nativecore.NativeChainRepository().replaceDeletedProfile(id, nextActive?.id)
     }
 
     fun refreshRemote(id: String): NativeProfile {

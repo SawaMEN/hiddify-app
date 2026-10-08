@@ -13,6 +13,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -110,13 +111,13 @@ fun NativeAppTheme(mode: NativeThemeMode, content: @Composable () -> Unit) {
         if (dark) dynamicDarkColorScheme(LocalContext.current) else dynamicLightColorScheme(LocalContext.current)
     } else if (dark) DarkColors else LightColors
     MaterialTheme(
-        colorScheme = if (mode == NativeThemeMode.BLACK) colors.copy(background = Color.Black) else colors,
+        colorScheme = colors.copy(background = if (mode == NativeThemeMode.BLACK) Color.Black else colors.surfaceContainerLowest),
         typography = AppTypography,
         shapes = Shapes(
             extraSmall = RoundedCornerShape(4.dp), small = RoundedCornerShape(16.dp),
             medium = RoundedCornerShape(24.dp), large = RoundedCornerShape(24.dp),
             extraLarge = RoundedCornerShape(28.dp),
         ),
-        content = content,
+        content = { CompositionLocalProvider(LocalNativeMotionEnabled provides nativeMotionEnabled()) { content() } },
     )
 }
