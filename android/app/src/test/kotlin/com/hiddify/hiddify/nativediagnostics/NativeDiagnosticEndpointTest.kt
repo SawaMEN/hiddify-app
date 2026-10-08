@@ -28,4 +28,13 @@ class NativeDiagnosticEndpointTest {
         assertFalse(NativeDiagnosticEndpoints.chained("vless://user@test.example:443", emptySet()))
         assertTrue(NativeDiagnosticEndpoint("wg", "wg", "test.example", 1234).udp)
     }
+    @Test fun fragmentDoesNotDisableTcpAndLegacySsEndpointsAreDecoded() {
+        assertFalse(NativeDiagnosticEndpoints.chained("", setOf("enable-fragment", "enable-padding")))
+        assertFalse(NativeDiagnosticEndpoints.chained("{\"detour\":\"\"}", emptySet()))
+        assertFalse(NativeDiagnosticEndpoints.chained("{\"note\":\"detour\"}", emptySet()))
+        val encoded = Base64.getEncoder().encodeToString("aes-256-gcm:secret@test.example:1234".toByteArray())
+        assertEquals("test.example", NativeDiagnosticEndpoints.parse("ss://$encoded#tag").single().host)
+        assertEquals(1234, NativeDiagnosticEndpoints.parse("ss://$encoded#tag").single().port)
+        assertTrue(NativeDiagnosticEndpoint("tag", "hysteria2_legacy", "server", 443).udp)
+    }
 }

@@ -25,6 +25,9 @@ def check():
     for path in [ROOT / 'android/settings.gradle', ROOT / 'android/app/build.gradle']:
         if 'dev.flutter.' in path.read_text():
             raise ValueError(f'Flutter build plugin: {path.relative_to(ROOT)}')
+    validator = (SOURCE / 'kotlin/com/hiddify/hiddify/nativecore/NativeProfileValidator.kt').read_text()
+    if 'import com.hiddify.core.mobile.Mobile' not in validator:
+        raise ValueError('Profile validator must use the gomobile -javapkg=com.hiddify.core namespace')
     res = SOURCE / 'res'
     for path in res.rglob('*.xml'):
         ET.parse(path)

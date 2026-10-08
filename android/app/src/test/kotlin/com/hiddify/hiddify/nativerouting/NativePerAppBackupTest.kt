@@ -71,4 +71,10 @@ class NativePerAppBackupTest {
             )))
         }
     }
+    @Test fun backupUsesStrictBoundedJsonForBothExportEncodings() {
+        listOf("/*comment*/{\"include\":{}}", "{include:{}}", "{\"include\":{},\"include\":{}}",
+            "{\"include\":" + "[".repeat(129) + "0" + "]".repeat(129) + "}").forEach {
+            assertTrue(it, runCatching { NativePerAppBackupCodec.decode(it) }.isFailure)
+        }
+    }
 }

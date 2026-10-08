@@ -1,53 +1,12 @@
 package com.hiddify.hiddify.nativecore
 
-import com.hiddify.hiddify.Settings
 import android.content.Context
 import com.hiddify.hiddify.nativeprofile.NativeJsonDocument
 import org.json.JSONObject
 
 class NativeSettingsTransferRepository(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
-    companion object {
-        private val supportedTopLevelKeys =
-            setOf(
-                "region",
-                "balancer-strategy",
-                "use-xray-core-when-possible",
-                "execute-config-as-is",
-                "log-level",
-                "resolve-destination",
-                "ipv6-mode",
-                "remote-dns-address",
-                "remote-dns-domain-strategy",
-                "direct-dns-address",
-                "direct-dns-domain-strategy",
-                "mixed-port",
-                "tproxy-port",
-                "direct-port",
-                "redirect-port",
-                "enable-mixed-port",
-                "enable-tproxy-port",
-                "enable-direct-port",
-                "enable-redirect-port",
-                "tun-implementation",
-                "mtu",
-                "strict-route",
-                "connection-test-url",
-                "url-test-interval",
-                "enable-clash-api",
-                "clash-api-port",
-                "enable-tun",
-                "set-system-proxy",
-                "allow-connection-from-lan",
-                "lan-sharing-password",
-                "enable-fake-dns",
-                "independent-dns-cache",
-                "tls-tricks",
-                "chain-status",
-                "extra-security",
-                "unblocker",
-            )
-    }
+    private val supportedTopLevelKeys = NativeSettingsDocument.supportedKeys
 
     fun exportJson(includePrivate: Boolean): String {
         val root = currentRoot()
@@ -72,17 +31,13 @@ class NativeSettingsTransferRepository(context: Context) {
             }
                 .getOrElse { throw IllegalArgumentException("Settings must be a JSON object", it) }
 
-        val supplied = incoming.keys().asSequence().filter(supportedTopLevelKeys::contains).toList()
-        require(supplied.isNotEmpty()) { "No supported settings found" }
-
-        val merged = currentRoot()
-        supplied.forEach { key ->
-            if (key in setOf("tls-tricks", "extra-security", "unblocker")) {
-                require(incoming.optJSONObject(key) != null) { "Invalid settings object: $key" }
-            }
-            merged.put(key, incoming.get(key))
+        val merged = NativeSettingsDocument.merge(
+            NativeJsonDocument.parse(currentRoot().toString()).asJsonObject,
+            NativeJsonDocument.parse(incoming.toString()).asJsonObject,
+        )
+        check(preferences.edit().putString("config_options_json", merged.toString()).commit()) {
+            "Could not import core settings"
         }
-        Settings.configOptions = merged.toString()
     }
 
     fun resetCoreSettings() {
@@ -95,11 +50,21 @@ class NativeSettingsTransferRepository(context: Context) {
         check(editor.commit()) { "Could not reset core settings" }
     }
 
-    private fun currentRoot(): JSONObject =
-        runCatching {
-            Settings.configOptions.trim()
-                .takeIf { it.isNotEmpty() }
-                ?.let(::JSONObject)
-                ?: JSONObject()
-        }.getOrElse { JSONObject() }
+    private fun currentRoot(): JSONObject {
+        val values = preferences.all
+        val stored = values["config_options_json"] as? String ?: ""
+        val root = JSONObject(NativeJsonDocument.parse(stored.ifBlank { "{}" }).toString())
+        supportedTopLevelKeys.forEach { key ->
+            if (!root.has(key)) values["flutter.$key"]?.let { root.put(key, it) }
+        }
+        if (!root.has("lan-sharing-password")) values["flutter.lan_sharing_password"]?.let {
+            root.put("lan-sharing-password", it)
+        }
+        val tls = root.optJSONObject("tls-tricks") ?: JSONObject()
+        NativeTlsOptionField.entries.forEach { field ->
+            if (!tls.has(field.coreKey)) values["flutter.${field.legacyKey}"]?.let { tls.put(field.coreKey, it) }
+        }
+        if (tls.length() > 0) root.put("tls-tricks", tls)
+        return root
+    }
 }

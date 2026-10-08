@@ -126,12 +126,13 @@ internal fun NativeOutlinedButton(
 @Composable
 internal fun NativeTextButton(
     onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
     content: @Composable RowScope.() -> Unit,
 ) {
     androidx.compose.material3.TextButton(
         onClick = onClick, modifier = modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp),
         enabled = enabled, shape = RoundedCornerShape(20.dp),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+        contentPadding = contentPadding,
         content = content,
     )
 }

@@ -49,4 +49,9 @@ class NativeTlsOptionsTest {
             }
         }
     }
+    @Test fun rangeFieldsCanBeClearedLikeStoredOptionalRanges() {
+        listOf(NativeTlsOptionField.FRAGMENT_SIZE, NativeTlsOptionField.FRAGMENT_SLEEP, NativeTlsOptionField.PADDING_SIZE).forEach { field ->
+            assertEquals("", field.value(field.applyTo(NativeTlsOptions(), "")))
+        }
+    }
 }

@@ -62,4 +62,19 @@ class NativeJsonDocumentTest {
         assertEquals("[[{{", Json.parse("\"[[{{\"").asString)
         assertTrue(runCatching { Json.parse("[".repeat(129) + "0" + "]".repeat(129)) }.isFailure)
     }
+    @Test fun rejectsDuplicateKeysAndMalformedPointersWithoutChangingTheDocument() {
+        listOf("{\"a\":1,\"a\":2}", "{\"child\":{\"a\":1,\"a\":2}}").forEach {
+            assertTrue(runCatching { Json.parse(it) }.isFailure)
+        }
+        val root = Json.parse("{\"a\":1,\"list\":[10,20]}")
+        listOf("a", "/a~", "/a~2").forEach { path ->
+            assertTrue(runCatching { Json.replace(root, path, JsonPrimitive(3)) }.isFailure)
+            assertTrue(runCatching { Json.remove(root, path) }.isFailure)
+            assertTrue(runCatching { Json.rename(root, path, "b") }.isFailure)
+        }
+        listOf("+1", "01", "-0", " 0").forEach { index ->
+            assertTrue(runCatching { Json.at(root, "/list/$index") }.isFailure)
+        }
+        assertEquals(1, Json.at(root, "/a").asInt)
+    }
 }

@@ -2,7 +2,7 @@ package com.hiddify.hiddify.nativerouting
 
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonElement
-import com.google.gson.JsonParser
+import com.hiddify.hiddify.nativeprofile.NativeJsonDocument
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 
@@ -36,9 +36,9 @@ object NativePerAppBackupCodec {
 
     fun decode(text: String): NativePerAppBackup {
         require(text.toByteArray(Charsets.UTF_8).size <= MAX_BYTES) { "Application backup exceeds 1 MiB" }
-        var root = JsonParser.parseString(text.removePrefix("\uFEFF"))
+        var root = NativeJsonDocument.parse(text.removePrefix("\uFEFF"))
         // Earlier Flutter versions exported a JSON string containing the JSON document.
-        if (root.isJsonPrimitive && root.asJsonPrimitive.isString) root = JsonParser.parseString(root.asString)
+        if (root.isJsonPrimitive && root.asJsonPrimitive.isString) root = NativeJsonDocument.parse(root.asString)
         require(root.isJsonObject) { "Application backup must be a JSON object" }
         require(root.asJsonObject.has("include") || root.asJsonObject.has("exclude")) {
             "Application backup must contain include or exclude lists"

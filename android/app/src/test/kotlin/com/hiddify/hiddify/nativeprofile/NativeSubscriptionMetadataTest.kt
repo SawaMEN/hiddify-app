@@ -52,4 +52,9 @@ class NativeSubscriptionMetadataTest {
             assertEquals(NativeSubscriptionMetadata.INFINITE_EXPIRE_SECONDS, usage.expireSeconds)
         }
     }
+    @Test fun utcTimestampsDoNotTriggerAnUpdateEveryPoll() {
+        val instant = now.atZone(java.time.ZoneId.systemDefault()).toInstant()
+        assertFalse(NativeSubscriptionMetadata.isUpdateDue(instant.toString(), 3600, now))
+        assertTrue(NativeSubscriptionMetadata.isUpdateDue(instant.minusSeconds(3600).toString(), 3600, now))
+    }
 }

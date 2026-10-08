@@ -36,12 +36,13 @@ class NativeWifiSharingRepository {
                     ?: JSONObject()
             }.getOrElse { JSONObject() }
 
-        val port =
-            root.optInt("mixed-port", 12334)
-                .takeIf { it in 1..65535 }
-                ?: 12334
-        val password = root.optString("lan-sharing-password")
-
+        val preferences = com.hiddify.hiddify.Application.application
+            .getSharedPreferences("FlutterSharedPreferences", android.content.Context.MODE_PRIVATE).all
+        val legacyPort = (preferences["flutter.mixed-port"] as? Number)?.toLong()
+            ?.takeIf { it in 1L..65535L }?.toInt() ?: 12334
+        val port = root.optInt("mixed-port", legacyPort).takeIf { it in 1..65535 } ?: 12334
+        val password = (root.opt("lan-sharing-password") as? String)
+            ?: (preferences["flutter.lan_sharing_password"] as? String) ?: ""
 
         return NativeWifiSharingDetails(
             ssid = hotspot["ssid"] as? String ?: "",

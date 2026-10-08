@@ -1,14 +1,14 @@
 package com.hiddify.hiddify.nativediagnostics
 
 import com.hiddify.hiddify.nativeprofile.NativeJsonDocument
-import com.hiddify.hiddify.nativeprofile.NativeImportSummary
+import com.google.gson.JsonElement
 import java.net.URI
 import java.net.URLDecoder
 import java.util.Base64
 
 internal data class NativeDiagnosticEndpoint(val tag: String, val type: String, val host: String, val port: Int) {
     val udp: Boolean get() = type in setOf("tuic", "hysteria", "hy", "hysteria2", "hy2", "wireguard",
-        "wireguard_legacy", "wg", "awg", "masque", "masque-client")
+        "wireguard_legacy", "hysteria2_legacy", "wg", "awg", "masque", "masque-client")
 }
 
 /** ImportSummary's endpoint selection. Only the outcome is allowed into a report. */
@@ -28,7 +28,7 @@ internal object NativeDiagnosticEndpoints {
                     if (!item.isJsonObject) return@mapNotNull null
                     val obj = item.asJsonObject
                     fun text(key: String) = obj.get(key)?.takeIf { it.isJsonPrimitive }?.asString.orEmpty()
-                    val type = text("type").ifBlank { text("protocol").ifBlank { "unknown" } }
+                    val type = text("type").ifBlank { text("protocol").ifBlank { "unknown" } }.lowercase()
                     if (type in utility) return@mapNotNull null
                     var host = text("server").ifBlank { text("address") }
                     var port = text("server_port").ifBlank { text("port") }.toIntOrNull() ?: 0
@@ -50,6 +50,12 @@ internal object NativeDiagnosticEndpoints {
             var host = uri.host.orEmpty()
             var port = uri.port.coerceAtLeast(0)
             var tag = uri.rawFragment?.let { runCatching { URLDecoder.decode(it.replace("+", "%2B"), "UTF-8") }.getOrDefault(it) }.orEmpty()
+            if (type == "ss" && uri.rawUserInfo == null && uri.port == -1) runCatching {
+                val encoded = text.substringAfter("://").substringBefore('#').trimEnd('/').replace('-', '+').replace('_', '/')
+                val decoded = URI("ss://" + String(Base64.getDecoder().decode(encoded), Charsets.UTF_8))
+                host = decoded.host.orEmpty()
+                port = decoded.port.coerceAtLeast(0)
+            }
             if (type == "vmess") runCatching {
                 val encoded = text.substring(8).substringBefore('#').replace('-', '+').replace('_', '/')
                 val obj = NativeJsonDocument.parse(String(Base64.getDecoder().decode(encoded), Charsets.UTF_8)).asJsonObject
@@ -64,7 +70,17 @@ internal object NativeDiagnosticEndpoints {
         val matches = endpoints.filter { it.tag == tag }
         return if (matches.size == 1) matches.single() else endpoints.singleOrNull()
     }
-    fun chained(raw: String, headers: Set<String>): Boolean =
-        NativeImportSummary.parse(raw, headers).overrides.any { it.contains("chain") || it.contains("enable-") } ||
-            raw.contains("\"detour\"") || raw.contains("\"dialerProxy\"")
+    fun chained(raw: String, headers: Set<String>): Boolean {
+        if (headers.any { it.lowercase() in setOf("chain-status", "enable-chain", "enable-warp", "enable-psiphon") }) return true
+        fun hasDetour(value: JsonElement): Boolean = when {
+            value.isJsonObject -> value.asJsonObject.entrySet().any { (key, child) ->
+                (key in setOf("detour", "dialerProxy") && child.isJsonPrimitive &&
+                    child.asJsonPrimitive.isString && child.asString.isNotBlank()) || hasDetour(child)
+            }
+            value.isJsonArray -> value.asJsonArray.any(::hasDetour)
+            else -> false
+        }
+        val json = runCatching { NativeJsonDocument.parse(raw) }.getOrNull() ?: return false
+        return hasDetour(json)
+    }
 }

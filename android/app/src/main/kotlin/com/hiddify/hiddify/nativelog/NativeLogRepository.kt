@@ -3,7 +3,7 @@ package com.hiddify.hiddify.nativelog
 import android.content.Context
 import com.hiddify.hiddify.Settings
 import java.io.File
-import java.io.RandomAccessFile
+import java.io.IOException
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
@@ -45,7 +45,9 @@ class NativeLogRepository(private val context: Context) {
         val sources = ArrayList<String>()
         for (file in candidateFiles()) {
             if (!file.isFile || file.length() <= 0L) continue
-            val text = readTail(file, MAX_SOURCE_BYTES)
+            val text = try { NativeLogFiles.readTail(file, MAX_SOURCE_BYTES) }
+            catch (_: IOException) { continue }
+            catch (_: SecurityException) { continue }
             val fileLines =
                 text.lineSequence()
                     .filter { it.isNotBlank() }
@@ -87,36 +89,11 @@ class NativeLogRepository(private val context: Context) {
         }
     }
 
-    fun clear() {
-        for (file in candidateFiles()) {
-            if (!file.exists()) continue
-            runCatching {
-                file.parentFile?.mkdirs()
-                file.writeText("")
-            }
-        }
-    }
+    fun clear() = NativeLogFiles.clear(candidateFiles())
 
     fun decorateServiceLine(message: String): String {
         val clean = message.trim()
         return "[service ${LocalTime.now().format(timeFormatter)}] $clean"
     }
 
-    private fun readTail(file: File, maxBytes: Long): String {
-        RandomAccessFile(file, "r").use { input ->
-            val length = input.length()
-            val start = (length - maxBytes).coerceAtLeast(0L)
-            input.seek(start)
-            val bytes = ByteArray((length - start).toInt())
-            input.readFully(bytes)
-            var text = String(bytes, Charsets.UTF_8)
-            if (start > 0L) {
-                val newline = text.indexOf('\n')
-                if (newline >= 0 && newline + 1 < text.length) {
-                    text = text.substring(newline + 1)
-                }
-            }
-            return text
-        }
-    }
 }

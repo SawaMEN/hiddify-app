@@ -26,4 +26,10 @@ class NativeLogPresentationTest {
         assertEquals("connected", entry.message)
         assertEquals(listOf("TRACE", "DEBUG", "INFO", "WARN"), NativeLogPresentation.levels)
     }
+    @Test fun westernTimezoneOffsetsKeepTimestampAndSeverity() {
+        val entry = NativeLogPresentation.entry("[box.log] -0500 2026-10-08 12:00:00 WARN retry")
+        assertEquals("WARN", entry.level)
+        assertEquals("2026-10-08 12:00:00", entry.time)
+        assertEquals("retry", entry.message)
+    }
 }

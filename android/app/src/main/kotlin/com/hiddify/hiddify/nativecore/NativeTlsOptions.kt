@@ -46,10 +46,10 @@ enum class NativeTlsOptionField(val coreKey: String, val legacyKey: String) {
 
     fun applyTo(options: NativeTlsOptions, input: String): NativeTlsOptions = when (this) {
         FRAGMENT -> options.copy(fragment = input.toBooleanStrict())
-        FRAGMENT_SIZE -> options.copy(fragmentSize = NativeTlsOptions.normalizeRange(input))
-        FRAGMENT_SLEEP -> options.copy(fragmentSleep = NativeTlsOptions.normalizeRange(input))
+        FRAGMENT_SIZE -> options.copy(fragmentSize = NativeTlsOptions.normalizeRange(input, allowEmpty = true))
+        FRAGMENT_SLEEP -> options.copy(fragmentSleep = NativeTlsOptions.normalizeRange(input, allowEmpty = true))
         MIXED_SNI_CASE -> options.copy(mixedSniCase = input.toBooleanStrict())
         PADDING -> options.copy(padding = input.toBooleanStrict())
-        PADDING_SIZE -> options.copy(paddingSize = NativeTlsOptions.normalizeRange(input))
+        PADDING_SIZE -> options.copy(paddingSize = NativeTlsOptions.normalizeRange(input, allowEmpty = true))
     }
 }

@@ -2,6 +2,8 @@ package com.hiddify.hiddify.nativeprofile
 
 import java.time.Duration
 import java.time.LocalDateTime
+import java.time.Instant
+import java.time.ZoneId
 
 /** Subscription headers are untrusted; invalid metadata must not break profile updates. */
 object NativeSubscriptionMetadata {
@@ -16,6 +18,9 @@ object NativeSubscriptionMetadata {
 
     fun isUpdateDue(lastUpdate: String, intervalSeconds: Long?, now: LocalDateTime): Boolean {
         val interval = intervalSeconds?.takeIf { it > 0 } ?: return false
+        runCatching { Instant.parse(lastUpdate) }.getOrNull()?.let { last ->
+            return Duration.between(last, now.atZone(ZoneId.systemDefault()).toInstant()).seconds >= interval
+        }
         val last = runCatching { LocalDateTime.parse(lastUpdate) }.getOrNull() ?: return true
         // Adding an arbitrary server-supplied interval to a date can overflow LocalDateTime.
         return Duration.between(last, now).seconds >= interval

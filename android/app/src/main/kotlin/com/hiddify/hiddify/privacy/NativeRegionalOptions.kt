@@ -1,7 +1,8 @@
 package com.hiddify.hiddify.privacy
 
 object NativeRoutingTokens {
-    private val pattern = Regex("[a-zA-Z0-9_\\-]+(\\.[a-zA-Z0-9_\\-]+)+")
+    private val packagePattern = Regex("(?:[A-Za-z][A-Za-z0-9_]*\\.)+[A-Za-z][A-Za-z0-9_]*|android")
+    private val domainLabel = Regex("[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")
 
     fun merge(builtIn: List<String>, extra: String, domain: Boolean): List<String> =
         (builtIn + parse(extra, domain)).distinct().also {
@@ -12,10 +13,15 @@ object NativeRoutingTokens {
         .split(Regex("[\\s,;]+"))
         .map { if (domain) it.trim('.').removePrefix("*.") else it }
         .filter { it.isNotBlank() }
+        .map { if (domain) java.net.IDN.toASCII(it, java.net.IDN.USE_STD3_ASCII_RULES).lowercase() else it }
+        .filter { it.isNotBlank() }
         .distinct()
         .also { values ->
             require(values.size <= 256) { "Too many routing entries" }
-            require(values.all { it.length <= 253 && pattern.matches(it) }) {
+            require(values.all {
+                if (domain) it.length <= 253 && '.' in it && it.split('.').all(domainLabel::matches)
+                else it.length <= 255 && packagePattern.matches(it)
+            }) {
                 "Use package names or domain names, without URLs"
             }
         }

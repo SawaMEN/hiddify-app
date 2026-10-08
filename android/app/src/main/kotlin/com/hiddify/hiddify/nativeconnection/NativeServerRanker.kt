@@ -2,6 +2,14 @@ package com.hiddify.hiddify.nativeconnection
 
 data class NativeServerSample(val average: Double, val successes: Int, val failures: Int, val updated: Long)
 
+internal fun mergeNativeServerHistory(previous: Map<String, NativeServerSample>, observed: Map<String, NativeServerSample>): Map<String, NativeServerSample> =
+    (previous.keys + observed.keys).mapNotNull { tag ->
+        val old = previous[tag]
+        val next = observed[tag]
+        val newest = if (old != null && (next == null || old.updated > next.updated)) old else next
+        newest?.let { tag to it }
+    }.sortedByDescending { it.second.updated }.take(128).toMap()
+
 /** Foreground fallback for raw configurations without the core's `lowest` balancer. */
 class NativeServerRanker {
     private data class Sample(var average: Double = 0.0, var successes: Int = 0, var failures: Int = 0, var updated: Long = 0)

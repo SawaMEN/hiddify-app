@@ -3,7 +3,7 @@ package com.hiddify.hiddify.nativecore
 import com.hiddify.hiddify.nativeprofile.NativeProfileImportCancellation
 import com.hiddify.hiddify.nativeprofile.NativeProfileValidation
 import com.hiddify.hiddify.nativeprofile.NativeProfileValidationBackend
-import mobile.Mobile
+import com.hiddify.core.mobile.Mobile
 
 /** Native validation without Mobile.setup/start or changing the active core's options. */
 internal object NativeProfileValidator : NativeProfileValidationBackend {

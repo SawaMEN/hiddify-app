@@ -70,4 +70,14 @@ class NativeRegionalOptionsTest {
         assertEquals(listOf("com.example.app"), NativeRoutingTokens.parse("com.example.app", false))
         assertThrows(IllegalArgumentException::class.java) { NativeRoutingTokens.parse("*.com.example.app", false) }
     }
+    @Test fun supportsInternationalDomainsAndRealPackagesWithoutAcceptingInvalidLabels() {
+        assertEquals(listOf("xn--e1afmkfd.xn--p1ai"), NativeRoutingTokens.parse("пример.рф", true))
+        assertEquals(listOf("android"), NativeRoutingTokens.parse("android", false))
+        listOf("-bad.example", "bad-.example", "bad_name.example", "a".repeat(64) + ".example").forEach {
+            assertTrue(it, runCatching { NativeRoutingTokens.parse(it, true) }.isFailure)
+        }
+        listOf("1com.example", "com.bad-name").forEach {
+            assertTrue(it, runCatching { NativeRoutingTokens.parse(it, false) }.isFailure)
+        }
+    }
 }

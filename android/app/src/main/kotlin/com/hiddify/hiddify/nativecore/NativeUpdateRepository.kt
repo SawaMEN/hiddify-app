@@ -2,7 +2,7 @@ package com.hiddify.hiddify.nativecore
 
 import org.json.JSONArray
 import java.net.HttpURLConnection
-import java.net.URI
+import com.hiddify.hiddify.nativeprofile.NativeProfileTransfer
 import java.net.URL
 
 data class NativeReleaseInfo(
@@ -34,7 +34,7 @@ class NativeUpdateRepository {
             check(connection.responseCode in 200..299) {
                 "GitHub returned HTTP ${connection.responseCode}"
             }
-            val body = connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            val body = connection.inputStream.use(NativeProfileTransfer::readText)
             val releases = JSONArray(body)
             var best: NativeReleaseInfo? = null
 
@@ -85,21 +85,7 @@ class NativeUpdateRepository {
             (versionComparison == 0 && remote.buildNumber > currentBuild)
     }
 
-    private fun parseProductionTag(tag: String): Pair<String, Int>? {
-        if (tag.isBlank()) return null
-        var raw = tag.removePrefix("v").substringBefore('-')
-        if (raw.contains(".dev") || raw.contains(".beta") || raw.contains(".alpha")) return null
-
-        var build = 0
-        if ('+' in raw) {
-            val pieces = raw.split('+', limit = 2)
-            raw = pieces[0]
-            build = pieces[1].substringBefore('.').toIntOrNull() ?: 0
-        }
-        raw = raw.removeSuffix(".prod")
-        if (!isVersion(raw)) return null
-        return raw to build
-    }
+    private fun parseProductionTag(tag: String): Pair<String, Int>? = NativeReleasePolicy.productionTag(tag)
 
     private fun compare(
         left: NativeReleaseInfo,
@@ -123,25 +109,11 @@ class NativeUpdateRepository {
         return 0
     }
 
-    private fun isVersion(value: String): Boolean {
-        val parts = value.split('.')
-        return parts.size >= 2 && parts.all { it.toIntOrNull() != null }
-    }
-
     private fun isTrustedReleasePage(value: String): Boolean =
         trustedUri(value, "/SawaMEN/hiddify-app/releases/")
 
     private fun isTrustedAsset(value: String): Boolean =
         trustedUri(value, "/SawaMEN/hiddify-app/releases/download/")
 
-    private fun trustedUri(
-        value: String,
-        pathPrefix: String,
-    ): Boolean =
-        runCatching {
-            val uri = URI(value)
-            uri.scheme.equals("https", true) &&
-                uri.host.equals("github.com", true) &&
-                uri.path.startsWith(pathPrefix)
-        }.getOrDefault(false)
+    private fun trustedUri(value: String, pathPrefix: String): Boolean = NativeReleasePolicy.trustedUrl(value, pathPrefix)
 }

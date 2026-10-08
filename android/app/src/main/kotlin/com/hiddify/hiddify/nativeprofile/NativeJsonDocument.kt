@@ -35,19 +35,42 @@ object NativeJsonDocument {
         require(text.isNotBlank()) { "Configuration is empty" }
         JsonReader(StringReader(text)).use { reader ->
             reader.strictness = Strictness.STRICT
-            val result = JsonParser.parseReader(reader)
+            val result = readValue(reader)
             require(reader.peek() == JsonToken.END_DOCUMENT) { "Unexpected content after JSON" }
             return result
         }
     }
 
+    private fun readValue(reader: JsonReader): JsonElement = when (reader.peek()) {
+        JsonToken.BEGIN_OBJECT -> JsonObject().apply {
+            reader.beginObject()
+            while (reader.hasNext()) {
+                val name = reader.nextName()
+                require(!has(name)) { "Duplicate JSON key: $name" }
+                add(name, readValue(reader))
+            }
+            reader.endObject()
+        }
+        JsonToken.BEGIN_ARRAY -> JsonArray().apply {
+            reader.beginArray()
+            while (reader.hasNext()) add(readValue(reader))
+            reader.endArray()
+        }
+        else -> JsonParser.parseReader(reader)
+    }
+
+    private fun validatePointer(path: String) {
+        require(path.isEmpty() || path.startsWith('/')) { "Invalid JSON pointer" }
+        require(!Regex("~(?![01])").containsMatchIn(path)) { "Invalid JSON pointer escape" }
+    }
+
     fun format(value: JsonElement): String = pretty.toJson(value)
     fun child(path: String, key: String): String = "$path/${key.replace("~", "~0").replace("/", "~1")}"
-    fun parent(path: String): String = path.substringBeforeLast('/', "")
-    fun key(path: String): String = path.substringAfterLast('/').replace("~1", "/").replace("~0", "~")
+    fun parent(path: String): String { validatePointer(path); return path.substringBeforeLast('/', "") }
+    fun key(path: String): String { validatePointer(path); return path.substringAfterLast('/').replace("~1", "/").replace("~0", "~") }
 
     fun at(root: JsonElement, path: String): JsonElement {
-        require(path.isEmpty() || path.startsWith('/')) { "Invalid JSON pointer" }
+        validatePointer(path)
         var current = root
         if (path.isEmpty()) return current
         for (part in path.substring(1).split('/')) {
@@ -146,6 +169,7 @@ object NativeJsonDocument {
     }
 
     private fun index(key: String, size: Int): Int {
+        require(Regex("0|[1-9][0-9]*").matches(key)) { "Invalid array index" }
         val index = key.toIntOrNull() ?: error("Invalid array index")
         require(index in 0 until size) { "JSON array index no longer exists" }
         return index

@@ -759,14 +759,20 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    private var logsRefreshJob: Job? = null
+    private var logReadGeneration = 0L
+
     private fun refreshLogs() {
+        if (logBusy.value) return
+        logsRefreshJob?.cancel()
+        val generation = ++logReadGeneration
         val serviceLines = serviceLogLines.toList()
-        lifecycleScope.launch {
+        logsRefreshJob = lifecycleScope.launch {
             try {
-                logSnapshot.value =
-                    withContext(Dispatchers.IO) {
-                        logRepository.readRecent(serviceLines)
-                    }
+                val snapshot = withContext(Dispatchers.IO) { logRepository.readRecent(serviceLines) }
+                if (generation == logReadGeneration && !logBusy.value) logSnapshot.value = snapshot
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 Log.w(TAG, "failed to refresh native logs", error)
             }
@@ -800,12 +806,16 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun clearLogs() {
         if (logBusy.value) return
+        logsRefreshJob?.cancel()
+        logReadGeneration++
         logBusy.value = true
         lifecycleScope.launch {
             try {
                 withContext(Dispatchers.IO) { logRepository.clear() }
                 serviceLogLines.clear()
                 logSnapshot.value = NativeLogSnapshot(emptyList(), emptyList())
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {

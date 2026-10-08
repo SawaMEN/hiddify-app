@@ -17,9 +17,7 @@ class NativeServerHistoryRepository(context: Context) {
         require(profileId.isNotBlank() && profileId.length <= 256)
         val json = JSONObject()
         val previous = decode(preferences.all["$prefix$profileId"] as? String ?: "")
-        samples.entries.take(128).forEach { (tag, observed) ->
-            // An Activity finishing its flush must not overwrite a newer session's sample.
-            val sample = previous[tag]?.takeIf { it.updated > observed.updated } ?: observed
+        mergeNativeServerHistory(previous, samples).forEach { (tag, sample) ->
             json.put(tag, JSONObject().put("average", sample.average).put("successes", sample.successes)
                 .put("failures", sample.failures).put("updated", sample.updated))
         }
