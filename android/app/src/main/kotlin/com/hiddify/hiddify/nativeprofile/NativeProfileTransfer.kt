@@ -20,7 +20,7 @@ object NativeProfileTransfer {
             require(total <= MAX_CONFIG_BYTES) { "Configuration exceeds 8 MiB" }
             output.write(buffer, 0, count)
         }
-        return output.toString(Charsets.UTF_8.name()).removePrefix("\uFEFF")
+        return NativeSubscriptionContent.utf8(output.toByteArray())
     }
 
     // Preserve the original authority, encoded query and non-standard port, just as the Dart

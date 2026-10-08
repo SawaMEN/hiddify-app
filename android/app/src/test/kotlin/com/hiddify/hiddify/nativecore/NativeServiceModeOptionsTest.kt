@@ -5,6 +5,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeServiceModeOptionsTest {
+    @Test fun ipv6SwitchChangesTheEffectiveJsonAndKeepsUnrelatedSettings() {
+        val initial = """{"ipv6-mode":"ipv4_only","mixed-port":12334}"""
+        val enabled = NativeServiceModeOptions.withIpv6Disabled(initial, false)
+        assertFalse(NativeServiceModeOptions.isIpv4Only(enabled, "ipv4_only"))
+        assertEquals("prefer_ipv4", JsonParser.parseString(enabled).asJsonObject.get("ipv6-mode").asString)
+        assertEquals(12334, JsonParser.parseString(enabled).asJsonObject.get("mixed-port").asInt)
+        assertTrue(NativeServiceModeOptions.isIpv4Only(NativeServiceModeOptions.withIpv6Disabled(enabled, true), "prefer_ipv4"))
+    }
     @Test fun legacyAutoIpv6ModeIsMigratedBeforeNativeStartup() {
         for (vpn in listOf(true, false)) {
             val root = JsonParser.parseString(NativeServiceModeOptions.apply("""{"ipv6-mode":"auto"}""", vpn)).asJsonObject

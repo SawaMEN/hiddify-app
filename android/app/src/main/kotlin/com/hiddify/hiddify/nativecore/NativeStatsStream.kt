@@ -24,6 +24,7 @@ internal class NativeStatsStream(
     private val clock: () -> Long,
     private val intervalMillis: Long = 1000,
 ) {
+    init { require(intervalMillis > 0) { "Statistics polling interval must be positive" } }
     private val session = MutableStateFlow(0L)
     fun reset() { session.update { it + 1 } }
     val snapshots = session.flatMapLatest { generation ->

@@ -5,6 +5,17 @@ import org.junit.Test
 import java.util.Base64
 
 class NativeDiagnosticEndpointTest {
+    @Test fun configurationArraysExposeEndpointsLikeSingleConfigurations() {
+        val raw = """[{"outbounds":[{"type":"vless","tag":"one","server":"one.example","server_port":443}]},
+            [{"endpoints":[{"type":"wireguard","tag":"two","server":"two.example","server_port":51820}]}]]"""
+        assertEquals(listOf("one", "two"), NativeDiagnosticEndpoints.parse(raw).map { it.tag })
+    }
+
+    @Test fun encodedDetoursAreDetectedBeforeDirectConnectionTests() {
+        val raw = """{"outbounds":[{"type":"vless","detour":"other"}]}"""
+        val encoded = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(raw.toByteArray())
+        assertTrue(NativeDiagnosticEndpoints.chained(encoded, emptySet()))
+    }
     @Test fun mixedProfilesUseTheSelectedTagAndNeverGuessAmongSeveralServers() {
         val endpoints = NativeDiagnosticEndpoints.parse("""{"outbounds":[{"type":"selector","tag":"pick"},{"type":"vless","tag":"a","server":"a.example","server_port":443},{"type":"tuic","tag":"b","server":"b.example","server_port":8443}]}""")
         assertEquals(2, endpoints.size)

@@ -84,7 +84,11 @@ object Settings {
     }
 
     fun setPrivacyDisableIpv6(disabled: Boolean) {
-        preferences.edit().putString("flutter.ipv6-mode", if (disabled) "ipv4_only" else "auto").apply()
+        val updated = NativeServiceModeOptions.withIpv6Disabled(configOptions, disabled)
+        check(preferences.edit().putString(SettingsKey.CONFIG_OPTIONS, updated)
+            .putString("flutter.ipv6-mode", if (disabled) "ipv4_only" else "prefer_ipv4").commit()) {
+            "Could not save IPv6 policy"
+        }
     }
 
     fun setHandbookRouting(enabled: Boolean) {

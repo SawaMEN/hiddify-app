@@ -18,6 +18,10 @@ internal object NativeServiceModeOptions {
         return mode == "ipv4_only"
     }
 
+    fun withIpv6Disabled(settingsJson: String, disabled: Boolean): String = root(settingsJson).apply {
+        addProperty("ipv6-mode", if (disabled) "ipv4_only" else "prefer_ipv4")
+    }.toString()
+
     fun apply(settingsJson: String, vpnMode: Boolean, ipv4Only: Boolean = false): String {
         val effective = root(settingsJson).deepCopy()
         // Earlier native switches stored "auto", which sing-box's DomainStrategy rejects.

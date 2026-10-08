@@ -1,7 +1,6 @@
 package com.hiddify.hiddify.nativeprofile
 
 import java.net.URI
-import java.util.Base64
 
 /** ImportSummary from Dart; only aggregate data enters the confirmation UI. */
 data class NativeImportSummary(
@@ -28,15 +27,9 @@ data class NativeImportSummary(
         private val utility = setOf("direct", "block", "dns", "selector", "urltest", "url-test", "reject")
 
         fun parse(raw: String, headers: Set<String> = emptySet(), insecureHttp: Boolean = false): NativeImportSummary {
-            var content = raw.trim()
-            if (!content.contains("://") && !content.startsWith("{") && !content.contains(':')) {
-                content = runCatching {
-                    val encoded = content.filterNot(Char::isWhitespace).replace('-', '+').replace('_', '/')
-                    String(Base64.getDecoder().decode(encoded), Charsets.UTF_8)
-                }.getOrDefault(content)
-            }
+            val content = NativeSubscriptionContent.decode(raw).trim()
             val overrides = linkedSetOf<String>()
-            headers.filterTo(overrides) {
+            headers.map { it.lowercase() }.filterTo(overrides) {
                 it.contains("dns") || it.contains("chain") || it.contains("security") ||
                     it.contains("tls") || it.startsWith("enable-")
             }
@@ -69,7 +62,7 @@ data class NativeImportSummary(
                         val type = root.get("type") ?: root.get("protocol") ?: return
                         val name = type.takeIf { it.isJsonPrimitive }?.asString?.lowercase() ?: "unknown"
                         val fingerprint = root.deepCopy().apply { remove("tag"); remove("name") }
-                        add(name, fingerprint.toString())
+                        add(name, canonical(fingerprint).toString())
                     }
                 }
                 visit(json)
@@ -83,13 +76,21 @@ data class NativeImportSummary(
                 add(scheme, text.substringBefore('#'))
             }
             if (servers == 0) {
-                Regex("^\\s*(?:-\\s*)?type:\\s*([a-zA-Z0-9_-]+)", RegexOption.MULTILINE)
-                    .findAll(content).forEach { add(it.groupValues[1], "yaml-${it.range.first}") }
+                Regex("^\\s*(?:-\\s*)?type:\\s*[\"']?([a-zA-Z0-9_-]+)[\"']?(?=\\s|$)", RegexOption.MULTILINE)
+                    .findAll(content).forEach { add(it.groupValues[1].lowercase(), "yaml-${it.range.first}") }
                 for (key in listOf("dns", "rules", "rule-providers")) {
                     if (Regex("^$key:", RegexOption.MULTILINE).containsMatchIn(content)) overrides += key
                 }
             }
             return summary()
+        }
+
+        private fun canonical(value: com.google.gson.JsonElement): com.google.gson.JsonElement = when {
+            value.isJsonObject -> com.google.gson.JsonObject().apply {
+                value.asJsonObject.entrySet().sortedBy { it.key }.forEach { (key, child) -> add(key, canonical(child)) }
+            }
+            value.isJsonArray -> com.google.gson.JsonArray().apply { value.asJsonArray.forEach { add(canonical(it)) } }
+            else -> value.deepCopy()
         }
     }
 }

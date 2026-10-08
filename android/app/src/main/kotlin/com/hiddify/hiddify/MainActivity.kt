@@ -1518,6 +1518,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     NetworkPrivacySettings.loadProxyPrivacy(applicationContext)
                 }
                 refreshSettingsSnapshot()
+                coreChangesSaved()
                 Toast.makeText(this@MainActivity, R.string.native_proxy_saved, Toast.LENGTH_LONG).show()
             } catch (error: CancellationException) {
                 throw error
@@ -1864,6 +1865,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 regionalApps.value = result
                 regionalAppsRevision.value += 1
                 regionalOptions.value = regionalRepository.load()
+                coreChangesSaved()
                 Toast.makeText(this@MainActivity, R.string.native_regional_apps_saved, Toast.LENGTH_SHORT).show()
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
@@ -1880,6 +1882,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             try {
                 regionalOptions.value = withContext(Dispatchers.IO) { regionalOperationMutex.withLock { regionalRepository.save(value) } }
                 refreshPrivacySetupState()
+                coreChangesSaved()
                 Toast.makeText(this@MainActivity, R.string.native_regional_saved, Toast.LENGTH_SHORT).show()
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
@@ -2497,8 +2500,13 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private inline fun updateSettings(action: () -> Unit) {
-        action()
-        refreshSettingsSnapshot()
+        try {
+            action()
+            refreshSettingsSnapshot()
+            coreChangesSaved()
+        } catch (error: Exception) {
+            errorMessage.value = error.message ?: error.javaClass.simpleName
+        }
     }
 
     private fun requestStop() {

@@ -69,7 +69,6 @@ class NativeProfileRepository(private val context: Context) {
 
     companion object {
         private const val MAX_CONFIG_BYTES = NativeProfileTransfer.MAX_CONFIG_BYTES
-        private const val MAX_NESTED_SUBSCRIPTIONS = 128
         // File replacement and DB transactions must share a lock across repository instances.
         private val mutationLock = Any()
 
@@ -676,29 +675,14 @@ class NativeProfileRepository(private val context: Context) {
                 output.write(buffer, 0, count)
             }
         }
-        return output.toByteArray().toString(Charsets.UTF_8).removePrefix("\uFEFF")
+        return NativeSubscriptionContent.utf8(output.toByteArray())
     }
 
     private fun expandNestedSubscriptions(content: String, cancellation: NativeProfileImportCancellation?): String {
-        cancellation?.ensureActive()
-        val lines = content.split("\n")
-        val nestedCount = lines.count { isHttpUrl(it.trim()) }
-        require(nestedCount <= MAX_NESTED_SUBSCRIPTIONS) { "Too many nested subscriptions" }
-        var totalBytes = content.toByteArray(Charsets.UTF_8).size
-        if (nestedCount == 0) return content
-
-        val expanded =
-            lines.map { original ->
-                cancellation?.ensureActive()
-                val line = original.trim()
-                if (!isHttpUrl(line)) return@map original
-                validateNestedPublicUrl(line)
-                val nested = download(line, nested = true, cancellation = cancellation).body.trim()
-                totalBytes += nested.toByteArray(Charsets.UTF_8).size
-                require(totalBytes <= MAX_CONFIG_BYTES) { "Nested subscriptions exceed 8 MiB" }
-                nested
-            }
-        return expanded.joinToString("\n")
+        return NativeSubscriptionContent.expand(content, ::isHttpUrl, download = { url ->
+            validateNestedPublicUrl(url)
+            download(url, nested = true, cancellation = cancellation).body
+        }, ensureActive = { cancellation?.ensureActive() })
     }
 
     private fun validateNestedPublicUrl(url: String) {
@@ -746,7 +730,7 @@ class NativeProfileRepository(private val context: Context) {
     private fun mergeHeaders(remote: Map<String, String>, content: String): Map<String, String> {
         val merged = remote.toMutableMap()
         val decoded = safeDecodeBase64(content)
-        decoded.lineSequence().take(10).forEach { line ->
+        decoded.lineSequence().take(10).map { it.trimStart() }.forEach { line ->
             if (!line.startsWith("#") && !line.startsWith("//")) return@forEach
             val colon = line.indexOf(':')
             if (colon <= 0) return@forEach
@@ -859,13 +843,7 @@ class NativeProfileRepository(private val context: Context) {
         }.getOrDefault(false)
 
     private fun safeDecodeBase64(value: String): String {
-        val compact = value.trim()
-        if (compact.isEmpty()) return compact
-        return runCatching {
-            val decoded = Base64.decode(compact, Base64.DEFAULT)
-            val text = String(decoded, Charsets.UTF_8)
-            if (text.any { it == '\uFFFD' }) value else text
-        }.getOrDefault(value)
+        return NativeSubscriptionContent.decode(value)
     }
 
     private fun editUserOverride(

@@ -5,6 +5,7 @@ import com.google.gson.JsonElement
 import java.net.URI
 import java.net.URLDecoder
 import java.util.Base64
+import com.hiddify.hiddify.nativeprofile.NativeSubscriptionContent
 
 internal data class NativeDiagnosticEndpoint(val tag: String, val type: String, val host: String, val port: Int) {
     val udp: Boolean get() = type in setOf("tuic", "hysteria", "hy", "hysteria2", "hy2", "wireguard",
@@ -15,15 +16,17 @@ internal data class NativeDiagnosticEndpoint(val tag: String, val type: String, 
 internal object NativeDiagnosticEndpoints {
     private val utility = setOf("direct", "block", "dns", "selector", "urltest", "url-test", "reject")
     fun parse(raw: String): List<NativeDiagnosticEndpoint> {
-        var content = raw.trim()
-        if (!content.contains("://") && !content.startsWith("{") && !content.contains(':')) {
-            content = runCatching { String(Base64.getDecoder().decode(content.filterNot(Char::isWhitespace)
-                .replace('-', '+').replace('_', '/')), Charsets.UTF_8) }.getOrDefault(content)
-        }
+        val content = NativeSubscriptionContent.decode(raw).trim()
         val json = runCatching { NativeJsonDocument.parse(content) }.getOrNull()
-        if (json?.isJsonObject == true) {
-            return listOf("outbounds", "endpoints").flatMap { key ->
-                val array = json.asJsonObject.get(key)?.takeIf { it.isJsonArray }?.asJsonArray
+        if (json != null && (json.isJsonObject || json.isJsonArray)) {
+            val configurations = mutableListOf<com.google.gson.JsonObject>()
+            fun collect(value: JsonElement) {
+                if (value.isJsonArray) value.asJsonArray.forEach(::collect)
+                else if (value.isJsonObject) configurations += value.asJsonObject
+            }
+            collect(json)
+            return configurations.flatMap { configuration -> listOf("outbounds", "endpoints").flatMap { key ->
+                val array = configuration.get(key)?.takeIf { it.isJsonArray }?.asJsonArray
                 array?.mapNotNull { item ->
                     if (!item.isJsonObject) return@mapNotNull null
                     val obj = item.asJsonObject
@@ -40,7 +43,7 @@ internal object NativeDiagnosticEndpoints {
                     }
                     NativeDiagnosticEndpoint(text("tag").ifBlank { text("name").ifBlank { type } }, type, host, port)
                 }.orEmpty()
-            }
+            } }
         }
         return content.lineSequence().mapNotNull { line ->
             val text = line.trim()
@@ -80,7 +83,7 @@ internal object NativeDiagnosticEndpoints {
             value.isJsonArray -> value.asJsonArray.any(::hasDetour)
             else -> false
         }
-        val json = runCatching { NativeJsonDocument.parse(raw) }.getOrNull() ?: return false
+        val json = runCatching { NativeJsonDocument.parse(NativeSubscriptionContent.decode(raw)) }.getOrNull() ?: return false
         return hasDetour(json)
     }
 }

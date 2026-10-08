@@ -5,6 +5,22 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeImportSummaryTest {
+    @Test fun quotedYamlProtocolsAndHeaderCaseMatchTheirUnquotedForms() {
+        val summary = NativeImportSummary.parse("proxies:\n  - type: 'VLESS'\n  - type: \"trojan\"\n",
+            setOf("Remote-DNS-Address", "TLS-Tricks"))
+        assertEquals(2, summary.servers)
+        assertEquals(0, summary.unknownTypes)
+        assertEquals(listOf("remote-dns-address", "tls-tricks"), summary.overrides)
+    }
+
+    @Test fun jsonKeyOrderDoesNotConcealDuplicateServers() {
+        val summary = NativeImportSummary.parse("""{"outbounds":[
+            {"tag":"a","type":"vless","server":"example.org","tls":{"enabled":true,"server_name":"example.org"}},
+            {"tls":{"server_name":"example.org","enabled":true},"server":"example.org","type":"vless","tag":"b"}
+        ]}""")
+        assertEquals(2, summary.servers)
+        assertEquals(1, summary.duplicates)
+    }
     @Test fun panelNativeShareSchemesAreKnown() {
         val summary = NativeImportSummary.parse("""
             vpn://Q29uZmln
