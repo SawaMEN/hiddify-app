@@ -135,6 +135,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val tlsRepository by lazy { com.hiddify.hiddify.nativecore.NativeTlsOptionsRepository(applicationContext) }
     private val tlsOptions = mutableStateOf<com.hiddify.hiddify.nativecore.NativeTlsOptions?>(null)
     private val tlsBusy = mutableStateOf(false)
+    private val tlsLoadFailed = mutableStateOf(false)
     private var tlsSnapshotJob: Job? = null
     private val dnsRepository by lazy { com.hiddify.hiddify.nativecore.NativeDnsOptionsRepository(applicationContext) }
     private val dnsOptions = mutableStateOf<com.hiddify.hiddify.nativecore.NativeDnsOptions?>(null)
@@ -397,7 +398,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onSaveGeneralOption = ::saveGeneralOption,
                 tlsOptions = tlsOptions.value,
                 tlsBusy = tlsBusy.value,
-                onSaveTlsOptions = ::saveTlsOptions,
+                tlsLoadFailed = tlsLoadFailed.value,
+                onReloadTlsOptions = ::refreshTlsOptions,
+                onSaveTlsOption = ::saveTlsOption,
                 dnsOptions = dnsOptions.value,
                 dnsBusy = dnsBusy.value,
                 dnsLoadFailed = dnsLoadFailed.value,
@@ -1966,6 +1969,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun refreshTlsOptions() {
+        if (tlsBusy.value) return
+        tlsLoadFailed.value = false
         tlsSnapshotJob?.cancel()
         tlsSnapshotJob = lifecycleScope.launch {
             try {
@@ -1973,29 +1978,28 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
+                tlsLoadFailed.value = true
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             }
         }
     }
 
-    private fun saveTlsOptions(value: com.hiddify.hiddify.nativecore.NativeTlsOptions) {
-        if (tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value || dnsBusy.value || inboundBusy.value || chainBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || wifiSharingBusy.value) return
-        if (serviceStatus.value != Status.Stopped || pendingStartAfterVpnPermission || nativeStartPending) {
-            errorMessage.value = getString(R.string.native_tls_disconnect)
-            return
-        }
+    private fun saveTlsOption(field: com.hiddify.hiddify.nativecore.NativeTlsOptionField, input: String) {
+        if (tlsBusy.value || reconnectBusy.value || generalOptionsBusy.value || tunnelBusy.value || dnsBusy.value || inboundBusy.value || chainBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || wifiSharingBusy.value ||
+            serviceStatus.value == Status.Starting || serviceStatus.value == Status.Stopping || pendingStartAfterVpnPermission || nativeStartPending) return
         tlsBusy.value = true
         tlsSnapshotJob?.cancel()
-        cancelRecovery()
         lifecycleScope.launch {
             try {
                 tlsOptions.value = BoxService.withNativeLifecycle {
-                    check(serviceStatus.value == Status.Stopped && !BoxService.hasActiveCore() && !nativeStartPending &&
-                        !pendingStartAfterVpnPermission) { getString(R.string.native_tls_disconnect) }
-                    withContext(Dispatchers.IO) { tlsRepository.save(value) }
+                    check(serviceStatus.value != Status.Starting && serviceStatus.value != Status.Stopping &&
+                        !nativeStartPending && !pendingStartAfterVpnPermission)
+                    // Match the page dependency against fresh state, rather than a stale switch snapshot.
+                    check(field == com.hiddify.hiddify.nativecore.NativeTlsOptionField.FRAGMENT ||
+                        withContext(Dispatchers.IO) { tlsRepository.load().fragment })
+                    withContext(Dispatchers.IO) { tlsRepository.saveField(field, input) }
                 }
-                refreshImportedSettingsSnapshots()
-                Toast.makeText(this@MainActivity, R.string.native_tls_saved, Toast.LENGTH_LONG).show()
+                coreChangesSaved()
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {

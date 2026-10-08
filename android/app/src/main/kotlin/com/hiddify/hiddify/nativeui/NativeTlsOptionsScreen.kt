@@ -1,112 +1,108 @@
 package com.hiddify.hiddify.nativeui
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import com.hiddify.hiddify.nativeui.NativeTextField as OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.listSaver
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
+import com.hiddify.hiddify.nativecore.NativeTlsOptionField
 import com.hiddify.hiddify.nativecore.NativeTlsOptions
-
-private val TlsDraftSaver = listSaver<NativeTlsOptions, Any>(
-    save = { listOf(it.fragment, it.fragmentSize, it.fragmentSleep, it.mixedSniCase, it.padding, it.paddingSize) },
-    restore = { NativeTlsOptions(it[0] as Boolean, it[1] as String, it[2] as String,
-        it[3] as Boolean, it[4] as Boolean, it[5] as String) },
-)
 
 @Composable
 internal fun NativeTlsOptionsScreen(
-    options: NativeTlsOptions?, busy: Boolean, canSave: Boolean,
-    onBack: () -> Unit, onSave: (NativeTlsOptions) -> Unit,
+    options: NativeTlsOptions?, busy: Boolean, canSave: Boolean, loadFailed: Boolean,
+    onRetry: () -> Unit, onBack: () -> Unit, onSave: (NativeTlsOptionField, String) -> Unit,
 ) {
-    if (options == null) {
-        Column {
-            NativePageHeader(stringResource(R.string.native_core_tls), onBack)
-            LinearProgressIndicator(Modifier.fillMaxWidth())
-        }
-        return
+    var editor by rememberSaveable { mutableStateOf<NativeTlsOptionField?>(null) }
+    var range by rememberSaveable { mutableStateOf("") }
+    val enabled = !busy && canSave
+    val dependentEnabled = enabled && options?.fragment == true
+    fun format(value: String) = runCatching { NativeTlsOptions.normalizeRange(value, allowEmpty = true) }.getOrDefault(value)
+    fun edit(field: NativeTlsOptionField) {
+        if (options == null || !dependentEnabled) return
+        range = format(field.value(options).toString())
+        editor = field
     }
-    var draft by rememberSaveable(options, stateSaver = TlsDraftSaver) { mutableStateOf<NativeTlsOptions>(options) }
-    var editor by rememberSaveable(options) { mutableStateOf("") }
-    var range by rememberSaveable(options) { mutableStateOf("") }
-    fun edit(key: String, value: String) { editor = key; range = value }
-    val enabled = !busy && draft.fragment
-    val valid = runCatching { draft.validated() }.isSuccess
+    fun save(field: NativeTlsOptionField, value: String) {
+        if (!enabled || (field != NativeTlsOptionField.FRAGMENT && !dependentEnabled)) return
+        onSave(field, value)
+        editor = null
+    }
     val notSet = stringResource(R.string.native_tls_not_set)
-    Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        NativePageHeader(stringResource(R.string.native_core_tls), if (busy) null else onBack)
-        NativeGlass(Modifier.fillMaxWidth(), radius = 24) {
-            Text(stringResource(R.string.native_tls_summary), Modifier.padding(16.dp),
-                style = MaterialTheme.typography.bodyMedium)
+    Column {
+        NativePageHeader(stringResource(R.string.native_core_tls), onBack)
+        if ((options == null && !loadFailed) || busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+        if (options == null && loadFailed) Column(Modifier.padding(16.dp)) {
+            Text(stringResource(R.string.native_settings_load_failed), color = MaterialTheme.colorScheme.error)
+            TextButton(onClick = onRetry) { Text(stringResource(R.string.native_profiles_retry)) }
         }
-        NativeCard(Modifier.fillMaxWidth()) {
-            NativePreferenceSwitch(R.string.native_core_tls_fragment, R.string.native_tls_fragment_summary,
-                R.drawable.native_route, draft.fragment, !busy, { draft = draft.copy(fragment = it) })
-            NativePreferenceValueRow(R.string.native_core_tls_fragment_size, draft.fragmentSize.ifEmpty { notSet }, enabled,
-                R.drawable.native_route) { edit("size", draft.fragmentSize) }
-            NativePreferenceValueRow(R.string.native_core_tls_fragment_sleep, draft.fragmentSleep.ifEmpty { notSet }, enabled,
-                R.drawable.native_route) { edit("sleep", draft.fragmentSleep) }
-            NativePreferenceSwitch(R.string.native_core_tls_mixed_sni, R.string.native_tls_sni_summary,
-                R.drawable.native_shield, draft.mixedSniCase, enabled, { draft = draft.copy(mixedSniCase = it) })
-            NativePreferenceSwitch(R.string.native_core_tls_padding, R.string.native_tls_padding_summary,
-                R.drawable.native_layers, draft.padding, enabled, { draft = draft.copy(padding = it) })
-            // Dart enables all subordinate controls with fragmentation, including the padding range.
-            NativePreferenceValueRow(R.string.native_core_tls_padding_size, draft.paddingSize.ifEmpty { notSet }, enabled,
-                R.drawable.native_layers) { edit("padding", draft.paddingSize) }
+        if (options != null) Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+            NativePreferenceTile(R.string.native_core_tls_fragment, R.drawable.native_tls_content_cut,
+                null, enabled, options.fragment) { save(NativeTlsOptionField.FRAGMENT, (!options.fragment).toString()) }
+            NativePreferenceTile(R.string.native_core_tls_fragment_size, R.drawable.native_tls_straighten,
+                format(options.fragmentSize).ifEmpty { notSet }, dependentEnabled) { edit(NativeTlsOptionField.FRAGMENT_SIZE) }
+            NativePreferenceTile(R.string.native_core_tls_fragment_sleep, R.drawable.native_tls_snooze,
+                format(options.fragmentSleep).ifEmpty { notSet }, dependentEnabled) { edit(NativeTlsOptionField.FRAGMENT_SLEEP) }
+            NativePreferenceTile(R.string.native_core_tls_mixed_sni, R.drawable.native_tls_text_fields,
+                null, dependentEnabled, options.mixedSniCase) { save(NativeTlsOptionField.MIXED_SNI_CASE, (!options.mixedSniCase).toString()) }
+            NativePreferenceTile(R.string.native_core_tls_padding, R.drawable.native_tls_expand,
+                null, dependentEnabled, options.padding) { save(NativeTlsOptionField.PADDING, (!options.padding).toString()) }
+            // Dart gates the padding range on fragmentation, regardless of the padding switch.
+            // Its padding row uses format(), so an imported empty range has an empty subtitle.
+            NativePreferenceTile(R.string.native_core_tls_padding_size, R.drawable.native_tls_straighten,
+                format(options.paddingSize), dependentEnabled) { edit(NativeTlsOptionField.PADDING_SIZE) }
         }
-        Text(stringResource(if (canSave) R.string.native_settings_reconnect_note else R.string.native_tls_disconnect),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (!valid) Text(stringResource(R.string.native_tls_invalid), color = MaterialTheme.colorScheme.error)
-        if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-        NativeButton(onClick = { onSave(draft) }, modifier = Modifier.fillMaxWidth(),
-            enabled = !busy && canSave && valid && draft != options) { Text(stringResource(R.string.native_tls_save)) }
     }
-    if (editor.isNotEmpty()) {
-        val title = when (editor) {
-            "size" -> R.string.native_core_tls_fragment_size
-            "sleep" -> R.string.native_core_tls_fragment_sleep
+    val field = editor
+    if (field != null && options != null) {
+        val title = when (field) {
+            NativeTlsOptionField.FRAGMENT_SIZE -> R.string.native_core_tls_fragment_size
+            NativeTlsOptionField.FRAGMENT_SLEEP -> R.string.native_core_tls_fragment_sleep
             else -> R.string.native_core_tls_padding_size
         }
-        val normalized = runCatching { NativeTlsOptions.normalizeRange(range) }.getOrNull()
-        AlertDialog(onDismissRequest = { if (!busy) editor = "" }, title = { Text(stringResource(title)) },
+        val valid = runCatching { field.applyTo(options, range) }.isSuccess
+        val focus = remember(field) { FocusRequester() }
+        LaunchedEffect(field) { focus.requestFocus() }
+        AlertDialog(onDismissRequest = { editor = null }, title = { Text(stringResource(title)) },
             text = {
-                OutlinedTextField(range, { if (it.length <= 21) range = it }, enabled = !busy,
-                    modifier = Modifier.fillMaxWidth(), singleLine = true,
-                    label = { Text(stringResource(R.string.native_tls_range)) }, isError = normalized == null,
-                    supportingText = { Text(stringResource(R.string.native_tls_invalid)) })
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    if (normalized != null) {
-                        draft = when (editor) {
-                            "size" -> draft.copy(fragmentSize = normalized)
-                            "sleep" -> draft.copy(fragmentSleep = normalized)
-                            else -> draft.copy(paddingSize = normalized)
-                        }
-                        editor = ""
+                NativePreferenceInput(range, { if (it.length <= 21) range = it }, possibleValues = emptyList(),
+                    enabled = dependentEnabled, valid = valid, invalidMessage = stringResource(R.string.native_tls_invalid),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
+                    onDone = { save(field, range) }, modifier = Modifier.focusRequester(focus))
+            }, confirmButton = {
+                TextButton(onClick = { save(field, range) }, enabled = dependentEnabled && valid) {
+                    Text(stringResource(android.R.string.ok))
+                }
+            }, dismissButton = {
+                Row {
+                    TextButton(onClick = { save(field, field.value(NativeTlsOptions()).toString()) }, enabled = dependentEnabled) {
+                        Text(stringResource(R.string.native_quick_reset))
                     }
-                }, enabled = !busy && normalized != null) { Text(stringResource(R.string.native_profile_save)) }
-            },
-            dismissButton = { TextButton(onClick = { editor = "" }, enabled = !busy) {
-                Text(stringResource(android.R.string.cancel))
-            } })
+                    TextButton(onClick = { editor = null }) { Text(stringResource(android.R.string.cancel)) }
+                }
+            })
     }
 }
 
@@ -115,7 +111,7 @@ internal fun NativeTlsOptionsScreen(
 private fun TlsPreview() {
     NativeAppTheme(com.hiddify.hiddify.nativepreferences.NativeThemeMode.DARK) {
         NativeAtmosphere { Column(Modifier.padding(horizontal = 20.dp)) {
-            NativeTlsOptionsScreen(NativeTlsOptions(fragment = true), false, true, {}, {})
+            NativeTlsOptionsScreen(NativeTlsOptions(fragment = true), false, true, false, {}, {}, { _, _ -> })
         } }
     }
 }

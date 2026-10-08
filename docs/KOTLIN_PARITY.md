@@ -339,3 +339,33 @@ invalid input and reset isolation. They are registered in the JVM suite but have
 the pinned Gradle distribution remains unavailable. Native boundary/resource, drawable/font
 reference and whitespace checks pass. APK completion is not awaited. Dropdown placement with
 IME, accessibility, large text and same-device visual/interaction parity still require device QA.
+
+## TLS tricks preferences and nested field saving
+
+The TLS page restores the original six plain rows, rounded cut/ruler/snooze/text/expand icons
+and exact EN/RU captions. Its header remains outside the scrolling body. The explanatory card,
+extra subtitles and page-level Save button are removed. Fragmentation gates all five subordinate
+controls, including the padding size when padding itself is off. That dependency is rechecked
+against persisted state under the native lifecycle barrier before a subordinate field is saved.
+
+Switches save immediately. Range dialogs focus their LTR editable input, support IME Done and
+persist on OK. Reset writes the original range default and closes; cancellation leaves stored
+values unchanged. Display/input formatting canonicalizes valid numeric ranges while preserving
+unedited imported values in storage. Empty fragment size/sleep display Not set; empty padding
+keeps the original empty subtitle. Imported empty ranges stay valid, but a new empty edit is
+rejected, matching OptionalRange.tryParse. The existing Kotlin signed-32-bit/21-character bound
+is retained; Dart's wider integer edge cases remain to audit against downstream core consumers.
+
+TLS saves modify only the chosen key inside tls-tricks and mirror its separately named legacy
+Flutter preference. All unrelated nested/root keys and switch/range values remain untouched.
+Core JSON field names were checked against pinned hiddify-core ffc52b3 v2/config/hiddify_option.go.
+Connected changes use the applied-settings signature to request reconnect. Startup, stopping,
+reconnect and other settings transactions block saves; snapshot reload skips an in-flight edit.
+Initial TLS load failures expose Retry rather than an endless indicator.
+
+Five JVM scenarios cover switch isolation with legacy ranges, canonicalization and bounds,
+invalid ranges/booleans, empty imported ranges and per-field reset isolation. The production
+model is registered in the standalone JVM suite. Native source/resource, drawable/font-reference
+and whitespace checks pass; JVM execution is still blocked by the unavailable pinned Gradle
+distribution. No APK completion is awaited. Same-device visuals, focus/keyboard/accessibility
+behavior and remaining settings/navigation parity still need verification/work.

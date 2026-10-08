@@ -133,7 +133,9 @@ fun NativeApp(
     onChangeOutboundSort: (com.hiddify.hiddify.nativepreferences.NativeOutboundSort) -> Unit,
     tlsOptions: com.hiddify.hiddify.nativecore.NativeTlsOptions?,
     tlsBusy: Boolean,
-    onSaveTlsOptions: (com.hiddify.hiddify.nativecore.NativeTlsOptions) -> Unit,
+    tlsLoadFailed: Boolean,
+    onReloadTlsOptions: () -> Unit,
+    onSaveTlsOption: (com.hiddify.hiddify.nativecore.NativeTlsOptionField, String) -> Unit,
     dnsOptions: com.hiddify.hiddify.nativecore.NativeDnsOptions?,
     dnsBusy: Boolean,
     dnsLoadFailed: Boolean,
@@ -546,8 +548,9 @@ fun NativeApp(
 
                             PAGE_TLS -> NativeTlsOptionsScreen(
                                 options = tlsOptions, busy = tlsBusy,
-                                canSave = status == Status.Stopped && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy,
-                                onBack = { goBack() }, onSave = onSaveTlsOptions,
+                                canSave = status != Status.Starting && status != Status.Stopping && !reconnectBusy && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy && !generalOptionsBusy && !tunnelBusy && !privacySetupBusy && !proxyPrivacyBusy,
+                                loadFailed = tlsLoadFailed, onRetry = onReloadTlsOptions,
+                                onBack = { goBack() }, onSave = onSaveTlsOption,
                             )
 
                             PAGE_DNS -> NativeDnsOptionsScreen(
