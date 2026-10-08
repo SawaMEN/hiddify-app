@@ -59,7 +59,7 @@ internal fun NativeFreeProfilesPane(onImport: (NativeFreeProfile, String) -> Uni
             else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(available) { profile ->
                     Surface(onClick = { consentUrl = profile.url }, shape = RoundedCornerShape(18.dp),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp)) {
+                        color = androidx.compose.ui.graphics.Color.Transparent, modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp).nativeGlassDecoration(RoundedCornerShape(18.dp))) {
                         Column(Modifier.padding(10.dp)) {
                             Row(Modifier.fillMaxWidth()) {
                                 Text(profile.title(russian), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)

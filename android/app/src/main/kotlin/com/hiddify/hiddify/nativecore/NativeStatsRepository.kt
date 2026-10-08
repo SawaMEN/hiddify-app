@@ -23,7 +23,9 @@ class NativeStatsRepository {
         GrpcClientProvider.grpcClient.create(CoreClient::class)
 
     fun load(): NativeSystemStats {
-        val response = client().GetSystemInfo().executeBlocking(Empty())
+        val call = client().GetSystemInfo()
+        call.timeout.timeout(8, java.util.concurrent.TimeUnit.SECONDS)
+        val response = try { call.executeBlocking(Empty()) } finally { call.cancel() }
         return NativeSystemStats(
             memoryBytes = response.memory,
             goroutines = response.goroutines,

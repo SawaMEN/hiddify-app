@@ -100,11 +100,15 @@ fun NativeLogsScreen(
     }
 }
 
-private fun logLevelColor(level: String) = when (level) {
-    "TRACE" -> androidx.compose.ui.graphics.Color(0xFF40C4FF)
-    "DEBUG" -> androidx.compose.ui.graphics.Color(0xFF9E9E9E)
-    "INFO" -> androidx.compose.ui.graphics.Color(0xFF8BC34A)
-    "WARN" -> androidx.compose.ui.graphics.Color(0xFFFF9800)
-    "ERROR" -> androidx.compose.ui.graphics.Color(0xFFFF5252)
-    else -> androidx.compose.ui.graphics.Color(0xFFF44336)
+@Composable
+private fun logLevelColor(level: String): androidx.compose.ui.graphics.Color {
+    val scheme = MaterialTheme.colorScheme
+    return when (level) {
+        "TRACE" -> scheme.primary
+        "DEBUG" -> scheme.onSurfaceVariant
+        "INFO" -> scheme.tertiary
+        "WARN" -> if (scheme.onSurface.red > .7f) androidx.compose.ui.graphics.Color(0xFFFFC857)
+            else androidx.compose.ui.graphics.Color(0xFF805500)
+        else -> scheme.error
+    }
 }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import com.hiddify.hiddify.nativeui.NativeButton as Button
 import com.hiddify.hiddify.nativeui.NativeGlassDialog as AlertDialog
 import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
 import androidx.compose.runtime.*
@@ -226,14 +227,14 @@ internal fun NativeAddProfileSheet(
 
 @Composable
 private fun AddSourceTile(label: Int, icon: Int, height: androidx.compose.ui.unit.Dp, modifier: Modifier, onClick: () -> Unit) {
-    Surface(onClick = onClick, modifier = modifier.heightIn(min = height), shape = RoundedCornerShape(18.dp),
-        color = MaterialTheme.colorScheme.surface, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+    Surface(onClick = onClick, modifier = modifier.heightIn(min = height).nativeGlassDecoration(RoundedCornerShape(18.dp)), shape = RoundedCornerShape(18.dp),
+        color = androidx.compose.ui.graphics.Color.Transparent) {
         Column(Modifier.padding(horizontal = 4.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center) {
             Icon(painterResource(icon), null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(4.dp))
             Text(stringResource(label), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleSmall,
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
     }
 }

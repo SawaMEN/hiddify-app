@@ -94,6 +94,10 @@ def convert(source, destination, monochrome=False):
             for child in node:
                 visit(child, group, fill)
         else:
+            # Material SVGs include a viewport path with fill="none". Tint only
+            # painted shapes; making that path opaque hides the icon in Compose.
+            if fill == 'none':
+                return
             attributes = attr(pathData=shape(node), fillColor='#ffffff' if monochrome else color(fill))
             if node.attrib.get('fill-rule') == 'evenodd':
                 attributes.update(attr(fillType='evenOdd'))

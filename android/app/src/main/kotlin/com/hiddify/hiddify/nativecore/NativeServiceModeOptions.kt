@@ -1,7 +1,7 @@
 package com.hiddify.hiddify.nativecore
 
 import com.google.gson.JsonObject
-import com.google.gson.JsonParser
+import com.hiddify.hiddify.nativeprofile.NativeJsonDocument
 
 /**
  * Keep Android's VpnService.Builder address policy in sync with the native sing-box
@@ -10,7 +10,7 @@ import com.google.gson.JsonParser
  */
 internal object NativeServiceModeOptions {
     private fun root(settingsJson: String): JsonObject =
-        JsonParser.parseString(settingsJson.ifBlank { "{}" }).asJsonObject
+        NativeJsonDocument.parse(settingsJson.ifBlank { "{}" }).asJsonObject
 
     fun isIpv4Only(settingsJson: String, legacyMode: String): Boolean {
         val configured = root(settingsJson).get("ipv6-mode")
@@ -20,6 +20,10 @@ internal object NativeServiceModeOptions {
 
     fun apply(settingsJson: String, vpnMode: Boolean, ipv4Only: Boolean = false): String {
         val effective = root(settingsJson).deepCopy()
+        // Earlier native switches stored "auto", which sing-box's DomainStrategy rejects.
+        if (effective.get("ipv6-mode")?.let { it.isJsonPrimitive && it.asString == "auto" } == true) {
+            effective.addProperty("ipv6-mode", "prefer_ipv4")
+        }
         effective.addProperty("enable-tun", vpnMode)
         // An Android VPN commonly defaults to IPv4-only. Make that effective for
         // the Go builder too, including when config_options_json omits ipv6-mode.

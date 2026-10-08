@@ -6,6 +6,10 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeSettingsDocumentTest {
+    @Test fun enabledClashApiRejectsZeroPortButDisabledApiMayStoreZero() {
+        assertTrue(runCatching { NativeSettingsDocument.merge(JsonObject(), json("""{"enable-clash-api":true,"clash-api-port":0}""")) }.isFailure)
+        NativeSettingsDocument.merge(JsonObject(), json("""{"enable-clash-api":false,"clash-api-port":0}"""))
+    }
     private fun json(text: String) = NativeJsonDocument.parse(text).asJsonObject
     private fun rejected(key: String, value: String) {
         assertTrue("$key=$value", runCatching { NativeSettingsDocument.merge(JsonObject(), json("{\"$key\":$value}")) }.isFailure)

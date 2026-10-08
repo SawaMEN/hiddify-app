@@ -919,7 +919,7 @@ private fun HomeScreen(
                 Text(stringResource(R.string.native_profile_help_message), style = MaterialTheme.typography.titleMedium,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                 Spacer(Modifier.height(16.dp))
-                androidx.compose.material3.Button(onClick = onAddProfile, enabled = busyProfileId == null) {
+                NativeButton(onClick = onAddProfile, enabled = busyProfileId == null) {
                     Icon(painterResource(R.drawable.home_add), null)
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.native_profile_add))
@@ -999,9 +999,17 @@ private fun HomeScreen(
 private fun ConnectionStatsCard(stats: NativeSystemStats, smartSelected: Boolean) {
     NativeGlass(Modifier.fillMaxWidth(), radius = 20) {
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth()) {
-                Text("↓ ${formatTraffic(stats.downlink)}/s", Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                Text("↑ ${formatTraffic(stats.uplink)}/s", Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                listOf(Triple(R.drawable.native_sub_download, stats.downlink, MaterialTheme.colorScheme.primary),
+                    Triple(R.drawable.native_sub_upload, stats.uplink, MaterialTheme.colorScheme.secondary)).forEach { (icon, value, accent) ->
+                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center) {
+                        Icon(painterResource(icon), null, Modifier.size(18.dp), tint = accent)
+                        Spacer(Modifier.width(6.dp))
+                        Text("${formatTraffic(value)}/s", style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
             }
             if (smartSelected) Text(stringResource(R.string.native_home_selection_reason), Modifier.fillMaxWidth(),
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center, style = MaterialTheme.typography.bodyLarge)

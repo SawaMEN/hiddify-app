@@ -10,8 +10,6 @@ import com.hiddify.hiddify.Settings
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.net.InetAddress
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -63,6 +61,7 @@ internal data class NativePreparedProfile(
     val content: String,
     val isNew: Boolean,
     val summary: NativeImportSummary,
+    val expectedProfile: NativeProfile? = null,
 )
 
 /**
@@ -77,6 +76,8 @@ class NativeProfileRepository(private val context: Context) {
     companion object {
         private const val MAX_CONFIG_BYTES = NativeProfileTransfer.MAX_CONFIG_BYTES
         private const val MAX_NESTED_SUBSCRIPTIONS = 128
+        // File replacement and DB transactions must share a lock across repository instances.
+        private val mutationLock = Any()
 
         private val importSchemes =
             setOf("hiddify", "v2ray", "v2rayn", "v2rayng", "clash", "clashmeta", "sing-box")
@@ -120,13 +121,27 @@ class NativeProfileRepository(private val context: Context) {
         http.newBuilder()
             .followRedirects(false)
             .followSslRedirects(false)
+            .dns { host ->
+                // Validate the addresses OkHttp will actually connect to, avoiding a second,
+                // attacker-controlled DNS lookup after validation of the nested URL.
+                val addresses = InetAddress.getAllByName(host).toList()
+                if (addresses.isEmpty() || addresses.any(::isBlockedAddress)) {
+                    throw java.net.UnknownHostException("Nested subscription target is not public")
+                }
+                addresses
+            }
             .build()
 
     private fun openDatabase(): SQLiteDatabase {
         databaseFile.parentFile?.mkdirs()
         val db = SQLiteDatabase.openOrCreateDatabase(databaseFile, null)
-        ensureSchema(db)
-        return db
+        try {
+            synchronized(mutationLock) { ensureSchema(db) }
+            return db
+        } catch (error: Throwable) {
+            db.close()
+            throw error
+        }
     }
 
     private fun ensureSchema(db: SQLiteDatabase) {
@@ -221,13 +236,14 @@ class NativeProfileRepository(private val context: Context) {
             ).use { cursor -> if (cursor.moveToFirst()) cursor.toProfile() else null }
         }
 
-    fun synchronizeActiveProfile(): NativeProfile? {
+    fun synchronizeActiveProfile(): NativeProfile? = synchronized(mutationLock) {
         val profile = activeProfile()
         syncSettings(profile)
-        return profile
+        profile
     }
 
-    fun setActive(id: String): NativeProfile {
+    fun setActive(id: String): NativeProfile = synchronized(mutationLock) {
+        check(profileFile(id).isFile) { "Profile configuration file not found: refresh the subscription first" }
         val profile =
             openDatabase().use { db ->
                 db.beginTransaction()
@@ -248,10 +264,10 @@ class NativeProfileRepository(private val context: Context) {
                 getById(db, id) ?: error("Profile not found after activation")
             }
         syncSettings(profile)
-        return profile
+        profile
     }
 
-    fun delete(id: String) {
+    fun delete(id: String) = synchronized(mutationLock) {
         var nextActive: NativeProfile? = null
         val config = profileFile(id)
         NativeProfileFileRemoval.remove(config) {
@@ -295,7 +311,7 @@ class NativeProfileRepository(private val context: Context) {
             }
         }
         syncSettings(nextActive)
-        com.hiddify.hiddify.nativecore.NativeChainRepository().replaceDeletedProfile(id, nextActive?.id)
+        com.hiddify.hiddify.nativecore.NativeChainRepository().replaceDeletedProfile(id)
     }
 
     fun refreshRemote(id: String): NativeProfile {
@@ -329,8 +345,12 @@ class NativeProfileRepository(private val context: Context) {
         name: String,
         disableAutoUpdate: Boolean,
         updateIntervalHours: Int?,
+        expectedLastUpdate: String? = null,
     ): NativeProfile {
         val existing = openDatabase().use { db -> getById(db, id) ?: error("Profile not found") }
+        check(expectedLastUpdate == null || existing.lastUpdate == expectedLastUpdate) {
+            "Profile changed while editing: reload it before saving"
+        }
         val cleanName = name.trim()
         require(cleanName.isNotEmpty()) { "Profile name cannot be empty" }
         require(content.isNotBlank()) { "Configuration cannot be empty" }
@@ -379,8 +399,7 @@ class NativeProfileRepository(private val context: Context) {
                 userOverride = userOverride,
             )
         validateContent(updated, content, null)
-        commit(updated, content, isNew = false)
-        return updated
+        return commit(updated, content, isNew = false, expectedProfile = existing)
     }
 
     fun dueRemoteProfileIds(now: java.time.LocalDateTime = java.time.LocalDateTime.now()): List<String> =
@@ -449,7 +468,8 @@ class NativeProfileRepository(private val context: Context) {
 
         val existing =
             openDatabase().use { db ->
-                existingId?.let { getById(db, it) } ?: getByUrl(db, url)
+                if (existingId != null) getById(db, existingId) ?: error("Profile was deleted")
+                else getByUrl(db, url.trim())
             }
         val id = existing?.id ?: UUID.randomUUID().toString()
         val active = existing?.active ?: true
@@ -499,7 +519,7 @@ class NativeProfileRepository(private val context: Context) {
         validateContent(profile, expanded, cancellation)
         cancellation?.ensureActive()
         return NativePreparedProfile(profile, expanded, existing == null,
-            NativeImportSummary.parse(expanded, mergedHeaders.keys, java.net.URI(url).scheme.equals("http", true)))
+            NativeImportSummary.parse(expanded, mergedHeaders.keys, java.net.URI(url).scheme.equals("http", true)), existing)
     }
 
     private fun prepareLocal(
@@ -550,9 +570,14 @@ class NativeProfileRepository(private val context: Context) {
         content: String,
         cancellation: NativeProfileImportCancellation?,
     ) {
-        val options = NativeProfileOverrides.apply(Settings.configOptions,
+        val options = NativeProfileOverrides.apply(com.hiddify.hiddify.nativecore.NativeSettingsTransferRepository(context).exportJson(includePrivate = true),
             profile.populatedHeaders, profile.userOverride)
-        com.hiddify.hiddify.nativecore.NativeProfileValidator.validate(content, options, cancellation)
+        val effective = com.hiddify.hiddify.nativecore.NativeServiceModeOptions.apply(
+            com.hiddify.hiddify.nativecore.NativeCoreOptionsProjection.forProfileValidation(options),
+            vpnMode = Settings.serviceMode == com.hiddify.hiddify.constant.ServiceMode.VPN,
+            ipv4Only = Settings.privacyDisableIpv6,
+        )
+        com.hiddify.hiddify.nativecore.NativeProfileValidator.validate(content, effective, cancellation)
     }
 
     internal fun commitPrepared(
@@ -560,23 +585,22 @@ class NativeProfileRepository(private val context: Context) {
         cancellation: NativeProfileImportCancellation?,
     ): NativeProfile {
         cancellation?.beginCommit()
-        commit(prepared.profile, prepared.content, prepared.isNew)
-        return prepared.profile
+        return commit(prepared.profile, prepared.content, prepared.isNew, prepared.expectedProfile)
     }
 
-    private fun commit(profile: NativeProfile, content: String, isNew: Boolean) {
+    private fun commit(profile: NativeProfile, content: String, isNew: Boolean, expectedProfile: NativeProfile?): NativeProfile = synchronized(mutationLock) {
+        val latest = openDatabase().use { getById(it, profile.id) }
+        check(isNew || latest != null) { "Profile was deleted during update" }
+        check(!isNew || latest == null) { "Profile already exists" }
+        check(isNew || latest?.copy(active = false) == expectedProfile?.copy(active = false)) {
+            "Profile changed during update: retry with the current profile"
+        }
+        if (isNew && profile.url != null) {
+            check(openDatabase().use { getByUrl(it, profile.url) } == null) { "Subscription was already imported" }
+        }
+        val saved = profile.copy(active = if (isNew) profile.active else latest!!.active)
         val destination = profileFile(profile.id)
-        destination.parentFile?.mkdirs()
-        val temp = File(destination.parentFile, "${destination.name}.tmp-${UUID.randomUUID()}")
-        val backup = File(destination.parentFile, "${destination.name}.backup-${UUID.randomUUID()}")
-        temp.writeText(content)
-        check(temp.length() <= MAX_CONFIG_BYTES) { "Configuration exceeds 8 MiB" }
-
-        val hadDestination = destination.exists()
-        if (hadDestination) destination.copyTo(backup, overwrite = true)
-
-        try {
-            moveReplacing(temp, destination)
+        NativeProfileFileReplacement.replace(destination, content) {
             openDatabase().use { db ->
                 db.beginTransaction()
                 try {
@@ -585,7 +609,7 @@ class NativeProfileRepository(private val context: Context) {
                         db.insertWithOnConflict(
                             "profile_entries",
                             null,
-                            profile.toValues(),
+                            saved.toValues(),
                             SQLiteDatabase.CONFLICT_REPLACE,
                         )
                     check(result != -1L) { "Unable to save profile" }
@@ -594,20 +618,9 @@ class NativeProfileRepository(private val context: Context) {
                     db.endTransaction()
                 }
             }
-            if (backup.exists()) backup.delete()
-            if (profile.active) syncSettings(profile)
-        } catch (error: Exception) {
-            if (temp.exists()) temp.delete()
-            if (hadDestination && backup.exists()) {
-                moveReplacing(backup, destination)
-            } else if (!hadDestination && destination.exists()) {
-                destination.delete()
-            }
-            throw error
-        } finally {
-            if (temp.exists()) temp.delete()
-            if (backup.exists()) backup.delete()
         }
+        if (saved.active) syncSettings(saved)
+        saved
     }
 
     private fun download(
@@ -665,7 +678,7 @@ class NativeProfileRepository(private val context: Context) {
                 output.write(buffer, 0, count)
             }
         }
-        return output.toByteArray().toString(Charsets.UTF_8)
+        return output.toByteArray().toString(Charsets.UTF_8).removePrefix("\uFEFF")
     }
 
     private fun expandNestedSubscriptions(content: String, cancellation: NativeProfileImportCancellation?): String {
@@ -837,7 +850,7 @@ class NativeProfileRepository(private val context: Context) {
         runCatching {
             val uri = java.net.URI(value.trim())
             (uri.scheme.equals("http", true) || uri.scheme.equals("https", true)) &&
-                !uri.host.isNullOrBlank()
+                !uri.host.isNullOrBlank() && (uri.port == -1 || uri.port in 1..65535)
         }.getOrDefault(false)
 
     private fun safeDecodeBase64(value: String): String {
@@ -953,7 +966,30 @@ class NativeProfileRepository(private val context: Context) {
             null,
         ).use { cursor -> if (cursor.moveToFirst()) cursor.toProfile() else null }
 
-    private fun profileFile(id: String): File = File(configDirectory(), "$id.json")
+    /** Snapshot under the same lock as refresh/delete so a chain cannot read a partial replacement. */
+    fun chainProfileContent(id: String): String = synchronized(mutationLock) {
+        openDatabase().use { db -> requireNotNull(getById(db, id)) { "Chain profile was deleted" } }
+        val file = profileFile(id)
+        require(file.isFile && file.length() in 1..(8L * 1024 * 1024)) { "Chain profile file is missing or too large" }
+        file.inputStream().use { input ->
+            val output = java.io.ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                require(output.size() + count <= 8 * 1024 * 1024) { "Chain profile exceeds 8 MiB" }
+                output.write(buffer, 0, count)
+            }
+            val bytes = output.toByteArray()
+            require(bytes.size <= 8 * 1024 * 1024) { "Chain profile exceeds 8 MiB" }
+            bytes.toString(Charsets.UTF_8)
+        }
+    }
+
+    private fun profileFile(id: String): File {
+        require(id.matches(Regex("[A-Za-z0-9_-]{1,128}"))) { "Invalid profile ID" }
+        return File(configDirectory(), "$id.json")
+    }
 
     private fun configDirectory(): File {
         val configured = Settings.workingDir
@@ -1025,22 +1061,8 @@ class NativeProfileRepository(private val context: Context) {
         return if (isNull(index)) null else getLong(index)
     }
 
-    private fun moveReplacing(source: File, destination: File) {
-        destination.parentFile?.mkdirs()
-        runCatching {
-            Files.move(
-                source.toPath(),
-                destination.toPath(),
-                StandardCopyOption.ATOMIC_MOVE,
-                StandardCopyOption.REPLACE_EXISTING,
-            )
-        }.getOrElse {
-            Files.move(source.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
-        }
-    }
-
     private fun nowIso(): String =
-        java.time.LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+        Instant.now().toString()
 
     private fun epochSecondsToLocalIso(seconds: Long): String =
         Instant.ofEpochSecond(seconds)

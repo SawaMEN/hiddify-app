@@ -4,6 +4,30 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeProfileOverridesTest {
+    @Test fun nullAndInvalidFlagHeadersCannotCrashProfileStartup() {
+        listOf("null", "[]", "{}", "42", "false").forEach { value ->
+            val headers = """{"enable-warp":$value,"enable-fragment":$value}"""
+            val resolved = NativeProfileOverrides.resolve(headers, null)
+            assertFalse(resolved.has("extra-security"))
+            assertFalse(resolved.has("tls-tricks"))
+        }
+    }
+
+    @Test fun textualFlagsAreCaseInsensitiveAndTrimmed() {
+        assertEquals("warp", NativeProfileOverrides.resolve("""{"enable-warp":" TRUE "}""", null)
+            .getAsJsonObject("extra-security").get("mode").asString)
+    }
+
+    @Test fun wrongOverrideShapesCannotReplaceValidCoreDefaults() {
+        listOf("null", "[]", "{}", "true", "42", "\" \"").forEach { value ->
+            val result = NativeProfileOverrides.apply("""{"remote-dns-address":"local"}""",
+                """{"remote-dns-address":$value}""", null)
+            assertEquals("local", NativeJsonDocument.parse(result).asJsonObject.get("remote-dns-address").asString)
+        }
+        listOf("null", "[]", "true", "42").forEach { value ->
+            assertFalse(NativeProfileOverrides.resolve("""{"tls-tricks":$value}""", null).has("tls-tricks"))
+        }
+    }
     @Test fun fragmentFlagPreservesSubscriptionTlsParameters() {
         val headers = """{"tls-tricks":"{\"fragment-size\":\"30-60\",\"enable-padding\":true}","enable-fragment":"true"}"""
         val result = NativeProfileOverrides.resolve(headers, null).getAsJsonObject("tls-tricks")

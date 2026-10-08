@@ -26,7 +26,7 @@ class BootReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                if (!Settings.startedByUser) return@launch
+                if (!Settings.startedByUser || !Settings.connectionDesired) return@launch
                 if (Settings.activeConfigPath.isBlank()) {
                     Log.w(TAG, "skipping automatic restart without an active config")
                     return@launch

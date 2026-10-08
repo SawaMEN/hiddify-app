@@ -14,15 +14,25 @@ object NativeProfileOverrides {
         val user = objectOrEmpty(userOverride)
         val result = JsonObject()
         source.entrySet().filter { it.key in supportedHeaders && !it.value.isJsonNull }.forEach { (key, value) ->
-            if (value.isJsonPrimitive && value.asJsonPrimitive.isString && value.asString.isEmpty()) return@forEach
-            if (key in setOf("tls-tricks", "extra-security") && value.isJsonPrimitive && value.asJsonPrimitive.isString) {
-                runCatching { NativeJsonDocument.parse(value.asString).asJsonObject }.getOrNull()?.let { result.add(key, it) }
-            } else result.add(key, value.deepCopy())
+            if (key in setOf("tls-tricks", "extra-security")) {
+                val objectValue = when {
+                    value.isJsonObject -> value.asJsonObject
+                    value.isJsonPrimitive && value.asJsonPrimitive.isString ->
+                        runCatching { NativeJsonDocument.parse(value.asString).asJsonObject }.getOrNull()
+                    else -> null
+                }
+                objectValue?.let { result.add(key, it.deepCopy()) }
+            } else if (value.isJsonPrimitive && value.asJsonPrimitive.isString && value.asString.isNotBlank()) {
+                result.add(key, value.deepCopy())
+            }
         }
-        fun flag(name: String, header: String): Boolean? {
+        fun flag(name: String, header: String): Boolean {
             val value = user.get(name)
             if (value != null && value.isJsonPrimitive && value.asJsonPrimitive.isBoolean) return value.asBoolean
-            return source.get(header)?.let { it.isJsonPrimitive && it.asString == "true" } ?: false
+            return source.get(header)?.let {
+                it.isJsonPrimitive && (it.asJsonPrimitive.isBoolean || it.asJsonPrimitive.isString) &&
+                    it.asString.trim().equals("true", ignoreCase = true)
+            } ?: false
         }
         if (flag("enableWarp", "enable-warp") == true) {
             result.addProperty("chain-status", "extra_security")

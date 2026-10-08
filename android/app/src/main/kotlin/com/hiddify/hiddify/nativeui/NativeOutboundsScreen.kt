@@ -57,6 +57,7 @@ internal fun NativeOutboundsScreen(
     LaunchedEffect(operationError) {
         if (operationError != null) { snackbar.showSnackbar(operationError); dismissError() }
     }
+    val motion = LocalNativeMotionEnabled.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val repository = remember { NativeOutboundsRepository() }
     var group by remember { mutableStateOf<NativeOutboundGroup?>(null) }
@@ -158,7 +159,8 @@ internal fun NativeOutboundsScreen(
                         items(presented, key = { it.tag }) { outbound ->
                             OutboundTile(outbound, group?.selectedTag == outbound.tag,
                                 group?.selectable == true && busyTag == null && !smartSelectionBusy,
-                                { group?.let { onSelect(it.tag, outbound.tag) } }, { detailsTag = outbound.tag })
+                                { group?.let { onSelect(it.tag, outbound.tag) } }, { detailsTag = outbound.tag },
+                                modifier = Modifier.animateItem(fadeInSpec = if (motion) androidx.compose.animation.core.tween(160) else null, placementSpec = if (motion) androidx.compose.animation.core.spring() else null, fadeOutSpec = if (motion) androidx.compose.animation.core.tween(120) else null))
                         }
                     }
                 }
@@ -178,10 +180,10 @@ internal fun NativeOutboundsScreen(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun OutboundTile(outbound: NativeOutbound, selected: Boolean, selectable: Boolean,
-    onSelect: () -> Unit, onInfo: () -> Unit) {
+    onSelect: () -> Unit, onInfo: () -> Unit, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     val dark = scheme.background.luminance() < .5f
-    NativeGlass(Modifier.fillMaxWidth(), radius = 20, accent = if (selected) scheme.primary else scheme.outline) {
+    NativeGlass(modifier.fillMaxWidth(), radius = 20, accent = if (selected) scheme.primary else scheme.outline) {
         Row(Modifier.fillMaxWidth().height((80 * LocalDensity.current.fontScale.coerceIn(1f, 2f)).dp)
             .background(if (selected) scheme.primaryContainer else Color.Transparent)
             .semantics { this.selected = selected }

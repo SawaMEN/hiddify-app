@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import com.hiddify.hiddify.nativeui.NativeButton as Button
 import com.hiddify.hiddify.nativeui.NativeGlassDialog as AlertDialog
 import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
 import androidx.compose.runtime.*
@@ -68,6 +69,7 @@ fun NativeProfilesScreen(
     // Save IDs instead of stale profile objects; resolve dialogs from the refreshed snapshot.
     var shareId by rememberSaveable { mutableStateOf<String?>(null) }
     var deleteId by rememberSaveable { mutableStateOf<String?>(null) }
+    val motion = LocalNativeMotionEnabled.current
     var sortOpen by rememberSaveable { mutableStateOf(false) }
     val busy = busyProfileId != null
     val sorted = remember(profiles, sortByName, ascending) {
@@ -90,7 +92,7 @@ fun NativeProfilesScreen(
             else -> LazyColumn(modifier, contentPadding = PaddingValues(start = 12.dp, top = 12.dp,
                 end = 12.dp, bottom = if (isSheet) 12.dp else 84.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(sorted, key = { it.id }) { profile ->
-                    NativeProfileTile(profile, busy = busy, onShare = { shareId = profile.id },
+                    NativeProfileTile(profile, modifier = Modifier.animateItem(fadeInSpec = if (motion) androidx.compose.animation.core.tween(160) else null, placementSpec = if (motion) androidx.compose.animation.core.spring() else null, fadeOutSpec = if (motion) androidx.compose.animation.core.tween(120) else null), busy = busy, onShare = { shareId = profile.id },
                         onClick = { onSelect(profile) }, onDelete = { deleteId = profile.id },
                         onRefresh = { onRefresh(profile) }, onEdit = { onEdit(profile) })
                 }

@@ -4,6 +4,9 @@ import android.database.ContentObserver
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import android.content.Context
 import android.view.accessibility.AccessibilityManager
 import androidx.compose.runtime.Composable
@@ -23,6 +26,15 @@ internal val LocalNativeMotionEnabled = staticCompositionLocalOf { true }
 internal fun nativeMotionEnabled(): Boolean {
     if (LocalInspectionMode.current) return false
     val context = LocalContext.current
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    var foreground by remember(lifecycle) { mutableStateOf(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) }
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, _ ->
+            foreground = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
     val resolver = context.contentResolver
     var animations by remember(resolver) { mutableStateOf(Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f) }
     DisposableEffect(resolver) {
@@ -41,5 +53,5 @@ internal fun nativeMotionEnabled(): Boolean {
         manager?.addTouchExplorationStateChangeListener(listener)
         onDispose { manager?.removeTouchExplorationStateChangeListener(listener) }
     }
-    return animations && !exploration
+    return foreground && animations && !exploration
 }

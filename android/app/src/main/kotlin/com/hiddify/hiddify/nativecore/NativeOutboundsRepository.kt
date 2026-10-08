@@ -133,10 +133,9 @@ class NativeOutboundsRepository {
     }
 
     fun testActive() {
-        val response =
-            client()
-                .UrlTestActive()
-                .executeBlocking(Empty())
+        val call = client().UrlTestActive()
+        call.timeout.timeout(8, java.util.concurrent.TimeUnit.SECONDS)
+        val response = try { call.executeBlocking(Empty()) } finally { call.cancel() }
         check(response.code == ResponseCode.OK) {
             response.message.ifBlank { "Unable to start URL test" }
         }

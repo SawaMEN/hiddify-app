@@ -25,7 +25,7 @@ class NativeTunnelOptionsRepository(context: Context) {
         val mode = if (stored == "auto") "prefer_ipv4" else stored.takeIf { it in NativeTunnelOptions.modes } ?: "ipv4_only"
         val mtu = ((root.opt("mtu") as? Number) ?: (values["flutter.mtu"] as? Number))?.toLong()
             ?.takeIf { it in 576L..65535L }?.toInt() ?: 9000
-        return NativeTunnelOptions(mode, mtu)
+        return NativeTunnelOptions(mode, mtu.coerceAtLeast(if (mode == "ipv4_only") 576 else 1280))
     }
 
     fun save(input: NativeTunnelOptions): NativeTunnelOptions {
