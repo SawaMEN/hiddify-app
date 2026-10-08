@@ -1,7 +1,5 @@
 package com.hiddify.hiddify.nativeui
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.defaultMinSize
@@ -13,24 +11,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-internal fun NativeAtmosphere(content: @Composable () -> Unit) {
-    androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Box { content() }
-    }
-}
-
-@Composable
-internal fun NativeCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
-    androidx.compose.material3.Card(modifier = modifier, content = content)
+internal fun NativeBackground(content: @Composable () -> Unit) {
+    androidx.compose.material3.Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+        content = content,
+    )
 }
 
 /** Tonal Material surface for layouts that do not use a ColumnScope. */
 @Composable
-internal fun NativeSurface(modifier: Modifier = Modifier, shape: Shape = MaterialTheme.shapes.medium, content: @Composable () -> Unit) {
+internal fun NativeSurface(modifier: Modifier = Modifier, shape: Shape = MaterialTheme.shapes.large, content: @Composable () -> Unit) {
     androidx.compose.material3.Surface(
         modifier = modifier,
         shape = shape,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
         contentColor = MaterialTheme.colorScheme.onSurface,
         content = content,
     )

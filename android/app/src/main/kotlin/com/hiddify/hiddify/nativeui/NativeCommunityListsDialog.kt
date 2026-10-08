@@ -87,13 +87,13 @@ private fun NativeCommunityListsDialog(source: NativeCommunitySource, active: Bo
     val itemMotion = LocalNativeMotionEnabled.current
     val selection = runCatching { NativeCommunityLists.selection(all, selected.toSet()) }.getOrNull()
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        NativeAtmosphere {
+        NativeBackground {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
                 NativePageHeader(stringResource(if (source == NativeCommunitySource.VPN)
                     R.string.native_privacy_handbook_proxy else R.string.native_privacy_handbook_direct), onDismiss)
                 Text(source.host, Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                NativeTextField(query, { query = it }, Modifier.fillMaxWidth().padding(16.dp), singleLine = true,
+                OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(16.dp), singleLine = true,
                     placeholder = { Text(stringResource(R.string.native_community_search)) })
                 Text(stringResource(R.string.native_community_apply_note), Modifier.padding(horizontal = 16.dp),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

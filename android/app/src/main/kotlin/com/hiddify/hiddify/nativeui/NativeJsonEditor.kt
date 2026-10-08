@@ -358,12 +358,12 @@ private fun JsonEditDialog(request: JsonEdit, value: JsonElement, choices: List<
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             operationError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (error) Text(stringResource(R.string.native_json_invalid), color = MaterialTheme.colorScheme.error)
-            if (request.action == "rename" || (value.isJsonObject && request.action !in listOf("value", "merge"))) NativeTextField(name, { name = it }, label = { Text(stringResource(R.string.native_profile_name)) }, singleLine = true)
+            if (request.action == "rename" || (value.isJsonObject && request.action !in listOf("value", "merge"))) OutlinedTextField(name, { name = it }, label = { Text(stringResource(R.string.native_profile_name)) }, singleLine = true)
             if (request.action == "merge") Text(stringResource(R.string.native_json_merge_confirm))
             else if (request.action != "rename") {
                 if (initial.isJsonPrimitive && initial.asJsonPrimitive.isBoolean) Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Boolean", Modifier.weight(1f)); Switch(text == "true", { text = it.toString() })
-                } else NativeTextField(text, { text = it; error = false }, label = { Text(stringResource(R.string.native_json_value)) }, isError = error, maxLines = 5)
+                } else OutlinedTextField(text, { text = it; error = false }, label = { Text(stringResource(R.string.native_json_value)) }, isError = error, maxLines = 5)
                 if (choices.isNotEmpty()) Column(Modifier.heightIn(max = 160.dp).verticalScroll(androidx.compose.foundation.rememberScrollState())) {
                     choices.forEach { choice -> NativeTextButton(onClick = { text = choice }) { Text(choice.ifEmpty { "\"\"" }) } }
                 }

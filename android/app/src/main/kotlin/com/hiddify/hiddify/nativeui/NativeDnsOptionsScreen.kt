@@ -99,7 +99,7 @@ internal fun NativeDnsOptionsScreen(
 @Composable
 private fun DnsPreview() {
     NativeAppTheme(com.hiddify.hiddify.nativepreferences.NativeThemeMode.DARK) {
-        NativeAtmosphere { Column {
+        NativeBackground { Column {
             NativeDnsOptionsScreen(NativeDnsOptions(), false, true, false, {}, {}, { _, _ -> })
         } }
     }

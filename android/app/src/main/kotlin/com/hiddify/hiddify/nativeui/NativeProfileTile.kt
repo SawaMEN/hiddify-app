@@ -45,8 +45,9 @@ internal fun NativeProfileTile(
     val scheme = MaterialTheme.colorScheme
     Surface(
         modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        color = if (profile.active) scheme.secondaryContainer else scheme.surfaceContainerHighest,
+        shape = MaterialTheme.shapes.large,
+        color = if (profile.active) scheme.primaryContainer else scheme.surfaceContainerLow,
+        contentColor = if (profile.active) scheme.onPrimaryContainer else scheme.onSurface,
     ) {
         Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
             if (profile.isRemote || !isMain) {
@@ -73,7 +74,6 @@ internal fun NativeProfileTile(
                         }
                     }
                 }
-                if (profile.active) VerticalDivider(Modifier.height(48.dp)) else Spacer(Modifier.width(1.dp))
             }
             val clickLabel = stringResource(if (isMain) R.string.native_profiles else R.string.native_profile_use)
             Column(
@@ -84,7 +84,7 @@ internal fun NativeProfileTile(
                 Row(Modifier.fillMaxWidth().then(if (isMain) Modifier.padding(vertical = 4.dp) else Modifier),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(profile.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
-                        overflow = TextOverflow.Clip)
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
                     if (isMain) Icon(painterResource(R.drawable.native_drop_down), null)
                 }
                 if (profile.isRemote && profile.upload != null && profile.download != null && profile.total != null && profile.expire != null) {

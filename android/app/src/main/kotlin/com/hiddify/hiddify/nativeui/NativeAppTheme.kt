@@ -1,9 +1,9 @@
 package com.hiddify.hiddify.nativeui
 
-import androidx.compose.foundation.text.selection.LocalTextSelectionColors
-import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.unit.dp
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
@@ -18,10 +18,10 @@ import com.hiddify.hiddify.nativepreferences.NativeThemeMode
 
 // Stable, opaque surfaces and restrained accents keep both themes readable.
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFF8FDACD),
-    onPrimary = Color(0xFF083C35),
-    primaryContainer = Color(0xFF244F49),
-    onPrimaryContainer = Color(0xFFC0EEE5),
+    primary = Color(0xFFADC6FF),
+    onPrimary = Color(0xFF002E69),
+    primaryContainer = Color(0xFF284777),
+    onPrimaryContainer = Color(0xFFD9E2FF),
     secondary = Color(0xFFB8C1E3),
     onSecondary = Color(0xFF293149),
     secondaryContainer = Color(0xFF404961),
@@ -45,10 +45,10 @@ private val DarkColors = darkColorScheme(
 )
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF236C60),
+    primary = Color(0xFF465E91),
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFC0EEE5),
-    onPrimaryContainer = Color(0xFF123E36),
+    primaryContainer = Color(0xFFD9E2FF),
+    onPrimaryContainer = Color(0xFF001A43),
     secondary = Color(0xFF555F7B),
     onSecondary = Color(0xFFFFFFFF),
     secondaryContainer = Color(0xFFDDE3FC),
@@ -59,7 +59,7 @@ private val LightColors = lightColorScheme(
     onTertiaryContainer = Color(0xFF211D32),
     surface = Color(0xFFF7F9FC),
     surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF1F4FA),
     surfaceContainer = Color(0xFFEEF2F6),
     surfaceContainerHigh = Color(0xFFE5EAF0),
     surfaceContainerHighest = Color(0xFFDCE3EA),
@@ -86,8 +86,16 @@ fun NativeAppTheme(mode: NativeThemeMode, content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = colors.copy(background = if (mode == NativeThemeMode.BLACK) Color.Black else colors.surfaceContainerLowest),
         typography = Typography(),
-        shapes = Shapes(),
-        content = { CompositionLocalProvider(LocalNativeMotionEnabled provides nativeMotionEnabled(),
-            LocalTextSelectionColors provides TextSelectionColors(colors.primary, colors.primary.copy(alpha = .28f))) { content() } },
+        shapes = Shapes(
+            small = RoundedCornerShape(12.dp),
+            medium = RoundedCornerShape(16.dp),
+            large = RoundedCornerShape(24.dp),
+            extraLarge = RoundedCornerShape(28.dp),
+        ),
+        content = {
+            CompositionLocalProvider(LocalNativeMotionEnabled provides nativeMotionEnabled()) {
+                content()
+            }
+        },
     )
 }

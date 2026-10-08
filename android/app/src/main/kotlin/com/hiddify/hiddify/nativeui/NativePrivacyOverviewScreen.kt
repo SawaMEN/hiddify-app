@@ -1,5 +1,7 @@
 package com.hiddify.hiddify.nativeui
 
+import androidx.compose.material3.Card
+
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -110,7 +112,7 @@ internal fun NativePrivacyOverviewScreen(
         NativePageHeader(stringResource(R.string.native_privacy_title))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())
             .padding(top = 12.dp, bottom = 28.dp)) {
-            NativeCard(Modifier.fillMaxWidth()) {
+            Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(20.dp)) {
                     Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         Box(Modifier.size(52.dp).background(
@@ -164,7 +166,7 @@ internal fun NativePrivacyOverviewScreen(
             Spacer(Modifier.height(24.dp))
             Text(stringResource(R.string.native_privacy_what), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(10.dp))
-            NativeCard(Modifier.fillMaxWidth()) {
+            Card(Modifier.fillMaxWidth()) {
                 PrivacyFeature(R.drawable.privacy_apps, R.string.native_privacy_apps,
                     if (regional.russianAppsBypass) stringResource(R.string.native_privacy_apps_on, directCount)
                     else stringResource(R.string.native_privacy_apps_off), if (!busy) ({ onOpenApps(NativeRegionalAppKind.DIRECT) }) else null)
@@ -179,7 +181,7 @@ internal fun NativePrivacyOverviewScreen(
                 PrivacyFeature(R.drawable.privacy_dns, R.string.native_privacy_signals, stringResource(R.string.native_privacy_signals_summary))
             }
             Spacer(Modifier.height(16.dp))
-            NativeCard(Modifier.fillMaxWidth()) {
+            Card(Modifier.fillMaxWidth()) {
                 PrivacySwitch(R.string.native_privacy_masked, R.string.native_privacy_masked_summary,
                     R.drawable.privacy_security_filled, connection.maskedProtocolsOnly, !busy) {
                     onSaveConnection(connection.copy(maskedProtocolsOnly = it))
@@ -280,7 +282,7 @@ private fun PrivacyCategory(title: Int, summary: Int, icon: Int, expanded: Boole
     val description = stringResource(if (expanded) R.string.native_category_expanded else R.string.native_category_collapsed)
     val duration = if (LocalNativeMotionEnabled.current) 200 else 0
     val angle by animateFloatAsState(if (expanded) 270f else 90f, animationSpec = tween(duration), label = "Privacy expansion")
-    NativeCard(Modifier.fillMaxWidth()) {
+    Card(Modifier.fillMaxWidth()) {
         Column(Modifier.animateContentSize(animationSpec = tween(duration))) {
             Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onToggle).semantics { stateDescription = description }
                 .heightIn(min = 72.dp).padding(horizontal = 16.dp, vertical = 8.dp),
@@ -329,7 +331,7 @@ private fun PrivacySwitch(title: Int, summary: Int?, icon: Int?, checked: Boolea
 @Composable
 private fun PrivacyOverviewPreview() {
     NativeAppTheme(com.hiddify.hiddify.nativepreferences.NativeThemeMode.SYSTEM) {
-        NativeAtmosphere {
+        NativeBackground {
             Column(Modifier.padding(horizontal = 16.dp)) {
                 NativePrivacyOverviewScreen(
                     configured = false, canRestore = false, busy = false, canApply = true, canChangeRoot = true,

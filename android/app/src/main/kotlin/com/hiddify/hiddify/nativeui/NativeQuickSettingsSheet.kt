@@ -241,7 +241,7 @@ private fun LanPasswordDialog(password: String, onPassword: (String) -> Unit, bu
     LaunchedEffect(Unit) { focus.requestFocus() }
     AlertDialog(onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.native_quick_password)) }, text = {
-            NativeTextField(password, { onPassword(it); invalid = false }, Modifier.focusRequester(focus),
+            OutlinedTextField(password, { onPassword(it); invalid = false }, Modifier.focusRequester(focus),
                 enabled = !busy, singleLine = true, isError = invalid,
                 supportingText = { if (invalid) Text(stringResource(R.string.native_quick_password_invalid)) },
                 textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr),

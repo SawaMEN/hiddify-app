@@ -88,7 +88,7 @@ internal fun NativeTlsOptionsScreen(
 @Composable
 private fun TlsPreview() {
     NativeAppTheme(com.hiddify.hiddify.nativepreferences.NativeThemeMode.DARK) {
-        NativeAtmosphere { Column {
+        NativeBackground { Column {
             NativeTlsOptionsScreen(NativeTlsOptions(fragment = true), false, true, false, {}, {}, { _, _ -> })
         } }
     }

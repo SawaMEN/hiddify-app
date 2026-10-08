@@ -89,7 +89,7 @@ internal fun NativeActiveProxyFooter(
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(outbound.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold,
-                    overflow = TextOverflow.Clip)
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f).semantics { contentDescription = ipLabel }) {
                         if (ip.isNotBlank()) {
@@ -114,7 +114,7 @@ internal fun NativeActiveProxyFooter(
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            Icon(painterResource(R.drawable.settings_chevron), null, Modifier.padding(16.dp))
+            Icon(painterResource(R.drawable.settings_chevron), null, Modifier.padding(horizontal = 12.dp).size(24.dp))
         }
     }
     if (inspecting) NativeOutboundInfoDialog(outbound, onDismiss = { inspecting = false })

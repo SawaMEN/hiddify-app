@@ -26,7 +26,7 @@ fun NativeTrafficFiltersScreen(filters: NativeTrafficFilters, busy: Boolean, onB
     Column(Modifier.fillMaxSize()) {
         NativePageHeader(stringResource(R.string.native_filters_title), onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 24.dp)) {
-            NativeCard(Modifier.fillMaxWidth()) {
+            Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.Top) {
                         Icon(painterResource(R.drawable.native_warning), null, Modifier.padding(top = 2.dp, end = 12.dp).size(24.dp))
