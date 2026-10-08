@@ -1,14 +1,11 @@
 package com.hiddify.hiddify.nativediagnostics
 
 import android.net.NetworkCapabilities
-import com.hiddify.core.api.v2.hcommon.Empty
 import com.hiddify.core.api.v2.hcore.CoreClient
 import com.hiddify.core.api.v2.hcore.NetworkProbeRequest
 import com.hiddify.hiddify.Application
-import com.hiddify.hiddify.Settings
 import com.hiddify.hiddify.bg.BoxService
 import com.hiddify.hiddify.utils.GrpcClientProvider
-import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.URI

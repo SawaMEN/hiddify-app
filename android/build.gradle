@@ -8,20 +8,7 @@ allprojects {
 
 rootProject.buildDir = '../build'
 subprojects {
-    project.plugins.withId('com.android.library') {
-        project.androidComponents.finalizeDsl { androidDsl ->
-            androidDsl.ndkVersion = "30.0.16248370"
-            if (androidDsl.compileSdk == 37 && androidDsl.compileSdkMinor == null) {
-                androidDsl.compileSdkMinor = 0
-            }
-        }
-    }
     project.buildDir = "${rootProject.buildDir}/${project.name}"
-
-
-}
-subprojects {
-    project.evaluationDependsOn(':app')
 }
 
 tasks.register("clean", Delete) {

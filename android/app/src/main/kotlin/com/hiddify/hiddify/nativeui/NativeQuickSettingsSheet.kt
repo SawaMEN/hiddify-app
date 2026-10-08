@@ -12,7 +12,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import com.hiddify.hiddify.nativeui.NativeElevatedButton as ElevatedButton
 import com.hiddify.hiddify.nativeui.NativeGlassDialog as AlertDialog
-import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment

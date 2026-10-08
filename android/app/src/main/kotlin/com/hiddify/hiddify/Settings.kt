@@ -87,10 +87,6 @@ object Settings {
         preferences.edit().putString("flutter.ipv6-mode", if (disabled) "ipv4_only" else "auto").apply()
     }
 
-    fun setPrivacyRoutingMode(mode: String) {
-        preferences.edit().putString("flutter.privacy-routing-mode", mode).apply()
-    }
-
     fun setHandbookRouting(enabled: Boolean) {
         preferences.edit().putBoolean("flutter.handbook-routing", enabled).apply()
     }
@@ -285,20 +281,6 @@ object Settings {
             ServiceMode.VPN -> if (rootMode) ProxyService::class.java else VPNService::class.java
             else -> ProxyService::class.java
         }
-    }
-
-    private var currentServiceMode: String? = null
-
-    suspend fun rebuildServiceMode(): Boolean {
-        val rootMode = privacyUseRoot
-        // This runs immediately before Android starts the selected service. Re-enable the
-        // VpnService component before normal VPN mode so hiding it in root mode can never
-        // make a later non-root connection unavailable.
-        VpnServiceVisibility.sync(Application.application, rootMode)
-        val newMode = if (rootMode) "root" else if (serviceMode == ServiceMode.VPN) ServiceMode.VPN else ServiceMode.NORMAL
-        if (currentServiceMode == newMode) return false
-        currentServiceMode = newMode
-        return true
     }
 
     var workingDir: String

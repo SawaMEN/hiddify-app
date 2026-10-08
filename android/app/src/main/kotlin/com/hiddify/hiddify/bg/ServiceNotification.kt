@@ -1,5 +1,6 @@
 package com.hiddify.hiddify.bg
 
+import kotlinx.coroutines.isActive
 import android.Manifest
 import android.content.pm.PackageManager
 import android.app.NotificationChannel
@@ -26,14 +27,11 @@ import com.hiddify.core.libbox.Libbox
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.isActive
 
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancel
 class ServiceNotification(private val service: Service) : BroadcastReceiver() {
     companion object {
@@ -166,7 +164,7 @@ class ServiceNotification(private val service: Service) : BroadcastReceiver() {
         fun rate(bytes: Long) = if (status.speedAvailable) "${Libbox.formatBytes(bytes)}/s" else "—"
         val content = "${rate(status.uplink)} ↑  ${rate(status.downlink)} ↓\n${status.currentOutbound}"
         val title = status.currentProfile.takeIf { it.isNotBlank() } ?: profileName
-        Application.notificationManager.notify(notificationId,
+        Application.notification.notify(notificationId,
             notificationBuilder.setContentTitle(title).setContentText(content).build())
     }
 

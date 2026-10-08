@@ -52,9 +52,6 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
         check(protect(fd)) { "Failed to protect socket $fd from VPN routing" }
     }
 
-    var systemProxyAvailable = false
-    var systemProxyEnabled = false
-
     private fun addIncludePackage(builder: Builder, packageName: String): Boolean {
         if (packageName.isBlank() || packageName == this.packageName) {
             if (packageName == this.packageName) Log.d(TAG, "cannot include VPN app itself: $packageName")
@@ -242,16 +239,11 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
         }
 
         if (!Settings.privacyDisableSystemProxy && options.isHTTPProxyEnabled) {
-            systemProxyAvailable = true
-            systemProxyEnabled = Settings.systemProxyEnabled
-            if (systemProxyEnabled) {
+            if (Settings.systemProxyEnabled) {
                 builder.setHttpProxy(
                     ProxyInfo.buildDirectProxy(options.httpProxyServer, options.httpProxyServerPort),
                 )
             }
-        } else {
-            systemProxyAvailable = false
-            systemProxyEnabled = false
         }
 
         val pfd = builder.establish()

@@ -15,7 +15,6 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.MutableLiveData
 import com.hiddify.core.libbox.Libbox
 import com.hiddify.core.libbox.PlatformInterface
-import com.hiddify.core.libbox.SystemProxyStatus
 import com.hiddify.core.mobile.Mobile
 import com.hiddify.core.mobile.SetupOptions
 import com.hiddify.hiddify.Application
@@ -238,7 +237,6 @@ class BoxService(
             withContext(Dispatchers.Main) {
                 if (destroyed) return@withContext
                 notification.show(activeProfileName, R.string.status_starting)
-                binder.broadcast { it.onServiceResetLogs(listOf()) }
             }
 
             if (!Settings.connectionDesired || stopRequested) {
@@ -398,20 +396,6 @@ class BoxService(
                 .onFailure { Log.w(TAG, "failed to stop network monitor for reload", it) }
             startService()
         }
-    }
-
-    fun getSystemProxyStatus(): SystemProxyStatus {
-        val proxyStatus = SystemProxyStatus()
-        if (service is VPNService) {
-            proxyStatus.available = service.systemProxyAvailable
-            proxyStatus.enabled = service.systemProxyEnabled
-        }
-        return proxyStatus
-    }
-
-    fun setSystemProxyEnabled(isEnabled: Boolean) {
-        Settings.systemProxyEnabled = isEnabled
-        serviceReload()
     }
 
     private fun serviceUpdateIdleMode() {
@@ -773,9 +757,4 @@ class BoxService(
         receiverRegistered = false
     }
 
-    fun writeDebugMessage(message: String?) {
-        if (message == null) return
-        Log.d(TAG, message)
-        binder.broadcast { it.onServiceWriteLog(message) }
-    }
 }

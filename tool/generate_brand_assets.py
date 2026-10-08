@@ -101,7 +101,6 @@ def generate():
             suffix = "_round" if rounded else ""
             save(launcher(size, rounded), f"android/app/src/main/res/mipmap-{density}/ic_launcher{suffix}.webp")
     save(launcher(512), "android/app/src/main/ic_launcher-playstore.png")
-    save(mark(512), "assets/images/logo.png")
     save(mark(512), "android/app/src/main/res/drawable-nodpi/vetroff_fan.png")
     save(icon_mark(512), "android/app/src/main/res/drawable-nodpi/vetroff_launcher.png")
     save(icon_background(512), "android/app/src/main/res/drawable-nodpi/vetroff_launcher_background.png")
@@ -133,24 +132,13 @@ def generate():
     (RES / "drawable/ic_launcher_background.xml").write_text(
         '<bitmap xmlns:android="http://schemas.android.com/apk/res/android" android:src="@drawable/vetroff_launcher_background" android:gravity="fill"/>\n'
     )
-    for resource in ["ic_launcher_background", "ic_banner_background"]:
-        (RES / f"values/{resource}.xml").write_text(f'<resources><color name="{resource}">{BACKGROUND}</color></resources>\n')
-    for folder in ["drawable", "drawable-v21"]:
-        save(Image.new("RGB", (1, 1), BACKGROUND), f"android/app/src/main/res/{folder}/background.png")
+    save(Image.new("RGB", (1, 1), BACKGROUND), "android/app/src/main/res/drawable/background.png")
     save(mark(324), "android/app/src/main/res/drawable-xxxhdpi/splash.png")
-    save(mark(512), "assets/images/source/ic_launcher_splash.png")
-    # flutter_native_splash's Android 12 source includes the adaptive safe area.
-    foreground = Image.new("RGBA", (108 * 4, 108 * 4))
-    foreground.alpha_composite(mark(64 * 4), (22 * 4, 22 * 4))
-    save(foreground, "assets/images/source/ic_launcher_foreground.png")
     banner = Image.new("RGBA", (320 * 4, 180 * 4), BACKGROUND)
     banner.alpha_composite(mark(170 * 4), (75 * 4, 5 * 4))
     banner = banner.resize((320, 180), Image.Resampling.LANCZOS)
     save(banner, "android/app/src/main/res/mipmap-xhdpi/ic_banner.png")
     save(banner, "android/app/src/main/res/drawable-nodpi/vetroff_tv_banner.png")
-    (RES / "drawable/ic_banner_foreground.xml").write_text(
-        '<bitmap xmlns:android="http://schemas.android.com/apk/res/android" android:src="@drawable/vetroff_tv_banner" android:gravity="fill"/>\n'
-    )
     (RES / "mipmap-anydpi-v26/ic_banner.xml").write_text(
         '<bitmap xmlns:android="http://schemas.android.com/apk/res/android" android:src="@drawable/vetroff_tv_banner" android:gravity="fill"/>\n'
     )

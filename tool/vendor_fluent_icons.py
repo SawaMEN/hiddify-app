@@ -6,7 +6,6 @@ from pathlib import Path
 PIN='cd332ec1f90cda2fad16f86754f8da52f1e9ab30'
 ICONS={
  'native_more':('More Vertical','more_vertical',24,'regular'),
- 'native_share':('Share Android','share_android',24,'regular'),
  'native_search':('Search','search',24,'regular'),
  'native_outbound_sort':('Arrow Sort','arrow_sort',24,'regular'),
  'native_flash':('Flash','flash',24,'filled'),

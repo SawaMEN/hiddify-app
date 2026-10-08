@@ -2,20 +2,15 @@ package com.hiddify.hiddify.nativeui
 
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.material3.*
-import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.collect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,7 +26,6 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.Role
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativecore.NativeOutbound
-import com.hiddify.hiddify.nativecore.NativeOutboundsRepository
 import com.hiddify.hiddify.nativecore.NativeOutboundGroup
 import com.hiddify.hiddify.nativecore.presentNativeOutbounds
 import com.hiddify.hiddify.nativepreferences.NativeOutboundSort

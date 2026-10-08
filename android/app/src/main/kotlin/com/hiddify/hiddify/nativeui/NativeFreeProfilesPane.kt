@@ -4,7 +4,6 @@ import android.text.Html
 import android.text.method.LinkMovementMethod
 import android.widget.TextView
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,7 +19,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.core.content.res.ResourcesCompat
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.Settings
 import com.hiddify.hiddify.nativeprofile.NativeFreeProfile
@@ -86,7 +84,7 @@ internal fun NativeFreeProfilesPane(onImport: (NativeFreeProfile, String) -> Uni
             Box(Modifier.heightIn(max = 360.dp).verticalScroll(androidx.compose.foundation.rememberScrollState())) {
                 AndroidView(factory = { TextView(it).apply {
                     textSize = 14f
-                    typeface = ResourcesCompat.getFont(it, R.font.manrope)
+                    typeface = android.graphics.Typeface.DEFAULT
                     movementMethod = LinkMovementMethod.getInstance()
                 } }, update = {
                     it.setTextColor(color); it.setLinkTextColor(linkColor)

@@ -46,7 +46,6 @@ internal fun NativeAtmosphere(content: @Composable () -> Unit) {
 @Composable
 internal fun Modifier.nativeGlassDecoration(
     shape: Shape = RoundedCornerShape(20.dp),
-    accent: Color = MaterialTheme.colorScheme.primary,
 ): Modifier = background(MaterialTheme.colorScheme.surfaceContainerLow, shape)
     .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
 
