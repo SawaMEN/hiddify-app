@@ -1307,7 +1307,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                             mutate()
                         } else mutate()
                     }
-                if (generation != profilesSnapshotGeneration || !nativeForeground) return@launch
+                // Mutations must publish their result and finish success callbacks even
+                // when the Activity is stopped; only passive snapshot reads are gated.
                 profiles.value = loaded
                 profilesLoadFailed.value = false
                 refreshProfileSnapshot()
