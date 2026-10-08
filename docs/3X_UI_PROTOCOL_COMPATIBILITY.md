@@ -69,6 +69,8 @@ AmneziaWG обновлён до совместимой с панелью вер�
 Sudoku использует закреплённый snapshot upstream с сохранением лицензии. Персональный
 private key преобразуется в public seed по upstream-алгоритму. Dialer и HTTPMask
 подключены к защищённым сокетам ядра, включая multiplex и UDP-over-TCP.
+Outbound владеет открытыми соединениями: остановка закрывает активные чтения,
+а завершение handshake одновременно с остановкой не оставляет сокет открытым.
 
 FPTN реализован внутри Go-ядра. Сохраняются TLS Session ID timestamp markers,
 TLS2 XOR/padding, переходы обфускации между handshake и HTTP, SNI decoy, JWT и
@@ -91,6 +93,8 @@ PingTunnel использует upstream framing, reliability, SOCKS и encrypti
 Если устройство запрещает такой сокет, соединение завершается явной ошибкой;
 root/raw fallback на Android не запускается. Linux требует CAP_NET_RAW.
 ICMP нельзя провести через обычный TCP/UDP detour, такие настройки отклоняются.
+Локальный SOCKS listener передаётся клиенту без освобождения порта между
+резервированием и запуском; ошибка запуска listener закрывает ICMP-сокет.
 Ключ панели и параметры `encrypt`/`encrypt_key` соответствуют JSON-полям клиента
 `key`/`encryption`/`encryption_key`. Пример ручной ссылки:
 `pingtunnel://server.example?key=123&encrypt=chacha20&encrypt_key=YOUR_SECRET`.
@@ -128,6 +132,8 @@ mKCP не реализован этим преобразователем и не
   В этой среде CAP_NET_RAW отсутствует, поэтому packet IO теста заменён локальным
   datagram каналом. Подключение к настоящему внешнему ICMP-серверу не проверено.
 - Race checks новых четырёх адаптеров и Go vet пройдены.
+- Регрессии lifecycle: остановка Sudoku прерывает активное чтение и отклоняет
+  новые соединения; ошибка запуска PingTunnel не оставляет packet socket открытым.
 - TrustTunnel fuzz: 7 229 входов, без падений.
 - Прошли 9 Kotlin/JUnit тестов импорта, с компиляцией production-файлов Kotlin
   2.4.20. Gradle wrapper не смог скачать distribution из этой среды, поэтому
