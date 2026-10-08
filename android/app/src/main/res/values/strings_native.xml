@@ -661,4 +661,5 @@ Don’t have a VPN server yet? No worries—just follow the tutorial below to se
     <string name="native_free_region_empty">No free profiles found for this region</string>
     <string name="native_free_continue">Continue</string>
     <string name="native_outbounds_reconnecting">Reconnecting to proxy updates (%1$d/5)…</string>
+    <string name="native_quick_password_invalid">Invalid password: use at most 128 characters without control characters.</string>
 </resources>

@@ -246,3 +246,37 @@ Gradle distribution download reports Network is unreachable. No APK build is awa
 Remaining: secondary-screen icon/dialog audit, measured same-device layouts and interactions,
 and connection-error presentation. The Simple Icons snapshot is newer than the Dart package;
 brand path differences need device/source comparison before claiming exact provider parity.
+
+
+## Quick settings chain diagram and LAN actions
+
+The quick sheet now restores the Android phone/filtering icons, actual arrow directions,
+webhook header, Psiphon/WARP/Profile mode icons and colors, and the original menu order.
+Both active/inactive pills use their matching foreground colors. Final IP uses the original
+light/dark green and a 500 ms opacity transition. Material rounded glyphs replace text arrows
+and chevrons. LAN copy/QR actions include the original link/QR icons; their row wraps only
+when width or font scale cannot accommodate both buttons.
+
+The LAN password dialog opens with the currently saved value, focuses its LTR input and
+supports IME Done. Cancel/back/outside dismissal discard the draft. Reset persists the empty
+default and closes immediately, matching SettingInputDialog's reset callback. Invalid input
+shows an error rather than silently dropping characters. Existing 128-character/control
+validation remains. Reset/save retain the LAN switch state.
+
+Copy/QR resolves the current hotspot/core LAN address at the time of the action, using the
+existing bounded GetLANIP call, and reads the current persisted port/password. Password
+whitespace is retained; UTF-8 credentials are percent encoded once, IPv6 hosts are bracketed,
+and disabled/nonpositive mixed ports use the original 12334 fallback. Sheet dismissal cancels
+its action scope; no late clipboard or QR action executes after cancellation. QR payload
+still includes the original LAN-only title. The short QR link survives rotation.
+
+Quick chain selection now merges only chain-status and the chosen stage's mode into fresh
+persisted JSON. It does not rewrite WARP/Psiphon/profile fields from a UI snapshot. Disabling
+an inactive stage preserves the active stage. Startup/stopping and settings transactions are
+guarded; connected edits continue to request explicit reconnect. The full chain editor retains
+its complete save operation.
+
+Four JVM regression scenarios cover LAN URI fallback, whitespace/reserved characters, IPv6/
+Unicode round trips and malformed authority rejection. Source/resource/whitespace checks pass.
+JVM execution remains blocked by the unavailable Gradle distribution; no APK build is awaited.
+Dialog typography, adaptive menu behavior and device screenshot parity remain to verify.

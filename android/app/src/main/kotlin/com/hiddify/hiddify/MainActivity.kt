@@ -460,6 +460,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 reconnectBusy = reconnectBusy.value,
                 onQuickServiceMode = ::saveQuickServiceMode,
                 onQuickLanSharing = ::saveQuickLanSharing,
+                onQuickChainMode = ::saveQuickChainMode,
+                onResolveLanSharing = { withContext(Dispatchers.IO) { wifiSharingRepository.load() } },
                 outboundBusyTag = outboundBusyTag.value,
                 outboundOperationRevision = outboundOperationRevision.value,
                 systemStats = systemStats.value,
@@ -2090,6 +2092,22 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    private fun saveQuickChainMode(extra: Boolean, mode: String?) {
+        if (reconnectBusy.value || chainBusy.value || inboundBusy.value || wifiSharingBusy.value ||
+            privacySetupBusy.value || proxyPrivacyBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value ||
+            tunnelBusy.value || pendingStartAfterVpnPermission || nativeStartPending ||
+            serviceStatus.value == Status.Starting || serviceStatus.value == Status.Stopping) return
+        chainBusy.value = true
+        lifecycleScope.launch {
+            try {
+                chainOptions.value = withContext(Dispatchers.IO) { chainRepository.saveSelection(extra, mode) }
+                coreChangesSaved()
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { errorMessage.value = error.message ?: error.javaClass.simpleName }
+            finally { chainBusy.value = false }
+        }
+    }
+
     private fun reconnectWithSavedSettings() {
         if (reconnectBusy.value) return
         reconnectBusy.value = true
@@ -2151,7 +2169,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun saveChainOptions(value: NativeChainOptions) {
-        if (chainBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value || privacySetupBusy.value || wifiSharingBusy.value) return
+        if (chainBusy.value || reconnectBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value ||
+            tunnelBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || wifiSharingBusy.value ||
+            pendingStartAfterVpnPermission || nativeStartPending || serviceStatus.value == Status.Starting ||
+            serviceStatus.value == Status.Stopping) return
         chainBusy.value = true
         lifecycleScope.launch {
             try {
@@ -2160,7 +2181,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                         chainRepository.save(value)
                     }
                 coreChangesSaved()
-            } catch (error: Exception) {
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
                 chainBusy.value = false

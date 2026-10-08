@@ -26,7 +26,7 @@ data class NativeChainOptions(
 class NativeChainRepository {
     companion object {
         val statusChoices = listOf("off", "extra_security", "unblocker")
-        val modeChoices = listOf("warp", "psiphon", "profile")
+        val modeChoices = listOf("psiphon", "warp", "profile")
         val psiphonRegions =
             listOf(
                 "AUTO", "AT", "AU", "BE", "BG", "CA", "CH", "CZ", "DE", "DK", "EE",
@@ -104,6 +104,23 @@ class NativeChainRepository {
         unblocker.objectFor("profile").putNullable("id", value.unblockerProfileId)
         root.put("unblocker", unblocker)
 
+        Settings.configOptions = root.toString()
+        return load()
+    }
+
+    /** Quick menu changes only the selected stage and status in the latest persisted options. */
+    fun saveSelection(extra: Boolean, mode: String?): NativeChainOptions {
+        require(mode == null || mode in modeChoices) { "Invalid chain mode" }
+        val root = root()
+        val stage = if (extra) "extra-security" else "unblocker"
+        val status = if (extra) "extra_security" else "unblocker"
+        if (mode == null) {
+            if (root.optString("chain-status") != status) return load()
+            root.put("chain-status", "off")
+        } else {
+            root.objectFor(stage).put("mode", mode)
+            root.put("chain-status", status)
+        }
         Settings.configOptions = root.toString()
         return load()
     }

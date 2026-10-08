@@ -661,4 +661,5 @@
     <string name="native_free_region_empty">Бесплатные профили для этого региона не найдены</string>
     <string name="native_free_continue">Продолжить</string>
     <string name="native_outbounds_reconnecting">Восстановление обновлений прокси (%1$d/5)…</string>
+    <string name="native_quick_password_invalid">Некорректный пароль: не более 128 символов без управляющих символов.</string>
 </resources>

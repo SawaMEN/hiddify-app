@@ -198,6 +198,8 @@ fun NativeApp(
     reconnectBusy: Boolean,
     onQuickServiceMode: (Boolean) -> Unit,
     onQuickLanSharing: (Boolean, String) -> Unit,
+    onQuickChainMode: (Boolean, String?) -> Unit,
+    onResolveLanSharing: suspend () -> NativeWifiSharingDetails,
     outboundBusyTag: String?,
     outboundOperationRevision: Int,
     systemStats: NativeSystemStats,
@@ -739,10 +741,11 @@ fun NativeApp(
                 serviceMode = settingsState.serviceMode, wifiSharing = settingsState.wifiSharing,
                 inbound = inboundOptions, chain = chainOptions, activeProfileName = activeProfileName,
                 busy = reconnectBusy || inboundBusy || chainBusy || wifiSharingBusy || privacySetupBusy || proxyPrivacyBusy ||
-                    status == Status.Starting || status == Status.Stopping,
-                details = wifiSharingDetails, detailsBusy = wifiSharingDetailsBusy,
+                    dnsBusy || tlsBusy || generalOptionsBusy || tunnelBusy || status == Status.Starting || status == Status.Stopping,
+                detailsBusy = wifiSharingDetailsBusy,
                 onServiceMode = onQuickServiceMode, onLanSharing = onQuickLanSharing,
-                onChain = onSaveChainOptions,
+                onChain = onQuickChainMode,
+                onResolveLanSharing = onResolveLanSharing,
                 onOpenChain = { quickSettingsOpen = false; openPage(PAGE_CHAIN) },
                 onDismiss = { quickSettingsOpen = false },
             )
