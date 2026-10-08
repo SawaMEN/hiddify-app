@@ -18,7 +18,7 @@ class NativeAppearanceRepository(context: Context) {
 
     fun load(): NativeThemeMode {
         val value = preferences.all["flutter.theme_mode"] as? String
-        return NativeThemeMode.entries.find { it.value == value } ?: NativeThemeMode.SYSTEM
+        return NativeThemeMode.entries.find { it.value == value } ?: NativeThemeMode.DARK
     }
 
     fun save(mode: NativeThemeMode): NativeThemeMode {

@@ -12,6 +12,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import com.hiddify.hiddify.nativeui.NativeGlassDialog as AlertDialog
+import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -106,7 +108,8 @@ internal fun NativeAddProfileSheet(
     val validUrl = uri != null && (uri.scheme.equals("http", true) || uri.scheme.equals("https", true)) &&
         !uri.host.isNullOrBlank() && (uri.port == -1 || uri.port in 1..65535) && raw.none(Char::isWhitespace)
 
-    ModalBottomSheet(
+    ModalBottomSheet(modifier = Modifier.nativeGlassDecoration(androidx.compose.foundation.shape.RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)),
+        containerColor = androidx.compose.ui.graphics.Color.Transparent, tonalElevation = 0.dp,
         onDismissRequest = { if (enabled) onDismiss() },
         sheetState = rememberModalBottomSheetState(
             skipPartiallyExpanded = true,

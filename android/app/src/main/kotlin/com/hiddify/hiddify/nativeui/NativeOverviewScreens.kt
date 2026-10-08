@@ -1,5 +1,7 @@
 package com.hiddify.hiddify.nativeui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,7 +14,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
+import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,9 +31,10 @@ import com.hiddify.hiddify.R
 @Composable
 internal fun NativePageHeader(title: String, onBack: (() -> Unit)? = null, actions: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (onBack != null) IconButton(onClick = onBack) {
+        if (onBack != null) IconButton(onClick = onBack, modifier = Modifier.padding(end = 8.dp)
+            .background(MaterialTheme.colorScheme.primary.copy(alpha = .08f), RoundedCornerShape(16.dp))) {
             Icon(painterResource(R.drawable.native_back_arrow), stringResource(R.string.native_back), Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                tint = MaterialTheme.colorScheme.primary)
         }
         Text(title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)

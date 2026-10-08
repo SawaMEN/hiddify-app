@@ -11,6 +11,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import com.hiddify.hiddify.nativeui.NativeGlassDialog as AlertDialog
+import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -87,7 +89,8 @@ internal fun NativeQuickSettingsSheet(
             finally { linkBusy = false }
         }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss,
+    ModalBottomSheet(modifier = Modifier.nativeGlassDecoration(androidx.compose.foundation.shape.RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)),
+        containerColor = androidx.compose.ui.graphics.Color.Transparent, tonalElevation = 0.dp, onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(16.dp)) {

@@ -7,6 +7,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.material3.*
+import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.lifecycle.Lifecycle

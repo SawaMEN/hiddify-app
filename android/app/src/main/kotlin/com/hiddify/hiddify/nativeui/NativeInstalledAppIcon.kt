@@ -3,8 +3,11 @@ package com.hiddify.hiddify.nativeui
 import android.graphics.Bitmap
 import android.util.LruCache
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
+import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -37,7 +40,11 @@ internal fun NativeInstalledAppIcon(packageName: String) {
             }.getOrNull()?.also { appIconCache.put(key, it) }
         }
     }
-    bitmap?.let { Image(it.asImageBitmap(), null, Modifier.size(48.dp)) }
-        ?: Icon(painterResource(R.drawable.privacy_apps), null, Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    NativeGlass(Modifier.size(48.dp), radius = 14) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            bitmap?.let { Image(it.asImageBitmap(), null, Modifier.size(38.dp)) }
+                ?: Icon(painterResource(R.drawable.privacy_apps), null, Modifier.size(28.dp),
+                    tint = MaterialTheme.colorScheme.primary)
+        }
+    }
 }

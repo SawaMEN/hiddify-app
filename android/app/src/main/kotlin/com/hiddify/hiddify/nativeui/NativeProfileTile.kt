@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -45,9 +46,9 @@ internal fun NativeProfileTile(
     var menuOpen by rememberSaveable(profile.id) { mutableStateOf(false) }
     val scheme = MaterialTheme.colorScheme
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().nativeGlassDecoration(accent = if (profile.active) scheme.primary else scheme.outline),
         shape = RoundedCornerShape(24.dp),
-        color = scheme.surfaceContainerLow,
+        color = androidx.compose.ui.graphics.Color.Transparent,
         border = BorderStroke(1.dp, if (profile.active) scheme.primary.copy(alpha = .55f) else scheme.outlineVariant),
     ) {
         Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {

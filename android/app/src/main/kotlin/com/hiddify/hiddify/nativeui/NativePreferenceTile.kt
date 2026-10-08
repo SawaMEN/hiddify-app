@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.material3.Icon
+import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -31,7 +31,7 @@ internal fun NativePreferenceTile(title: Int, icon: Int, value: String?, enabled
         .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         val tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else .38f)
-        Icon(painterResource(icon), null, Modifier.size(24.dp), tint = tint)
+        Icon(painterResource(icon), null, Modifier.size(24.dp), tint = if (enabled) MaterialTheme.colorScheme.primary else tint)
         Column(Modifier.weight(1f)) {
             Text(stringResource(title), style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else .38f))

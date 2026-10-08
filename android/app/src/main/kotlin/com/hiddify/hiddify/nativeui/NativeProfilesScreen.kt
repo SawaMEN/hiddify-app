@@ -5,6 +5,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import com.hiddify.hiddify.nativeui.NativeGlassDialog as AlertDialog
+import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.draw.rotate
@@ -32,7 +34,8 @@ internal fun NativeProfilesSheet(
     LaunchedEffect(profiles, loading, loadFailed) {
         if (!loading && !loadFailed && profiles.isEmpty()) onDismiss()
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetMaxWidth = 456.dp,
+    ModalBottomSheet(modifier = Modifier.nativeGlassDecoration(androidx.compose.foundation.shape.RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)),
+        containerColor = androidx.compose.ui.graphics.Color.Transparent, tonalElevation = 0.dp, onDismissRequest = onDismiss, sheetMaxWidth = 456.dp,
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp), dragHandle = null) {
         NativeProfilesScreen(profiles, busyProfileId, onDismiss, {}, onSelect, onDelete, onRefresh,
             onEdit, onCopyConfig, onExportConfig, loading, loadFailed, onRetry, onUpdateAll,

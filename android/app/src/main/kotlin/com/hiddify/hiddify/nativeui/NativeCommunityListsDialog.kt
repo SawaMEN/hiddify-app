@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
+import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -84,9 +85,10 @@ private fun NativeCommunityListsDialog(source: NativeCommunitySource, active: Bo
     }
     val interactive = enabled && (!loading || catalogue != null)
     val titles = groups.keys.associateWith { communityGroupTitle(it) }
+    val itemMotion = LocalNativeMotionEnabled.current
     val selection = runCatching { NativeCommunityLists.selection(all, selected.toSet()) }.getOrNull()
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        NativeAtmosphere {
             Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().imePadding()) {
                 NativePageHeader(stringResource(if (source == NativeCommunitySource.VPN)
                     R.string.native_privacy_handbook_proxy else R.string.native_privacy_handbook_direct), onDismiss)
@@ -134,7 +136,9 @@ private fun NativeCommunityListsDialog(source: NativeCommunitySource, active: Bo
                             }
                             val open = if (query.isNotBlank()) group !in searchCollapsed else group in expanded
                             item(key = "group:$group") {
-                                Row(Modifier.fillMaxWidth().clickable {
+                                Row(Modifier.animateItem(fadeInSpec = if (itemMotion) androidx.compose.animation.core.tween(160) else null,
+                                    placementSpec = if (itemMotion) androidx.compose.animation.core.spring() else null,
+                                    fadeOutSpec = if (itemMotion) androidx.compose.animation.core.tween(120) else null).fillMaxWidth().clickable {
                                     if (query.isNotBlank()) searchCollapsed = if (group in searchCollapsed) searchCollapsed - group else searchCollapsed + group
                                     else expanded = if (group in expanded) expanded - group else expanded + group
                                 }.heightIn(min = 64.dp).padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -155,7 +159,9 @@ private fun NativeCommunityListsDialog(source: NativeCommunitySource, active: Bo
                             }
                             if (open) items(visible, key = { "service:${it.id}" }) { service ->
                                 val selectedService = all || service.id in selected
-                                Row(Modifier.fillMaxWidth().toggleable(selectedService, enabled = interactive, role = Role.Checkbox) { value ->
+                                Row(Modifier.animateItem(fadeInSpec = if (itemMotion) androidx.compose.animation.core.tween(160) else null,
+                                    placementSpec = if (itemMotion) androidx.compose.animation.core.spring() else null,
+                                    fadeOutSpec = if (itemMotion) androidx.compose.animation.core.tween(120) else null).fillMaxWidth().toggleable(selectedService, enabled = interactive, role = Role.Checkbox) { value ->
                                     selected = NativeCommunityLists.toggle(all, selected.toSet(), known, service.id, value).toList()
                                     all = false
                                 }.heightIn(min = 64.dp).padding(start = 40.dp, end = 16.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {

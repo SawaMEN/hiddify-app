@@ -1,5 +1,11 @@
 package com.hiddify.hiddify.nativeui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
@@ -12,7 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 
-/** Shared input decoration from the original Dart AppTheme. */
+/** Glass inputs keep text opaque and the focus/error outline clearly visible. */
 @Composable
 internal fun NativeTextField(
     value: String,
@@ -34,17 +40,21 @@ internal fun NativeTextField(
     minLines: Int = 1,
 ) {
     val scheme = MaterialTheme.colorScheme
+    val interaction = remember { MutableInteractionSource() }
+    val focused by interaction.collectIsFocusedAsState()
+    val accent by animateColorAsState(if (isError) scheme.error else if (focused) scheme.primary else scheme.outlineVariant,
+        tween(if (LocalNativeMotionEnabled.current) 150 else 0), label = "Input focus")
     androidx.compose.material3.OutlinedTextField(
-        value = value, onValueChange = onValueChange, modifier = modifier, enabled = enabled,
+        value = value, onValueChange = onValueChange, modifier = modifier.nativeGlassDecoration(RoundedCornerShape(16.dp), accent), enabled = enabled, interactionSource = interaction,
         label = label, placeholder = placeholder, leadingIcon = leadingIcon, trailingIcon = trailingIcon,
         supportingText = supportingText, isError = isError, visualTransformation = visualTransformation,
         keyboardOptions = keyboardOptions, keyboardActions = keyboardActions, textStyle = textStyle, singleLine = singleLine, maxLines = maxLines, minLines = minLines,
         shape = RoundedCornerShape(16.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedContainerColor = scheme.surfaceContainerLow,
-            unfocusedContainerColor = scheme.surfaceContainerLow,
-            disabledContainerColor = scheme.surfaceContainerLow,
-            errorContainerColor = scheme.surfaceContainerLow,
+            focusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+            unfocusedContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+            disabledContainerColor = androidx.compose.ui.graphics.Color.Transparent,
+            errorContainerColor = androidx.compose.ui.graphics.Color.Transparent,
             unfocusedBorderColor = scheme.outline,
             focusedTextColor = scheme.onSurface, unfocusedTextColor = scheme.onSurface,
             errorTextColor = scheme.onSurface,

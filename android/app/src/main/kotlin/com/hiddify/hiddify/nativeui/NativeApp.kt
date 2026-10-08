@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.AlertDialog
+import com.hiddify.hiddify.nativeui.NativeGlassDialog as AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,7 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import com.hiddify.hiddify.BuildConfig
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Icon
+import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -46,6 +46,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -359,377 +360,381 @@ fun NativeApp(
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                     Box((if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY || page == PAGE_SETTINGS) Modifier else Modifier.widthIn(max = 680.dp))
                         .fillMaxWidth().padding(horizontal = when (page) { PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS, PAGE_DIAGNOSTICS, PAGE_PROTECTION, PAGE_TRAFFIC_FILTERS, PAGE_WIFI_GUIDE, PAGE_PER_APP, PAGE_DNS, PAGE_TLS, PAGE_INBOUND, PAGE_GENERAL_OPTIONS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
-                        when (page) {
-                            PAGE_DIAGNOSTICS ->
-                                NativeDiagnosticsScreen(
-                                    snapshot = diagnosticSnapshot,
-                                    busy = diagnosticBusy,
-                                    report = diagnosticReport,
+                        Crossfade(targetState = page,
+                            animationSpec = tween(if (LocalNativeMotionEnabled.current) 180 else 0),
+                            label = "Page transition") { visiblePage ->
+                            when (visiblePage) {
+                                PAGE_DIAGNOSTICS ->
+                                    NativeDiagnosticsScreen(
+                                        snapshot = diagnosticSnapshot,
+                                        busy = diagnosticBusy,
+                                        report = diagnosticReport,
+                                        onBack = { goBack() },
+                                        onRun = onRunDiagnostics,
+                                        onShareReport = onShareDiagnosticReport,
+                                    )
+
+                                PAGE_CONNECTION_POLICY -> NativeConnectionPolicyScreen(
+                                    options = connectionOptions,
+                                    busy = connectionOptionsBusy,
                                     onBack = { goBack() },
-                                    onRun = onRunDiagnostics,
-                                    onShareReport = onShareDiagnosticReport,
+                                    onSave = onSaveConnectionOptions,
                                 )
 
-                            PAGE_CONNECTION_POLICY -> NativeConnectionPolicyScreen(
-                                options = connectionOptions,
-                                busy = connectionOptionsBusy,
-                                onBack = { goBack() },
-                                onSave = onSaveConnectionOptions,
-                            )
+                                PAGE_REGIONAL_APPS -> {
+                                    val kind = NativeRegionalAppKind.valueOf(regionalAppKind)
+                                    NativeRegionalAppsScreen(
+                                        kind = kind,
+                                        snapshot = regionalApps?.takeIf { it.kind == kind },
+                                        revision = regionalAppsRevision,
+                                        busy = regionalBusy,
+                                        onBack = { goBack() },
+                                        onReload = { onOpenRegionalApps(kind) },
+                                        onSave = { onSaveRegionalApps(kind, it) },
+                                        onReset = { onResetRegionalApps(kind) },
+                                    )
+                                }
 
-                            PAGE_REGIONAL_APPS -> {
-                                val kind = NativeRegionalAppKind.valueOf(regionalAppKind)
-                                NativeRegionalAppsScreen(
-                                    kind = kind,
-                                    snapshot = regionalApps?.takeIf { it.kind == kind },
-                                    revision = regionalAppsRevision,
-                                    busy = regionalBusy,
-                                    onBack = { goBack() },
-                                    onReload = { onOpenRegionalApps(kind) },
-                                    onSave = { onSaveRegionalApps(kind, it) },
-                                    onReset = { onResetRegionalApps(kind) },
-                                )
-                            }
+                                PAGE_REGIONAL ->
+                                    NativeRegionalRoutingScreen(
+                                        options = regionalOptions,
+                                        busy = regionalBusy,
+                                        fullTunnel = settingsState.fullTunnel,
+                                        handbookRouting = settingsState.handbookRouting,
+                                        onBack = { goBack() },
+                                        onSave = onSaveRegionalOptions,
+                                        onOpenApps = { kind ->
+                                            regionalAppKind = kind.name
+                                            onOpenRegionalApps(kind)
+                                            openPage(PAGE_REGIONAL_APPS)
+                                        },
+                                    )
 
-                            PAGE_REGIONAL ->
-                                NativeRegionalRoutingScreen(
-                                    options = regionalOptions,
-                                    busy = regionalBusy,
-                                    fullTunnel = settingsState.fullTunnel,
-                                    handbookRouting = settingsState.handbookRouting,
-                                    onBack = { goBack() },
-                                    onSave = onSaveRegionalOptions,
-                                    onOpenApps = { kind ->
-                                        regionalAppKind = kind.name
-                                        onOpenRegionalApps(kind)
-                                        openPage(PAGE_REGIONAL_APPS)
-                                    },
-                                )
+                                PAGE_TRAFFIC_FILTERS ->
+                                    NativeTrafficFiltersScreen(
+                                        filters = trafficFilters,
+                                        busy = trafficFiltersBusy,
+                                        onBack = { goBack() },
+                                        onSave = onSaveTrafficFilters,
+                                    )
 
-                            PAGE_TRAFFIC_FILTERS ->
-                                NativeTrafficFiltersScreen(
-                                    filters = trafficFilters,
-                                    busy = trafficFiltersBusy,
-                                    onBack = { goBack() },
-                                    onSave = onSaveTrafficFilters,
-                                )
+                                PAGE_PROTECTION ->
+                                    NativeVpnProtectionScreen(
+                                        protection = vpnProtection,
+                                        onBack = { goBack() },
+                                        onOpenSettings = onOpenVpnSettings,
+                                    )
 
-                            PAGE_PROTECTION ->
-                                NativeVpnProtectionScreen(
-                                    protection = vpnProtection,
-                                    onBack = { goBack() },
-                                    onOpenSettings = onOpenVpnSettings,
-                                )
+                                PAGE_PROFILES ->
+                                    NativeProfilesScreen(
+                                        profiles = profiles,
+                                        busyProfileId = busyProfileId,
+                                        onBack = { goBack() },
+                                        onAdd = { addProfileOpen = true },
+                                        onSelect = onSelectProfile,
+                                        onDelete = onDeleteProfile,
+                                        onRefresh = onRefreshProfile,
+                                        onEdit = { profile ->
+                                            onOpenProfileEditor(profile)
+                                            openPage(PAGE_PROFILE_DETAILS)
+                                        },
+                                        onCopyConfig = onCopyProfileConfig,
+                                        onExportConfig = onExportProfileConfig,
+                                        loading = profilesLoading, loadFailed = profilesLoadFailed,
+                                        onRetry = onRetryProfiles, onUpdateAll = onUpdateAllProfiles,
+                                        sortByName = profileSortByName, ascending = profileSortAscending,
+                                        onSort = { byName, ascending -> profileSortByName = byName; profileSortAscending = ascending },
+                                    )
 
-                            PAGE_PROFILES ->
-                                NativeProfilesScreen(
-                                    profiles = profiles,
-                                    busyProfileId = busyProfileId,
-                                    onBack = { goBack() },
-                                    onAdd = { addProfileOpen = true },
-                                    onSelect = onSelectProfile,
-                                    onDelete = onDeleteProfile,
-                                    onRefresh = onRefreshProfile,
-                                    onEdit = { profile ->
-                                        onOpenProfileEditor(profile)
-                                        openPage(PAGE_PROFILE_DETAILS)
-                                    },
-                                    onCopyConfig = onCopyProfileConfig,
-                                    onExportConfig = onExportProfileConfig,
-                                    loading = profilesLoading, loadFailed = profilesLoadFailed,
-                                    onRetry = onRetryProfiles, onUpdateAll = onUpdateAllProfiles,
-                                    sortByName = profileSortByName, ascending = profileSortAscending,
-                                    onSort = { byName, ascending -> profileSortByName = byName; profileSortAscending = ascending },
-                                )
+                                PAGE_PROFILE_DETAILS ->
+                                    NativeProfileDetailsScreen(
+                                        editor = profileEditor,
+                                        session = editorSession, loadFailed = profileEditorLoadFailed, onRetry = onRetryProfileEditor,
+                                        busy = profileEditorBusy,
+                                        onBack = { goBack() },
+                                        onSave = onSaveProfileEditor,
+                                    )
 
-                            PAGE_PROFILE_DETAILS ->
-                                NativeProfileDetailsScreen(
-                                    editor = profileEditor,
-                                    session = editorSession, loadFailed = profileEditorLoadFailed, onRetry = onRetryProfileEditor,
-                                    busy = profileEditorBusy,
-                                    onBack = { goBack() },
-                                    onSave = onSaveProfileEditor,
-                                )
+                                PAGE_PER_APP_BACKUP ->
+                                    NativePerAppBackupScreen(
+                                        busy = perAppBusy,
+                                        canImport = status == Status.Stopped,
+                                        pendingImport = pendingPerAppImport,
+                                        onBack = { goBack() },
+                                        onImportClipboard = onImportPerAppClipboard,
+                                        onImportFile = onImportPerAppFile,
+                                        onExportClipboard = onExportPerAppClipboard,
+                                        onExportFile = onExportPerAppFile,
+                                        onConfirmImport = onConfirmPerAppImport,
+                                        onDismissImport = onDismissPerAppImport,
+                                    )
 
-                            PAGE_PER_APP_BACKUP ->
-                                NativePerAppBackupScreen(
-                                    busy = perAppBusy,
-                                    canImport = status == Status.Stopped,
-                                    pendingImport = pendingPerAppImport,
-                                    onBack = { goBack() },
-                                    onImportClipboard = onImportPerAppClipboard,
-                                    onImportFile = onImportPerAppFile,
-                                    onExportClipboard = onExportPerAppClipboard,
-                                    onExportFile = onExportPerAppFile,
-                                    onConfirmImport = onConfirmPerAppImport,
-                                    onDismissImport = onDismissPerAppImport,
-                                )
+                                PAGE_PER_APP ->
+                                    NativePerAppScreen(
+                                        snapshot = perAppSnapshot,
+                                        canChange = status == Status.Stopped || status == Status.Started,
+                                        busy = perAppBusy,
+                                        onBack = { goBack() },
+                                        onModeChanged = onPerAppModeChanged,
+                                        onTogglePackage = onTogglePerAppPackage,
+                                        onClear = onClearPerApp,
+                                        onRetry = onReloadPerApp,
+                                        pendingImport = pendingPerAppImport,
+                                        onImportClipboard = onImportPerAppClipboard,
+                                        onImportFile = onImportPerAppFile,
+                                        onExportClipboard = onExportPerAppClipboard,
+                                        onExportFile = onExportPerAppFile,
+                                        onConfirmImport = onConfirmPerAppImport,
+                                        onDismissImport = onDismissPerAppImport,
+                                    )
 
-                            PAGE_PER_APP ->
-                                NativePerAppScreen(
-                                    snapshot = perAppSnapshot,
-                                    canChange = status == Status.Stopped || status == Status.Started,
-                                    busy = perAppBusy,
-                                    onBack = { goBack() },
-                                    onModeChanged = onPerAppModeChanged,
-                                    onTogglePackage = onTogglePerAppPackage,
-                                    onClear = onClearPerApp,
-                                    onRetry = onReloadPerApp,
-                                    pendingImport = pendingPerAppImport,
-                                    onImportClipboard = onImportPerAppClipboard,
-                                    onImportFile = onImportPerAppFile,
-                                    onExportClipboard = onExportPerAppClipboard,
-                                    onExportFile = onExportPerAppFile,
-                                    onConfirmImport = onConfirmPerAppImport,
-                                    onDismissImport = onDismissPerAppImport,
-                                )
+                                PAGE_LOGS ->
+                                    NativeLogsScreen(
+                                        snapshot = logSnapshot,
+                                        busy = logBusy,
+                                        onBack = { goBack() },
+                                        onClear = onClearLogs,
+                                        sharingEnabled = settingsState.debugMode,
+                                        onShare = onShareLogs,
+                                    )
 
-                            PAGE_LOGS ->
-                                NativeLogsScreen(
-                                    snapshot = logSnapshot,
-                                    busy = logBusy,
-                                    onBack = { goBack() },
-                                    onClear = onClearLogs,
-                                    sharingEnabled = settingsState.debugMode,
-                                    onShare = onShareLogs,
-                                )
+                                PAGE_WIFI_GUIDE ->
+                                    NativeWifiSharingGuideScreen(
+                                        rootMode = rootMode,
+                                        details = wifiSharingDetails,
+                                        busy = wifiSharingDetailsBusy,
+                                        onBack = { goBack() },
+                                        onRefresh = onRefreshWifiSharingDetails,
+                                    )
 
-                            PAGE_WIFI_GUIDE ->
-                                NativeWifiSharingGuideScreen(
-                                    rootMode = rootMode,
-                                    details = wifiSharingDetails,
-                                    busy = wifiSharingDetailsBusy,
-                                    onBack = { goBack() },
-                                    onRefresh = onRefreshWifiSharingDetails,
-                                )
+                                PAGE_ABOUT ->
+                                    NativeAboutScreen(
+                                        versionName = com.hiddify.hiddify.BuildConfig.VERSION_NAME,
+                                        versionCode = com.hiddify.hiddify.BuildConfig.VERSION_CODE,
+                                        updateChecking = updateChecking,
+                                        updateMessage = updateMessage,
+                                        updateUrl = updateUrl,
+                                        onBack = { goBack() },
+                                        onCheckUpdate = onCheckUpdate,
+                                        onOpenUpdate = onOpenUpdate,
+                                        onOpenFork = onOpenFork,
+                                        onOpenUpstream = onOpenUpstream,
+                                        onOpenTerms = onOpenTerms,
+                                        onOpenPrivacy = onOpenPrivacy,
+                                        onCopyAppInfo = onCopyAppInfo,
+                                    )
 
-                            PAGE_ABOUT ->
-                                NativeAboutScreen(
-                                    versionName = com.hiddify.hiddify.BuildConfig.VERSION_NAME,
-                                    versionCode = com.hiddify.hiddify.BuildConfig.VERSION_CODE,
-                                    updateChecking = updateChecking,
-                                    updateMessage = updateMessage,
-                                    updateUrl = updateUrl,
-                                    onBack = { goBack() },
-                                    onCheckUpdate = onCheckUpdate,
-                                    onOpenUpdate = onOpenUpdate,
-                                    onOpenFork = onOpenFork,
-                                    onOpenUpstream = onOpenUpstream,
-                                    onOpenTerms = onOpenTerms,
-                                    onOpenPrivacy = onOpenPrivacy,
-                                    onCopyAppInfo = onCopyAppInfo,
-                                )
+                                PAGE_CORE_OPTIONS ->
+                                    NativeCoreOptionsScreen(
+                                        onBack = { goBack() },
+                                        onOpenDns = { openPage(PAGE_DNS) },
+                                        onOpenTls = { openPage(PAGE_TLS) },
+                                        onOpenTunnel = { openPage(PAGE_TUNNEL) },
+                                        onOpenInbound = { openPage(PAGE_INBOUND) },
+                                        onOpenGeneralOptions = { openPage(PAGE_GENERAL_OPTIONS) },
+                                    )
 
-                            PAGE_CORE_OPTIONS ->
-                                NativeCoreOptionsScreen(
-                                    onBack = { goBack() },
+                                PAGE_CHAIN ->
+                                    NativeChainScreen(
+                                        options = chainOptions,
+                                        profiles = profiles,
+                                        busy = chainBusy,
+                                        onBack = { goBack() },
+                                        onSave = onSaveChainOptions,
+                                    )
+
+                                PAGE_SETTINGS -> NativeSettingsOverviewScreen(
+                                    hasProfiles = profiles.isNotEmpty(),
+                                    busy = privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy ||
+                                        generalOptionsBusy || tunnelBusy || generalPreferencesBusy || regionalBusy ||
+                                        connectionOptionsBusy || wifiSharingBusy || chainBusy || reconnectBusy,
+                                    onOpenProfiles = { openPage(PAGE_PROFILES) },
+                                    onOpenGeneral = { openCategory(NativeSettingsCategory.APP) },
                                     onOpenDns = { openPage(PAGE_DNS) },
                                     onOpenTls = { openPage(PAGE_TLS) },
-                                    onOpenTunnel = { openPage(PAGE_TUNNEL) },
                                     onOpenInbound = { openPage(PAGE_INBOUND) },
-                                    onOpenGeneralOptions = { openPage(PAGE_GENERAL_OPTIONS) },
-                                )
-
-                            PAGE_CHAIN ->
-                                NativeChainScreen(
-                                    options = chainOptions,
-                                    profiles = profiles,
-                                    busy = chainBusy,
-                                    onBack = { goBack() },
-                                    onSave = onSaveChainOptions,
-                                )
-
-                            PAGE_SETTINGS -> NativeSettingsOverviewScreen(
-                                hasProfiles = profiles.isNotEmpty(),
-                                busy = privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy ||
-                                    generalOptionsBusy || tunnelBusy || generalPreferencesBusy || regionalBusy ||
-                                    connectionOptionsBusy || wifiSharingBusy || chainBusy || reconnectBusy,
-                                onOpenProfiles = { openPage(PAGE_PROFILES) },
-                                onOpenGeneral = { openCategory(NativeSettingsCategory.APP) },
-                                onOpenDns = { openPage(PAGE_DNS) },
-                                onOpenTls = { openPage(PAGE_TLS) },
-                                onOpenInbound = { openPage(PAGE_INBOUND) },
-                                onOpenChain = { openPage(PAGE_CHAIN) },
-                                onOpenLogs = { openPage(PAGE_LOGS) },
-                                onOpenAbout = { openPage(PAGE_ABOUT) },
-                                onImportClipboard = onImportSettingsClipboard,
-                                onImportFile = onImportSettingsFile,
-                                onExportClipboard = onExportSettingsClipboard,
-                                onExportFile = onExportSettingsFile,
-                                onReset = onResetSettings,
-                            )
-
-                            PAGE_TUNNEL -> NativeTunnelOptionsScreen(
-                                options = tunnelOptions, busy = tunnelBusy,
-                                canSave = status == Status.Stopped && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy && !tlsBusy && !generalOptionsBusy,
-                                onBack = { goBack() }, onSave = onSaveTunnelOptions,
-                            )
-
-                            PAGE_GENERAL_OPTIONS -> NativeGeneralOptionsScreen(
-                                options = generalOptions, busy = generalOptionsBusy,
-                                loadFailed = generalOptionsLoadFailed, onRetry = onReloadGeneralOptions,
-                                canSave = status != Status.Starting && status != Status.Stopping && !reconnectBusy && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy && !tlsBusy && !tunnelBusy && !privacySetupBusy && !proxyPrivacyBusy,
-                                onBack = { goBack() }, onSave = onSaveGeneralOption,
-                            )
-
-                            PAGE_TLS -> NativeTlsOptionsScreen(
-                                options = tlsOptions, busy = tlsBusy,
-                                canSave = status != Status.Starting && status != Status.Stopping && !reconnectBusy && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy && !generalOptionsBusy && !tunnelBusy && !privacySetupBusy && !proxyPrivacyBusy,
-                                loadFailed = tlsLoadFailed, onRetry = onReloadTlsOptions,
-                                onBack = { goBack() }, onSave = onSaveTlsOption,
-                            )
-
-                            PAGE_DNS -> NativeDnsOptionsScreen(
-                                options = dnsOptions, busy = dnsBusy,
-                                canSave = status != Status.Starting && status != Status.Stopping && !reconnectBusy && !wifiSharingBusy && !chainBusy && !inboundBusy && !tlsBusy && !generalOptionsBusy && !tunnelBusy && !privacySetupBusy && !proxyPrivacyBusy,
-                                loadFailed = dnsLoadFailed, onRetry = onReloadDnsOptions,
-                                onBack = { goBack() }, onSave = onSaveDnsOption,
-                            )
-
-                            PAGE_INBOUND -> NativeInboundOptionsScreen(
-                                options = inboundOptions, busy = inboundBusy,
-                                canSave = status != Status.Starting && status != Status.Stopping && !reconnectBusy && !wifiSharingBusy && !chainBusy && !dnsBusy && !tlsBusy && !generalOptionsBusy && !tunnelBusy && !generalPreferencesBusy && !privacySetupBusy && !proxyPrivacyBusy,
-                                onBack = { goBack() }, onSave = onSaveInboundOptions,
-                                serviceMode = settingsState.serviceMode, wifiSharing = settingsState.wifiSharing,
-                                onServiceMode = onQuickServiceMode, onResolveLanSharing = onResolveLanSharing,
-                            )
-
-                            PAGE_PROXY_PRIVACY -> NativeProxyPrivacyScreen(
-                                options = proxyPrivacy,
-                                busy = proxyPrivacyBusy,
-                                wifiSharing = settingsState.wifiSharing,
-                                rootMode = rootMode,
-                                onBack = { goBack() },
-                                onSave = onSaveProxyPrivacy,
-                                onOpenCoreOptions = { openPage(PAGE_CORE_OPTIONS) },
-                            )
-
-                            PAGE_PRIVACY -> NativePrivacyOverviewScreen(
-                                configured = privacyConfigured,
-                                canRestore = privacyCanRestore,
-                                busy = status == Status.Starting || status == Status.Stopping || reconnectBusy || privacySetupBusy || regionalBusy || connectionOptionsBusy || proxyPrivacyBusy || dnsBusy || tlsBusy || generalOptionsBusy || tunnelBusy || inboundBusy || wifiSharingBusy,
-                                canApply = status == Status.Stopped && !wifiSharingBusy && !regionalBusy && !connectionOptionsBusy && !proxyPrivacyBusy,
-                                onConfigure = onConfigurePrivacy,
-                                onRestore = onRestorePrivacy,
-                                expandedCategories = privacyExpanded.split('|').filter { it.isNotEmpty() }.toSet(),
-                                onToggleCategory = { category ->
-                                    val expanded = privacyExpanded.split('|').filter { it.isNotEmpty() }.toMutableSet()
-                                    if (!expanded.add(category)) expanded.remove(category)
-                                    privacyExpanded = expanded.sorted().joinToString("|")
-                                },
-                                settings = settingsState,
-                                regional = regionalOptions,
-                                regionalRevision = regionalAppsRevision,
-                                connection = connectionOptions,
-                                proxy = proxyPrivacy,
-                                canChangeRoot = status == Status.Stopped && !wifiSharingBusy,
-                                onSaveRegional = onSaveRegionalOptions,
-                                onSaveConnection = onSaveConnectionOptions,
-                                onSaveProxy = onSaveProxyPrivacy,
-                                onOpenApps = { kind -> onOpenRegionalApps(kind); openPage(PAGE_REGIONAL_APPS) },
-                                onFullTunnel = onFullTunnelChanged,
-                                onRoot = onRootModeChanged,
-                                onEncryptedDns = onEncryptedDnsChanged,
-                                onPublicDns = onPublicDnsChanged,
-                                onHandbook = onHandbookRoutingChanged,
-                                onHandbookProxy = onHandbookProxyChanged,
-                                onHandbookDirect = onHandbookDirectChanged,
-                                onHandbookProxySites = onHandbookProxySitesChanged,
-                                onHandbookDirectSites = onHandbookDirectSitesChanged,
-                                onSaveCommunitySelection = onSaveCommunitySelection,
-                            )
-
-                            PAGE_PREFERENCES ->
-                                NativeSettingsScreen(
-                                    generalPreferences = generalPreferences,
-                                    generalPreferencesBusy = generalPreferencesBusy,
-                                    onChangeLanguage = onChangeLanguage,
-                                    onChangeHapticFeedback = onChangeHapticFeedback,
-                                    onChangeSmartSelection = onChangeSmartSelection,
-                                    onOpenTunnel = { openPage(PAGE_TUNNEL) },
-                                    onOpenGeneralOptions = { openPage(PAGE_GENERAL_OPTIONS) },
-                                    category = NativeSettingsCategory.valueOf(settingsCategory),
-                                    state = settingsState,
-                                    themeMode = themeMode,
-                                    themeBusy = themeBusy,
-                                    onChangeTheme = onChangeTheme,
-                                    onOpenNotificationSettings = onOpenNotificationSettings,
-                                    onOpenBatterySettings = onOpenBatterySettings,
-                                    canChangeServiceMode = status == Status.Stopped && !wifiSharingBusy,
-                                    wifiSharingBusy = wifiSharingBusy || status == Status.Starting || status == Status.Stopping,
-                                    wifiSharingDetails = wifiSharingDetails,
-                                    onBack = { goBack() },
-                                    onOpenVpnProtection = {
-                                        onRefreshVpnProtection()
-                                        openPage(PAGE_PROTECTION)
-                                    },
-                                    onOpenConnectionPolicy = { openPage(PAGE_CONNECTION_POLICY) },
-                                    onOpenRegionalRouting = { openPage(PAGE_REGIONAL) },
-                                    onOpenTrafficFilters = { openPage(PAGE_TRAFFIC_FILTERS) },
-                                    onOpenPerAppRouting = { openPage(PAGE_PER_APP) },
-                                    onOpenCoreOptions = { openPage(PAGE_CORE_OPTIONS) },
                                     onOpenChain = { openPage(PAGE_CHAIN) },
-                                    onOpenWifiSharingGuide = {
-                                        onRefreshWifiSharingDetails()
-                                        openPage(PAGE_WIFI_GUIDE)
-                                    },
-                                    onImportSettingsClipboard = onImportSettingsClipboard,
-                                    onImportSettingsFile = onImportSettingsFile,
-                                    onExportSettingsClipboard = onExportSettingsClipboard,
-                                    onExportSettingsFile = onExportSettingsFile,
-                                    onResetSettings = onResetSettings,
-                                    onProxyOnlyChanged = onProxyOnlyChanged,
-                                    onRootModeChanged = onRootModeChanged,
-                                    onWifiSharingChanged = onWifiSharingChanged,
-                                    onFullTunnelChanged = onFullTunnelChanged,
-                                    onEncryptedDnsChanged = onEncryptedDnsChanged,
-                                    onPublicDnsChanged = onPublicDnsChanged,
-                                    onDisableSystemProxyChanged = onDisableSystemProxyChanged,
-                                    onDisableIpv6Changed = onDisableIpv6Changed,
-                                    onHandbookRoutingChanged = onHandbookRoutingChanged,
-                                    onHandbookProxyChanged = onHandbookProxyChanged,
-                                    onHandbookDirectChanged = onHandbookDirectChanged,
-                                    onHandbookProxySitesChanged = onHandbookProxySitesChanged,
-                                    onHandbookDirectSitesChanged = onHandbookDirectSitesChanged,
-                                    onSaveCommunitySelection = onSaveCommunitySelection,
-                                    onDynamicNotificationChanged = onDynamicNotificationChanged,
-                                    onDebugModeChanged = onDebugModeChanged,
-                                    onDisableMemoryLimitChanged = onDisableMemoryLimitChanged,
+                                    onOpenLogs = { openPage(PAGE_LOGS) },
+                                    onOpenAbout = { openPage(PAGE_ABOUT) },
+                                    onImportClipboard = onImportSettingsClipboard,
+                                    onImportFile = onImportSettingsFile,
+                                    onExportClipboard = onExportSettingsClipboard,
+                                    onExportFile = onExportSettingsFile,
+                                    onReset = onResetSettings,
                                 )
 
-                            else ->
-                                HomeScreen(
-                                    status = status,
-                                    connectionFailed = connectionFailed,
-                                    smartSelected = smartSelected,
-                                    internetHealth = internetHealth,
-                                    recoveryAttempt = recoveryAttempt,
-                                    activeProfileName = activeProfileName,
-                                    hasActiveProfile = hasActiveProfile,
-                                    activeProfile = profiles.firstOrNull { it.active },
-                                    hasProfiles = profiles.isNotEmpty(),
-                                    profilesLoading = profilesLoading,
-                                    profilesLoadFailed = profilesLoadFailed, onRetryProfiles = onRetryProfiles,
-                                    busyProfileId = busyProfileId,
-                                    onRefreshProfile = onRefreshProfile,
-                                    onAddProfile = { addProfileOpen = true },
-                                    systemStats = systemStats,
-                                    activeOutbound = activeOutbound,
-                                    outboundBusy = outboundBusyTag != null,
-                                    outboundOperationRevision = outboundOperationRevision,
-                                    requiresReconnect = requiresReconnect,
-                                    reconnectBusy = reconnectBusy,
-                                    onTestActive = { onTestOutbound("") },
-                                    ipVisibilitySession = ipVisibilitySession,
-                                    hapticFeedback = generalPreferences.hapticFeedback,
-                                    onToggleConnection = onToggleConnection,
-                                    onOpenProfiles = { profilesSheetOpen = true },
-                                    onOpenSettings = { onRefreshWifiSharingDetails(); quickSettingsOpen = true },
-                                    onOpenDiagnostics = { openPage(PAGE_DIAGNOSTICS) },
-                                    onOpenOutbounds = {
-                                        outboundsOpen = true
-                                    },
+                                PAGE_TUNNEL -> NativeTunnelOptionsScreen(
+                                    options = tunnelOptions, busy = tunnelBusy,
+                                    canSave = status == Status.Stopped && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy && !tlsBusy && !generalOptionsBusy,
+                                    onBack = { goBack() }, onSave = onSaveTunnelOptions,
                                 )
+
+                                PAGE_GENERAL_OPTIONS -> NativeGeneralOptionsScreen(
+                                    options = generalOptions, busy = generalOptionsBusy,
+                                    loadFailed = generalOptionsLoadFailed, onRetry = onReloadGeneralOptions,
+                                    canSave = status != Status.Starting && status != Status.Stopping && !reconnectBusy && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy && !tlsBusy && !tunnelBusy && !privacySetupBusy && !proxyPrivacyBusy,
+                                    onBack = { goBack() }, onSave = onSaveGeneralOption,
+                                )
+
+                                PAGE_TLS -> NativeTlsOptionsScreen(
+                                    options = tlsOptions, busy = tlsBusy,
+                                    canSave = status != Status.Starting && status != Status.Stopping && !reconnectBusy && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy && !generalOptionsBusy && !tunnelBusy && !privacySetupBusy && !proxyPrivacyBusy,
+                                    loadFailed = tlsLoadFailed, onRetry = onReloadTlsOptions,
+                                    onBack = { goBack() }, onSave = onSaveTlsOption,
+                                )
+
+                                PAGE_DNS -> NativeDnsOptionsScreen(
+                                    options = dnsOptions, busy = dnsBusy,
+                                    canSave = status != Status.Starting && status != Status.Stopping && !reconnectBusy && !wifiSharingBusy && !chainBusy && !inboundBusy && !tlsBusy && !generalOptionsBusy && !tunnelBusy && !privacySetupBusy && !proxyPrivacyBusy,
+                                    loadFailed = dnsLoadFailed, onRetry = onReloadDnsOptions,
+                                    onBack = { goBack() }, onSave = onSaveDnsOption,
+                                )
+
+                                PAGE_INBOUND -> NativeInboundOptionsScreen(
+                                    options = inboundOptions, busy = inboundBusy,
+                                    canSave = status != Status.Starting && status != Status.Stopping && !reconnectBusy && !wifiSharingBusy && !chainBusy && !dnsBusy && !tlsBusy && !generalOptionsBusy && !tunnelBusy && !generalPreferencesBusy && !privacySetupBusy && !proxyPrivacyBusy,
+                                    onBack = { goBack() }, onSave = onSaveInboundOptions,
+                                    serviceMode = settingsState.serviceMode, wifiSharing = settingsState.wifiSharing,
+                                    onServiceMode = onQuickServiceMode, onResolveLanSharing = onResolveLanSharing,
+                                )
+
+                                PAGE_PROXY_PRIVACY -> NativeProxyPrivacyScreen(
+                                    options = proxyPrivacy,
+                                    busy = proxyPrivacyBusy,
+                                    wifiSharing = settingsState.wifiSharing,
+                                    rootMode = rootMode,
+                                    onBack = { goBack() },
+                                    onSave = onSaveProxyPrivacy,
+                                    onOpenCoreOptions = { openPage(PAGE_CORE_OPTIONS) },
+                                )
+
+                                PAGE_PRIVACY -> NativePrivacyOverviewScreen(
+                                    configured = privacyConfigured,
+                                    canRestore = privacyCanRestore,
+                                    busy = status == Status.Starting || status == Status.Stopping || reconnectBusy || privacySetupBusy || regionalBusy || connectionOptionsBusy || proxyPrivacyBusy || dnsBusy || tlsBusy || generalOptionsBusy || tunnelBusy || inboundBusy || wifiSharingBusy,
+                                    canApply = status == Status.Stopped && !wifiSharingBusy && !regionalBusy && !connectionOptionsBusy && !proxyPrivacyBusy,
+                                    onConfigure = onConfigurePrivacy,
+                                    onRestore = onRestorePrivacy,
+                                    expandedCategories = privacyExpanded.split('|').filter { it.isNotEmpty() }.toSet(),
+                                    onToggleCategory = { category ->
+                                        val expanded = privacyExpanded.split('|').filter { it.isNotEmpty() }.toMutableSet()
+                                        if (!expanded.add(category)) expanded.remove(category)
+                                        privacyExpanded = expanded.sorted().joinToString("|")
+                                    },
+                                    settings = settingsState,
+                                    regional = regionalOptions,
+                                    regionalRevision = regionalAppsRevision,
+                                    connection = connectionOptions,
+                                    proxy = proxyPrivacy,
+                                    canChangeRoot = status == Status.Stopped && !wifiSharingBusy,
+                                    onSaveRegional = onSaveRegionalOptions,
+                                    onSaveConnection = onSaveConnectionOptions,
+                                    onSaveProxy = onSaveProxyPrivacy,
+                                    onOpenApps = { kind -> onOpenRegionalApps(kind); openPage(PAGE_REGIONAL_APPS) },
+                                    onFullTunnel = onFullTunnelChanged,
+                                    onRoot = onRootModeChanged,
+                                    onEncryptedDns = onEncryptedDnsChanged,
+                                    onPublicDns = onPublicDnsChanged,
+                                    onHandbook = onHandbookRoutingChanged,
+                                    onHandbookProxy = onHandbookProxyChanged,
+                                    onHandbookDirect = onHandbookDirectChanged,
+                                    onHandbookProxySites = onHandbookProxySitesChanged,
+                                    onHandbookDirectSites = onHandbookDirectSitesChanged,
+                                    onSaveCommunitySelection = onSaveCommunitySelection,
+                                )
+
+                                PAGE_PREFERENCES ->
+                                    NativeSettingsScreen(
+                                        generalPreferences = generalPreferences,
+                                        generalPreferencesBusy = generalPreferencesBusy,
+                                        onChangeLanguage = onChangeLanguage,
+                                        onChangeHapticFeedback = onChangeHapticFeedback,
+                                        onChangeSmartSelection = onChangeSmartSelection,
+                                        onOpenTunnel = { openPage(PAGE_TUNNEL) },
+                                        onOpenGeneralOptions = { openPage(PAGE_GENERAL_OPTIONS) },
+                                        category = NativeSettingsCategory.valueOf(settingsCategory),
+                                        state = settingsState,
+                                        themeMode = themeMode,
+                                        themeBusy = themeBusy,
+                                        onChangeTheme = onChangeTheme,
+                                        onOpenNotificationSettings = onOpenNotificationSettings,
+                                        onOpenBatterySettings = onOpenBatterySettings,
+                                        canChangeServiceMode = status == Status.Stopped && !wifiSharingBusy,
+                                        wifiSharingBusy = wifiSharingBusy || status == Status.Starting || status == Status.Stopping,
+                                        wifiSharingDetails = wifiSharingDetails,
+                                        onBack = { goBack() },
+                                        onOpenVpnProtection = {
+                                            onRefreshVpnProtection()
+                                            openPage(PAGE_PROTECTION)
+                                        },
+                                        onOpenConnectionPolicy = { openPage(PAGE_CONNECTION_POLICY) },
+                                        onOpenRegionalRouting = { openPage(PAGE_REGIONAL) },
+                                        onOpenTrafficFilters = { openPage(PAGE_TRAFFIC_FILTERS) },
+                                        onOpenPerAppRouting = { openPage(PAGE_PER_APP) },
+                                        onOpenCoreOptions = { openPage(PAGE_CORE_OPTIONS) },
+                                        onOpenChain = { openPage(PAGE_CHAIN) },
+                                        onOpenWifiSharingGuide = {
+                                            onRefreshWifiSharingDetails()
+                                            openPage(PAGE_WIFI_GUIDE)
+                                        },
+                                        onImportSettingsClipboard = onImportSettingsClipboard,
+                                        onImportSettingsFile = onImportSettingsFile,
+                                        onExportSettingsClipboard = onExportSettingsClipboard,
+                                        onExportSettingsFile = onExportSettingsFile,
+                                        onResetSettings = onResetSettings,
+                                        onProxyOnlyChanged = onProxyOnlyChanged,
+                                        onRootModeChanged = onRootModeChanged,
+                                        onWifiSharingChanged = onWifiSharingChanged,
+                                        onFullTunnelChanged = onFullTunnelChanged,
+                                        onEncryptedDnsChanged = onEncryptedDnsChanged,
+                                        onPublicDnsChanged = onPublicDnsChanged,
+                                        onDisableSystemProxyChanged = onDisableSystemProxyChanged,
+                                        onDisableIpv6Changed = onDisableIpv6Changed,
+                                        onHandbookRoutingChanged = onHandbookRoutingChanged,
+                                        onHandbookProxyChanged = onHandbookProxyChanged,
+                                        onHandbookDirectChanged = onHandbookDirectChanged,
+                                        onHandbookProxySitesChanged = onHandbookProxySitesChanged,
+                                        onHandbookDirectSitesChanged = onHandbookDirectSitesChanged,
+                                        onSaveCommunitySelection = onSaveCommunitySelection,
+                                        onDynamicNotificationChanged = onDynamicNotificationChanged,
+                                        onDebugModeChanged = onDebugModeChanged,
+                                        onDisableMemoryLimitChanged = onDisableMemoryLimitChanged,
+                                    )
+
+                                else ->
+                                    HomeScreen(
+                                        status = status,
+                                        connectionFailed = connectionFailed,
+                                        smartSelected = smartSelected,
+                                        internetHealth = internetHealth,
+                                        recoveryAttempt = recoveryAttempt,
+                                        activeProfileName = activeProfileName,
+                                        hasActiveProfile = hasActiveProfile,
+                                        activeProfile = profiles.firstOrNull { it.active },
+                                        hasProfiles = profiles.isNotEmpty(),
+                                        profilesLoading = profilesLoading,
+                                        profilesLoadFailed = profilesLoadFailed, onRetryProfiles = onRetryProfiles,
+                                        busyProfileId = busyProfileId,
+                                        onRefreshProfile = onRefreshProfile,
+                                        onAddProfile = { addProfileOpen = true },
+                                        systemStats = systemStats,
+                                        activeOutbound = activeOutbound,
+                                        outboundBusy = outboundBusyTag != null,
+                                        outboundOperationRevision = outboundOperationRevision,
+                                        requiresReconnect = requiresReconnect,
+                                        reconnectBusy = reconnectBusy,
+                                        onTestActive = { onTestOutbound("") },
+                                        ipVisibilitySession = ipVisibilitySession,
+                                        hapticFeedback = generalPreferences.hapticFeedback,
+                                        onToggleConnection = onToggleConnection,
+                                        onOpenProfiles = { profilesSheetOpen = true },
+                                        onOpenSettings = { onRefreshWifiSharingDetails(); quickSettingsOpen = true },
+                                        onOpenDiagnostics = { openPage(PAGE_DIAGNOSTICS) },
+                                        onOpenOutbounds = {
+                                            outboundsOpen = true
+                                        },
+                                    )
+                            }
                         }
                     }
                 }
@@ -742,7 +747,11 @@ fun NativeApp(
                                 Triple(PAGE_SETTINGS, R.drawable.native_settings, R.string.native_settings),
                             ).forEach { (destination, icon, label) ->
                                 NavigationBarItem(selected = page == destination, enabled = !privacySetupBusy && !proxyPrivacyBusy && !inboundBusy && !dnsBusy && !tlsBusy && !generalOptionsBusy && !tunnelBusy && !generalPreferencesBusy, onClick = { pageTrail = ""; page = destination },
-                                    icon = { Icon(painterResource(icon), contentDescription = null) },
+                                    icon = { Icon(painterResource(icon), contentDescription = null, Modifier.size(26.dp)) },
+                                    colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
+                                        selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary,
+                                        indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = .14f),
+                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant),
                                     label = { Text(stringResource(label), maxLines = 1) })
                             }
                         }
@@ -1055,6 +1064,7 @@ private fun ConnectionCard(
         Box(Modifier.size(176.dp).graphicsLayer { scaleX = scale; scaleY = scale }.background(
             Brush.radialGradient(listOf(accent.copy(alpha = .12f), Color.Transparent)), CircleShape,
         ).border(2.dp, accent.copy(alpha = .28f), CircleShape), contentAlignment = Alignment.Center) {
+            NativeConnectionAura(accent, status == Status.Started || status == Status.Starting, Modifier.fillMaxSize())
             NativeGlass(Modifier.padding(14.dp).fillMaxSize(), radius = 100, accent = accent) {
                 Box(Modifier.fillMaxSize().clip(CircleShape)
                     .clickable(enabled = enabled, role = Role.Button, onClick = onToggleConnection)

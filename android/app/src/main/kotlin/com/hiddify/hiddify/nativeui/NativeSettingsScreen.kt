@@ -7,13 +7,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
+import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
 import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
+import com.hiddify.hiddify.nativeui.NativeGlassDialog as AlertDialog
 import com.hiddify.hiddify.nativeui.NativeCard as Card
 import androidx.compose.material3.MaterialTheme
 import com.hiddify.hiddify.nativeui.NativeOutlinedButton as OutlinedButton

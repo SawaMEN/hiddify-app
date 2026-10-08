@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.material3.AlertDialog
+import com.hiddify.hiddify.nativeui.NativeGlassDialog as AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import com.hiddify.hiddify.nativeui.NativeOutlinedButton as OutlinedButton
 import androidx.compose.material3.Text
