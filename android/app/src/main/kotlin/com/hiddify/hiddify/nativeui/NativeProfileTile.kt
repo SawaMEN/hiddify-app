@@ -87,7 +87,7 @@ internal fun NativeProfileTile(
                 Row(Modifier.fillMaxWidth().then(if (isMain) Modifier.padding(vertical = 4.dp) else Modifier),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(profile.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        overflow = TextOverflow.Clip)
                     if (isMain) Icon(painterResource(R.drawable.native_drop_down), null)
                 }
                 if (profile.isRemote && profile.upload != null && profile.download != null && profile.total != null && profile.expire != null) {
@@ -124,14 +124,12 @@ private fun NativeProfileSubscriptionInfo(profile: NativeProfile) {
     Spacer(Modifier.height(4.dp))
     LinearProgressIndicator(progress = { ratio }, modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(16.dp)))
     Spacer(Modifier.height(4.dp))
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(if (total > 10L * 1_099_511_627_776L) "∞ GiB" else "$consumedText / $totalText",
-            Modifier.weight(1f).semantics { contentDescription = trafficLabel },
-            style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Spacer(Modifier.width(8.dp))
-        Text(remaining, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall,
-            color = if (expired || ratio >= 1f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-            maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Modifier.semantics { contentDescription = trafficLabel },
+            style = MaterialTheme.typography.bodySmall)
+        if (remaining.isNotBlank()) Text(remaining, style = MaterialTheme.typography.bodySmall,
+            color = if (expired || ratio >= 1f) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
     }
     Spacer(Modifier.height(4.dp))
 }

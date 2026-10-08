@@ -49,7 +49,17 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.graphics.Color
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
@@ -295,6 +305,8 @@ fun NativeApp(
     var quickSettingsOpen by rememberSaveable { mutableStateOf(false) }
     var outboundsOpen by rememberSaveable { mutableStateOf(false) }
     var page by rememberSaveable { mutableStateOf(PAGE_HOME) }
+    var navigationDirection by remember { mutableStateOf(0) }
+    val pageStateHolder = rememberSaveableStateHolder()
     var regionalAppKind by rememberSaveable { mutableStateOf(NativeRegionalAppKind.DIRECT.name) }
 
     // Only internal page names are stored, so this trail also survives Activity recreation.
@@ -303,6 +315,8 @@ fun NativeApp(
     var settingsCategory by rememberSaveable { mutableStateOf(NativeSettingsCategory.APP.name) }
     fun openPage(destination: String) {
         if (privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy || generalOptionsBusy || tunnelBusy || generalPreferencesBusy) return
+        if (page == destination) return
+        navigationDirection = 1
         pageTrail += "|$page"
         page = destination
     }
@@ -310,6 +324,7 @@ fun NativeApp(
         if (privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy || generalOptionsBusy || tunnelBusy || generalPreferencesBusy) return
         if (page == PAGE_DIAGNOSTICS) onCancelDiagnostics()
         if (page == PAGE_PER_APP_BACKUP || page == PAGE_PER_APP) onDismissPerAppImport()
+        navigationDirection = -1
         page = pageTrail.substringAfterLast('|', PAGE_HOME)
         pageTrail = pageTrail.substringBeforeLast('|', "")
     }
@@ -350,15 +365,11 @@ fun NativeApp(
                         .semantics { testTagsAsResourceId = true }
                         .fillMaxSize()
                         .statusBarsPadding()
-                        .navigationBarsPadding()
-                        .padding(top = if (page in setOf(PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS, PAGE_DIAGNOSTICS, PAGE_PROTECTION, PAGE_TRAFFIC_FILTERS, PAGE_WIFI_GUIDE, PAGE_PER_APP, PAGE_DNS, PAGE_TLS, PAGE_INBOUND, PAGE_GENERAL_OPTIONS)) 0.dp else 8.dp),
+                        .navigationBarsPadding(),
             ) {
-                Box(Modifier.fillMaxSize().testTag("page_$page").padding(bottom = if (page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY)) dockHeight else 0.dp), contentAlignment = Alignment.TopCenter) {
-                    Box((if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY || page == PAGE_SETTINGS) Modifier else Modifier.widthIn(max = 680.dp))
-                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS, PAGE_DIAGNOSTICS, PAGE_PROTECTION, PAGE_TRAFFIC_FILTERS, PAGE_WIFI_GUIDE, PAGE_PER_APP, PAGE_DNS, PAGE_TLS, PAGE_INBOUND, PAGE_GENERAL_OPTIONS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
-                        Crossfade(targetState = page,
-                            animationSpec = tween(if (LocalNativeMotionEnabled.current) 180 else 0),
-                            label = "Page transition") { visiblePage ->
+                NativePageTransition(page, navigationDirection, Modifier.fillMaxSize()) { visiblePage ->
+                    pageStateHolder.SaveableStateProvider(visiblePage) {
+                        NativePageFrame(visiblePage, dockHeight) {
                             when (visiblePage) {
                                 PAGE_DIAGNOSTICS ->
                                     NativeDiagnosticsScreen(
@@ -736,8 +747,11 @@ fun NativeApp(
                         }
                     }
                 }
-                if (page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY)) {
-                    NativeDock(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                AnimatedVisibility(visible = page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY),
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    enter = fadeIn(tween(if (LocalNativeMotionEnabled.current) 180 else 0)),
+                    exit = fadeOut(tween(if (LocalNativeMotionEnabled.current) 80 else 0))) {
+                    NativeDock(Modifier.fillMaxWidth()
                         .onSizeChanged { dockHeight = with(density) { it.height.toDp() } }
                         .padding(horizontal = 12.dp).padding(bottom = 8.dp)) {
                         NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp, modifier = Modifier.heightIn(min = 80.dp)) {
@@ -746,7 +760,13 @@ fun NativeApp(
                                 Triple(PAGE_PRIVACY, R.drawable.native_shield, R.string.native_privacy_title),
                                 Triple(PAGE_SETTINGS, R.drawable.native_settings, R.string.native_settings),
                             ).forEach { (destination, icon, label) ->
-                                NavigationBarItem(modifier = Modifier.testTag("nav_$destination"), selected = page == destination, enabled = !privacySetupBusy && !proxyPrivacyBusy && !inboundBusy && !dnsBusy && !tlsBusy && !generalOptionsBusy && !tunnelBusy && !generalPreferencesBusy, onClick = { pageTrail = ""; page = destination },
+                                NavigationBarItem(modifier = Modifier.testTag("nav_$destination"), selected = page == destination, enabled = !privacySetupBusy && !proxyPrivacyBusy && !inboundBusy && !dnsBusy && !tlsBusy && !generalOptionsBusy && !tunnelBusy && !generalPreferencesBusy, onClick = {
+                                    if (page != destination) {
+                                        navigationDirection = 0
+                                        pageTrail = ""
+                                        page = destination
+                                    }
+                                },
                                     icon = { Icon(painterResource(icon), contentDescription = null, Modifier.size(26.dp)) },
                                     colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
                                         selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -824,6 +844,23 @@ fun NativeApp(
     }
 }
 
+/** Padding belongs to the displayed screen, never to the incoming navigation target. */
+@Composable
+private fun NativePageFrame(page: String, dockHeight: androidx.compose.ui.unit.Dp, content: @Composable () -> Unit) {
+    val edgeToEdge = page in setOf(PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS,
+        PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS, PAGE_DIAGNOSTICS, PAGE_PROTECTION,
+        PAGE_TRAFFIC_FILTERS, PAGE_WIFI_GUIDE, PAGE_PER_APP, PAGE_DNS, PAGE_TLS,
+        PAGE_INBOUND, PAGE_GENERAL_OPTIONS)
+    Box(Modifier.fillMaxSize().testTag("page_$page")
+        .padding(top = if (edgeToEdge) 0.dp else 8.dp,
+            bottom = if (page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY)) dockHeight else 0.dp),
+        contentAlignment = Alignment.TopCenter) {
+        Box((if (page in setOf(PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_PRIVACY, PAGE_SETTINGS)) Modifier
+            else Modifier.widthIn(max = 680.dp)).fillMaxSize()
+            .padding(horizontal = if (edgeToEdge) 0.dp else if (page == PAGE_PRIVACY) 16.dp else 20.dp)) { content() }
+    }
+}
+
 @Composable
 private fun HomeScreen(
     status: Status,
@@ -865,24 +902,26 @@ private fun HomeScreen(
         confirmButton = { NativeTextButton(onClick = { noProfileNotice = false; onAddProfile() }) { Text(stringResource(android.R.string.ok)) } },
     )
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Image(painterResource(R.drawable.vetroff_app_logo), contentDescription = null, modifier = Modifier.size(28.dp))
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // The brand has its own row; toolbar actions cannot squeeze it into VetrOF….
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Image(painterResource(R.drawable.vetroff_app_logo), contentDescription = null, modifier = Modifier.size(32.dp))
+                Text(stringResource(R.string.app_name), Modifier.weight(1f),
+                    style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(if (BuildConfig.CHANNEL == "prod") BuildConfig.VERSION_NAME
                     else "${BuildConfig.VERSION_NAME} ${BuildConfig.CHANNEL}",
-                    modifier = Modifier.semantics { contentDescription = versionLabel },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-            IconButton(onClick = onOpenDiagnostics) {
-                Icon(painterResource(R.drawable.home_health), stringResource(R.string.native_diagnostics_title))
-            }
-            FilledTonalIconButton(onClick = onAddProfile, enabled = busyProfileId == null) {
-                Icon(painterResource(R.drawable.home_add), stringResource(R.string.native_profile_add))
+                    modifier = Modifier.weight(1f).semantics { contentDescription = versionLabel },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                IconButton(onClick = onOpenDiagnostics) {
+                    Icon(painterResource(R.drawable.home_health), stringResource(R.string.native_diagnostics_title))
+                }
+                FilledTonalIconButton(onClick = onAddProfile, enabled = busyProfileId == null) {
+                    Icon(painterResource(R.drawable.home_add), stringResource(R.string.native_profile_add))
+                }
             }
         }
         if (!hasProfiles && !hasActiveProfile && !profilesLoading && !profilesLoadFailed) {
@@ -924,10 +963,10 @@ private fun HomeScreen(
                         }
                     }
                 }
-                Column(Modifier.fillMaxWidth().padding(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 20.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                Column(Modifier.fillMaxWidth().padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 20.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally) {
-                        ConnectionCard(status = status, recovering = recoveryAttempt > 0, delayMs = activeOutbound?.delayMs ?: 0,
+                        ConnectionCard(status = status, recovering = recoveryAttempt > 0, hapticFeedback = hapticFeedback,
                             requiresReconnect = requiresReconnect, reconnectBusy = reconnectBusy, failed = connectionFailed,
                             onToggleConnection = {
                                 if (status == Status.Stopped && !hasActiveProfile && !profilesLoading && !profilesLoadFailed) noProfileNotice = true
@@ -996,8 +1035,12 @@ private fun TrafficMetric(label: Int, rate: Long, total: Long, stats: NativeSyst
     val units = androidx.compose.ui.res.stringArrayResource(R.array.native_traffic_units)
     val session = nativeTrafficAmount(total)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(stringResource(label), style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(painterResource(if (label == R.string.native_speed_download) R.drawable.native_arrow_down else R.drawable.native_arrow_up),
+                null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+            Text(stringResource(label), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Text(if (stats.speedAvailable) amount.value else "—", style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"))
         Text(if (stats.speedAvailable) stringResource(R.string.native_speed_unit, units[amount.unitIndex]) else stringResource(R.string.native_speed_waiting),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1010,7 +1053,7 @@ private fun TrafficMetric(label: Int, rate: Long, total: Long, stats: NativeSyst
 private fun ConnectionCard(
     status: Status,
     recovering: Boolean,
-    delayMs: Int,
+    hapticFeedback: Boolean,
     onToggleConnection: () -> Unit,
     requiresReconnect: Boolean = false,
     reconnectBusy: Boolean = false,
@@ -1030,20 +1073,41 @@ private fun ConnectionCard(
     })
     val scheme = MaterialTheme.colorScheme
     val connected = status == Status.Started
-    val accent by animateColorAsState(if (connected) scheme.primary else scheme.surfaceContainerHigh,
+    val accent by animateColorAsState(if (connected) scheme.primary else scheme.primaryContainer,
         tween(if (LocalNativeMotionEnabled.current) 180 else 0), label = "Connection color")
     val enabled = !reconnectBusy && (recovering || status != Status.Stopping)
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val motion = LocalNativeMotionEnabled.current
+    val scale by animateFloatAsState(if (pressed && enabled) .94f else 1f,
+        tween(if (motion) 140 else 0), label = "Power press")
+    val gradientEnd by animateColorAsState(if (connected) scheme.secondary else scheme.surfaceContainerHigh,
+        tween(if (motion) 180 else 0), label = "Power gradient")
+    val view = LocalView.current
+    val transitioning = status == Status.Starting || status == Status.Stopping || reconnectBusy
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        androidx.compose.material3.Surface(
-            onClick = onToggleConnection, enabled = enabled,
-            modifier = Modifier.size(144.dp).semantics { contentDescription = actionLabel },
-            shape = CircleShape, color = accent,
-            contentColor = if (connected) scheme.onPrimary else scheme.onSurface,
-        ) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(painterResource(R.drawable.home_power), null, Modifier.size(52.dp))
+        Box(Modifier.size(164.dp), contentAlignment = Alignment.Center) {
+            // A quiet rim gives the control depth without glows or continuous redraws.
+            Box(Modifier.fillMaxSize().border(1.dp, scheme.primary.copy(alpha = .22f), CircleShape))
+            androidx.compose.material3.Surface(
+                onClick = {
+                    if (hapticFeedback) view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                    onToggleConnection()
+                }, enabled = enabled, interactionSource = interaction,
+                modifier = Modifier.size(144.dp).scale(scale).semantics { contentDescription = actionLabel },
+                shape = CircleShape, color = accent,
+                border = BorderStroke(1.dp, scheme.primary.copy(alpha = .45f)),
+                shadowElevation = if (pressed) 1.dp else 6.dp,
+                contentColor = if (connected) scheme.onPrimary else scheme.onPrimaryContainer,
+            ) {
+                Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(accent, gradientEnd))),
+                    contentAlignment = Alignment.Center) {
+                    Icon(painterResource(R.drawable.home_power), null, Modifier.size(52.dp))
+                }
             }
+            if (transitioning) CircularProgressIndicator(Modifier.size(164.dp),
+                color = scheme.primary, strokeWidth = 3.dp)
         }
         Text(actionLabel, style = MaterialTheme.typography.titleLarge,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -1103,3 +1167,7 @@ private fun EmptyHomePreview() = NativeHomePreview(NativeThemeMode.LIGHT, empty 
 @androidx.compose.ui.tooling.preview.Preview(name = "Home · connection error", widthDp = 390, heightDp = 844)
 @Composable
 private fun FailedHomePreview() = NativeHomePreview(NativeThemeMode.DARK, failed = true)
+
+@androidx.compose.ui.tooling.preview.Preview(name = "Home · compact large text", widthDp = 320, heightDp = 720, fontScale = 1.6f)
+@Composable
+private fun CompactHomePreview() = NativeHomePreview(NativeThemeMode.DARK)

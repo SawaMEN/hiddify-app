@@ -20,14 +20,14 @@ import com.hiddify.hiddify.nativepreferences.NativeThemeMode
 
 // Stable, opaque surfaces and restrained accents keep both themes readable.
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFFA8C7FA),
-    onPrimary = Color(0xFF12315B),
-    primaryContainer = Color(0xFF29466E),
-    onPrimaryContainer = Color(0xFFD6E4FF),
-    secondary = Color(0xFFB5C4D0),
-    onSecondary = Color(0xFF22323E),
-    secondaryContainer = Color(0xFF394956),
-    onSecondaryContainer = Color(0xFFD8E5F0),
+    primary = Color(0xFF8FDACD),
+    onPrimary = Color(0xFF083C35),
+    primaryContainer = Color(0xFF244F49),
+    onPrimaryContainer = Color(0xFFC0EEE5),
+    secondary = Color(0xFFB8C1E3),
+    onSecondary = Color(0xFF293149),
+    secondaryContainer = Color(0xFF404961),
+    onSecondaryContainer = Color(0xFFDDE3FC),
     tertiary = Color(0xFFC0BDD5),
     onTertiary = Color(0xFF302D43),
     tertiaryContainer = Color(0xFF47445C),
@@ -47,14 +47,14 @@ private val DarkColors = darkColorScheme(
 )
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF315F9C),
+    primary = Color(0xFF236C60),
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFD6E4FF),
-    onPrimaryContainer = Color(0xFF102D53),
-    secondary = Color(0xFF4C606E),
+    primaryContainer = Color(0xFFC0EEE5),
+    onPrimaryContainer = Color(0xFF123E36),
+    secondary = Color(0xFF555F7B),
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFD8E5F0),
-    onSecondaryContainer = Color(0xFF22323E),
+    secondaryContainer = Color(0xFFDDE3FC),
+    onSecondaryContainer = Color(0xFF293149),
     tertiary = Color(0xFF625C78),
     onTertiary = Color(0xFFFFFFFF),
     tertiaryContainer = Color(0xFFE5DFF9),

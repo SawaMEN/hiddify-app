@@ -4,7 +4,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.widget.Toast
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -18,12 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.alpha
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -35,7 +29,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.constant.ServiceMode
@@ -90,11 +83,21 @@ internal fun NativeQuickSettingsSheet(
             finally { linkBusy = false }
         }
     }
-    ModalBottomSheet(modifier = Modifier.nativeGlassDecoration(androidx.compose.foundation.shape.RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)),
-        containerColor = androidx.compose.ui.graphics.Color.Transparent, tonalElevation = 0.dp, onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
-            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(16.dp)) {
+    val scheme = MaterialTheme.colorScheme
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        containerColor = scheme.surfaceContainerLow,
+        contentColor = scheme.onSurface,
+        tonalElevation = 0.dp,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = scheme.onSurfaceVariant.copy(alpha = .45f)) },
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp).padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Text(stringResource(R.string.native_quick_settings), style = MaterialTheme.typography.titleLarge)
+            SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                 listOf(ServiceMode.NORMAL, ServiceMode.VPN).forEachIndexed { index, mode ->
                     SegmentedButton(selected = serviceMode == mode,
                         onClick = { if (serviceMode != mode) onServiceMode(mode == ServiceMode.NORMAL) },
@@ -103,67 +106,62 @@ internal fun NativeQuickSettingsSheet(
                             R.string.native_quick_proxy else R.string.native_quick_vpn), Modifier.padding(vertical = 8.dp)) })
                 }
             }
-            HorizontalDivider(thickness = 2.dp)
-            Row(Modifier.fillMaxWidth().clickable(enabled = !busy) { password = inbound.lanPassword; passwordOpen = true }.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                Icon(painterResource(R.drawable.native_quick_share), null)
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.native_quick_lan), style = MaterialTheme.typography.bodyLarge)
-                    Text(inbound.lanPassword.ifBlank { stringResource(R.string.native_quick_password_empty) },
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            NativeGlass(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Icon(painterResource(R.drawable.native_quick_share), null, Modifier.size(24.dp), tint = scheme.primary)
+                        Text(stringResource(R.string.native_quick_lan), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+                        Switch(checked = wifiSharing || inbound.allowLan, enabled = !wifiSharing && !busy,
+                            onCheckedChange = { onLanSharing(it, inbound.lanPassword) })
+                    }
+                    // Keep password editing separate from the switch and nested sharing actions.
+                    Row(Modifier.fillMaxWidth().clickable(enabled = !busy, role = Role.Button) {
+                        password = inbound.lanPassword; passwordOpen = true
+                    }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(stringResource(R.string.native_quick_password), style = MaterialTheme.typography.labelLarge)
+                            Text(inbound.lanPassword.ifBlank { stringResource(R.string.native_quick_password_empty) },
+                                style = MaterialTheme.typography.bodyMedium, color = scheme.onSurfaceVariant)
+                        }
+                        Icon(painterResource(R.drawable.native_chevron), null, Modifier.size(20.dp))
+                    }
                     if (wifiSharing || (inbound.allowLan && inbound.mixedEnabled)) {
-                        FlowRow(Modifier.fillMaxWidth().padding(top = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             ElevatedButton(enabled = !detailsBusy && !linkBusy && !busy, onClick = { sharingAction(false) }) {
-                                Icon(painterResource(R.drawable.native_quick_link), null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(painterResource(R.drawable.native_quick_link), null, Modifier.size(20.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text(stringResource(R.string.native_quick_copy_link), color = MaterialTheme.colorScheme.primary)
+                                Text(stringResource(R.string.native_quick_copy_link))
                             }
                             ElevatedButton(enabled = !detailsBusy && !linkBusy && !busy, onClick = { sharingAction(true) }) {
-                                Icon(painterResource(R.drawable.native_quick_qr_code), null, tint = MaterialTheme.colorScheme.primary)
+                                Icon(painterResource(R.drawable.native_quick_qr_code), null, Modifier.size(20.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text(stringResource(R.string.native_quick_qr), color = MaterialTheme.colorScheme.primary)
+                                Text(stringResource(R.string.native_quick_qr))
                             }
                         }
                     }
                 }
-                Switch(checked = wifiSharing || inbound.allowLan, enabled = !wifiSharing && !busy,
-                    onCheckedChange = { onLanSharing(it, inbound.lanPassword) })
             }
-            HorizontalDivider(thickness = 2.dp)
-            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(10.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                ChainStage(Modifier.weight(1f), true, chain, busy, onChain, onOpenChain)
-                Column(Modifier.weight(1f).fillMaxHeight(), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
-                        Row(Modifier.clickable(enabled = !busy, role = Role.Button, onClick = onOpenChain)
-                            .padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(painterResource(R.drawable.native_chain_webhook), null, Modifier.size(20.dp),
-                                tint = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.width(4.dp))
-                            Text(stringResource(R.string.native_quick_chain), Modifier.weight(1f, fill = false),
-                                color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyLarge,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(painterResource(R.drawable.native_chain_arrow_forward), null, Modifier.padding(horizontal = 4.dp).size(20.dp),
-                            tint = MaterialTheme.colorScheme.primary)
-                        Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(stringResource(R.string.native_quick_main_profile), style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Spacer(Modifier.height(2.dp))
-                            Text(activeProfileName.ifBlank { stringResource(R.string.native_quick_not_set) },
-                                Modifier.height(32.dp).padding(horizontal = 4.dp).basicMarquee(),
-                                style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                            ChainFinalIp(chain.status != "extra_security")
-                        }
-                        Icon(painterResource(R.drawable.native_chain_arrow_forward), null, Modifier.padding(horizontal = 4.dp).size(20.dp),
-                            tint = MaterialTheme.colorScheme.primary)
-                    }
+            Row(Modifier.fillMaxWidth().clickable(enabled = !busy, role = Role.Button, onClick = onOpenChain)
+                .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(painterResource(R.drawable.native_chain_webhook), null, Modifier.size(24.dp), tint = scheme.primary)
+                Text(stringResource(R.string.native_quick_chain), Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                Icon(painterResource(R.drawable.native_chevron), null, Modifier.size(20.dp))
+            }
+            // Full-width stages grow with localized labels and the system font size.
+            ChainStage(Modifier.fillMaxWidth(), true, chain, busy, onChain, onOpenChain)
+            NativeGlass(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(stringResource(R.string.native_quick_main_profile), style = MaterialTheme.typography.labelLarge,
+                        color = scheme.onSurfaceVariant)
+                    Text(activeProfileName.ifBlank { stringResource(R.string.native_quick_not_set) },
+                        style = MaterialTheme.typography.titleMedium)
+                    if (chain.status != "extra_security") ChainFinalIp()
                 }
-                ChainStage(Modifier.weight(1f), false, chain, busy, onChain, onOpenChain)
             }
+            ChainStage(Modifier.fillMaxWidth(), false, chain, busy, onChain, onOpenChain)
         }
     }
     if (passwordOpen) LanPasswordDialog(password, { password = it }, busy,
@@ -174,12 +172,9 @@ internal fun NativeQuickSettingsSheet(
 }
 
 @Composable
-private fun ChainFinalIp(visible: Boolean) {
-    val opacity by animateFloatAsState(if (visible) 1f else 0f,
-        tween(if (LocalNativeMotionEnabled.current) 500 else 0), label = "Chain final IP")
-    val dark = MaterialTheme.colorScheme.surface.luminance() < .5f
-    Text(stringResource(R.string.native_quick_final_ip), Modifier.padding(horizontal = 4.dp).alpha(opacity),
-        style = MaterialTheme.typography.labelSmall, color = if (dark) Color(0xFF99AD7A) else Color(0xFF57880D))
+private fun ChainFinalIp() {
+    Text(stringResource(R.string.native_quick_final_ip),
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
 }
 
 @Composable
@@ -199,52 +194,46 @@ private fun ChainStage(modifier: Modifier, extra: Boolean, chain: NativeChainOpt
     val enabled = chain.status == stage
     val mode = if (extra) chain.extraMode else chain.unblockerMode
     val scheme = MaterialTheme.colorScheme
-    val foreground = if (enabled) scheme.onPrimaryContainer else scheme.onSecondaryContainer
+    val foreground = if (enabled) scheme.onPrimaryContainer else scheme.onSurface
     var menuOpen by remember { mutableStateOf(false) }
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-            Icon(painterResource(if (extra) R.drawable.native_chain_phone_android else R.drawable.native_chain_wifi),
-                null, Modifier.size(20.dp), tint = scheme.onSurfaceVariant)
-            Spacer(Modifier.width(4.dp))
-            Text(stringResource(if (extra) R.string.native_quick_app else R.string.native_quick_filtering),
-                Modifier.weight(1f, fill = false), style = MaterialTheme.typography.labelSmall,
-                color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
-        Spacer(Modifier.height(4.dp))
-        Icon(painterResource(R.drawable.native_chain_arrow_upward), null, Modifier.size(20.dp)
-            .rotate(if (extra) 180f else 0f), tint = scheme.primary)
-        Spacer(Modifier.height(4.dp))
-        Text(stringResource(if (extra) R.string.native_quick_extra else R.string.native_quick_unblocker),
-            Modifier.padding(horizontal = 4.dp), style = MaterialTheme.typography.labelSmall,
-            color = scheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Box(Modifier.padding(vertical = 2.dp)) {
-            Surface(shape = RoundedCornerShape(100.dp),
-                color = if (enabled) scheme.primaryContainer else scheme.secondaryContainer) {
-                Row(Modifier.height(32.dp).clickable(enabled = !busy, role = Role.Button) { menuOpen = true }
-                    .padding(start = 12.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (enabled) { ChainModeIcon(mode); Spacer(Modifier.width(4.dp)) }
-                    Text(if (enabled) modeTitle(mode) else stringResource(R.string.native_quick_disable),
-                        Modifier.weight(1f, fill = false).basicMarquee(), style = MaterialTheme.typography.labelMedium,
-                        color = foreground, maxLines = 1)
-                    Spacer(Modifier.width(4.dp))
-                    Icon(painterResource(R.drawable.native_chain_arrow_drop_down), null, Modifier.size(16.dp), tint = foreground)
+    NativeGlass(modifier) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Icon(painterResource(if (extra) R.drawable.native_chain_phone_android else R.drawable.native_chain_wifi),
+                    null, Modifier.size(24.dp), tint = scheme.primary)
+                Text(stringResource(if (extra) R.string.native_quick_extra else R.string.native_quick_unblocker),
+                    Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            }
+            Box {
+                Surface(shape = RoundedCornerShape(14.dp),
+                    color = if (enabled) scheme.primaryContainer else scheme.surfaceContainerHigh) {
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .clickable(enabled = !busy, role = Role.Button) { menuOpen = true }
+                        .padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (enabled) ChainModeIcon(mode)
+                        Text(if (enabled) modeTitle(mode) else stringResource(R.string.native_quick_disable),
+                            Modifier.weight(1f), style = MaterialTheme.typography.labelLarge,
+                            color = if (enabled) foreground else scheme.onSurface)
+                        Icon(painterResource(R.drawable.native_chain_arrow_drop_down), null, Modifier.size(20.dp))
+                    }
+                }
+                DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.native_quick_disable)) },
+                        leadingIcon = { Icon(painterResource(R.drawable.native_chain_block), null, Modifier.size(16.dp)) },
+                        onClick = { menuOpen = false; onChange(extra, null) }, enabled = !busy)
+                    listOf("psiphon", "warp", "profile").forEach { choice ->
+                        DropdownMenuItem(text = { Text(modeTitle(choice)) }, leadingIcon = { ChainModeIcon(choice) },
+                            onClick = { menuOpen = false; onChange(extra, choice) }, enabled = !busy)
+                    }
+                    HorizontalDivider()
+                    DropdownMenuItem(text = { Text(stringResource(R.string.native_quick_configuration)) },
+                        trailingIcon = { Icon(painterResource(R.drawable.native_chevron), null, Modifier.size(16.dp)) },
+                        onClick = { menuOpen = false; onConfigure() }, enabled = !busy)
                 }
             }
-            DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                DropdownMenuItem(text = { Text(stringResource(R.string.native_quick_disable)) },
-                    leadingIcon = { Icon(painterResource(R.drawable.native_chain_block), null, Modifier.size(16.dp)) },
-                    onClick = { menuOpen = false; onChange(extra, null) }, enabled = !busy)
-                listOf("psiphon", "warp", "profile").forEach { choice ->
-                    DropdownMenuItem(text = { Text(modeTitle(choice)) }, leadingIcon = { ChainModeIcon(choice) },
-                        onClick = { menuOpen = false; onChange(extra, choice) }, enabled = !busy)
-                }
-                HorizontalDivider()
-                DropdownMenuItem(text = { Text(stringResource(R.string.native_quick_configuration)) },
-                    trailingIcon = { Icon(painterResource(R.drawable.native_chevron), null, Modifier.size(16.dp)) },
-                    onClick = { menuOpen = false; onConfigure() }, enabled = !busy)
-            }
+            if (extra && enabled) ChainFinalIp()
         }
-        ChainFinalIp(extra && enabled)
     }
 }
 
@@ -295,4 +284,25 @@ internal fun LanQrDialog(link: String, onDismiss: () -> Unit) {
             Text(link, style = MaterialTheme.typography.bodySmall)
         }
     }, confirmButton = { NativeTextButton(onClick = onDismiss) { Text(stringResource(android.R.string.ok)) } })
+}
+
+@androidx.compose.ui.tooling.preview.Preview(name = "Quick settings · dark Russian", widthDp = 390, heightDp = 844, locale = "ru")
+@Composable
+private fun DarkQuickSettingsPreview() = QuickSettingsPreview(com.hiddify.hiddify.nativepreferences.NativeThemeMode.DARK)
+
+@androidx.compose.ui.tooling.preview.Preview(name = "Quick settings · compact large text", widthDp = 320, heightDp = 720, fontScale = 1.6f, locale = "ru")
+@Composable
+private fun CompactQuickSettingsPreview() = QuickSettingsPreview(com.hiddify.hiddify.nativepreferences.NativeThemeMode.LIGHT)
+
+@Composable
+private fun QuickSettingsPreview(mode: com.hiddify.hiddify.nativepreferences.NativeThemeMode) {
+    NativeAppTheme(mode) {
+        NativeQuickSettingsSheet(serviceMode = ServiceMode.VPN, wifiSharing = false,
+            inbound = NativeInboundOptions(allowLan = true, lanPassword = "VetrOFF"),
+            chain = NativeChainOptions(status = "extra_security"),
+            activeProfileName = "VetrOFF — основной профиль", busy = false, detailsBusy = false,
+            onServiceMode = {}, onLanSharing = { _, _ -> }, onChain = { _, _ -> },
+            onResolveLanSharing = { error("Preview does not resolve LAN details") },
+            onOpenChain = {}, onDismiss = {})
+    }
 }
