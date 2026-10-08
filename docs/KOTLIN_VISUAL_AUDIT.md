@@ -96,3 +96,20 @@ changes. Original Fluent vectors now replace the listed approximate glyphs; diag
 per-app routing, Wi-Fi guide, anonymization and protection receive source-based layout
 corrections. Log typography and severity filtering now follow Dart. Device rendering and
 interaction parity remain unverified; this supersedes the earlier notes for these items.
+
+## Opaque icon backgrounds (2026-10-08)
+
+Removed accidentally painted SVG viewport guides from 26 Material resources in DNS,
+TLS, general options, chain controls and LAN sharing. Their `fill="none"` was lost during
+monochrome conversion, so Compose tinted the entire viewport into a solid square.
+The converter now skips unpainted shapes, including inherited `fill="none"`; the existing
+native-resource CI check rejects both integer and decimal viewport-guide encodings.
+Intentional flag and launcher/cover backgrounds are excluded.
+
+Compared icon identities with Dart at `8d8655916b115417e1f736966108c29ca87ba530`, including
+rounded Material variants and Android AdaptiveIcon's Fluent share/more variants. Rendered
+53 attributed Material/Fluent resources at 96px and compared their alpha masks with the
+original Google SVGs and Microsoft SVGs at the pinned Fluent commit: all masks matched.
+The CI guard rejected all 26 original broken resources; corrected resources and the
+existing source inventory passed. These checks verify resource contours, not Android
+device screenshots or whole-application visual parity. No APK build was awaited.

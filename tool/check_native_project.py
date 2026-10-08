@@ -31,6 +31,27 @@ def check():
     res = SOURCE / 'res'
     for path in res.rglob('*.xml'):
         ET.parse(path)
+    # Material SVG viewport guides must never become painted paths. Compose Icon
+    # tints every opaque pixel, so one such path turns the whole icon into a square.
+    android_attr = '{http://schemas.android.com/apk/res/android}'
+    for path in (res / 'drawable').glob('*.xml'):
+        if path.name.startswith(('native_flag_', 'ic_')):
+            continue  # Flags and launcher/cover artwork have intentional backgrounds.
+        vector = ET.parse(path).getroot()
+        if vector.tag != 'vector':
+            continue
+        width = vector.get(android_attr + 'viewportWidth')
+        height = vector.get(android_attr + 'viewportHeight')
+        guide = f'M00h{width}v{height}'
+        rectangle = re.escape(guide) + r'(?:H0(?:V0)?|h-' + re.escape(str(width)) + r')z'
+        for node in vector.iter('path'):
+            data = re.sub(r'-?\d+(?:\.\d+)?', lambda m: f'{float(m[0]):g}',
+                          node.get(android_attr + 'pathData', ''))
+            data = re.sub(r'[\s,]', '', data)
+            if re.fullmatch(rectangle + '(?:' + rectangle.replace('M00', 'm00') + ')*', data):
+                fill = node.get(android_attr + 'fillColor', '#00000000')
+                if fill != '#00000000' and node.get(android_attr + 'fillAlpha') != '0':
+                    raise ValueError(f'Opaque SVG viewport guide hides icon: {path.name}')
     keys = set()
     for path in (res / 'values').glob('*.xml'):
         keys.update(node.attrib['name'] for node in ET.parse(path).getroot() if node.tag == 'string')
