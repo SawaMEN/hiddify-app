@@ -57,6 +57,14 @@ data class NativeProfileEditor(
     val isJson: Boolean = false,
 )
 
+/** Staged source stays off saved-instance state and is persisted only after confirmation. */
+internal data class NativePreparedProfile(
+    val profile: NativeProfile,
+    val content: String,
+    val isNew: Boolean,
+    val summary: NativeImportSummary,
+)
+
 /**
  * Kotlin owner for the legacy Drift profile database.
  *
@@ -384,20 +392,20 @@ class NativeProfileRepository(private val context: Context) {
             .map { it.id }
             .toList()
 
-    fun importInput(
+    internal fun prepareInput(
         rawInput: String,
         name: String? = null,
         updateIntervalHours: Int? = null,
         disableAutoUpdate: Boolean = false,
         cancellation: NativeProfileImportCancellation? = null,
-    ): NativeProfile {
+    ): NativePreparedProfile {
         cancellation?.ensureActive()
         val input = rawInput.trim()
         require(input.isNotEmpty()) { "Profile is empty" }
 
         val link = parseRemoteLink(input)
         return if (link != null) {
-            importRemote(
+            prepareRemote(
                 url = link.first,
                 requestedName = name?.takeIf { it.isNotBlank() } ?: link.second,
                 updateIntervalHours = updateIntervalHours,
@@ -405,7 +413,7 @@ class NativeProfileRepository(private val context: Context) {
                 cancellation = cancellation,
             )
         } else {
-            importLocal(input, name, cancellation)
+            prepareLocal(input, name, cancellation)
         }
     }
 
@@ -420,6 +428,21 @@ class NativeProfileRepository(private val context: Context) {
         neededFeatures: Set<String>? = null,
         cancellation: NativeProfileImportCancellation? = null,
     ): NativeProfile {
+        return commitPrepared(prepareRemote(url, requestedName, updateIntervalHours, disableAutoUpdate,
+            existingId, existingOverride, replaceFeatures, neededFeatures, cancellation), cancellation)
+    }
+
+    internal fun prepareRemote(
+        url: String,
+        requestedName: String? = null,
+        updateIntervalHours: Int? = null,
+        disableAutoUpdate: Boolean = false,
+        existingId: String? = null,
+        existingOverride: String? = null,
+        replaceFeatures: Boolean = false,
+        neededFeatures: Set<String>? = null,
+        cancellation: NativeProfileImportCancellation? = null,
+    ): NativePreparedProfile {
         cancellation?.ensureActive()
         require(isHttpUrl(url)) { "Only HTTP and HTTPS subscription URLs are supported natively" }
 
@@ -472,16 +495,16 @@ class NativeProfileRepository(private val context: Context) {
                 populatedHeaders = JSONObject(mergedHeaders).toString(),
                 userOverride = override,
             )
-        cancellation?.beginCommit()
-        commit(profile, expanded, isNew = existing == null)
-        return profile
+        cancellation?.ensureActive()
+        return NativePreparedProfile(profile, expanded, existing == null,
+            NativeImportSummary.parse(expanded, mergedHeaders.keys, java.net.URI(url).scheme.equals("http", true)))
     }
 
-    fun importLocal(
+    private fun prepareLocal(
         content: String,
         requestedName: String? = null,
         cancellation: NativeProfileImportCancellation? = null,
-    ): NativeProfile {
+    ): NativePreparedProfile {
         cancellation?.ensureActive()
         val decoded = safeDecodeBase64(content)
         require(decoded.toByteArray(Charsets.UTF_8).size <= MAX_CONFIG_BYTES) { "Configuration exceeds 8 MiB" }
@@ -515,9 +538,17 @@ class NativeProfileRepository(private val context: Context) {
                             .toString()
                     },
             )
+        cancellation?.ensureActive()
+        return NativePreparedProfile(profile, decoded, true, NativeImportSummary.parse(decoded, headers.keys))
+    }
+
+    internal fun commitPrepared(
+        prepared: NativePreparedProfile,
+        cancellation: NativeProfileImportCancellation?,
+    ): NativeProfile {
         cancellation?.beginCommit()
-        commit(profile, decoded, isNew = true)
-        return profile
+        commit(prepared.profile, prepared.content, prepared.isNew)
+        return prepared.profile
     }
 
     private fun commit(profile: NativeProfile, content: String, isNew: Boolean) {

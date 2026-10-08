@@ -34,6 +34,8 @@ import com.hiddify.hiddify.nativediagnostics.NativeVpnProtection
 import com.hiddify.hiddify.nativeprofile.NativeProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
 import com.hiddify.hiddify.nativeprofile.NativeProfileTransfer
+import com.hiddify.hiddify.nativeprofile.NativeImportSummary
+import com.hiddify.hiddify.nativeprofile.NativePreparedProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileImportCancellation
 import com.hiddify.hiddify.nativeprofile.NativeProfileRepository
 import com.hiddify.hiddify.nativelog.NativeLogRepository
@@ -104,6 +106,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val profiles = mutableStateOf<List<NativeProfile>>(emptyList())
     private val profilesLoading = mutableStateOf(true)
     private val profileImportRevision = mutableStateOf(0)
+    private val profileImportPreview = mutableStateOf<NativeImportSummary?>(null)
+    private var profileImportDecision: CompletableDeferred<Boolean>? = null
     private val profileSelectionRevision = mutableStateOf(0)
     private val busyProfileId = mutableStateOf<String?>(null)
     private val ipVisibilitySession by lazy { androidx.lifecycle.ViewModelProvider(this)[com.hiddify.hiddify.nativeui.NativeIpVisibilitySession::class.java] }
@@ -462,6 +466,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onRetryProfiles = { profilesLoading.value = true; refreshProfiles() },
                 onUpdateAllProfiles = ::refreshAllRemoteProfiles,
                 profileImportRevision = profileImportRevision.value,
+                profileImportPreview = profileImportPreview.value,
+                onConfirmProfileImport = { profileImportDecision?.complete(it) },
                 profileSelectionRevision = profileSelectionRevision.value,
                 busyProfileId = busyProfileId.value,
                 profileEditor = profileEditor.value,
@@ -1161,8 +1167,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         val cancellation = NativeProfileImportCancellation()
         runProfileOperation(IMPORT_BUSY_ID, requireDisconnected = true, importCancellation = cancellation,
             onSuccess = { profileImportRevision.value += 1 }) {
-            profileRepository.importRemote(profile.url, requestedName = title, updateIntervalHours = 12,
+            val prepared = profileRepository.prepareRemote(profile.url, requestedName = title, updateIntervalHours = 12,
                 replaceFeatures = true, neededFeatures = profile.neededFeatures, cancellation = cancellation)
+            confirmProfileImport(prepared, cancellation)
+            profileRepository.commitPrepared(prepared, cancellation)
         }
     }
 
@@ -1175,13 +1183,40 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         val cancellation = NativeProfileImportCancellation()
         runProfileOperation(IMPORT_BUSY_ID, requireDisconnected = true, importCancellation = cancellation,
             onSuccess = { profileImportRevision.value += 1 }) {
-            profileRepository.importInput(
+            val prepared = profileRepository.prepareInput(
                 rawInput = raw,
                 cancellation = cancellation,
                 name = name,
                 updateIntervalHours = intervalHours,
                 disableAutoUpdate = disableAutoUpdate,
             )
+            confirmProfileImport(prepared, cancellation)
+            profileRepository.commitPrepared(prepared, cancellation)
+        }
+    }
+
+    private suspend fun confirmProfileImport(
+        prepared: NativePreparedProfile,
+        cancellation: NativeProfileImportCancellation,
+    ) {
+        val decision = CompletableDeferred<Boolean>()
+        try {
+            cancellation.attachRequest { decision.complete(false) }
+            withContext(Dispatchers.Main) {
+                cancellation.ensureActive()
+                profileImportDecision = decision
+                profileImportPreview.value = prepared.summary
+            }
+            if (!decision.await()) cancellation.cancel()
+            cancellation.ensureActive()
+        } finally {
+            cancellation.detachRequest()
+            withContext(NonCancellable + Dispatchers.Main) {
+                if (profileImportDecision === decision) {
+                    profileImportPreview.value = null
+                    profileImportDecision = null
+                }
+            }
         }
     }
 
@@ -1191,7 +1226,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         onSuccess: () -> Unit = {},
         stopBeforeDeletingId: String? = null,
         importCancellation: NativeProfileImportCancellation? = null,
-        operation: () -> Unit,
+        operation: suspend () -> Unit,
     ) {
         if (busyProfileId.value != null) return
         if (requireDisconnected && (serviceStatus.value != Status.Stopped || nativeStartPending ||

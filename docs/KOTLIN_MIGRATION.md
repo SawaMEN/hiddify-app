@@ -551,3 +551,17 @@ the token before the lifecycle scope is destroyed. Existing automatic updates re
 `NativeProfileImportCancellationTest` is included in the standalone JVM suite. Native resource
 checks and `git diff --check` pass; JVM tests could not start because Gradle download is blocked
 by network access. No APK build is awaited, and this step does not establish device pixel parity.
+
+
+## Native import review
+
+Profile preparation and persistence are now separate operations. User imports await a native
+summary dialog before saving; automatic subscription updates keep their existing noninteractive
+behavior. The dialog restores Dart's server/duplicate/unknown/override estimates and HTTP warning,
+with a cancellation-aware suspending decision. Rejecting it preserves the old profile/configuration
+and the current import draft. Prepared source is reused after confirmation and stays out of saved
+instance state. Core validation and device screenshot verification remain pending.
+
+NativeImportSummaryTest is included in the JVM suite. Resource/boundary checks, the original
+protocol-catalogue comparison and whitespace checks pass. The local JVM test command is blocked
+by the Gradle distribution download; no APK build is awaited.

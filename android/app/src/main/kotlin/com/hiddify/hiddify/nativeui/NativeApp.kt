@@ -186,6 +186,8 @@ fun NativeApp(
     onRetryProfiles: () -> Unit,
     onUpdateAllProfiles: () -> Unit,
     profileImportRevision: Int,
+    profileImportPreview: com.hiddify.hiddify.nativeprofile.NativeImportSummary?,
+    onConfirmProfileImport: (Boolean) -> Unit,
     profileSelectionRevision: Int,
     busyProfileId: String?,
     profileEditor: NativeProfileEditor?,
@@ -764,6 +766,9 @@ fun NativeApp(
                     onImportProfile(raw, name, interval, disabled)
                 },
             )
+        }
+        profileImportPreview?.let { summary ->
+            NativeImportPreviewDialog(summary, onConfirmProfileImport)
         }
         if (quickSettingsOpen) {
             NativeQuickSettingsSheet(

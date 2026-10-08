@@ -518,3 +518,35 @@ Five JVM tests cover cancellation before request attachment, nested-request isol
 cancellation during commit, independent retries and 250 concurrent cancel/commit races. Local
 execution could not start because the pinned Gradle download reports `Network is unreachable`.
 Native/resource and whitespace checks pass. APK compilation and device parity are not awaited.
+
+
+## Import preview and confirmation
+
+The Dart ImportSummary/showImportPreview flow now has a native counterpart. Remote/local and
+free-provider imports prepare their source, metadata and aggregate summary before persistence.
+An AlertDialog restores the original title, four summary lines, 16 dp gaps, scrollable 440 dp
+content, Cancel/Import actions and unencrypted-HTTP warning. Outside taps do not dismiss it;
+Back and Cancel reject the import. Confirmation uses the already downloaded source rather than
+fetching a potentially changed subscription again. Automatic subscription refresh remains
+noninteractive. Native strings match the original EN/RU labels, except the hint accurately asks
+the user to review the configuration rather than claiming unimplemented core validation.
+
+JSON counts both outbounds and endpoints, including sing-box 1.15 MASQUE endpoint types and
+Xray protocol entries. Utility outbounds do not count. JSON fingerprints ignore tag/name; link
+fingerprints ignore fragments. Base64 subscriptions and YAML type/routing estimates follow the
+original parser. The 39-type supported catalogue matches the Dart reference. Only aggregate
+counts and override names reach the UI; source credentials and configuration stay in the
+operation's memory and are not put in saved-instance state.
+
+The confirmation await is suspending, with no blocking UI/IO thread. Its decision is tied to
+the request-scoped cancellation token, so cancellation or Activity destruction clears the dialog
+and cannot commit the prepared profile. The existing profile-operation and native lifecycle
+locks remain held to prevent an active-profile/startup change during review. A confirmed commit
+uses the previous cancel/commit arbitration and transactional replacement.
+
+Six NativeImportSummaryTest cases cover JSON/endpoints, duplicates, unknown types, fragment and
+credential handling, Base64 links, YAML, header names/HTTP warning and malformed inputs. The JVM
+test command was attempted but could not download Gradle (`Network is unreachable`). Native
+resource/boundary checks, protocol-catalogue comparison and whitespace checks pass. APK build
+and on-device rendering are not awaited. Core validation of staged configurations and full
+small-screen/device parity remain separate outstanding work.

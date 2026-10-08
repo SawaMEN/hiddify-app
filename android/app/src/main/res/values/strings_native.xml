@@ -742,4 +742,12 @@
     <string name="native_home_version">Version</string>
     <string name="native_connection_stop_timeout">Unable to stop the VPN within 30 seconds. Wait for the service to stop and try again.</string>
     <string name="native_connection_service_unavailable">The VPN service did not start. Please try connecting again.</string>
+    <string name="native_import_preview">Import preview</string>
+    <string name="native_import_hint">Review the configuration before importing. Counts are estimates for supported formats.</string>
+    <string name="native_import_servers">Detected servers: %1$d</string>
+    <string name="native_import_duplicates">Duplicates: %1$d</string>
+    <string name="native_import_unknown_types">Unknown protocol types: %1$d</string>
+    <string name="native_import_overrides">DNS / routing overrides: %1$s</string>
+    <string name="native_import_plain_http">This subscription uses unencrypted HTTP.</string>
+    <string name="native_import_confirm">Import</string>
 </resources>
