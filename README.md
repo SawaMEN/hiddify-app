@@ -1,8 +1,7 @@
 # VetrOFF Client — Android / Kotlin
 
 Android VPN client built with Kotlin and Jetpack Compose. The application has no Dart sources,
-Flutter engine, Flutter SDK dependency or cross-platform compatibility UI. The existing
-Manrope typography, glass surfaces and Android VPN integration are retained.
+Flutter engine, Flutter SDK dependency or cross-platform compatibility UI. The UI uses Android system typography, shared surfaces and Android VPN integration.
 
 The VPN/protocol engine is the pinned `hiddify-core` Go submodule, exposed to Kotlin through
 its Android AAR and authenticated local RPC. Protocol parsing and transport implementations

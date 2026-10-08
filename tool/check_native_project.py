@@ -1,10 +1,10 @@
 """Check the standalone Android source/build boundary without running tests."""
 from pathlib import Path
 import re
-import struct
 import subprocess
 import xml.etree.ElementTree as ET
 from check_app_version import declared_version
+from check_native_resources import check as check_resources
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'android/app/src/main'
@@ -72,20 +72,6 @@ def check():
             missing = set(re.findall(r'R\.' + kind + r'\.(\w+)', path.read_text())) - available
             if missing:
                 raise ValueError(f'Missing {kind} in {path.name}: {sorted(missing)}')
-    # The source variable font defaults to 200. Android must receive actual 400/500/600/700
-    # instances, not four declarations of that same default ExtraLight face.
-    for suffix, weight in (('regular', 400), ('medium', 500), ('semibold', 600), ('bold', 700)):
-        data = (res / 'font' / f'manrope_{suffix}.ttf').read_bytes()
-        count = struct.unpack_from('>H', data, 4)[0]
-        tables = {}
-        for index in range(count):
-            tag, _, offset, length = struct.unpack_from('>4sIII', data, 12 + index * 16)
-            tables[tag] = (offset, length)
-        if b'fvar' in tables or b'OS/2' not in tables:
-            raise ValueError(f'Manrope {suffix} must be a static weight instance')
-        actual = struct.unpack_from('>H', data, tables[b'OS/2'][0] + 4)[0]
-        if actual != weight:
-            raise ValueError(f'Manrope {suffix}: expected {weight}, got {actual}')
     manifest = ET.parse(SOURCE / 'AndroidManifest.xml').getroot()
     android = '{http://schemas.android.com/apk/res/android}'
     application = manifest.find('application')
@@ -94,6 +80,7 @@ def check():
         raise ValueError('Standalone MainActivity/launcher is missing')
     if any('flutter' in node.get(android + 'name', '').lower() for node in application.findall('meta-data')):
         raise ValueError('Flutter embedding metadata remains')
+    check_resources()
     version, build = declared_version()
     print(f'Standalone Kotlin project: no Dart/Flutter runtime; resources OK; version {version}+{build}')
 

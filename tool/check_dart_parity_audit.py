@@ -17,9 +17,14 @@ def check():
     original = set(subprocess.check_output(['git', 'ls-tree', '-r', '--name-only', audit['dartReference']], cwd=ROOT, text=True).splitlines())
     for row in rows:
         assert row['dart'] in original, row
-        assert (ROOT / row['kotlin']).is_file(), row
-        assert row['status'] == 'implemented'
-        assert row['verification'] == 'source; device pending'
+        if row['status'] == 'retired':
+            assert row.get('retirementReason'), row
+            assert not (ROOT / row['kotlin']).exists(), row
+            assert row['verification'] == 'unused resource removed; history retained', row
+        else:
+            assert (ROOT / row['kotlin']).is_file(), row
+            assert row['status'] == 'implemented'
+            assert row['verification'] == 'source; device pending'
     content = (ROOT / 'android/app/src/main/kotlin/com/hiddify/hiddify/nativeui/NativeWifiGuideContent.kt').read_text()
     literals = {json.loads(m.group()) for m in re.finditer(r'"(?:\\.|[^"\\])*"', content)}
     for row in rows[:74]:
@@ -27,7 +32,7 @@ def check():
     app = (ROOT / 'android/app/src/main/kotlin/com/hiddify/hiddify/nativeui/NativeApp.kt').read_text()
     constants = set(re.findall(r'private const val (PAGE_[A-Z_]+)', app))
     assert set(re.findall(r'\bPAGE_[A-Z_]+\b', app)) <= constants
-    print('Audit: 200 unique differences; references, target files, original guide text and route constants OK')
+    print('Audit: 200 unique differences; references, target files, history, original guide text and route constants OK')
     print(dict(collections.Counter(row['group'] for row in rows)))
 
 if __name__ == '__main__': check()

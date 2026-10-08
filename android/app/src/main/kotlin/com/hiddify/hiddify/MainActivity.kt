@@ -44,7 +44,6 @@ import com.hiddify.hiddify.nativecore.NativeChainOptions
 import com.hiddify.hiddify.nativecore.NativeChainRepository
 import com.hiddify.hiddify.nativecore.NativeOutboundGroup
 import com.hiddify.hiddify.nativecore.NativeOutboundsRepository
-import com.hiddify.hiddify.nativecore.NativeStatsRepository
 import com.hiddify.hiddify.nativecore.NativeSettingsTransferRepository
 import com.hiddify.hiddify.nativecore.NativeSystemStats
 import com.hiddify.hiddify.nativecore.NativeWifiSharingDetails
@@ -93,7 +92,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         private const val IMPORT_BUSY_ID = "__import__"
         private const val PROFILE_UPDATE_INTERVAL_MS = 15L * 60L * 1000L
         private const val LOG_REFRESH_INTERVAL_MS = 2_000L
-        private const val MAX_SERVICE_LOG_LINES = 200
     }
 
     private val serviceStatus = mutableStateOf(Status.Stopped)
@@ -128,7 +126,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val pendingPerAppImport = mutableStateOf<NativePerAppBackup?>(null)
     private val logSnapshot = mutableStateOf(NativeLogSnapshot(emptyList(), emptyList()))
     private val logBusy = mutableStateOf(false)
-    private val serviceLogLines = ArrayDeque<String>()
     private val tunnelRepository by lazy { com.hiddify.hiddify.nativecore.NativeTunnelOptionsRepository(applicationContext) }
     private val tunnelOptions = mutableStateOf<com.hiddify.hiddify.nativecore.NativeTunnelOptions?>(null)
     private val tunnelBusy = mutableStateOf(false)
@@ -631,7 +628,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
         restartHealthMonitor()
         startSmartSelectionLoop()
-        if (serviceStatus.value == Status.Started) trackStableConnection() else scheduleRecovery()
+        refreshRecoveryIndicator()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -645,7 +642,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         smartSelectionJob?.cancel()
         smartSelectionJob = null
         stopHealthMonitor()
-        cancelRecovery()
+        clearRecoveryIndicator()
         cancelDiagnostics()
         profileUpdateJob?.cancel()
         profileUpdateJob = null
@@ -774,10 +771,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         if (!logsVisible || !nativeForeground || logBusy.value) return
         logsRefreshJob?.cancel()
         val generation = ++logReadGeneration
-        val serviceLines = serviceLogLines.toList()
         logsRefreshJob = lifecycleScope.launch {
             try {
-                val snapshot = withContext(Dispatchers.IO) { logRepository.readRecent(serviceLines) }
+                val snapshot = withContext(Dispatchers.IO) { logRepository.readRecent() }
                 if (generation == logReadGeneration && !logBusy.value) logSnapshot.value = snapshot
             } catch (error: CancellationException) {
                 throw error
@@ -790,10 +786,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun shareLogs(app: Boolean) {
         if (logBusy.value) return
         logBusy.value = true
-        val serviceLines = serviceLogLines.toList()
         lifecycleScope.launch {
             try {
-                val file = withContext(Dispatchers.IO) { logRepository.export(app, serviceLines) }
+                val file = withContext(Dispatchers.IO) { logRepository.export(app) }
                 val uri = androidx.core.content.FileProvider.getUriForFile(this@MainActivity,
                     "$packageName.privacy.files", file)
                 startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
@@ -820,7 +815,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         lifecycleScope.launch {
             try {
                 withContext(Dispatchers.IO) { logRepository.clear() }
-                serviceLogLines.clear()
                 logSnapshot.value = NativeLogSnapshot(emptyList(), emptyList())
             } catch (error: CancellationException) {
                 throw error
@@ -871,12 +865,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         runOutboundOperation(tag) {
             runOnUiThread { connectionHaptic(stopping = false) }
             outboundsRepository.test(tag)
-        }
-    }
-
-    private fun testActiveOutbounds() {
-        runOutboundOperation("__test_active__") {
-            outboundsRepository.testActive()
         }
     }
 
@@ -965,13 +953,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 if (nativeForeground) systemStats.value = snapshot
             }
         }
-    }
-
-    private fun appendServiceLog(message: String) {
-        if (message.isBlank()) return
-        serviceLogLines.addLast(logRepository.decorateServiceLine(message))
-        while (serviceLogLines.size > MAX_SERVICE_LOG_LINES) serviceLogLines.removeFirst()
-        refreshLogs()
     }
 
     private fun refreshPerApp() {
@@ -1566,7 +1547,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             return
         }
         privacySetupBusy.value = true
-        cancelRecovery()
+        clearRecoveryIndicator()
         lifecycleScope.launch {
             try {
                 BoxService.withNativeLifecycle {
@@ -1818,8 +1799,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 refreshPrivacySetupState()
                 restartHealthMonitor()
                 startSmartSelectionLoop()
-                cancelRecovery()
-                if (serviceStatus.value == Status.Started) trackStableConnection() else scheduleRecovery()
+                refreshRecoveryIndicator()
                 Toast.makeText(this@MainActivity, R.string.native_connection_saved, Toast.LENGTH_SHORT).show()
             } catch (error: CancellationException) {
                 throw error
@@ -1831,9 +1811,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
-    private fun cancelRecovery() { recoveryAttempt.value = 0 }
-    private fun scheduleRecovery() { recoveryAttempt.value = com.hiddify.hiddify.nativeconnection.NativeServiceState.recovery.value }
-    private fun trackStableConnection() { scheduleRecovery() }
+    private fun clearRecoveryIndicator() { recoveryAttempt.value = 0 }
+    private fun refreshRecoveryIndicator() { recoveryAttempt.value = com.hiddify.hiddify.nativeconnection.NativeServiceState.recovery.value }
 
     private fun stopHealthMonitor() {
         healthJob?.cancel(); healthJob = null
@@ -1956,7 +1935,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
         tunnelBusy.value = true
         tunnelSnapshotJob?.cancel()
-        cancelRecovery()
+        clearRecoveryIndicator()
         lifecycleScope.launch {
             try {
                 tunnelOptions.value = BoxService.withNativeLifecycle {
@@ -2187,7 +2166,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun reconnectWithSavedSettings() {
         if (reconnectBusy.value) return
         reconnectBusy.value = true
-        cancelRecovery()
+        clearRecoveryIndicator()
         reconnectJob = lifecycleScope.launch {
             try {
                 BoxService.stop(preserveIntent = true)
@@ -2528,7 +2507,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         reconnectJob?.cancel()
         reconnectJob = null
         reconnectBusy.value = false
-        cancelRecovery()
+        clearRecoveryIndicator()
         Settings.connectionDesired = false
         Settings.startedByUser = false
         nativeStartPending = false
@@ -2576,7 +2555,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         if (privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value ||
             chainBusy.value || busyProfileId.value != null || profileEditorBusy.value || nativeStartPending ||
             pendingStartAfterVpnPermission || serviceStatus.value != Status.Stopped || BoxService.hasActiveCore()) return
-        cancelRecovery()
+        clearRecoveryIndicator()
         nativeStartPending = false
         homeConnectionFailed.value = false
         errorMessage.value = null
@@ -2733,8 +2712,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 serviceStartWatchdog?.cancel()
                 serviceStartWatchdog = null
             }
-            if (status == Status.Started) trackStableConnection()
-            else if (status == Status.Stopped) scheduleRecovery()
+            if (status == Status.Started || status == Status.Stopped) refreshRecoveryIndicator()
             restartHealthMonitor()
             startSmartSelectionLoop()
             refreshVpnProtection()
@@ -2752,22 +2730,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
-    override fun onServiceWriteLog(message: String) {
-        runOnUiThread { appendServiceLog(message) }
-    }
-
-    override fun onServiceResetLogs(messages: List<String>) {
-        runOnUiThread {
-            serviceLogLines.clear()
-            messages.takeLast(MAX_SERVICE_LOG_LINES).forEach { message ->
-                if (message.isNotBlank()) {
-                    serviceLogLines.addLast(logRepository.decorateServiceLine(message))
-                }
-            }
-            refreshLogs()
-        }
-    }
-
     override fun onServiceAlert(type: Alert, message: String?) {
         runOnUiThread {
             homeConnectionFailed.value = true
@@ -2777,10 +2739,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             serviceStartWatchdog = null
             if (type != Alert.StartService && type != Alert.CreateService) {
                 Settings.connectionDesired = false
-                cancelRecovery()
+                clearRecoveryIndicator()
             }
             errorMessage.value = message ?: getString(R.string.native_service_error, type.name)
-            scheduleRecovery()
+            refreshRecoveryIndicator()
         }
     }
 }

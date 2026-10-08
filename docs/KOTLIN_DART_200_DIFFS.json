@@ -2046,8 +2046,9 @@
       "before": "Заменённый Material-контур, другая версия glyph или отсутствующая иконка",
       "expected": "FluentIcons.share_android_24_regular",
       "evidence": "share_android_24_regular",
-      "status": "implemented",
-      "verification": "source; device pending"
+      "status": "retired",
+      "verification": "unused resource removed; history retained",
+      "retirementReason": "The current sharing actions do not use this glyph; no Kotlin/XML resource references remain."
     },
     {
       "id": "D187",

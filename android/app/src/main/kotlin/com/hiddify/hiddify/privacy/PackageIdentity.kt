@@ -28,9 +28,8 @@ object PackageIdentity {
     private fun matchesCertificate(activity: Activity, pkg: String): Boolean = runCatching {
         val expected = identity(activity).certificate.encoded
         @Suppress("DEPRECATION")
-        val signatures = if (Build.VERSION.SDK_INT >= 28)
+        val signatures =
             activity.packageManager.getPackageInfo(pkg, PackageManager.GET_SIGNING_CERTIFICATES).signingInfo!!.apkContentsSigners
-        else activity.packageManager.getPackageInfo(pkg, PackageManager.GET_SIGNATURES).signatures!!
         signatures.any { it.toByteArray().contentEquals(expected) }
     }.getOrDefault(false)
 
@@ -243,9 +242,8 @@ object PackageIdentity {
                 throw IllegalStateException("Invalid migration signature encoding", error)
             }
             @Suppress("DEPRECATION")
-            val signatures = if (Build.VERSION.SDK_INT >= 28)
+            val signatures =
                 activity.packageManager.getPackageInfo(activity.packageName, PackageManager.GET_SIGNING_CERTIFICATES).signingInfo!!.apkContentsSigners
-            else activity.packageManager.getPackageInfo(activity.packageName, PackageManager.GET_SIGNATURES).signatures!!
             val certificateFactory = java.security.cert.CertificateFactory.getInstance("X.509")
             val signatureValid = signatures.any { packageSignature ->
                 runCatching {

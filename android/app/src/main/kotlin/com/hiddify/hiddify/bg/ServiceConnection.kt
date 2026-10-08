@@ -7,7 +7,6 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.os.RemoteException
 import android.util.Log
-import androidx.appcompat.app.AppCompatActivity
 import com.hiddify.hiddify.IService
 import com.hiddify.hiddify.IServiceCallback
 import com.hiddify.hiddify.Settings
@@ -48,7 +47,7 @@ class ServiceConnection(
         bindingRequested = true
         val intent = Intent(context, Settings.serviceClass()).setAction(Action.SERVICE)
         runCatching {
-            check(context.bindService(intent, this, AppCompatActivity.BIND_AUTO_CREATE)) { "Service binding was rejected" }
+            check(context.bindService(intent, this, Context.BIND_AUTO_CREATE)) { "Service binding was rejected" }
         }.onFailure {
             bindingRequested = false
             Log.e(TAG, "failed to bind service", it)
@@ -130,11 +129,6 @@ class ServiceConnection(
         fun onServiceAlert(type: Alert, message: String?) {
         }
 
-        fun onServiceWriteLog(message: String) {
-        }
-
-        fun onServiceResetLogs(messages: List<String>) {
-        }
     }
 
     class ServiceCallback(private val callback: Callback) : IServiceCallback.Stub() {
@@ -157,12 +151,5 @@ class ServiceConnection(
             callback.onServiceAlert(safeAlert, message)
         }
 
-        override fun onServiceWriteLog(message: String?) {
-            message?.takeIf { it.isNotBlank() }?.let(callback::onServiceWriteLog)
-        }
-
-        override fun onServiceResetLogs(messages: List<String?>?) {
-            callback.onServiceResetLogs(messages.orEmpty().filterNotNull())
-        }
     }
 }
