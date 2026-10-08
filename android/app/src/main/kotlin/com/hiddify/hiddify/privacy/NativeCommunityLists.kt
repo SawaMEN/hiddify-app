@@ -1,13 +1,16 @@
 package com.hiddify.hiddify.privacy
 
 import com.hiddify.hiddify.nativeprofile.NativeJsonDocument
+import com.google.gson.JsonArray
+import com.google.gson.JsonObject
 
 enum class NativeCommunitySource(val host: String) {
     VPN("iplist.my-handbook.ru"), DIRECT("ru-iplist.my-handbook.ru");
+    val groupsUrl get() = "https://$host/?format=json&data=group"
     val catalogueUrl get() = "https://$host/?format=json&data=domains"
 }
 
-data class NativeCommunityService(val id: String, val domains: List<String>)
+data class NativeCommunityService(val id: String, val domains: List<String>, val group: String = "")
 data class NativeCommunitySelection(val enabled: Boolean, val sites: String)
 
 /** Provider JSON keys are the site= identifiers, not the individual matching domains. */
@@ -16,13 +19,43 @@ object NativeCommunityLists {
         val root = NativeJsonDocument.parse(text)
         require(root.isJsonObject && root.asJsonObject.size() in 1..10000) { "Invalid community catalogue" }
         return root.asJsonObject.entrySet().map { (id, value) ->
-            require(validId(id) && value.isJsonArray) { "Invalid community service" }
-            val domains = value.asJsonArray.map {
+            require(validId(id)) { "Invalid community service" }
+            val group = if (value.isJsonObject) value.asJsonObject.get("group")?.let {
+                require(it.isJsonPrimitive && it.asJsonPrimitive.isString) { "Invalid service group" }
+                normalizeGroup(it.asString)
+            } ?: "" else ""
+            val data = if (value.isJsonObject) value.asJsonObject.get("domains") else value
+            require(data != null && data.isJsonArray) { "Invalid service domains" }
+            val domains = data.asJsonArray.map {
                 require(it.isJsonPrimitive && it.asJsonPrimitive.isString) { "Invalid service domain" }
                 it.asString.also { domain -> require(domain.length in 1..253 && domain.none(Char::isISOControl)) }
             }
-            NativeCommunityService(id, domains.take(3))
+            NativeCommunityService(id, domains.take(3), group)
         }.sortedBy { it.id.lowercase() }
+    }
+
+    fun parseGroups(text: String): Map<String, String> {
+        val root = NativeJsonDocument.parse(text)
+        require(root.isJsonObject && root.asJsonObject.size() in 1..10000) { "Invalid community groups" }
+        return root.asJsonObject.entrySet().associate { (id, value) ->
+            require(validId(id) && value.isJsonPrimitive && value.asJsonPrimitive.isString) { "Invalid service group" }
+            id to normalizeGroup(value.asString)
+        }
+    }
+
+    fun withGroups(services: List<NativeCommunityService>, groups: Map<String, String>) =
+        services.map { it.copy(group = groups[it.id] ?: it.group) }
+
+    fun encodeCache(services: List<NativeCommunityService>): String = JsonObject().apply {
+        services.forEach { service -> add(service.id, JsonObject().apply {
+            addProperty("group", service.group)
+            add("domains", JsonArray().apply { service.domains.forEach { add(it) } })
+        }) }
+    }.toString()
+
+    private fun normalizeGroup(group: String): String {
+        require(group.length <= 64 && group.all { it.isLetterOrDigit() || it in "_-" }) { "Invalid service group" }
+        return group.lowercase()
     }
 
     fun selected(sites: String): Set<String> = sites.split(Regex("[,;\\s]+"))
@@ -38,6 +71,12 @@ object NativeCommunityLists {
     fun toggle(all: Boolean, selected: Set<String>, catalogue: Set<String>, id: String, checked: Boolean): Set<String> {
         val result = (if (all) catalogue + selected else selected).toMutableSet()
         if (checked) result.add(id) else result.remove(id)
+        return result
+    }
+
+    fun toggleGroup(all: Boolean, selected: Set<String>, catalogue: Set<String>, members: Set<String>, checked: Boolean): Set<String> {
+        val result = (if (all) catalogue + selected else selected).toMutableSet()
+        if (checked) result.addAll(members) else result.removeAll(members)
         return result
     }
 

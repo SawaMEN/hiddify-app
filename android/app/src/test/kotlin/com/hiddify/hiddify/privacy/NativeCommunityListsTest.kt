@@ -51,4 +51,44 @@ class NativeCommunityListsTest {
         assertEquals("https://iplist.my-handbook.ru/?format=json&data=domains", NativeCommunitySource.VPN.catalogueUrl)
         assertEquals("https://ru-iplist.my-handbook.ru/?format=json&data=domains", NativeCommunitySource.DIRECT.catalogueUrl)
     }
+
+    @Test fun groupFeedAssignsCategoriesByServiceIdWithoutReplacingRouteIdentifiers() {
+        val services = NativeCommunityLists.parse("""{"copilot":["copilot.microsoft.com"],"discord.com":["discord.gg"]}""")
+        val grouped = NativeCommunityLists.withGroups(services,
+            NativeCommunityLists.parseGroups("""{"copilot":"AI","discord.com":"messengers","extra":"cdn"}"""))
+        assertEquals(listOf("ai", "messengers"), grouped.map { it.group })
+        assertEquals(listOf("copilot", "discord.com"), grouped.map { it.id })
+    }
+
+    @Test fun categoryCacheRoundTripAndLegacyArrayCacheRemainCompatible() {
+        val services = listOf(NativeCommunityService("discord.com", listOf("discord.gg"), "messengers"),
+            NativeCommunityService("network-service", emptyList(), "cdn"))
+        assertEquals(services, NativeCommunityLists.parse(NativeCommunityLists.encodeCache(services)))
+        assertEquals("", NativeCommunityLists.parse("""{"copilot":["copilot.microsoft.com"]}""").single().group)
+    }
+
+    @Test fun selectingPartiallyCheckedCategorySelectsEveryMemberAndPreservesOtherChoices() {
+        val selected = NativeCommunityLists.toggleGroup(false, setOf("discord.com", "youtube.com", "old-service"),
+            setOf("discord.com", "telegram.org", "youtube.com"), setOf("discord.com", "telegram.org"), true)
+        assertEquals(setOf("discord.com", "telegram.org", "youtube.com", "old-service"), selected)
+    }
+
+    @Test fun deselectingCategoryFromAllPreservesOtherCategoriesAndUnavailableChoices() {
+        val selected = NativeCommunityLists.toggleGroup(true, setOf("old-service"),
+            setOf("discord.com", "telegram.org", "youtube.com"), setOf("discord.com", "telegram.org"), false)
+        assertEquals(setOf("youtube.com", "old-service"), selected)
+        assertEquals(NativeCommunitySelection(true, "old-service,youtube.com"), NativeCommunityLists.selection(false, selected))
+    }
+
+    @Test fun clearingLastCategoryDisablesSource() {
+        val selected = NativeCommunityLists.toggleGroup(false, setOf("discord.com", "telegram.org"),
+            emptySet(), setOf("discord.com", "telegram.org"), false)
+        assertEquals(NativeCommunitySelection(false, ""), NativeCommunityLists.selection(false, selected))
+    }
+
+    @Test fun invalidGroupFeedCannotOverwriteSavedGroups() {
+        for (text in listOf("{}", "[]", "{\"error\":true}", "{\"copilot\":null}", "{\"copilot\":\"<html>\"}")) {
+            assertThrows(Exception::class.java) { NativeCommunityLists.parseGroups(text) }
+        }
+    }
 }

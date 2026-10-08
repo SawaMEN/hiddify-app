@@ -79,3 +79,36 @@ the existing native test suite; local Gradle cannot start because the distributi
 is unavailable in this environment. The API schema is checked against provider
 source, but live catalogue fetching and device UI interaction are not verified here.
 No APK build is awaited.
+
+
+## Category selection inspired by ZeroBlock
+
+The community window now starts with collapsible categories supplied by the same
+provider via `format=json&data=group`. Each category has a tri-state checkbox and
+selected/total counter. Checking it selects every current service in that category;
+unchecking it clears that category while preserving selections elsewhere. Expanding
+the row allows individual edits. Partial selection is shown with an intermediate
+checkbox state. Search matches category names/IDs, service IDs and example domains;
+matching categories open automatically and can still be collapsed during search.
+CDN/infrastructure and unavailable saved selections are separate groups.
+
+Category labels are localized in English/Russian. Unknown provider categories keep
+their original names. Whole-category choices are saved as current service IDs, so
+future additions are not automatically selected; the existing explicit Select all
+mode continues to include all services, including new ones. Route semantics and
+preference keys stay compatible.
+
+Domain and category feeds are requested concurrently and parsed off the UI thread.
+Validated metadata is stored together atomically; previous array-only caches still
+load. If category loading fails, saved categories are retained where possible and
+the window offers Retry. Domain-feed failure retains the entire last valid cache.
+
+Verification: live VPN-source feeds contain 470 services and 21 categories with no
+missing group assignments (2026-10-08). Provider API schema was also checked against
+`rekryt/iplist` JsonController and Site source. Six additional JVM tests cover
+category mapping, cache migration, partial/full category changes, unavailable saved
+choices, clearing the final category and invalid metadata. They are included in the
+existing JVM suite. Resource/font/version, source inventory, six Python tool tests,
+Kotlin grammar and whitespace checks pass locally. Local JVM execution remains
+unavailable because Gradle has not downloaded; the preceding commit's CI succeeded.
+This batch requires CI compilation and device interaction checks. No APK is awaited.
