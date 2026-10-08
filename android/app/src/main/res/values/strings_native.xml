@@ -718,4 +718,25 @@ Don’t have a VPN server yet? No worries—just follow the tutorial below to se
     <string name="native_privacy_system_proxy_summary">Does not advertise an HTTP proxy on the VPN network.</string>
     <string name="native_qr_permission_denied">Permission denied</string>
     <string name="native_qr_close">Close scanner</string>
+    <string name="native_settings_page_general">General</string>
+    <string name="native_settings_page_chain">Chain</string>
+    <string name="native_settings_page_chain_summary">Extra security &amp; Unblocker</string>
+    <string name="native_settings_page_dns">DNS</string>
+    <string name="native_settings_page_inbound">Inbound</string>
+    <string name="native_settings_page_tls">TLS tricks</string>
+    <string name="native_settings_page_profiles">Profiles</string>
+    <string name="native_settings_page_logs">Logs</string>
+    <string name="native_settings_page_about">About</string>
+    <string name="native_settings_page_import">Import</string>
+    <string name="native_settings_page_export">Export</string>
+    <string name="native_settings_page_reset">Reset options</string>
+    <string name="native_settings_page_import_clipboard">Import options from clipboard</string>
+    <string name="native_settings_page_import_file">Import options from file</string>
+    <string name="native_settings_page_export_anonymous_clipboard">Copy anonymous options to clipboard</string>
+    <string name="native_settings_page_export_anonymous_file">Export anonymous options to file</string>
+    <string name="native_settings_page_export_all_clipboard">Copy all options to clipboard</string>
+    <string name="native_settings_page_export_all_file">Export all options to file</string>
+    <string name="native_settings_page_confirm_import">Confirm import</string>
+    <string name="native_settings_page_confirm_import_message">This will rewrite all config options with provided values. Are you sure?</string>
+    <string name="native_settings_page_menu">More options</string>
 </resources>

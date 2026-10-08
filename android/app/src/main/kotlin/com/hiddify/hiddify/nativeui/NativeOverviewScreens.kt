@@ -52,52 +52,6 @@ internal fun NativeSettingsLink(title: Int, icon: Int, onClick: () -> Unit, summ
 }
 
 @Composable
-internal fun NativeSettingsOverviewScreen(
-    onOpenProfiles: () -> Unit,
-    onOpenCategory: (NativeSettingsCategory) -> Unit,
-    onOpenCoreOptions: () -> Unit,
-    onOpenChain: () -> Unit,
-    onOpenLogs: () -> Unit,
-    onOpenAbout: () -> Unit,
-    onOpenDns: () -> Unit = {},
-    onOpenTls: () -> Unit = {},
-    onOpenInbound: () -> Unit = {},
-) {
-    Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        NativePageHeader(stringResource(R.string.native_settings))
-        listOf(
-            Triple(R.string.native_profiles, R.drawable.native_list, onOpenProfiles),
-            Triple(R.string.native_settings_general, R.drawable.native_layers, { onOpenCategory(NativeSettingsCategory.APP) }),
-            Triple(R.string.native_chain_open, R.drawable.native_route, onOpenChain),
-            Triple(R.string.native_core_dns, R.drawable.native_dns, onOpenDns),
-            Triple(R.string.native_core_tls, R.drawable.native_shield, onOpenTls),
-            Triple(R.string.native_inbound_title, R.drawable.native_route, onOpenInbound),
-            Triple(R.string.native_settings_vpn, R.drawable.native_shield, { onOpenCategory(NativeSettingsCategory.VPN) }),
-            Triple(R.string.native_core_options_title, R.drawable.native_settings, onOpenCoreOptions),
-            Triple(R.string.native_settings_custom_routing, R.drawable.native_route, { onOpenCategory(NativeSettingsCategory.ROUTING) }),
-            Triple(R.string.native_settings_transfer, R.drawable.native_logs, { onOpenCategory(NativeSettingsCategory.BACKUP) }),
-            Triple(R.string.native_logs_title, R.drawable.native_logs, onOpenLogs),
-            Triple(R.string.native_about_open, R.drawable.native_info, onOpenAbout),
-        ).forEach { (title, icon, open) ->
-            NativeGlass(Modifier.fillMaxWidth(), radius = 24) { NativeSettingsLink(title, icon, open) }
-        }
-    }
-}
-
-@androidx.compose.ui.tooling.preview.Preview(name = "Settings · dark", widthDp = 390, heightDp = 844)
-@Composable
-private fun SettingsOverviewPreview() {
-    NativeAppTheme(com.hiddify.hiddify.nativepreferences.NativeThemeMode.DARK) {
-        NativeAtmosphere {
-            Column(Modifier.padding(horizontal = 20.dp)) {
-                NativeSettingsOverviewScreen({}, {}, {}, {}, {}, {}, {})
-            }
-        }
-    }
-}
-
-@Composable
 internal fun NativePreferenceValueRow(title: Int, value: String, enabled: Boolean, icon: Int = R.drawable.native_dns, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().alpha(if (enabled) 1f else .38f).clickable(enabled = enabled, role = Role.Button, onClick = onClick)
         .padding(horizontal = 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically,

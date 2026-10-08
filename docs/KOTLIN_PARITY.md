@@ -421,3 +421,29 @@ cover/placeholder/error/overlay ordering were checked against their upstream sou
 Native boundary/resource and whitespace checks pass. Light/dark/permission-error Compose
 previews are included. APK compilation was not started; camera hardware, permission round
 trips, lifecycle/rotation behavior and same-device screenshot parity still need device QA.
+
+
+## Main settings screen and options menu
+
+The mobile `SettingsPage` from `7197f9e4^` is now mirrored by a dedicated
+`NativeSettingsOverviewScreen`: Profiles, General, conditional Chain (with its original
+subtitle), DNS, Inbound, TLS tricks, Logs and About. The native-only VPN/core/routing/transfer
+cards no longer alter that list. The app bar stays outside the scrolling body; body padding
+is 20/12/20/24 dp, cards have 12 dp bottom gaps and 24 dp glass corners, and ListTile content
+uses the original 20/8 dp padding and bodyLarge/bodyMedium text. Ten original rounded
+Material icons are converted to Android vectors with transparent SVG paths excluded.
+
+The app bar restores the more-vertical menu and Import/Export submenus. Both import sources
+require the source's confirmation message before calling the existing import action. Four
+export entries distinguish anonymous/all options and clipboard/file; Reset calls the existing
+native reset action directly, as the Dart menu did. Menu mutation actions are disabled during
+in-flight native settings transactions. Route callbacks, has-profile visibility and the
+include-private export flags are connected to the existing native state and repositories.
+
+Native boundary/resources, all new string/drawable references and whitespace checks pass.
+Light/dark Compose previews are provided. No APK build was started; Android compilation,
+submenu placement/keyboard/accessibility and same-device screenshot parity remain unverified.
+This iteration covers the main Settings tab; the General/Chain/Inbound child pages remain
+separate parity work. Profile/Logs/About cards remain available on wide Android windows until
+the original tablet/desktop navigation rail is ported. Existing native import/reset restrictions
+and repository behavior are retained, including the requirement to disconnect first.

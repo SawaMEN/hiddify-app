@@ -343,11 +343,11 @@ fun NativeApp(
                         .fillMaxSize()
                         .statusBarsPadding()
                         .navigationBarsPadding()
-                        .padding(top = if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY) 0.dp else 8.dp),
+                        .padding(top = if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY || page == PAGE_SETTINGS) 0.dp else 8.dp),
             ) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                    Box((if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY) Modifier else Modifier.widthIn(max = 680.dp))
-                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
+                    Box((if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY || page == PAGE_SETTINGS) Modifier else Modifier.widthIn(max = 680.dp))
+                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_SETTINGS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
                         when (page) {
                             PAGE_DIAGNOSTICS ->
                                 NativeDiagnosticsScreen(
@@ -522,15 +522,23 @@ fun NativeApp(
                                 )
 
                             PAGE_SETTINGS -> NativeSettingsOverviewScreen(
+                                hasProfiles = profiles.isNotEmpty(),
+                                busy = privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy ||
+                                    generalOptionsBusy || tunnelBusy || generalPreferencesBusy || regionalBusy ||
+                                    connectionOptionsBusy || wifiSharingBusy || chainBusy || reconnectBusy,
                                 onOpenProfiles = { openPage(PAGE_PROFILES) },
-                                onOpenCategory = { openCategory(it) },
-                                onOpenCoreOptions = { openPage(PAGE_CORE_OPTIONS) },
+                                onOpenGeneral = { openCategory(NativeSettingsCategory.APP) },
                                 onOpenDns = { openPage(PAGE_DNS) },
                                 onOpenTls = { openPage(PAGE_TLS) },
                                 onOpenInbound = { openPage(PAGE_INBOUND) },
                                 onOpenChain = { openPage(PAGE_CHAIN) },
                                 onOpenLogs = { openPage(PAGE_LOGS) },
                                 onOpenAbout = { openPage(PAGE_ABOUT) },
+                                onImportClipboard = onImportSettingsClipboard,
+                                onImportFile = onImportSettingsFile,
+                                onExportClipboard = onExportSettingsClipboard,
+                                onExportFile = onExportSettingsFile,
+                                onReset = onResetSettings,
                             )
 
                             PAGE_TUNNEL -> NativeTunnelOptionsScreen(
