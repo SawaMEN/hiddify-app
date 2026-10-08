@@ -59,44 +59,37 @@ internal fun NativeOutboundsScreen(
     }
     val motion = LocalNativeMotionEnabled.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val repository = remember { NativeOutboundsRepository() }
     var group by remember { mutableStateOf<NativeOutboundGroup?>(null) }
     var loading by remember { mutableStateOf(connected) }
     var failure by remember { mutableStateOf<String?>(null) }
-    var reconnectAttempt by remember { mutableIntStateOf(0) }
     var retry by remember { mutableIntStateOf(0) }
     LaunchedEffect(lifecycleOwner, connected, retry) {
-        group = null; failure = null; loading = connected; reconnectAttempt = 0
+        group = null; failure = null; loading = connected
+        if (retry > 0) com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
         if (connected) lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            loading = group == null; failure = null; reconnectAttempt = 0
-            while (isActive) {
-                try {
-                    repository.watchPrimary().collect { value ->
-                        group = value; loading = false; failure = null; reconnectAttempt = 0
-                    }
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Exception) {
-                    reconnectAttempt++
-                    if (reconnectAttempt > 5) {
-                        loading = false; failure = error.message ?: error.javaClass.simpleName
-                        reconnectAttempt = 0
-                        break
-                    }
-                    // Retain the last snapshot while re-subscribing; backgrounding cancels
-                    // both this backoff and the Wire stream through repeatOnLifecycle.
-                    delay((1_000L shl (reconnectAttempt - 1)).coerceAtMost(8_000L))
-                }
+            com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.updates.collect { update ->
+                if (!com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.isCurrent(update)) return@collect
+                if (update.group == null && update.error == null) group = null
+                update.group?.let { group = it }
+                failure = update.error
+                loading = group == null && update.error == null
             }
         }
     }
     var query by rememberSaveable { mutableStateOf("") }
     var sortOpen by remember { mutableStateOf(false) }
     var detailsTag by rememberSaveable { mutableStateOf<String?>(null) }
-    val presented = remember(group, query, sort) { presentNativeOutbounds(group?.items.orEmpty(), query, sort) }
+    val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
+    var previousOrder by remember(query, sort) { mutableStateOf<List<String>>(emptyList()) }
+    val sorted = remember(group, query, sort) { presentNativeOutbounds(group?.items.orEmpty(), query, sort) }
+    LaunchedEffect(sorted, gridState.isScrollInProgress) {
+        if (!gridState.isScrollInProgress) previousOrder = sorted.map { it.tag }
+    }
+    val presented = if (gridState.isScrollInProgress)
+        com.hiddify.hiddify.nativecore.keepNativeOutboundOrder(sorted, previousOrder) else sorted
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) {
                     Icon(painterResource(R.drawable.native_back_arrow), stringResource(R.string.native_back))
                 }
@@ -131,11 +124,11 @@ internal fun NativeOutboundsScreen(
                 Switch(checked = smartSelection, onCheckedChange = onChangeSmartSelection,
                     enabled = !smartSelectionBusy && busyTag == null)
             }
-            if (reconnectAttempt > 0) {
+            if (connected && failure != null && group != null) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-                    LinearProgressIndicator(Modifier.fillMaxWidth())
-                    Text(stringResource(R.string.native_outbounds_reconnecting, reconnectAttempt),
-                        style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 4.dp))
+                    Text(failure.orEmpty(), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error)
+                    NativeTextButton(onClick = { retry++ }) { Text(stringResource(R.string.native_profiles_retry)) }
                 }
             }
             when {
@@ -143,7 +136,7 @@ internal fun NativeOutboundsScreen(
                     Text(stringResource(R.string.native_outbounds_disconnected))
                 }
                 loading -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                failure != null -> Column(Modifier.weight(1f).fillMaxWidth().padding(20.dp),
+                failure != null && group == null -> Column(Modifier.weight(1f).fillMaxWidth().padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     Text(failure.orEmpty(), style = MaterialTheme.typography.bodyMedium)
                     NativeTextButton(onClick = { retry++ }) { Text(stringResource(R.string.native_profiles_retry)) }
@@ -153,14 +146,14 @@ internal fun NativeOutboundsScreen(
                 }
                 else -> BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                     val columns = if (maxWidth < 600.dp) 1 else (maxWidth.value / 268).toInt().coerceAtLeast(1)
-                    LazyVerticalGrid(columns = GridCells.Fixed(columns), modifier = Modifier.fillMaxSize(),
+                    LazyVerticalGrid(columns = GridCells.Fixed(columns), state = gridState, modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
                         contentPadding = PaddingValues(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 100.dp)) {
                         items(presented, key = { it.tag }) { outbound ->
                             OutboundTile(outbound, group?.selectedTag == outbound.tag,
                                 group?.selectable == true && busyTag == null && !smartSelectionBusy,
                                 { group?.let { onSelect(it.tag, outbound.tag) } }, { detailsTag = outbound.tag },
-                                modifier = Modifier.animateItem(fadeInSpec = if (motion) androidx.compose.animation.core.tween(160) else null, placementSpec = if (motion) androidx.compose.animation.core.tween(220) else null, fadeOutSpec = if (motion) androidx.compose.animation.core.tween(120) else null))
+                                modifier = Modifier.animateItem(fadeInSpec = if (motion) androidx.compose.animation.core.tween(160) else null, placementSpec = if (motion && !gridState.isScrollInProgress) androidx.compose.animation.core.tween(220) else null, fadeOutSpec = if (motion) androidx.compose.animation.core.tween(120) else null))
                         }
                     }
                 }
@@ -184,11 +177,11 @@ private fun OutboundTile(outbound: NativeOutbound, selected: Boolean, selectable
     val scheme = MaterialTheme.colorScheme
     val dark = scheme.background.luminance() < .5f
     NativeGlass(modifier.fillMaxWidth(), radius = 20, accent = if (selected) scheme.primary else scheme.outline) {
-        Row(Modifier.fillMaxWidth().height((80 * LocalDensity.current.fontScale.coerceIn(1f, 2f)).dp)
+        Row(Modifier.fillMaxWidth().heightIn(min = 80.dp)
             .background(if (selected) scheme.primaryContainer else Color.Transparent)
             .semantics { this.selected = selected }
             .combinedClickable(role = Role.RadioButton, onClick = { if (selectable) onSelect() }, onLongClick = onInfo)
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically) {
             NativeOutboundCountryBadge(outbound.ipInfo?.countryCode.orEmpty(),
                 organization = outbound.ipInfo?.organization.orEmpty())

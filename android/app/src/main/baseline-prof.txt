@@ -1,0 +1,7 @@
+# Conservative startup seed, not a measured/generated profile. Replace with device-generated output.
+Lcom/hiddify/hiddify/Application;
+Lcom/hiddify/hiddify/MainActivity;
+HSPLcom/hiddify/hiddify/Application;->onCreate()V
+HSPLcom/hiddify/hiddify/MainActivity;->onCreate(Landroid/os/Bundle;)V
+HSPLcom/hiddify/hiddify/MainActivity;->onStart()V
+HSPLcom/hiddify/hiddify/MainActivity;->onResume()V

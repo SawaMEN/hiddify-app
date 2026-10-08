@@ -119,7 +119,7 @@ fun NativeProfilesScreen(
         }
     } else Scaffold(containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = {
-            Row(Modifier.fillMaxWidth().height(56.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onBack) { Icon(painterResource(R.drawable.native_back_arrow), stringResource(R.string.native_back)) }
                 Text(stringResource(R.string.native_profiles), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
                 IconButton(onClick = onUpdateAll, enabled = !busy && !loading && !loadFailed && profiles.any { it.isRemote }) {

@@ -7,6 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import com.hiddify.hiddify.nativeui.NativeGlassDialog as AlertDialog
 import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,17 +19,42 @@ import com.hiddify.hiddify.nativediagnostics.*
 
 @Composable
 fun NativeDiagnosticsScreen(snapshot: NativeDiagnosticSnapshot?, busy: Boolean, report: String,
-    onBack: () -> Unit, onRun: () -> Unit, onShareReport: (String) -> Unit) {
+    onBack: () -> Unit, onRun: () -> Unit, onShareReport: (String) -> Unit,
+    connected: Boolean = false, sessionKey: String = "") {
+    val scope = rememberCoroutineScope()
+    var speedJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
+    var speedBusy by remember { mutableStateOf(false) }
+    var speedMbps by remember { mutableStateOf<String?>(null) }
+    var speedFailed by remember { mutableStateOf(false) }
+    LaunchedEffect(connected, sessionKey) { speedJob?.cancel(); speedMbps = null; speedFailed = false }
     var previewOpen by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize()) {
         NativePageHeader(stringResource(R.string.native_diagnostics_title), onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp)) {
-            NativeButton(onRun, Modifier.fillMaxWidth(), enabled = !busy) {
+            NativeButton(onRun, Modifier.fillMaxWidth(), enabled = !busy && !speedBusy) {
                 if (busy) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 else Icon(painterResource(R.drawable.native_diagnostic_play), null, Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.native_diagnostics_run))
             }
+            Spacer(Modifier.height(16.dp))
+            NativeOutlinedButton(onClick = {
+                if (speedBusy) speedJob?.cancel() else speedJob = scope.launch {
+                    speedBusy = true; speedFailed = false; speedMbps = null
+                    try {
+                        val sample = com.hiddify.hiddify.nativecore.NativeSpeedTestRepository.download()
+                        speedMbps = String.format(java.util.Locale.getDefault(), "%.1f", sample.megabitsPerSecond)
+                    } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+                      catch (_: Exception) { speedFailed = true }
+                    finally { speedBusy = false }
+                }
+            }, enabled = connected && !busy, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(if (speedBusy) R.string.native_speed_test_cancel else R.string.native_speed_test_run))
+            }
+            Text(stringResource(R.string.native_speed_test_hint), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            speedMbps?.let { Text(stringResource(R.string.native_speed_test_result, it), style = MaterialTheme.typography.titleLarge) }
+            if (speedFailed) Text(stringResource(R.string.native_speed_test_failed), color = MaterialTheme.colorScheme.error)
             Spacer(Modifier.height(16.dp))
             snapshot?.checks?.forEach { check ->
                 ListItem(headlineContent = { Text(stringResource(stageLabel(check.stage))) },

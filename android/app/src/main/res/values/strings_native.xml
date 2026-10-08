@@ -735,7 +735,7 @@
     <string name="native_settings_page_confirm_import_message">This will rewrite all config options with provided values. Are you sure?</string>
     <string name="native_settings_page_menu">More options</string>
     <string name="native_home_choose_profile">Choose a profile</string>
-    <string name="native_home_selection_reason">Selected after repeated successful checks</string>
+    <string name="native_home_selection_reason">Auto-selection uses availability and latency; download speed is measured separately.</string>
     <string name="native_home_version">Version</string>
     <string name="native_connection_stop_timeout">Unable to stop the VPN within 30 seconds. Wait for the service to stop and try again.</string>
     <string name="native_connection_service_unavailable">The VPN service did not start. Please try connecting again.</string>
@@ -837,4 +837,11 @@
     <string name="native_traffic_session">Session: %1$s %2$s</string>
     <string name="native_status_failed">Connection failed</string>
     <string-array name="native_traffic_units"><item>B</item><item>KiB</item><item>MiB</item><item>GiB</item><item>TiB</item><item>PiB</item><item>EiB</item></string-array>
+    <string name="native_health_probe_failed">VPN started · check sites are unreachable</string>
+    <string name="native_speed_test_run">Test download speed</string>
+    <string name="native_speed_test_cancel">Cancel speed test</string>
+    <string name="native_speed_test_hint">Manual sample through the selected VPN server to Cloudflare: up to 5 MiB of payload, up to 30 seconds. This is a short download estimate, not a latency score.</string>
+    <string name="native_speed_test_result">%1$s Mbit/s</string>
+    <string name="native_speed_test_failed">Speed test failed. The test endpoint may be unavailable.</string>
+    <string name="native_mtu_presets_hint">Compare these MTUs manually on the same server and network. No value is universally fastest.</string>
 </resources>

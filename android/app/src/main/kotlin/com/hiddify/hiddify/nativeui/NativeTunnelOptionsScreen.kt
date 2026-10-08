@@ -3,6 +3,7 @@ package com.hiddify.hiddify.nativeui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -80,10 +81,17 @@ internal fun NativeTunnelOptionsScreen(options: NativeTunnelOptions?, busy: Bool
                             RadioButton(mode == key, onClick = null, enabled = !busy)
                             Text(stringResource(label), Modifier.padding(start = 12.dp))
                         }
-                    } else OutlinedTextField(input, { if (it.length <= 5 && it.all(Char::isDigit)) input = it },
+                    } else Column(Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState())) {
+                      OutlinedTextField(input, { if (it.length <= 5 && it.all(Char::isDigit)) input = it },
                         modifier = Modifier.fillMaxWidth(), enabled = !busy, singleLine = true, isError = !inputValid,
                         label = { Text(stringResource(R.string.native_core_mtu)) },
-                        supportingText = { Text(stringResource(R.string.native_tunnel_invalid)) })
+                        supportingText = { if (!inputValid) Text(stringResource(R.string.native_tunnel_invalid)) })
+                      Text(stringResource(R.string.native_mtu_presets_hint), style = MaterialTheme.typography.bodySmall)
+                      com.hiddify.hiddify.nativecore.NativeTunnelMtuPresets.values.forEach { value ->
+                          NativeTextButton(onClick = { input = value.toString() }, enabled = !busy,
+                              modifier = Modifier.fillMaxWidth()) { Text(value.toString()) }
+                      }
+                    }
                 }
             }, confirmButton = {
                 if (!ipv6) NativeTextButton(onClick = { mtu = input.toInt().toString(); editor = "" },

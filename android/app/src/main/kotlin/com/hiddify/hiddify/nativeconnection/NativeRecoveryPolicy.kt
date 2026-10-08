@@ -1,7 +1,5 @@
 package com.hiddify.hiddify.nativeconnection
 
-enum class NativeRecoveryDecision { STOP, WAIT_NETWORK, WAIT_CORE, START }
-
 class NativeRecoveryPolicy(initialAttempts: Int = 0) {
     var attempts: Int = initialAttempts.coerceIn(0, 8)
         private set
@@ -14,13 +12,9 @@ class NativeRecoveryPolicy(initialAttempts: Int = 0) {
     fun reset() { attempts = 0 }
 
     companion object {
-        fun decision(desired: Boolean, enabled: Boolean, foreground: Boolean,
-            permissionGranted: Boolean, operationPending: Boolean, adaptive: Boolean,
-            networkAvailable: Boolean, coreOwned: Boolean): NativeRecoveryDecision = when {
-            !desired || !enabled || !foreground || !permissionGranted -> NativeRecoveryDecision.STOP
-            operationPending || coreOwned -> NativeRecoveryDecision.WAIT_CORE
-            adaptive && !networkAvailable -> NativeRecoveryDecision.WAIT_NETWORK
-            else -> NativeRecoveryDecision.START
-        }
+        /** Ownership is supplied by the VPN service, never by Activity visibility. */
+        fun canRecover(previousSession: Boolean, sameConfiguration: Boolean, enabled: Boolean,
+            desired: Boolean, userStarted: Boolean, permission: Boolean, stopRequested: Boolean, destroyed: Boolean): Boolean =
+            previousSession && sameConfiguration && enabled && desired && userStarted && permission && !stopRequested && !destroyed
     }
 }

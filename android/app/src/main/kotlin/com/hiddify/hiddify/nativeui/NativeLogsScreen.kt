@@ -26,8 +26,14 @@ fun NativeLogsScreen(
     onClear: () -> Unit,
     sharingEnabled: Boolean,
     onShare: (Boolean) -> Unit,
+    onPollingChanged: (Boolean) -> Unit = {},
 ) {
     var paused by rememberSaveable { mutableStateOf(false) }
+    val pollingChanged by rememberUpdatedState(onPollingChanged)
+    DisposableEffect(paused) {
+        pollingChanged(!paused)
+        onDispose { pollingChanged(false) }
+    }
     var query by rememberSaveable { mutableStateOf("") }
     var level by rememberSaveable { mutableStateOf<String?>(null) }
     var sharingOpen by remember { mutableStateOf(false) }
