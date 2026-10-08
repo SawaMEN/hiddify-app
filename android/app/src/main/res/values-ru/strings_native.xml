@@ -2,9 +2,9 @@
 <resources>
     <string name="app_name">VetrOFF Client</string>
     <string name="native_status_stopped">Отключено</string>
-    <string name="native_status_starting">Подключение…</string>
+    <string name="native_status_starting">Подключение...</string>
     <string name="native_status_started">Подключено</string>
-    <string name="native_status_stopping">Отключение…</string>
+    <string name="native_status_stopping">Отключение...</string>
     <string name="native_connect">Подключить</string>
     <string name="native_disconnect">Отключить</string>
     <string name="native_connecting">Подключение…</string>
@@ -623,9 +623,7 @@
     <string name="native_profile_name_required">Имя обязательно для заполнения</string>
     <string name="native_profile_invalid_url">Неверный URL</string>
     <string name="native_profile_help_title">Выберите профиль</string>
-    <string name="native_profile_help_message">Давайте начнем с добавления профиля подключения, который содержит данные вашего VPN-соединения.
-
-Еще нет VPN-сервера? Не беспокойтесь — просто следуйте руководству ниже, чтобы быстро и бесплатно настроить его.</string>
+    <string name="native_profile_help_message">Давайте начнем с добавления профиля подключения, который содержит данные вашего VPN-соединения.\n\nЕще нет VPN-сервера? Не беспокойтесь — просто следуйте руководству ниже, чтобы быстро и бесплатно настроить его.</string>
     <string name="native_profile_help_link">Покажите, как</string>
     <string name="native_profile_interval_auto">Авто</string>
     <string name="native_profiles_sort">Сортировать</string>
@@ -739,4 +737,7 @@
     <string name="native_settings_page_confirm_import">Подтвердить импорт</string>
     <string name="native_settings_page_confirm_import_message">Это перезапишет все параметры конфигурации предоставленными значениями. Вы уверены?</string>
     <string name="native_settings_page_menu">Другие действия</string>
+    <string name="native_home_choose_profile">Выберите профиль</string>
+    <string name="native_home_selection_reason">Выбран после повторных успешных проверок</string>
+    <string name="native_home_version">Версия</string>
 </resources>

@@ -2,9 +2,9 @@
 <resources>
     <string name="app_name">VetrOFF Client</string>
     <string name="native_status_stopped">Disconnected</string>
-    <string name="native_status_starting">Connecting…</string>
+    <string name="native_status_starting">Connecting...</string>
     <string name="native_status_started">Connected</string>
-    <string name="native_status_stopping">Disconnecting…</string>
+    <string name="native_status_stopping">Disconnecting...</string>
     <string name="native_connect">Connect</string>
     <string name="native_disconnect">Disconnect</string>
     <string name="native_connecting">Connecting…</string>
@@ -623,9 +623,7 @@
     <string name="native_profile_name_required">Name is required</string>
     <string name="native_profile_invalid_url">Invalid URL</string>
     <string name="native_profile_help_title">Choose a profile</string>
-    <string name="native_profile_help_message">Let\'s get started by adding a connection profile that includes your VPN connection details.
-
-Don’t have a VPN server yet? No worries—just follow the tutorial below to set one up quickly and for free.</string>
+    <string name="native_profile_help_message">Let\'s get started by adding a connection profile that includes your VPN connection details.\n\nDon’t have a VPN server yet? No worries—just follow the tutorial below to set one up quickly and for free.</string>
     <string name="native_profile_help_link">Show me how</string>
     <string name="native_profile_interval_auto">Auto</string>
     <string name="native_profiles_sort">Sort</string>
@@ -739,4 +737,7 @@ Don’t have a VPN server yet? No worries—just follow the tutorial below to se
     <string name="native_settings_page_confirm_import">Confirm import</string>
     <string name="native_settings_page_confirm_import_message">This will rewrite all config options with provided values. Are you sure?</string>
     <string name="native_settings_page_menu">More options</string>
+    <string name="native_home_choose_profile">Choose a profile</string>
+    <string name="native_home_selection_reason">Selected after repeated successful checks</string>
+    <string name="native_home_version">Version</string>
 </resources>

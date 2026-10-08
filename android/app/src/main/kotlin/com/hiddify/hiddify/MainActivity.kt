@@ -95,6 +95,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private val serviceStatus = mutableStateOf(Status.Stopped)
+    private val homeConnectionFailed = mutableStateOf(false)
+    private val homeSmartSelected = mutableStateOf(false)
     private val activeProfileName = mutableStateOf("")
     private val activeProfilePath = mutableStateOf("")
     private val profilesLoadFailed = mutableStateOf(false)
@@ -251,6 +253,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 startForegroundVpn()
             } else {
                 Settings.connectionDesired = false
+                homeConnectionFailed.value = true
                 errorMessage.value = getString(R.string.native_vpn_permission_denied)
             }
         }
@@ -423,6 +426,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onOpenNotificationSettings = { openSystemSettings(com.hiddify.hiddify.bg.ServiceNotification.settingsIntent()) },
                 onOpenBatterySettings = { openSystemSettings(Intent(AndroidSettings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) },
                 status = serviceStatus.value,
+                connectionFailed = homeConnectionFailed.value,
+                smartSelected = homeSmartSelected.value,
                 connectionOptions = connectionOptions.value,
                 connectionOptionsBusy = connectionOptionsBusy.value,
                 internetHealth = internetHealth.value,
@@ -1502,6 +1507,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         if (!nativeForeground || serviceStatus.value != Status.Started) {
             smartSelectionJob?.cancel()
             smartSelectionJob = null
+            if (serviceStatus.value != Status.Started) homeSmartSelected.value = false
             return
         }
         if (smartSelectionJob?.isActive == true) return
@@ -1532,6 +1538,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     val enabled = generalPreferences.value.smartSelection || connectionOptions.value.adaptiveNetwork
                     if (wasEnabled && !enabled) leaveBalancer = true
                     if (enabled) leaveBalancer = false
+                    if (wasEnabled != enabled) homeSmartSelected.value = false
                     wasEnabled = enabled
                     if (!enabled && !leaveBalancer) continue
                     if (outboundBusyTag.value != null || generalPreferencesBusy.value || connectionOptionsBusy.value) continue
@@ -1539,6 +1546,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     try {
                         val path = Settings.activeConfigPath
                         if (path != profile) {
+                            homeSmartSelected.value = false
                             flushHistory()
                             val nextRanker = com.hiddify.hiddify.nativeconnection.NativeServerRanker()
                             val nextId = withContext(Dispatchers.IO) {
@@ -1573,12 +1581,14 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                             balancer.selectedChildTag?.takeIf { tag -> direct.any { it.tag == tag } }
                                 ?: direct.minByOrNull { if (it.delayMs in 1..64999) it.delayMs else 65535 }?.tag
                         } else null
+                        if (enabled && balancer != null && group.selectedTag == balancer.tag) homeSmartSelected.value = true
                         if (target == null && !enabled) leaveBalancer = false
                         if (target != null) {
                             BoxService.withNativeLifecycle {
                                 if (nativeForeground && serviceStatus.value == Status.Started && path == Settings.activeConfigPath &&
                                     enabled == (generalPreferences.value.smartSelection || connectionOptions.value.adaptiveNetwork)) {
                                     outboundsRepository.selectForeground(group.tag, target)
+                                    homeSmartSelected.value = enabled
                                     leaveBalancer = false
                                     ranker.switched(now)
                                     restartHealthMonitor()
@@ -2442,6 +2452,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun toggleConnection() {
         if (reconnectBusy.value || chainBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value) return
         if (recoveryJob != null || recoveryAttempt.value > 0) {
+            homeConnectionFailed.value = false
             connectionHaptic(stopping = true)
             Settings.connectionDesired = false
             Settings.startedByUser = false
@@ -2483,6 +2494,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         cancelRecovery()
         recoveryPolicy.reset()
         nativeStartPending = false
+        homeConnectionFailed.value = false
         errorMessage.value = null
         refreshProfileSnapshot()
 
@@ -2501,6 +2513,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     VpnService.prepare(this)
                 } catch (error: Exception) {
                     Settings.connectionDesired = false
+                    homeConnectionFailed.value = true
                     errorMessage.value = error.message ?: error.javaClass.simpleName
                     return
                 }
@@ -2524,6 +2537,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         } catch (error: Exception) {
             nativeStartPending = false
             Settings.connectionDesired = false
+            homeConnectionFailed.value = true
             errorMessage.value = error.message ?: error.javaClass.simpleName
         }
     }
@@ -2589,6 +2603,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     override fun onServiceStatusChanged(status: Status) {
         runOnUiThread {
             serviceStatus.value = status
+            if (status == Status.Starting || status == Status.Started) homeConnectionFailed.value = false
             requiresReconnect.value = Settings.nativeReconnectRequired
             if (status == Status.Starting || status == Status.Started || status == Status.Stopped) nativeStartPending = false
             if (status == Status.Started) trackStableConnection()
@@ -2630,6 +2645,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     override fun onServiceAlert(type: Alert, message: String?) {
         runOnUiThread {
+            homeConnectionFailed.value = true
             nativeStartPending = false
             if (type != Alert.StartService && type != Alert.CreateService) {
                 Settings.connectionDesired = false

@@ -19,6 +19,8 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,15 +36,20 @@ internal fun NativeActiveProxyDelay(outbound: NativeOutbound, busy: Boolean, onT
         outbound.delayMs <= 0 -> R.string.native_active_delay_testing
         else -> R.string.native_active_delay_result
     }, outbound.delayMs)
+    val delayStyle = MaterialTheme.typography.titleMedium.toSpanStyle().copy(fontWeight = FontWeight.Bold)
+    val delayText = if (timeout) stringResource(R.string.native_active_timeout) else outbound.delayMs.toString()
     Row(Modifier.semantics { contentDescription = description }
         .clickable(enabled = !busy, onClick = onTest).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Icon(painterResource(R.drawable.native_wifi_signal), null)
         if (outbound.delayMs > 0) {
-            Text(if (timeout) stringResource(R.string.native_active_timeout) else outbound.delayMs.toString(),
-                fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium,
+            Text(buildAnnotatedString {
+                withStyle(delayStyle) {
+                    append(delayText)
+                }
+                if (!timeout) append(" ms")
+            }, style = MaterialTheme.typography.bodyLarge,
                 color = if (timeout) MaterialTheme.colorScheme.error else LocalContentColor.current)
-            if (!timeout) Text("ms", style = MaterialTheme.typography.bodyMedium)
         } else Box(Modifier.size(width = 48.dp, height = 18.dp)
             .background(LocalContentColor.current.copy(alpha = .16f), RoundedCornerShape(8.dp)))
     }
@@ -110,7 +117,7 @@ internal fun NativeActiveProxyFooter(
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
-            Icon(painterResource(R.drawable.native_chevron), null, Modifier.padding(16.dp))
+            Icon(painterResource(R.drawable.settings_chevron), null, Modifier.padding(16.dp))
         }
     }
     if (inspecting) NativeOutboundInfoDialog(outbound, onDismiss = { inspecting = false })

@@ -13,7 +13,7 @@ Seven workstreams remain; a stream can contain multiple implementation/review it
 
 | Workstream | Known work remaining | Acceptance evidence |
 | --- | --- | --- |
-| Home/profile state | Connection failure color and device checks of connection/reconnect state | Same state, data and action targets as Dart HomePage/ProfileTile/ConnectionButton |
+| Home/profile state | Device checks of connection/reconnect state | Same state, data and action targets as Dart HomePage/ProfileTile/ConnectionButton |
 | Profile flows | Match import/add/detail/editor/QR sheets and dialogs, list container/navigation, sorting/filtering and confirmation behavior | Compare each original flow and round-trip identical profiles |
 | Proxy presentation | Device checks of country/provider artwork, IP visibility and stream recovery; settings/dialog source audit | Same selected/active proxy, operations, layout and state transitions |
 | Settings/navigation | Quick-settings rendering/dialog details; preference pages and picker/input/confirmation dialogs; back/deep-link behavior | One-to-one route/action/preferences audit against original widgets |
@@ -447,3 +447,19 @@ This iteration covers the main Settings tab; the General/Chain/Inbound child pag
 separate parity work. Profile/Logs/About cards remain available on wide Android windows until
 the original tablet/desktop navigation rail is ported. Existing native import/reset restrictions
 and repository behavior are retained, including the requirement to disconnect first.
+
+
+## Main home screen
+
+The remaining HomePage differences from `7197f9e4^` are ported: original rounded
+health/add/power/tune/arrow icons and outlined empty-profile icon, version badge,
+empty/no-active profile text with preserved paragraph breaks, the choose-profile notice,
+connection failure accent and source status/recovery labels. Latency uses a single rich
+text span with the original space before ms. The speed card has 20 dp corners and shows
+the original selection reason after a successful automatic server selection. Connection
+errors are tracked independently of the dismissible error dialog; restarting clears them.
+
+Light/dark/black previews now include an actual profile and active outbound; empty and
+connection-error previews cover the additional states. Native boundary, resource-reference
+and whitespace checks pass. No APK build was started. Android compilation, runtime
+animations and same-device screenshot parity still require device verification.
