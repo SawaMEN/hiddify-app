@@ -744,6 +744,7 @@
     <string name="native_import_servers">Найдено серверов: %1$d</string>
     <string name="native_import_duplicates">Дубликаты: %1$d</string>
     <string name="native_import_unknown_types">Неизвестные типы протоколов: %1$d</string>
+    <string name="native_import_unsupported_protocols">Ядро VPN не поддерживает: %1$s. Экспортируйте подписку с поддерживаемыми протоколами. Ссылки MTProto предназначены для Telegram.</string>
     <string name="native_import_overrides">Изменения DNS / маршрутизации: %1$s</string>
     <string name="native_import_plain_http">Подписка использует незашифрованный HTTP.</string>
     <string name="native_import_confirm">Импортировать</string>

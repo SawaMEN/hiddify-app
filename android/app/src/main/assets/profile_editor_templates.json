@@ -27,19 +27,18 @@
     "mieru": {
       "type": "mieru",
       "tag": "mieru-out",
-      "server": "127.0.0.1",
+      "server": "server.example",
+      "username": "",
+      "password": "",
       "portBindings": [
         {
-          "protocol": "tcp",
-          "port": 1080
-        },
-        {
-          "protocol": "udp",
-          "portRanges": "1080-1090"
+          "protocol": "TCP",
+          "port": 443
         }
       ],
-      "multiplexing": "high",
-      "handshake": "no_wait"
+      "multiplexing": "MULTIPLEXING_DEFAULT",
+      "handshake_mode": "HANDSHAKE_DEFAULT",
+      "mtu": 1400
     },
     "naive": {
       "type": "naive",
@@ -214,6 +213,88 @@
         ""
       ],
       "client_version": "SSH-2.0-OpenSSH_7.4p1"
+    },
+    "snell": {
+      "type": "snell",
+      "tag": "snell-out",
+      "server": "server.example",
+      "server_port": 443,
+      "version": 6,
+      "psk": "",
+      "userkey": "",
+      "mode": "default"
+    },
+    "anytls": {
+      "type": "anytls",
+      "tag": "anytls-out",
+      "server": "server.example",
+      "server_port": 443,
+      "password": "",
+      "tls": {
+        "enabled": true,
+        "server_name": "server.example"
+      }
+    },
+    "trusttunnel": {
+      "type": "trusttunnel",
+      "tag": "trusttunnel-out",
+      "server": "server.example",
+      "server_port": 443,
+      "username": "",
+      "password": "",
+      "quic": false,
+      "tls": {
+        "enabled": true,
+        "server_name": "server.example"
+      }
+    },
+    "masque-client": {
+      "type": "masque-client",
+      "tag": "masque-endpoint",
+      "server": "server.example",
+      "server_port": 443,
+      "username": "",
+      "password": "",
+      "version": 3,
+      "system": false,
+      "tls": {
+        "enabled": true,
+        "server_name": "server.example"
+      }
+    },
+    "awg": {
+      "type": "awg",
+      "tag": "awg-endpoint",
+      "useIntegratedTun": false,
+      "private_key": "",
+      "address": [
+        "10.8.0.2/32"
+      ],
+      "mtu": 1280,
+      "awg": {
+        "jc": 4,
+        "jmin": 40,
+        "jmax": 70,
+        "s1": 15,
+        "s2": 20,
+        "s3": 20,
+        "s4": 20,
+        "h1": "1111",
+        "h2": "2222",
+        "h3": "3333",
+        "h4": "4444"
+      },
+      "peers": [
+        {
+          "address": "server.example",
+          "port": 51820,
+          "public_key": "",
+          "allowed_ips": [
+            "0.0.0.0/0",
+            "::/0"
+          ]
+        }
+      ]
     }
   },
   "exampleSchemaValues": {
@@ -456,11 +537,15 @@
       "http",
       "mieru",
       "naive",
-      "anytls"
+      "anytls",
+      "snell",
+      "trusttunnel"
     ],
     "config.endpoints.type": [
       "wireguard",
-      "warp"
+      "warp",
+      "awg",
+      "masque-client"
     ]
   }
 }
