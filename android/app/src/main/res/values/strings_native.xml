@@ -244,7 +244,7 @@
     <string name="native_about_open">About and updates</string>
     <string name="native_about_title">About VetrOFF Client</string>
     <string name="native_about_version">Version %1$s (%2$d)</string>
-    <string name="native_about_fork_description">VetrOFF Client is an independent Hiddify fork with modified VPN behavior, privacy settings and Android integration.</string>
+    <string name="native_about_fork_description">VetrOFF Client is an independent fork of Hiddify with modified settings and VPN behavior.</string>
     <string name="native_about_updates">Updates</string>
     <string name="native_about_check_update">Check for update</string>
     <string name="native_about_checking_update">Checking…</string>
@@ -757,4 +757,11 @@
     <string name="native_logs_filter">Filter</string>
     <string name="native_logs_all">All</string>
     <string name="native_logs_no_matches">No matching logs</string>
+    <string name="native_about_fork_title">Hiddify fork</string>
+    <string name="native_logs_share">Share logs</string>
+    <string name="native_logs_share_core">Share core logs</string>
+    <string name="native_logs_share_app">Share app logs</string>
+    <string name="native_logs_share_failed">Could not share logs. The selected log may not exist yet.</string>
+    <string name="native_about_copy_info">Add to clipboard</string>
+    <string name="native_about_actions">App information actions</string>
 </resources>

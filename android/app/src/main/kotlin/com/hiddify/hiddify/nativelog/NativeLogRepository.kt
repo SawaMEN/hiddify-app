@@ -63,6 +63,30 @@ class NativeLogRepository(private val context: Context) {
         )
     }
 
+    /** Copy the selected original log for a FileProvider grant; never share private source paths. */
+    fun export(app: Boolean, serviceLines: List<String>): File {
+        val working = workingDir()
+        val candidates = if (app) listOf(File(working, "app.log"))
+            else listOf(File(working, "box.log"), File(working, "data/box.log"))
+        val source = candidates.firstOrNull { it.isFile && it.length() > 0 }
+        val directory = File(context.cacheDir, "logs").apply { mkdirs() }
+        if (source == null && (!app || serviceLines.isEmpty())) {
+            throw java.io.FileNotFoundException("No log file available")
+        }
+        val expiry = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
+        directory.listFiles()?.filter { it.isFile && it.lastModified() < expiry }?.forEach { it.delete() }
+        // A later share must not overwrite a file still being read by another app.
+        val destination = File.createTempFile(if (app) "app-" else "box-", ".log", directory)
+        try {
+            if (source != null) source.copyTo(destination, overwrite = true)
+            else destination.writeText(serviceLines.joinToString("\n"))
+            return destination
+        } catch (error: Exception) {
+            destination.delete()
+            throw error
+        }
+    }
+
     fun clear() {
         for (file in candidateFiles()) {
             if (!file.exists()) continue

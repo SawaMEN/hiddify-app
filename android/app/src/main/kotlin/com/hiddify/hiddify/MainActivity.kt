@@ -533,8 +533,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onExportPerAppFile = { perAppExportLauncher.launch("per-app-proxy.json") },
                 onConfirmPerAppImport = ::confirmPerAppImport,
                 onDismissPerAppImport = { pendingPerAppImport.value = null },
-                onRefreshLogs = ::refreshLogs,
                 onClearLogs = ::clearLogs,
+                onShareLogs = ::shareLogs,
                 onSaveChainOptions = ::saveChainOptions,
                 onSelectOutbound = ::selectOutbound,
                 onTestOutbound = ::testOutbound,
@@ -550,6 +550,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onOpenUpstream = { openExternalUrl(NativeUpdateRepository.UPSTREAM_URL) },
                 onOpenTerms = { openExternalUrl(NativeUpdateRepository.TERMS_URL) },
                 onOpenPrivacy = { openExternalUrl(NativeUpdateRepository.PRIVACY_URL) },
+                onCopyAppInfo = ::copyAppInfo,
                 onProxyOnlyChanged = { proxyOnly ->
                     if (serviceStatus.value != Status.Stopped) {
                         errorMessage.value = getString(R.string.native_settings_disconnect_required)
@@ -752,6 +753,31 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     }
             } catch (error: Exception) {
                 Log.w(TAG, "failed to refresh native logs", error)
+            }
+        }
+    }
+
+    private fun shareLogs(app: Boolean) {
+        if (logBusy.value) return
+        logBusy.value = true
+        val serviceLines = serviceLogLines.toList()
+        lifecycleScope.launch {
+            try {
+                val file = withContext(Dispatchers.IO) { logRepository.export(app, serviceLines) }
+                val uri = androidx.core.content.FileProvider.getUriForFile(this@MainActivity,
+                    "$packageName.privacy.files", file)
+                startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    clipData = ClipData.newRawUri(file.name, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }, getString(R.string.native_logs_share)))
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                errorMessage.value = getString(R.string.native_logs_share_failed)
+            } finally {
+                logBusy.value = false
             }
         }
     }
@@ -2481,6 +2507,14 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshChainOptions()
         refreshSettingsSnapshot()
         refreshWifiSharingDetails()
+    }
+
+    private fun copyAppInfo() {
+        val info = "${getString(R.string.app_name)} v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) [${BuildConfig.CHANNEL}]\n" +
+            "${if (BuildConfig.DEBUG) "debug" else "release"} release\n" +
+            "android [${Build.VERSION.RELEASE}; SDK ${Build.VERSION.SDK_INT}]"
+        getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("App info", info))
+        Toast.makeText(this, R.string.native_profile_copied, Toast.LENGTH_SHORT).show()
     }
 
     private fun checkForUpdate() {

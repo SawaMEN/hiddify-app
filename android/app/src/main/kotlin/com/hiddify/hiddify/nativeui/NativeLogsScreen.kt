@@ -22,12 +22,14 @@ fun NativeLogsScreen(
     snapshot: NativeLogSnapshot,
     busy: Boolean,
     onBack: () -> Unit,
-    onRefresh: () -> Unit,
     onClear: () -> Unit,
+    sharingEnabled: Boolean,
+    onShare: (Boolean) -> Unit,
 ) {
     var paused by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var level by rememberSaveable { mutableStateOf<String?>(null) }
+    var sharingOpen by remember { mutableStateOf(false) }
     var levelsOpen by remember { mutableStateOf(false) }
     var frozen by remember { mutableStateOf(snapshot) }
     LaunchedEffect(snapshot, paused) { if (!paused) frozen = snapshot }
@@ -40,13 +42,20 @@ fun NativeLogsScreen(
                     stringResource(if (paused) R.string.native_logs_resume else R.string.native_logs_pause),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            IconButton(onClick = onRefresh, enabled = !busy) {
-                Icon(painterResource(R.drawable.native_refresh), stringResource(R.string.native_logs_refresh),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
             IconButton(onClick = { frozen = NativeLogSnapshot(emptyList(), emptyList()); onClear() }, enabled = !busy) {
                 Icon(painterResource(R.drawable.native_delete), stringResource(R.string.native_logs_clear),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            if (sharingEnabled) Box {
+                IconButton(onClick = { sharingOpen = true }, enabled = !busy) {
+                    Icon(painterResource(R.drawable.native_more), stringResource(R.string.native_logs_share), Modifier.size(24.dp))
+                }
+                DropdownMenu(sharingOpen, { sharingOpen = false }) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.native_logs_share_core)) },
+                        onClick = { sharingOpen = false; onShare(false) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.native_logs_share_app)) },
+                        onClick = { sharingOpen = false; onShare(true) })
+                }
             }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),

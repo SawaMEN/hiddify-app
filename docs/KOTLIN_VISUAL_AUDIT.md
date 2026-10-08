@@ -68,6 +68,22 @@ pass. Kotlin tests remain blocked by the Gradle distribution download; APK is no
 ## Still to verify
 
 Compare every entry point on the same Android device, with identical data/theme/locale/font
-scale/orientation. Secondary layouts, original Fluent glyph contours, blur/motion, log file
-sharing and complete route/action equivalence still need work and verification. These source
+scale/orientation. Secondary layouts, original Fluent glyph contours, blur/motion and complete route/action equivalence still need work and verification. These source
 fixes do not certify an indistinguishable application. KOTLIN_PARITY.md remains open.
+
+## About and log actions follow-up
+
+Compared with Dart `about_page.dart` and `logs_page.dart` at 8d86559.
+About now uses the 64dp logo/version row, inset fork description card, list tiles with
+external-link icons, check-update spinner and available-update dialog. Its overflow menu
+copies version/build/channel/release/Android information. English/Russian fork text matches
+the source. Headers remain outside the scroll area; About/Logs no longer inherit the extra
+20dp secondary-page inset.
+
+Logs now have pause, clear and the debug-only overflow menu from Dart. Share core/app logs
+copies the chosen original file to a dedicated cache path on IO and opens the Android share
+chooser with a FileProvider read grant. App sharing falls back to captured service messages
+when no app.log exists; this is not full Android logcat capture. Missing files show an error.
+Automatic service updates still refresh the screen; the extra refresh toolbar action was removed.
+Resource/reference checks and git whitespace checks pass. Compilation/runtime comparison
+is still unavailable locally and these changes do not close whole-app parity.

@@ -251,8 +251,8 @@ fun NativeApp(
     onExportPerAppFile: () -> Unit,
     onConfirmPerAppImport: () -> Unit,
     onDismissPerAppImport: () -> Unit,
-    onRefreshLogs: () -> Unit,
     onClearLogs: () -> Unit,
+    onShareLogs: (Boolean) -> Unit,
     onSaveChainOptions: (NativeChainOptions) -> Unit,
     onSelectOutbound: (String, String) -> Unit,
     onTestOutbound: (String) -> Unit,
@@ -268,6 +268,7 @@ fun NativeApp(
     onOpenUpstream: () -> Unit,
     onOpenTerms: () -> Unit,
     onOpenPrivacy: () -> Unit,
+    onCopyAppInfo: () -> Unit,
     onProxyOnlyChanged: (Boolean) -> Unit,
     onRootModeChanged: (Boolean) -> Unit,
     onWifiSharingChanged: (Boolean) -> Unit,
@@ -348,11 +349,11 @@ fun NativeApp(
                         .fillMaxSize()
                         .statusBarsPadding()
                         .navigationBarsPadding()
-                        .padding(top = if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY || page == PAGE_SETTINGS) 0.dp else 8.dp),
+                        .padding(top = if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY || page == PAGE_SETTINGS || page == PAGE_ABOUT || page == PAGE_LOGS) 0.dp else 8.dp),
             ) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                     Box((if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY || page == PAGE_SETTINGS) Modifier else Modifier.widthIn(max = 680.dp))
-                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_SETTINGS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
+                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
                         when (page) {
                             PAGE_DIAGNOSTICS ->
                                 NativeDiagnosticsScreen(
@@ -478,8 +479,9 @@ fun NativeApp(
                                     snapshot = logSnapshot,
                                     busy = logBusy,
                                     onBack = { goBack() },
-                                    onRefresh = onRefreshLogs,
                                     onClear = onClearLogs,
+                                    sharingEnabled = settingsState.debugMode,
+                                    onShare = onShareLogs,
                                 )
 
                             PAGE_WIFI_GUIDE ->
@@ -505,6 +507,7 @@ fun NativeApp(
                                     onOpenUpstream = onOpenUpstream,
                                     onOpenTerms = onOpenTerms,
                                     onOpenPrivacy = onOpenPrivacy,
+                                    onCopyAppInfo = onCopyAppInfo,
                                 )
 
                             PAGE_CORE_OPTIONS ->

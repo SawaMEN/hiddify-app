@@ -244,7 +244,7 @@
     <string name="native_about_open">О программе и обновления</string>
     <string name="native_about_title">О VetrOFF Client</string>
     <string name="native_about_version">Версия %1$s (%2$d)</string>
-    <string name="native_about_fork_description">VetrOFF Client — независимый форк Hiddify с изменённой логикой VPN, настройками приватности и интеграцией с Android.</string>
+    <string name="native_about_fork_description">VetrOFF Client — независимый форк Hiddify с изменёнными настройками и логикой работы VPN.</string>
     <string name="native_about_updates">Обновления</string>
     <string name="native_about_check_update">Проверить обновления</string>
     <string name="native_about_checking_update">Проверка…</string>
@@ -757,4 +757,11 @@
     <string name="native_logs_filter">Фильтр</string>
     <string name="native_logs_all">Все</string>
     <string name="native_logs_no_matches">Нет подходящих записей</string>
+    <string name="native_about_fork_title">Форк Hiddify</string>
+    <string name="native_logs_share">Поделиться журналом</string>
+    <string name="native_logs_share_core">Поделиться журналом ядра</string>
+    <string name="native_logs_share_app">Поделиться журналом приложения</string>
+    <string name="native_logs_share_failed">Не удалось поделиться журналом. Возможно, выбранный журнал ещё не создан.</string>
+    <string name="native_about_copy_info">Добавить в буфер обмена</string>
+    <string name="native_about_actions">Действия со сведениями о приложении</string>
 </resources>

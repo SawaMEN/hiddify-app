@@ -1,22 +1,17 @@
 package com.hiddify.hiddify.nativeui
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import com.hiddify.hiddify.nativeui.NativeCard as Card
-import androidx.compose.material3.MaterialTheme
-import com.hiddify.hiddify.nativeui.NativeOutlinedButton as OutlinedButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 
@@ -34,119 +29,87 @@ fun NativeAboutScreen(
     onOpenUpstream: () -> Unit,
     onOpenTerms: () -> Unit,
     onOpenPrivacy: () -> Unit,
+    onCopyAppInfo: () -> Unit,
 ) {
-    Column(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        NativePageHeader(stringResource(R.string.native_about_title), onBack)
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(18.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                )
-                Text(
-                    text = stringResource(R.string.native_about_version, versionName, versionCode),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = stringResource(R.string.native_about_fork_description),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Text(
-                    text = stringResource(R.string.native_about_updates),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                OutlinedButton(
-                    onClick = onCheckUpdate,
-                    enabled = !updateChecking,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(
-                        if (updateChecking) {
-                            stringResource(R.string.native_about_checking_update)
-                        } else {
-                            stringResource(R.string.native_about_check_update)
-                        },
-                    )
+    var menuOpen by remember { mutableStateOf(false) }
+    var dismissedUpdate by rememberSaveable { mutableStateOf<String?>(null) }
+    Column(Modifier.fillMaxSize()) {
+        NativePageHeader(stringResource(R.string.native_about_title), onBack) {
+            Box {
+                IconButton(onClick = { menuOpen = true }) {
+                    Icon(painterResource(R.drawable.native_more), stringResource(R.string.native_about_actions), Modifier.size(24.dp))
                 }
-                updateMessage?.let { message ->
-                    Text(
-                        text = message,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-                if (updateUrl != null) {
-                    OutlinedButton(
-                        onClick = onOpenUpdate,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(stringResource(R.string.native_about_open_release))
-                    }
+                DropdownMenu(menuOpen, { menuOpen = false }) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.native_about_copy_info)) },
+                        onClick = { menuOpen = false; onCopyAppInfo() })
                 }
             }
         }
-
-        LinkButton(
-            text = stringResource(R.string.native_about_source),
-            subtext = "SawaMEN/hiddify-app",
-            onClick = onOpenFork,
-        )
-        LinkButton(
-            text = stringResource(R.string.native_about_upstream),
-            subtext = "hiddify/hiddify-app",
-            onClick = onOpenUpstream,
-        )
-        LinkButton(
-            text = stringResource(R.string.native_about_terms),
-            onClick = onOpenTerms,
-        )
-        LinkButton(
-            text = stringResource(R.string.native_about_privacy),
-            onClick = onOpenPrivacy,
-        )
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Image(painterResource(R.drawable.vetroff_app_logo), null, Modifier.size(64.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface)
+                    Text(stringResource(R.string.native_about_version, versionName, versionCode),
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            NativeCard(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.native_about_fork_title), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.native_about_fork_description), style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+            AboutLink(stringResource(R.string.native_about_check_update), onClick = {
+                dismissedUpdate = null
+                onCheckUpdate()
+            }, enabled = !updateChecking, icon = R.drawable.native_refresh, busy = updateChecking)
+            if (updateUrl == null) updateMessage?.let {
+                Text(it, Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            HorizontalDivider()
+            AboutLink(stringResource(R.string.native_about_source), "SawaMEN/hiddify-app", onOpenFork)
+            AboutLink(stringResource(R.string.native_about_upstream), "hiddify/hiddify-app", onOpenUpstream)
+            AboutLink(stringResource(R.string.native_about_terms), onClick = onOpenTerms)
+            AboutLink(stringResource(R.string.native_about_privacy), onClick = onOpenPrivacy)
+        }
+    }
+    if (updateUrl != null && dismissedUpdate != updateUrl) {
+        AlertDialog(onDismissRequest = { dismissedUpdate = updateUrl },
+            title = { Text(stringResource(R.string.native_about_updates)) },
+            text = { Text(updateMessage ?: stringResource(R.string.native_about_open_release)) },
+            confirmButton = { TextButton(onClick = { dismissedUpdate = updateUrl; onOpenUpdate() }) {
+                Text(stringResource(R.string.native_about_open_release))
+            } },
+            dismissButton = { TextButton(onClick = { dismissedUpdate = updateUrl }) {
+                Text(stringResource(android.R.string.cancel))
+            } })
     }
 }
 
 @Composable
-private fun LinkButton(
+private fun AboutLink(
     text: String,
     subtext: String? = null,
     onClick: () -> Unit,
+    enabled: Boolean = true,
+    icon: Int = R.drawable.privacy_open,
+    busy: Boolean = false,
 ) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(text, fontWeight = FontWeight.Medium)
-            if (subtext != null) {
-                Text(
-                    text = subtext,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
+    ListItem(
+        headlineContent = { Text(text) },
+        supportingContent = if (subtext != null) { { Text(subtext) } } else null,
+        trailingContent = {
+            if (busy) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+            else Icon(painterResource(icon), null, Modifier.size(24.dp))
+        },
+        modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface,
+            headlineColor = MaterialTheme.colorScheme.onSurface,
+            supportingColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            trailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant),
+    )
 }
