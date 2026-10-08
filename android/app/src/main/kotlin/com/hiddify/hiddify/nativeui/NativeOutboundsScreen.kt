@@ -170,7 +170,7 @@ private fun OutboundTile(outbound: NativeOutbound, selected: Boolean, selectable
     onSelect: () -> Unit, onInfo: () -> Unit, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     val dark = scheme.background.luminance() < .5f
-    NativeGlass(modifier.fillMaxWidth(), radius = 20, accent = if (selected) scheme.primary else scheme.outline) {
+    NativeSurface(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().heightIn(min = 80.dp)
             .background(if (selected) scheme.primaryContainer else Color.Transparent)
             .semantics { this.selected = selected }

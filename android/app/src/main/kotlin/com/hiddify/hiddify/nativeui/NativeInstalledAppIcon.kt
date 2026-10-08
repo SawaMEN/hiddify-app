@@ -40,7 +40,7 @@ internal fun NativeInstalledAppIcon(packageName: String) {
             }.getOrNull()?.also { appIconCache.put(key, it) }
         }
     }
-    NativeGlass(Modifier.size(48.dp), radius = 14) {
+    NativeSurface(Modifier.size(48.dp), shape = MaterialTheme.shapes.small) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             bitmap?.let { Image(it.asImageBitmap(), null, Modifier.size(38.dp)) }
                 ?: Icon(painterResource(R.drawable.privacy_apps), null, Modifier.size(28.dp),

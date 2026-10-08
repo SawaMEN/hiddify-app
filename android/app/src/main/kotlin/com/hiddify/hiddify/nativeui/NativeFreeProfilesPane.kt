@@ -7,9 +7,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import com.hiddify.hiddify.nativeui.NativeGlassDialog as AlertDialog
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
@@ -56,8 +55,8 @@ internal fun NativeFreeProfilesPane(onImport: (NativeFreeProfile, String) -> Uni
             }
             else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(available) { profile ->
-                    Surface(onClick = { consentUrl = profile.url }, shape = RoundedCornerShape(18.dp),
-                        color = androidx.compose.ui.graphics.Color.Transparent, modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp).nativeGlassDecoration(RoundedCornerShape(18.dp))) {
+                    Surface(onClick = { consentUrl = profile.url }, shape = MaterialTheme.shapes.medium,
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp)) {
                         Column(Modifier.padding(10.dp)) {
                             Row(Modifier.fillMaxWidth()) {
                                 Text(profile.title(russian), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)

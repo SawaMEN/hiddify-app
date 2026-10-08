@@ -64,12 +64,12 @@ internal fun NativeProxyPrivacyScreen(
         }
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (options.hideLocalProxy && !options.effectiveHideLocalProxy(wifiSharing, rootMode)) {
-            NativeGlass(Modifier.fillMaxWidth()) {
+            NativeSurface(Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.native_proxy_wifi_exception), Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodyMedium)
             }
         }
-        NativeGlass(Modifier.fillMaxWidth(), radius = 24) {
+        NativeSurface(Modifier.fillMaxWidth()) {
             NativeSettingsLink(R.string.native_core_options_title, R.drawable.native_settings,
                 onOpenCoreOptions, R.string.native_proxy_core_summary, enabled = !busy)
         }
