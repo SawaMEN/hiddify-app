@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import com.hiddify.hiddify.nativeui.NativeGlassDialog as AlertDialog
+import androidx.compose.material3.AlertDialog
 import com.hiddify.hiddify.nativeui.NativeButton as Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text

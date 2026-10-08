@@ -30,8 +30,7 @@ internal fun NativeOutboundsSheet(
     onDismissOperationError: () -> Unit,
 ) {
     val height = (LocalConfiguration.current.screenHeightDp * .85f).dp
-    ModalBottomSheet(modifier = Modifier.nativeGlassDecoration(androidx.compose.foundation.shape.RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)),
-        containerColor = androidx.compose.ui.graphics.Color.Transparent, tonalElevation = 0.dp, onDismissRequest = onDismiss, sheetMaxWidth = 900.dp,
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetMaxWidth = 900.dp,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Box(Modifier.fillMaxWidth().height(height)) {
             NativeOutboundsScreen(connected = connected, sort = sort, onChangeSort = onChangeSort,

@@ -8,11 +8,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import com.hiddify.hiddify.nativeui.NativeButton as Button
-import com.hiddify.hiddify.nativeui.NativeGlassDialog as AlertDialog
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -107,15 +106,13 @@ internal fun NativeAddProfileSheet(
     val validUrl = uri != null && (uri.scheme.equals("http", true) || uri.scheme.equals("https", true)) &&
         !uri.host.isNullOrBlank() && (uri.port == -1 || uri.port in 1..65535) && raw.none(Char::isWhitespace)
 
-    ModalBottomSheet(modifier = Modifier.nativeGlassDecoration(androidx.compose.foundation.shape.RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)),
-        containerColor = androidx.compose.ui.graphics.Color.Transparent, tonalElevation = 0.dp,
+    ModalBottomSheet(
         onDismissRequest = { if (enabled) onDismiss() },
         sheetState = rememberModalBottomSheetState(
             skipPartiallyExpanded = true,
             confirmValueChange = { it != SheetValue.Hidden || canDismiss },
         ),
         sheetMaxWidth = 456.dp,
-        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
         dragHandle = null,
     ) {
         Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState())) {
@@ -225,8 +222,8 @@ internal fun NativeAddProfileSheet(
 
 @Composable
 private fun AddSourceTile(label: Int, icon: Int, height: androidx.compose.ui.unit.Dp, modifier: Modifier, onClick: () -> Unit) {
-    Surface(onClick = onClick, modifier = modifier.heightIn(min = height).nativeGlassDecoration(RoundedCornerShape(18.dp)), shape = RoundedCornerShape(18.dp),
-        color = androidx.compose.ui.graphics.Color.Transparent) {
+    Surface(onClick = onClick, modifier = modifier.heightIn(min = height), shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest) {
         Column(Modifier.padding(horizontal = 4.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center) {
             Icon(painterResource(icon), null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)

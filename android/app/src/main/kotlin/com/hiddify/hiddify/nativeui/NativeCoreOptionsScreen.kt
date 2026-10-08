@@ -32,7 +32,7 @@ fun NativeCoreOptionsScreen(
             Triple(R.string.native_tunnel_title, R.drawable.native_route, onOpenTunnel),
             Triple(R.string.native_core_tls, R.drawable.native_shield, onOpenTls),
         ).forEach { (title, icon, open) ->
-            NativeGlass(Modifier.fillMaxWidth(), radius = 24) { NativeSettingsLink(title, icon, open) }
+            NativeSurface(Modifier.fillMaxWidth()) { NativeSettingsLink(title, icon, open) }
         }
     }
 }

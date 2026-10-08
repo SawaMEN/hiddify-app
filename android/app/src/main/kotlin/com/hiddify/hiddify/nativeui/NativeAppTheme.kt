@@ -3,7 +3,6 @@ package com.hiddify.hiddify.nativeui
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
@@ -11,11 +10,10 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.hiddify.hiddify.nativepreferences.NativeThemeMode
 
 // Stable, opaque surfaces and restrained accents keep both themes readable.
@@ -73,37 +71,22 @@ private val LightColors = lightColorScheme(
     background = Color(0xFFFFFFFF),
 )
 
-private val BaseTypography = Typography()
-private val AppTypography = Typography(
-    displayLarge = BaseTypography.displayLarge.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
-    displayMedium = BaseTypography.displayMedium.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
-    displaySmall = BaseTypography.displaySmall.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
-    headlineLarge = BaseTypography.headlineLarge.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
-    headlineMedium = BaseTypography.headlineMedium.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
-    headlineSmall = BaseTypography.headlineSmall.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
-    titleLarge = BaseTypography.titleLarge.copy(fontSize = 20.sp, lineHeight = 28.sp, fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
-    titleMedium = BaseTypography.titleMedium.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold),
-    titleSmall = BaseTypography.titleSmall.copy(fontFamily = FontFamily.SansSerif),
-    bodyLarge = BaseTypography.bodyLarge.copy(fontFamily = FontFamily.SansSerif, fontSize = 16.sp, lineHeight = 24.sp),
-    bodyMedium = BaseTypography.bodyMedium.copy(fontFamily = FontFamily.SansSerif, fontSize = 14.sp, lineHeight = 20.sp),
-    bodySmall = BaseTypography.bodySmall.copy(fontFamily = FontFamily.SansSerif),
-    labelLarge = BaseTypography.labelLarge.copy(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold),
-    labelMedium = BaseTypography.labelMedium.copy(fontFamily = FontFamily.SansSerif),
-    labelSmall = BaseTypography.labelSmall.copy(fontFamily = FontFamily.SansSerif),
-)
-
 @Composable
 fun NativeAppTheme(mode: NativeThemeMode, content: @Composable () -> Unit) {
     val dark = mode.isDark(isSystemInDarkTheme())
-    val colors = if (dark) DarkColors else LightColors
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val configuration = LocalConfiguration.current
+    val preview = LocalInspectionMode.current
+    val colors = remember(context, configuration, dark, preview) {
+        if (!preview && android.os.Build.VERSION.SDK_INT >= 31) {
+            if (dark) androidx.compose.material3.dynamicDarkColorScheme(context)
+            else androidx.compose.material3.dynamicLightColorScheme(context)
+        } else if (dark) DarkColors else LightColors
+    }
     MaterialTheme(
         colorScheme = colors.copy(background = if (mode == NativeThemeMode.BLACK) Color.Black else colors.surfaceContainerLowest),
-        typography = AppTypography,
-        shapes = Shapes(
-            extraSmall = RoundedCornerShape(4.dp), small = RoundedCornerShape(16.dp),
-            medium = RoundedCornerShape(16.dp), large = RoundedCornerShape(20.dp),
-            extraLarge = RoundedCornerShape(24.dp),
-        ),
+        typography = Typography(),
+        shapes = Shapes(),
         content = { CompositionLocalProvider(LocalNativeMotionEnabled provides nativeMotionEnabled(),
             LocalTextSelectionColors provides TextSelectionColors(colors.primary, colors.primary.copy(alpha = .28f))) { content() } },
     )

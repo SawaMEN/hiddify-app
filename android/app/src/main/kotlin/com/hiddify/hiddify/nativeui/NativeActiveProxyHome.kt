@@ -80,7 +80,7 @@ internal fun NativeActiveProxyFooter(
     }
     val ip = outbound.ipInfo?.ip.orEmpty()
     val ipLabel = stringResource(R.string.native_outbound_ip)
-    NativeGlass(Modifier.fillMaxWidth(), radius = 24) {
+    NativeSurface(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 8.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.clickable(enabled = !busy) { requestedAtRevision = operationRevision; inspectPending = true; onTest() }.padding(horizontal = 8.dp)) {

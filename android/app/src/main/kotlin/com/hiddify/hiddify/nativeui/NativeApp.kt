@@ -1,11 +1,10 @@
 package com.hiddify.hiddify.nativeui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.ui.text.font.FontWeight
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,7 +15,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import com.hiddify.hiddify.nativeui.NativeGlassDialog as AlertDialog
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,20 +39,11 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.ui.text.style.TextOverflow
 import com.hiddify.hiddify.BuildConfig
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.ui.graphics.Color
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -353,7 +343,7 @@ fun NativeApp(
 
     NativeAppTheme(themeMode) {
         NativeAtmosphere {
-            var dockHeight by remember { mutableStateOf(96.dp) }
+            var dockHeight by remember { mutableStateOf(80.dp) }
             val density = LocalDensity.current
             Box(
                 modifier =
@@ -747,29 +737,23 @@ fun NativeApp(
                     modifier = Modifier.align(Alignment.BottomCenter),
                     enter = fadeIn(tween(if (LocalNativeMotionEnabled.current) 180 else 0)),
                     exit = fadeOut(tween(if (LocalNativeMotionEnabled.current) 80 else 0))) {
-                    NativeDock(Modifier.fillMaxWidth()
-                        .onSizeChanged { dockHeight = with(density) { it.height.toDp() } }
-                        .padding(horizontal = 12.dp).padding(bottom = 8.dp)) {
-                        NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp, modifier = Modifier.heightIn(min = 80.dp)) {
-                            listOf(
-                                Triple(PAGE_HOME, R.drawable.native_power, R.string.native_home),
-                                Triple(PAGE_PRIVACY, R.drawable.native_shield, R.string.native_privacy_title),
-                                Triple(PAGE_SETTINGS, R.drawable.native_settings, R.string.native_settings),
-                            ).forEach { (destination, icon, label) ->
-                                NavigationBarItem(modifier = Modifier.testTag("nav_$destination"), selected = page == destination, enabled = !privacySetupBusy && !proxyPrivacyBusy && !inboundBusy && !dnsBusy && !tlsBusy && !generalOptionsBusy && !tunnelBusy && !generalPreferencesBusy, onClick = {
-                                    if (page != destination) {
-                                        navigationDirection = 0
-                                        pageTrail = ""
-                                        page = destination
-                                    }
-                                },
-                                    icon = { Icon(painterResource(icon), contentDescription = null, Modifier.size(26.dp)) },
-                                    colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
-                                        selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary,
-                                        indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = .14f),
-                                        unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant, unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant),
-                                    label = { Text(stringResource(label), maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center) })
-                            }
+                    NavigationBar(windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+                        modifier = Modifier.fillMaxWidth()
+                            .onSizeChanged { dockHeight = with(density) { it.height.toDp() } }) {
+                        listOf(
+                            Triple(PAGE_HOME, R.drawable.native_power, R.string.native_home),
+                            Triple(PAGE_PRIVACY, R.drawable.native_shield, R.string.native_privacy_title),
+                            Triple(PAGE_SETTINGS, R.drawable.native_settings, R.string.native_settings),
+                        ).forEach { (destination, icon, label) ->
+                            NavigationBarItem(modifier = Modifier.testTag("nav_$destination"), selected = page == destination, enabled = !privacySetupBusy && !proxyPrivacyBusy && !inboundBusy && !dnsBusy && !tlsBusy && !generalOptionsBusy && !tunnelBusy && !generalPreferencesBusy, onClick = {
+                                if (page != destination) {
+                                    navigationDirection = 0
+                                    pageTrail = ""
+                                    page = destination
+                                }
+                            },
+                                icon = { Icon(painterResource(icon), contentDescription = null, Modifier.size(26.dp)) },
+                                label = { Text(stringResource(label), maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center) })
                         }
                     }
                 }
@@ -991,7 +975,7 @@ private fun HomeScreen(
                     Spacer(Modifier.height(12.dp))
                     ConnectionStatsCard(systemStats, smartSelected)
                     Spacer(Modifier.height(16.dp))
-                    NativeGlass(Modifier.fillMaxWidth().clickable(onClick = onOpenSettings), radius = 20) {
+                    NativeSurface(Modifier.fillMaxWidth().clickable(onClick = onOpenSettings)) {
                         Row(Modifier.padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(painterResource(R.drawable.home_tune), null, tint = MaterialTheme.colorScheme.primary)
                             Text(stringResource(R.string.native_quick_settings), Modifier.weight(1f).padding(start = 12.dp),
@@ -1007,7 +991,7 @@ private fun HomeScreen(
 
 @Composable
 private fun ConnectionStatsCard(stats: NativeSystemStats, smartSelected: Boolean) {
-    NativeGlass(Modifier.fillMaxWidth(), radius = 20) {
+    NativeSurface(Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val stacked = maxWidth < (280 * LocalDensity.current.fontScale).dp
@@ -1068,49 +1052,28 @@ private fun ConnectionCard(
         Status.Stopping -> R.string.native_disconnecting
     })
     val scheme = MaterialTheme.colorScheme
-    val connected = status == Status.Started
-    val accent by animateColorAsState(if (connected) scheme.primary else scheme.primaryContainer,
-        tween(if (LocalNativeMotionEnabled.current) 180 else 0), label = "Connection color")
     val enabled = !reconnectBusy && (recovering || status != Status.Stopping)
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    val motion = LocalNativeMotionEnabled.current
-    val scale by animateFloatAsState(if (pressed && enabled) .94f else 1f,
-        tween(if (motion) 140 else 0), label = "Power press")
-    val gradientEnd by animateColorAsState(if (connected) scheme.secondary else scheme.surfaceContainerHigh,
-        tween(if (motion) 180 else 0), label = "Power gradient")
     val view = LocalView.current
     val transitioning = status == Status.Starting || status == Status.Stopping || reconnectBusy
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Box(Modifier.size(164.dp), contentAlignment = Alignment.Center) {
-            // A quiet rim gives the control depth without glows or continuous redraws.
-            Box(Modifier.fillMaxSize().border(1.dp, scheme.primary.copy(alpha = .22f), CircleShape))
-            androidx.compose.material3.Surface(
-                onClick = {
-                    if (hapticFeedback) view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
-                    onToggleConnection()
-                }, enabled = enabled, interactionSource = interaction,
-                modifier = Modifier.size(144.dp).scale(scale).semantics { contentDescription = actionLabel },
-                shape = CircleShape, color = accent,
-                border = BorderStroke(1.dp, scheme.primary.copy(alpha = .45f)),
-                shadowElevation = if (pressed) 1.dp else 6.dp,
-                contentColor = if (connected) scheme.onPrimary else scheme.onPrimaryContainer,
-            ) {
-                Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(accent, gradientEnd))),
-                    contentAlignment = Alignment.Center) {
-                    Icon(painterResource(R.drawable.home_power), null, Modifier.size(52.dp))
-                }
-            }
-            if (transitioning) CircularProgressIndicator(Modifier.size(164.dp),
-                color = scheme.primary, strokeWidth = 3.dp)
+        androidx.compose.material3.Button(
+            onClick = {
+                if (hapticFeedback) view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                onToggleConnection()
+            }, enabled = enabled,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).semantics { contentDescription = actionLabel },
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 20.dp),
+        ) {
+            if (transitioning) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp,
+                color = androidx.compose.material3.LocalContentColor.current)
+            else Icon(painterResource(R.drawable.home_power), null, Modifier.size(24.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(actionLabel, style = MaterialTheme.typography.titleMedium,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
-        Text(actionLabel, style = MaterialTheme.typography.titleLarge,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        Row(Modifier.heightIn(min = 28.dp), verticalAlignment = Alignment.CenterVertically,
+        Row(Modifier.heightIn(min = 28.dp).semantics { liveRegion = LiveRegionMode.Polite }, verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (status == Status.Starting || status == Status.Stopping || reconnectBusy)
-                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
             Text(label, style = MaterialTheme.typography.bodyMedium,
                 color = if (failed) scheme.error else scheme.onSurfaceVariant,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center)

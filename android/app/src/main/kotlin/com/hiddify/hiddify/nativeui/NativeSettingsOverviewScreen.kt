@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import com.hiddify.hiddify.nativeui.NativeGlassDialog as AlertDialog
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -127,7 +127,7 @@ internal fun NativeSettingsOverviewScreen(
 
 @Composable
 private fun SettingsSection(title: Int, icon: Int, onClick: () -> Unit, summary: Int? = null) {
-    NativeGlass(Modifier.fillMaxWidth().padding(bottom = 12.dp), radius = 24) {
+    NativeSurface(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
         Row(Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick)
             .heightIn(min = if (summary == null) 72.dp else 88.dp).padding(horizontal = 20.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {

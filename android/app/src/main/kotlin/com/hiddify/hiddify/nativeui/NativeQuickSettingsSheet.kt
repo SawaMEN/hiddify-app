@@ -11,7 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import com.hiddify.hiddify.nativeui.NativeElevatedButton as ElevatedButton
-import com.hiddify.hiddify.nativeui.NativeGlassDialog as AlertDialog
+import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -85,11 +85,6 @@ internal fun NativeQuickSettingsSheet(
     val scheme = MaterialTheme.colorScheme
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-        containerColor = scheme.surfaceContainerLow,
-        contentColor = scheme.onSurface,
-        tonalElevation = 0.dp,
-        dragHandle = { BottomSheetDefaults.DragHandle(color = scheme.onSurfaceVariant.copy(alpha = .45f)) },
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
@@ -105,7 +100,7 @@ internal fun NativeQuickSettingsSheet(
                             R.string.native_quick_proxy else R.string.native_quick_vpn), Modifier.padding(vertical = 8.dp)) })
                 }
             }
-            NativeGlass(Modifier.fillMaxWidth()) {
+            NativeSurface(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -151,7 +146,7 @@ internal fun NativeQuickSettingsSheet(
             }
             // Full-width stages grow with localized labels and the system font size.
             ChainStage(Modifier.fillMaxWidth(), true, chain, busy, onChain, onOpenChain)
-            NativeGlass(Modifier.fillMaxWidth()) {
+            NativeSurface(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(stringResource(R.string.native_quick_main_profile), style = MaterialTheme.typography.labelLarge,
                         color = scheme.onSurfaceVariant)
@@ -195,7 +190,7 @@ private fun ChainStage(modifier: Modifier, extra: Boolean, chain: NativeChainOpt
     val scheme = MaterialTheme.colorScheme
     val foreground = if (enabled) scheme.onPrimaryContainer else scheme.onSurface
     var menuOpen by remember { mutableStateOf(false) }
-    NativeGlass(modifier) {
+    NativeSurface(modifier) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Icon(painterResource(if (extra) R.drawable.native_chain_phone_android else R.drawable.native_chain_wifi),

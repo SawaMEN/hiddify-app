@@ -1,6 +1,5 @@
 package com.hiddify.hiddify.nativeui
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -45,10 +44,9 @@ internal fun NativeProfileTile(
     var menuOpen by rememberSaveable(profile.id) { mutableStateOf(false) }
     val scheme = MaterialTheme.colorScheme
     Surface(
-        modifier = modifier.fillMaxWidth().nativeGlassDecoration(),
-        shape = RoundedCornerShape(24.dp),
-        color = androidx.compose.ui.graphics.Color.Transparent,
-        border = BorderStroke(1.dp, if (profile.active) scheme.primary.copy(alpha = .55f) else scheme.outlineVariant),
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = if (profile.active) scheme.secondaryContainer else scheme.surfaceContainerHighest,
     ) {
         Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
             if (profile.isRemote || !isMain) {
