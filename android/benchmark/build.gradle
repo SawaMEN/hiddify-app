@@ -1,0 +1,37 @@
+plugins {
+    id 'com.android.test'
+    id 'org.jetbrains.kotlin.android'
+}
+android {
+    namespace 'com.hiddify.hiddify.benchmark'
+    compileSdk 37
+    compileSdkMinor = 0
+    targetProjectPath = ':app'
+    defaultConfig {
+        minSdk 29
+        targetSdk 36
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = '17' }
+    buildTypes {
+        benchmark {
+            debuggable true
+            signingConfig signingConfigs.debug
+            matchingFallbacks = ['release']
+        }
+    }
+    experimentalProperties['android.experimental.self-instrumenting'] = true
+}
+androidComponents {
+    beforeVariants(selector().all()) { variant -> variant.enable = variant.buildType == 'benchmark' }
+}
+dependencies {
+    implementation 'androidx.test.ext:junit:1.2.1'
+    implementation 'androidx.test:runner:1.6.2'
+    implementation 'androidx.test.uiautomator:uiautomator:2.3.0'
+    implementation 'androidx.benchmark:benchmark-macro-junit4:1.4.1'
+}

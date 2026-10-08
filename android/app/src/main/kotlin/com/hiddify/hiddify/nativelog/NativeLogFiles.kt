@@ -43,3 +43,23 @@ internal object NativeLogFiles {
         failure?.let { throw it }
     }
 }
+
+/** Metadata avoids repeatedly reading unchanged files; expiry also catches equal-size rotations. */
+internal class NativeLogTailCache(private val clock: () -> Long = { System.nanoTime() / 1_000_000 }) {
+    private data class Entry(val size: Long, val modified: Long, val readAt: Long, val maxBytes: Long, val text: String)
+    private val entries = linkedMapOf<String, Entry>()
+    @Synchronized fun read(file: File, maxBytes: Long): String {
+        val key = file.absolutePath
+        val size = file.length()
+        val modified = file.lastModified()
+        val now = clock()
+        val cached = entries[key]
+        if (cached != null && cached.size == size && cached.modified == modified && cached.maxBytes == maxBytes &&
+            now - cached.readAt in 0..9999) return cached.text
+        val text = NativeLogFiles.readTail(file, maxBytes)
+        if (entries.size >= 8 && key !in entries) entries.remove(entries.keys.first())
+        entries[key] = Entry(size, modified, now, maxBytes, text)
+        return text
+    }
+    @Synchronized fun clear() { entries.clear() }
+}

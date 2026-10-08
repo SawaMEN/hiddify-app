@@ -33,7 +33,7 @@ data class NativeConnectionOptions(
     }
 }
 
-enum class NativeInternetHealth { UNCHECKED, CHECKING, AVAILABLE, UNAVAILABLE }
+enum class NativeInternetHealth { UNCHECKED, CHECKING, AVAILABLE, UNAVAILABLE, PROBE_FAILED }
 
 /** Port of the compatibility UI's adaptive timing, independent of Android and wall-clock time. */
 class NativeHealthProbePolicy(val adaptive: Boolean) {
@@ -60,5 +60,18 @@ class NativeHealthProbePolicy(val adaptive: Boolean) {
         successes = (successes + 1).coerceAtMost(1_000_000)
         val ms = elapsedMs.coerceAtLeast(0).toDouble()
         averageMs = if (averageMs == 0.0) ms else averageMs * 0.7 + ms * 0.3
+    }
+}
+
+/** Health probes are independent from a user-configured latency test. Never trust an HTTP portal page. */
+internal object NativeHealthEndpoints {
+    fun urls(configured: String): List<String> {
+        val custom = configured.takeIf { url -> runCatching {
+            val uri = java.net.URI(url)
+            url.length <= 2048 && uri.scheme.equals("https", true) && !uri.host.isNullOrBlank() &&
+                uri.userInfo == null && uri.fragment == null && (uri.port == -1 || uri.port in 1..65535)
+        }.getOrDefault(false) }
+        return listOfNotNull(custom, "https://www.gstatic.com/generate_204", "https://cp.cloudflare.com/generate_204")
+            .distinct().take(3)
     }
 }

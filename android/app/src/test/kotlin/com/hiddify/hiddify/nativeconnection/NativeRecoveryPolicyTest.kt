@@ -40,28 +40,22 @@ class NativeRecoveryPolicyTest {
         assertEquals(120L, policy.nextDelaySeconds(true))
     }
 
-    private fun decision(desired: Boolean = true, enabled: Boolean = true, foreground: Boolean = true,
-        permission: Boolean = true, pending: Boolean = false, adaptive: Boolean = true,
-        network: Boolean = true, owned: Boolean = false) = NativeRecoveryPolicy.decision(
-        desired, enabled, foreground, permission, pending, adaptive, network, owned)
+    private fun allowed(previous: Boolean = true, same: Boolean = true, enabled: Boolean = true,
+        desired: Boolean = true, user: Boolean = true, permission: Boolean = true,
+        stopped: Boolean = false, destroyed: Boolean = false) = NativeRecoveryPolicy.canRecover(
+        previous, same, enabled, desired, user, permission, stopped, destroyed)
 
-    @Test fun manualDisconnectDisabledRecoveryBackgroundAndRevokedPermissionStopRetries() {
-        assertEquals(NativeRecoveryDecision.STOP, decision(desired = false))
-        assertEquals(NativeRecoveryDecision.STOP, decision(enabled = false))
-        assertEquals(NativeRecoveryDecision.STOP, decision(foreground = false))
-        assertEquals(NativeRecoveryDecision.STOP, decision(permission = false))
-        assertEquals(NativeRecoveryDecision.STOP, decision(desired = false, owned = true, network = false))
+    @Test fun establishedServiceCanRecoverWithoutAnActivity() { assertTrue(allowed()) }
+    @Test fun manualStopRevokedPermissionAndDisabledRecoveryAreTerminal() {
+        assertFalse(allowed(desired = false))
+        assertFalse(allowed(stopped = true))
+        assertFalse(allowed(permission = false))
+        assertFalse(allowed(enabled = false))
+        assertFalse(allowed(user = false))
     }
-
-    @Test fun liveCoreAndConcurrentOperationsAreNeverRestarted() {
-        assertEquals(NativeRecoveryDecision.WAIT_CORE, decision(owned = true))
-        assertEquals(NativeRecoveryDecision.WAIT_CORE, decision(pending = true))
-        assertEquals(NativeRecoveryDecision.WAIT_CORE, decision(owned = true, network = false))
-    }
-
-    @Test fun offlineAdaptiveNetworkWaitsAndEligibleStoppedServiceCanStart() {
-        assertEquals(NativeRecoveryDecision.WAIT_NETWORK, decision(network = false))
-        assertEquals(NativeRecoveryDecision.START, decision())
-        assertEquals(NativeRecoveryDecision.START, decision(adaptive = false, network = false))
+    @Test fun firstUseInvalidEditsAndDestroyedOwnersNeverRetry() {
+        assertFalse(allowed(previous = false))
+        assertFalse(allowed(same = false))
+        assertFalse(allowed(destroyed = true))
     }
 }

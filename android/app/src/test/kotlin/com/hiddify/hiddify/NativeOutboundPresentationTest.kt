@@ -37,4 +37,9 @@ class NativeOutboundPresentationTest {
         assertEquals(listOf("large", "small"), presentNativeOutbounds(items, "", NativeOutboundSort.USAGE).map { it.tag })
         assertEquals(listOf("small", "large"), items.map { it.tag })
     }
+    @Test fun scrollingKeepsExistingRowsStableAndAppendsNewRows() {
+        val items = listOf(proxy("new"), proxy("b"), proxy("a"))
+        assertEquals(listOf("a", "b", "new"),
+            com.hiddify.hiddify.nativecore.keepNativeOutboundOrder(items, listOf("removed", "a", "b")).map { it.tag })
+    }
 }
