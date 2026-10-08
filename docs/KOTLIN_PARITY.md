@@ -601,3 +601,25 @@ The source inventory and precise limitations are recorded in KOTLIN_VISUAL_AUDIT
 references, XML, static font tables and native resources pass. Three new log-model tests could
 not run because Gradle download is blocked. Original Fluent contours, remaining secondary
 layouts/actions and same-device comparisons remain open; this is not a pixel-parity claim.
+
+
+## 200-item Dart source comparison
+
+KOTLIN_DART_200_DIFFS.md and its JSON companion record 200 unique source differences
+against Dart 8d8655916b115417e1f736966108c29ca87ba530 and Kotlin 95bc7ee. Changes restore
+the full bilingual five-OS Wi-Fi guide, tri-state per-app selection and connected edits,
+Network/DNS/Server TCP/Tunnel diagnostics, anonymization and protection layouts, minimum
+log severity and original structured messages, shared button dimensions and selection
+colors, subscription counters, and 16 original Fluent vector contours. The previous
+monospace log treatment is replaced with the original body-small typography.
+
+The OS guide is retained explicitly at the user's request. Generated guide wording and
+Fluent vectors have reproducible vendor scripts; Microsoft licensing is included. The
+source inventory check is included in CI alongside resource/font validation. Additional
+JVM tests cover endpoint extraction, all OS guide variants, per-app state transitions and
+log filtering. Local resource/inventory/whitespace checks pass; JVM execution could not
+start because the Gradle distribution download is unreachable. No APK was awaited.
+
+All 200 entries describe implemented source changes, not successful compilation or a
+rendered device comparison. Remaining differences elsewhere in the app may exist.
+Full functional and pixel parity requires CI compilation and same-device comparison.

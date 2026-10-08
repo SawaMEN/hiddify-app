@@ -289,7 +289,7 @@ private fun ChoiceButton(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                 ) {
                     choices.forEach { choice ->
-                        TextButton(
+                        NativeTextButton(
                             onClick = {
                                 onSelected(choice)
                                 open = false
@@ -304,7 +304,7 @@ private fun ChoiceButton(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { open = false }) {
+                NativeTextButton(onClick = { open = false }) {
                     Text(stringResource(android.R.string.cancel))
                 }
             },
@@ -346,7 +346,7 @@ private fun ProfileChoiceButton(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                 ) {
                     profiles.forEach { profile ->
-                        TextButton(
+                        NativeTextButton(
                             onClick = {
                                 onSelected(profile.id)
                                 open = false
@@ -361,7 +361,7 @@ private fun ProfileChoiceButton(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { open = false }) {
+                NativeTextButton(onClick = { open = false }) {
                     Text(stringResource(android.R.string.cancel))
                 }
             },

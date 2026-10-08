@@ -56,7 +56,7 @@ internal fun NativeTlsOptionsScreen(
         if ((options == null && !loadFailed) || busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (options == null && loadFailed) Column(Modifier.padding(16.dp)) {
             Text(stringResource(R.string.native_settings_load_failed), color = MaterialTheme.colorScheme.error)
-            TextButton(onClick = onRetry) { Text(stringResource(R.string.native_profiles_retry)) }
+            NativeTextButton(onClick = onRetry) { Text(stringResource(R.string.native_profiles_retry)) }
         }
         if (options != null) Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
             NativePreferenceTile(R.string.native_core_tls_fragment, R.drawable.native_tls_content_cut,
@@ -92,15 +92,15 @@ internal fun NativeTlsOptionsScreen(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done),
                     onDone = { save(field, range) }, modifier = Modifier.focusRequester(focus))
             }, confirmButton = {
-                TextButton(onClick = { save(field, range) }, enabled = dependentEnabled && valid) {
+                NativeTextButton(onClick = { save(field, range) }, enabled = dependentEnabled && valid) {
                     Text(stringResource(android.R.string.ok))
                 }
             }, dismissButton = {
                 Row {
-                    TextButton(onClick = { save(field, field.value(NativeTlsOptions()).toString()) }, enabled = dependentEnabled) {
+                    NativeTextButton(onClick = { save(field, field.value(NativeTlsOptions()).toString()) }, enabled = dependentEnabled) {
                         Text(stringResource(R.string.native_quick_reset))
                     }
-                    TextButton(onClick = { editor = null }) { Text(stringResource(android.R.string.cancel)) }
+                    NativeTextButton(onClick = { editor = null }) { Text(stringResource(android.R.string.cancel)) }
                 }
             })
     }

@@ -70,7 +70,7 @@ internal fun NativeGeneralOptionsScreen(
         if ((options == null && !loadFailed) || busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (options == null && loadFailed) Column(Modifier.padding(16.dp)) {
             Text(stringResource(R.string.native_settings_load_failed), color = MaterialTheme.colorScheme.error)
-            TextButton(onClick = onRetry) { Text(stringResource(R.string.native_profiles_retry)) }
+            NativeTextButton(onClick = onRetry) { Text(stringResource(R.string.native_profiles_retry)) }
         }
         if (options != null) Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
             NativePreferenceTile(R.string.native_core_balancer, R.drawable.native_general_balance,
@@ -139,15 +139,15 @@ internal fun NativeGeneralOptionsScreen(
                     }
                 }
             }, confirmButton = {
-                if (choices.isEmpty()) TextButton(onClick = { save(field, input) }, enabled = enabled && valid) {
+                if (choices.isEmpty()) NativeTextButton(onClick = { save(field, input) }, enabled = enabled && valid) {
                     Text(stringResource(android.R.string.ok))
                 }
             }, dismissButton = {
                 Row {
-                    TextButton(onClick = { save(field, field.value(NativeGeneralOptions()).toString()) }, enabled = enabled) {
+                    NativeTextButton(onClick = { save(field, field.value(NativeGeneralOptions()).toString()) }, enabled = enabled) {
                         Text(stringResource(R.string.native_quick_reset))
                     }
-                    TextButton(onClick = { editor = null }) { Text(stringResource(android.R.string.cancel)) }
+                    NativeTextButton(onClick = { editor = null }) { Text(stringResource(android.R.string.cancel)) }
                 }
             })
     }

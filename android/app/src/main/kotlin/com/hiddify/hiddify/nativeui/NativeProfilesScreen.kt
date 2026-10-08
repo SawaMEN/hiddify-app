@@ -82,7 +82,7 @@ fun NativeProfilesScreen(
             loadFailed -> Column(modifier, horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
                 Text(stringResource(R.string.native_profiles_load_failed))
-                TextButton(onClick = onRetry) { Text(stringResource(R.string.native_profiles_retry)) }
+                NativeTextButton(onClick = onRetry) { Text(stringResource(R.string.native_profiles_retry)) }
             }
             else -> LazyColumn(modifier, contentPadding = PaddingValues(start = 12.dp, top = 12.dp,
                 end = 12.dp, bottom = if (isSheet) 12.dp else 84.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -135,7 +135,7 @@ fun NativeProfilesScreen(
                 listOf(false, true).forEach { byName ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(selected = sortByName == byName, onClick = { onSort(byName, ascending) })
-                        TextButton(onClick = { onSort(byName, ascending) }, modifier = Modifier.weight(1f)) {
+                        NativeTextButton(onClick = { onSort(byName, ascending) }, modifier = Modifier.weight(1f)) {
                             Text(stringResource(if (byName) R.string.native_profiles_sort_name else R.string.native_profiles_sort_updated))
                         }
                         if (sortByName == byName) IconButton(onClick = { onSort(byName, !ascending) }) {
@@ -146,7 +146,7 @@ fun NativeProfilesScreen(
                     }
                 }
             }
-        }, confirmButton = { TextButton(onClick = { sortOpen = false }) { Text(stringResource(android.R.string.ok)) } })
+        }, confirmButton = { NativeTextButton(onClick = { sortOpen = false }) { Text(stringResource(android.R.string.ok)) } })
     profiles.firstOrNull { it.id == shareId }?.let { profile ->
         NativeProfileShareDialog(profile, onDismiss = { shareId = null },
             onCopyConfig = { onCopyConfig(profile); shareId = null }, onExportConfig = { onExportConfig(profile); shareId = null })
@@ -154,9 +154,9 @@ fun NativeProfilesScreen(
     profiles.firstOrNull { it.id == deleteId }?.let { profile ->
         AlertDialog(onDismissRequest = { deleteId = null }, title = { Text(stringResource(R.string.native_profile_delete_title)) },
             text = { Text(stringResource(R.string.native_profile_delete_message, profile.name)) },
-            confirmButton = { TextButton(enabled = !busy, onClick = { onDelete(profile); deleteId = null }) {
+            confirmButton = { NativeTextButton(enabled = !busy, onClick = { onDelete(profile); deleteId = null }) {
                 Text(stringResource(R.string.native_profile_delete))
-            } }, dismissButton = { TextButton(onClick = { deleteId = null }) { Text(stringResource(android.R.string.cancel)) } })
+            } }, dismissButton = { NativeTextButton(onClick = { deleteId = null }) { Text(stringResource(android.R.string.cancel)) } })
     }
 }
 

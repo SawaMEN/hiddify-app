@@ -5,6 +5,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -118,6 +120,7 @@ fun NativeAppTheme(mode: NativeThemeMode, content: @Composable () -> Unit) {
             medium = RoundedCornerShape(24.dp), large = RoundedCornerShape(24.dp),
             extraLarge = RoundedCornerShape(28.dp),
         ),
-        content = { CompositionLocalProvider(LocalNativeMotionEnabled provides nativeMotionEnabled()) { content() } },
+        content = { CompositionLocalProvider(LocalNativeMotionEnabled provides nativeMotionEnabled(),
+            LocalTextSelectionColors provides TextSelectionColors(colors.primary, colors.primary.copy(alpha = .28f))) { content() } },
     )
 }

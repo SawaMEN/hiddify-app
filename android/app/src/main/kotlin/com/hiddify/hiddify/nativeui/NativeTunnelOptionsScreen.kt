@@ -86,9 +86,9 @@ internal fun NativeTunnelOptionsScreen(options: NativeTunnelOptions?, busy: Bool
                         supportingText = { Text(stringResource(R.string.native_tunnel_invalid)) })
                 }
             }, confirmButton = {
-                if (!ipv6) TextButton(onClick = { mtu = input.toInt().toString(); editor = "" },
+                if (!ipv6) NativeTextButton(onClick = { mtu = input.toInt().toString(); editor = "" },
                     enabled = !busy && inputValid) { Text(stringResource(R.string.native_profile_save)) }
-            }, dismissButton = { TextButton(onClick = { editor = "" }, enabled = !busy) {
+            }, dismissButton = { NativeTextButton(onClick = { editor = "" }, enabled = !busy) {
                 Text(stringResource(android.R.string.cancel))
             } })
     }

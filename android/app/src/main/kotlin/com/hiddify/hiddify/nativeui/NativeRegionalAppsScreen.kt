@@ -78,8 +78,8 @@ fun NativeRegionalAppsScreen(
         item {
             Button(enabled = canChange && selected.size <= 256, modifier = Modifier.fillMaxWidth(),
                 onClick = { onSave(selected) }) { Text(stringResource(R.string.native_regional_save)) }
-            TextButton(enabled = canChange, onClick = onReset) { Text(stringResource(R.string.native_regional_apps_reset)) }
-            TextButton(enabled = !busy, onClick = onReload) { Text(stringResource(R.string.native_regional_apps_reload)) }
+            NativeTextButton(enabled = canChange, onClick = onReset) { Text(stringResource(R.string.native_regional_apps_reset)) }
+            NativeTextButton(enabled = !busy, onClick = onReload) { Text(stringResource(R.string.native_regional_apps_reload)) }
         }
         item {
             OutlinedTextField(value = search, onValueChange = { search = it.take(256) }, singleLine = true,

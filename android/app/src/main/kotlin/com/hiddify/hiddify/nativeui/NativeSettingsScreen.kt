@@ -285,7 +285,7 @@ fun NativeSettingsScreen(
             ) {
                 Text(stringResource(R.string.native_settings_export_file))
             }
-            TextButton(
+            NativeTextButton(
                 onClick = { resetSettingsOpen = true },
                 modifier = Modifier.fillMaxWidth(),
             ) {
@@ -366,12 +366,12 @@ fun NativeSettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }, confirmButton = {
-                TextButton(enabled = !generalPreferencesBusy, onClick = {
+                NativeTextButton(enabled = !generalPreferencesBusy, onClick = {
                     languagePickerOpen = false
                     onChangeLanguage(com.hiddify.hiddify.nativepreferences.NativeLanguage.ENGLISH)
                 }) { Text(stringResource(R.string.native_quick_reset)) }
             }, dismissButton = {
-                TextButton(onClick = { languagePickerOpen = false }) { Text(stringResource(android.R.string.cancel)) }
+                NativeTextButton(onClick = { languagePickerOpen = false }) { Text(stringResource(android.R.string.cancel)) }
             })
     }
 
@@ -394,12 +394,12 @@ fun NativeSettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(enabled = !themeBusy, onClick = {
+                NativeTextButton(enabled = !themeBusy, onClick = {
                     themePickerOpen = false
                     onChangeTheme(NativeThemeMode.SYSTEM)
                 }) { Text(stringResource(R.string.native_quick_reset)) }
             }, dismissButton = {
-                TextButton(onClick = { themePickerOpen = false }) { Text(stringResource(android.R.string.cancel)) }
+                NativeTextButton(onClick = { themePickerOpen = false }) { Text(stringResource(android.R.string.cancel)) }
             },
         )
     }
@@ -412,7 +412,7 @@ fun NativeSettingsScreen(
         AlertDialog(onDismissRequest = enableDebug,
             title = { Text(stringResource(R.string.native_setting_debug)) },
             text = { Text(stringResource(R.string.native_setting_debug_notice)) },
-            confirmButton = { TextButton(onClick = enableDebug) { Text(stringResource(android.R.string.ok)) } })
+            confirmButton = { NativeTextButton(onClick = enableDebug) { Text(stringResource(android.R.string.ok)) } })
     }
 
     if (resetSettingsOpen) {
@@ -421,7 +421,7 @@ fun NativeSettingsScreen(
             title = { Text(stringResource(R.string.native_settings_reset_title)) },
             text = { Text(stringResource(R.string.native_settings_reset_message)) },
             confirmButton = {
-                TextButton(
+                NativeTextButton(
                     onClick = {
                         resetSettingsOpen = false
                         onResetSettings()
@@ -431,7 +431,7 @@ fun NativeSettingsScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { resetSettingsOpen = false }) {
+                NativeTextButton(onClick = { resetSettingsOpen = false }) {
                     Text(stringResource(android.R.string.cancel))
                 }
             },

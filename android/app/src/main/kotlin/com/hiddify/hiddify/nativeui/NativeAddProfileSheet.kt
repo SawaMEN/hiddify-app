@@ -125,7 +125,7 @@ internal fun NativeAddProfileSheet(
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), trackColor = androidx.compose.ui.graphics.Color.Transparent)
                     if (canCancelImport) {
                         Spacer(Modifier.height(12.dp))
-                        TextButton(onClick = onCancelImport) {
+                        NativeTextButton(onClick = onCancelImport) {
                             Text(stringResource(android.R.string.cancel))
                         }
                     }
@@ -147,7 +147,7 @@ internal fun NativeAddProfileSheet(
                 importError?.let {
                     Text(it, Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error)
                 }
-                if (raw.isNotBlank()) TextButton(onClick = { importSource(raw) }, modifier = Modifier.padding(horizontal = 16.dp)) {
+                if (raw.isNotBlank()) NativeTextButton(onClick = { importSource(raw) }, modifier = Modifier.padding(horizontal = 16.dp)) {
                     Text(stringResource(R.string.native_profiles_retry))
                 }
                 if (freeEnabled) NativeFreeProfilesPane(onImportFree)
@@ -214,8 +214,8 @@ internal fun NativeAddProfileSheet(
     if (helpOpen) AlertDialog(onDismissRequest = { helpOpen = false },
         title = { Text(stringResource(R.string.native_profile_help_title)) },
         text = { Text(stringResource(R.string.native_profile_help_message)) },
-        confirmButton = { TextButton(onClick = { helpOpen = false }) { Text(stringResource(android.R.string.ok)) } },
-        dismissButton = { TextButton(onClick = {
+        confirmButton = { NativeTextButton(onClick = { helpOpen = false }) { Text(stringResource(android.R.string.ok)) } },
+        dismissButton = { NativeTextButton(onClick = {
             runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://hiddify.com/manager/"))) }
                 .onFailure { importError = context.getString(R.string.native_profile_share_failed) }
         }) { Text(stringResource(R.string.native_profile_help_link)) } })

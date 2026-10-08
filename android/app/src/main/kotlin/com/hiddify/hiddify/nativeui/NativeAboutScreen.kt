@@ -65,7 +65,7 @@ fun NativeAboutScreen(
             AboutLink(stringResource(R.string.native_about_check_update), onClick = {
                 dismissedUpdate = null
                 onCheckUpdate()
-            }, enabled = !updateChecking, icon = R.drawable.native_refresh, busy = updateChecking)
+            }, enabled = !updateChecking, icon = R.drawable.native_about_sync, busy = updateChecking)
             if (updateUrl == null) updateMessage?.let {
                 Text(it, Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -81,10 +81,10 @@ fun NativeAboutScreen(
         AlertDialog(onDismissRequest = { dismissedUpdate = updateUrl },
             title = { Text(stringResource(R.string.native_about_updates)) },
             text = { Text(updateMessage ?: stringResource(R.string.native_about_open_release)) },
-            confirmButton = { TextButton(onClick = { dismissedUpdate = updateUrl; onOpenUpdate() }) {
+            confirmButton = { NativeTextButton(onClick = { dismissedUpdate = updateUrl; onOpenUpdate() }) {
                 Text(stringResource(R.string.native_about_open_release))
             } },
-            dismissButton = { TextButton(onClick = { dismissedUpdate = updateUrl }) {
+            dismissButton = { NativeTextButton(onClick = { dismissedUpdate = updateUrl }) {
                 Text(stringResource(android.R.string.cancel))
             } })
     }
@@ -96,7 +96,7 @@ private fun AboutLink(
     subtext: String? = null,
     onClick: () -> Unit,
     enabled: Boolean = true,
-    icon: Int = R.drawable.privacy_open,
+    icon: Int = R.drawable.native_about_open,
     busy: Boolean = false,
 ) {
     ListItem(

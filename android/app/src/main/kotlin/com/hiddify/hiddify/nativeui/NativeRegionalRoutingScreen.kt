@@ -71,7 +71,7 @@ fun NativeRegionalRoutingScreen(
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 RadioButton(selected = mode == choice.value, enabled = !busy, onClick = { mode = choice.value })
-                TextButton(enabled = !busy, onClick = { mode = choice.value }) { Text(stringResource(label)) }
+                NativeTextButton(enabled = !busy, onClick = { mode = choice.value }) { Text(stringResource(label)) }
             }
         }
         if (mode == NativeRegionalMode.SELECTED_PROXY.value) {
@@ -86,10 +86,10 @@ fun NativeRegionalRoutingScreen(
         if (draft != options) {
             Text(stringResource(R.string.native_regional_apps_save_first), style = MaterialTheme.typography.bodySmall)
         }
-        TextButton(enabled = !busy && draft == options, onClick = { onOpenApps(NativeRegionalAppKind.DIRECT) }) {
+        NativeTextButton(enabled = !busy && draft == options, onClick = { onOpenApps(NativeRegionalAppKind.DIRECT) }) {
             Text(stringResource(R.string.native_regional_apps_direct_title))
         }
-        TextButton(enabled = !busy && draft == options, onClick = { onOpenApps(NativeRegionalAppKind.PROXY) }) {
+        NativeTextButton(enabled = !busy && draft == options, onClick = { onOpenApps(NativeRegionalAppKind.PROXY) }) {
             Text(stringResource(R.string.native_regional_apps_proxy_title))
         }
         OutlinedTextField(value = direct, onValueChange = { if (it.length <= 8192) direct = it },

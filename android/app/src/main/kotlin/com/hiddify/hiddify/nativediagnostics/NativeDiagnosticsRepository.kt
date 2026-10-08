@@ -8,7 +8,12 @@ import com.hiddify.hiddify.Application
 import com.hiddify.hiddify.Settings
 import com.hiddify.hiddify.bg.BoxService
 import com.hiddify.hiddify.utils.GrpcClientProvider
-import java.io.File
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.Socket
+import java.net.URI
+import java.util.concurrent.Executors
+import kotlinx.coroutines.runInterruptible
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
@@ -18,15 +23,20 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 class NativeDiagnosticsRepository {
+    companion object {
+        // Platform DNS may ignore interruption. Keep its workers and caller wait bounded.
+        private val dnsWorkers = Executors.newFixedThreadPool(2) { task ->
+            Thread(task, "native-diagnostic-dns").apply { isDaemon = true }
+        }
+    }
     fun protection(): NativeVpnProtection {
         val values = BoxService.vpnProtection()
         return NativeVpnProtection(values["alwaysOn"], values["lockdown"])
     }
 
-    suspend fun run(onProgress: (NativeDiagnosticSnapshot) -> Unit): NativeDiagnosticSnapshot {
+    suspend fun run(raw: String?, headers: Set<String>, activeTag: String?, onProgress: (NativeDiagnosticSnapshot) -> Unit): NativeDiagnosticSnapshot {
         val startedAt = Instant.now()
         val running = BoxService.isStarted()
-        val profilePath = Settings.activeConfigPath
         val testUrl = withContext(Dispatchers.IO) {
             com.hiddify.hiddify.nativecore.NativeGeneralOptionsRepository(Application.application).load().testUrl
         }
@@ -36,53 +46,53 @@ class NativeDiagnosticsRepository {
             checks += check
             onProgress(NativeDiagnosticSnapshot(startedAt, running, checks.toList()))
         }
-        val networkAvailable = withContext(Dispatchers.IO) {
+        val networkAvailable = try { withContext(Dispatchers.IO) {
             Application.connectivity.allNetworks.any { network ->
                 Application.connectivity.getNetworkCapabilities(network)?.let { caps ->
                     !caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) &&
                         caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
                 } == true
             }
-        }
+        } } catch (error: CancellationException) { throw error } catch (_: Exception) { false }
         add(NativeDiagnosticCheck(
             NativeDiagnosticStage.NETWORK,
             if (networkAvailable) NativeDiagnosticOutcome.PASSED else NativeDiagnosticOutcome.FAILED,
             if (networkAvailable) NativeDiagnosticDetail.NETWORK_AVAILABLE else NativeDiagnosticDetail.NETWORK_UNAVAILABLE,
         ))
-        val profileAvailable = withContext(Dispatchers.IO) {
-            profilePath.isNotBlank() && File(profilePath).let { it.isFile && it.length() > 0L }
-        }
-        add(NativeDiagnosticCheck(
-            NativeDiagnosticStage.PROFILE,
-            if (profileAvailable) NativeDiagnosticOutcome.PASSED else NativeDiagnosticOutcome.FAILED,
-            if (profileAvailable) NativeDiagnosticDetail.PROFILE_AVAILABLE else NativeDiagnosticDetail.PROFILE_MISSING,
-        ))
-        if (!running || !BoxService.isStarted()) {
-            add(NativeDiagnosticCheck(NativeDiagnosticStage.CORE, NativeDiagnosticOutcome.SKIPPED, NativeDiagnosticDetail.DISCONNECTED))
-            add(NativeDiagnosticCheck(NativeDiagnosticStage.TUNNEL, NativeDiagnosticOutcome.SKIPPED, NativeDiagnosticDetail.DISCONNECTED))
-        } else {
-            val coreAvailable = try {
-                val call = client().GetSystemInfo()
-                call.timeout.timeout(5, TimeUnit.SECONDS)
-                try { call.execute(Empty()); true } finally { call.cancel() }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                false
+        val dnsAvailable = try {
+            val host = URI(testUrl).host?.takeIf { it.isNotBlank() } ?: error("Invalid probe host")
+            val future = dnsWorkers.submit<Boolean> { InetAddress.getAllByName(host).isNotEmpty() }
+            try { runInterruptible(Dispatchers.IO) { future.get(5, TimeUnit.SECONDS) } }
+            finally { future.cancel(true) }
+        } catch (error: CancellationException) { throw error } catch (_: Exception) { false }
+        add(NativeDiagnosticCheck(NativeDiagnosticStage.DNS,
+            if (dnsAvailable) NativeDiagnosticOutcome.PASSED else NativeDiagnosticOutcome.FAILED,
+            if (dnsAvailable) NativeDiagnosticDetail.DNS_AVAILABLE else NativeDiagnosticDetail.DNS_UNAVAILABLE))
+        val server = try {
+            val endpoint = raw?.let { NativeDiagnosticEndpoints.selected(NativeDiagnosticEndpoints.parse(it), activeTag) }
+            when {
+                endpoint == null || endpoint.host.isBlank() || endpoint.port !in 1..65535 ->
+                    NativeDiagnosticCheck(NativeDiagnosticStage.SERVER, NativeDiagnosticOutcome.SKIPPED, NativeDiagnosticDetail.NO_ENDPOINT)
+                endpoint.udp || NativeDiagnosticEndpoints.chained(raw.orEmpty(), headers) ->
+                    NativeDiagnosticCheck(NativeDiagnosticStage.SERVER, NativeDiagnosticOutcome.SKIPPED, NativeDiagnosticDetail.TRANSPORT_SKIPPED)
+                else -> {
+                    val socket = Socket()
+                    val future = dnsWorkers.submit<Boolean> { socket.connect(InetSocketAddress(endpoint.host, endpoint.port), 5_000); true }
+                    try { runInterruptible(Dispatchers.IO) { future.get(5, TimeUnit.SECONDS) } }
+                    finally { future.cancel(true); socket.close() }
+                    NativeDiagnosticCheck(NativeDiagnosticStage.SERVER, NativeDiagnosticOutcome.PASSED, NativeDiagnosticDetail.SERVER_AVAILABLE)
+                }
             }
-            add(NativeDiagnosticCheck(
-                NativeDiagnosticStage.CORE,
-                if (coreAvailable) NativeDiagnosticOutcome.PASSED else NativeDiagnosticOutcome.FAILED,
-                if (coreAvailable) NativeDiagnosticDetail.CORE_AVAILABLE else NativeDiagnosticDetail.CORE_UNAVAILABLE,
-            ))
-            val tunnel = when {
-                !BoxService.isStarted() -> NativeDiagnosticCheck(NativeDiagnosticStage.TUNNEL, NativeDiagnosticOutcome.SKIPPED, NativeDiagnosticDetail.DISCONNECTED)
-                !coreAvailable -> NativeDiagnosticCheck(NativeDiagnosticStage.TUNNEL, NativeDiagnosticOutcome.SKIPPED, NativeDiagnosticDetail.CORE_UNAVAILABLE)
-                !NativeProbePolicy.validUrl(testUrl) -> NativeDiagnosticCheck(NativeDiagnosticStage.TUNNEL, NativeDiagnosticOutcome.FAILED, NativeDiagnosticDetail.INVALID_PROBE_URL)
-                else -> probe(testUrl)
-            }
-            add(tunnel)
+        } catch (error: CancellationException) { throw error } catch (_: Exception) {
+            NativeDiagnosticCheck(NativeDiagnosticStage.SERVER, NativeDiagnosticOutcome.FAILED, NativeDiagnosticDetail.SERVER_UNAVAILABLE)
         }
+        add(server)
+        val tunnel = when {
+            !running || !BoxService.isStarted() -> NativeDiagnosticCheck(NativeDiagnosticStage.TUNNEL, NativeDiagnosticOutcome.SKIPPED, NativeDiagnosticDetail.DISCONNECTED)
+            !NativeProbePolicy.validUrl(testUrl) -> NativeDiagnosticCheck(NativeDiagnosticStage.TUNNEL, NativeDiagnosticOutcome.FAILED, NativeDiagnosticDetail.INVALID_PROBE_URL)
+            else -> probe(testUrl)
+        }
+        add(tunnel)
         return NativeDiagnosticSnapshot(startedAt, running, checks.toList())
     }
 

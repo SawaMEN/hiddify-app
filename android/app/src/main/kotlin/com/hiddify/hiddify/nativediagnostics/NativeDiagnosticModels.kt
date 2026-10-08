@@ -3,10 +3,11 @@ package com.hiddify.hiddify.nativediagnostics
 import java.net.URI
 import java.time.Instant
 
-enum class NativeDiagnosticStage { NETWORK, PROFILE, CORE, TUNNEL }
+enum class NativeDiagnosticStage { NETWORK, DNS, SERVER, PROFILE, CORE, TUNNEL }
 enum class NativeDiagnosticOutcome { PASSED, FAILED, SKIPPED }
 enum class NativeDiagnosticDetail {
     NETWORK_AVAILABLE, NETWORK_UNAVAILABLE, PROFILE_AVAILABLE, PROFILE_MISSING,
+    DNS_AVAILABLE, DNS_UNAVAILABLE, SERVER_AVAILABLE, SERVER_UNAVAILABLE, NO_ENDPOINT, TRANSPORT_SKIPPED,
     CORE_AVAILABLE, CORE_UNAVAILABLE, DISCONNECTED, PROBE_OK, PROBE_FAILED, INVALID_PROBE_URL,
 }
 

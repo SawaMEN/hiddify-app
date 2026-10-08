@@ -38,12 +38,12 @@ fun NativeLogsScreen(
     Column(Modifier.fillMaxSize()) {
         NativePageHeader(stringResource(R.string.native_logs_title), onBack) {
             IconButton(onClick = { frozen = snapshot; paused = !paused }) {
-                Icon(painterResource(if (paused) R.drawable.native_play else R.drawable.native_pause),
+                Icon(painterResource(if (paused) R.drawable.native_log_play else R.drawable.native_log_pause),
                     stringResource(if (paused) R.string.native_logs_resume else R.string.native_logs_pause),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             IconButton(onClick = { frozen = NativeLogSnapshot(emptyList(), emptyList()); onClear() }, enabled = !busy) {
-                Icon(painterResource(R.drawable.native_delete), stringResource(R.string.native_logs_clear),
+                Icon(painterResource(R.drawable.native_log_clear), stringResource(R.string.native_logs_clear),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (sharingEnabled) Box {
@@ -64,7 +64,7 @@ fun NativeLogsScreen(
                 placeholder = { Text(stringResource(R.string.native_logs_filter)) },
                 leadingIcon = { Icon(painterResource(R.drawable.native_search), null) })
             Box {
-                TextButton(onClick = { levelsOpen = true }) {
+                NativeTextButton(onClick = { levelsOpen = true }) {
                     Text(level ?: stringResource(R.string.native_logs_all))
                     Icon(painterResource(R.drawable.native_drop_down), null, Modifier.size(20.dp))
                 }
@@ -83,12 +83,27 @@ fun NativeLogsScreen(
         } else SelectionContainer(Modifier.weight(1f)) {
             LazyColumn(Modifier.fillMaxSize(), reverseLayout = true) {
                 itemsIndexed(lines.asReversed(), key = { index, line -> "$index:${line.hashCode()}" }) { _, line ->
-                    Text(line, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                        style = MaterialTheme.typography.bodyMedium, fontFamily = FontFamily.Monospace,
-                        color = if (NativeLogPresentation.level(line) in setOf("ERROR", "FATAL", "PANIC"))
-                            MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+                    val entry = remember(line) { NativeLogPresentation.entry(line) }
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                        if (entry.level != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                            Text(entry.level, style = MaterialTheme.typography.labelMedium, color = logLevelColor(entry.level))
+                            entry.time?.let { Text(it, style = MaterialTheme.typography.labelSmall) }
+                        }
+                        Text(entry.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                    }
+                    if (line != lines.firstOrNull()) HorizontalDivider(Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
         }
     }
+}
+
+private fun logLevelColor(level: String) = when (level) {
+    "TRACE" -> androidx.compose.ui.graphics.Color(0xFF40C4FF)
+    "DEBUG" -> androidx.compose.ui.graphics.Color(0xFF9E9E9E)
+    "INFO" -> androidx.compose.ui.graphics.Color(0xFF8BC34A)
+    "WARN" -> androidx.compose.ui.graphics.Color(0xFFFF9800)
+    "ERROR" -> androidx.compose.ui.graphics.Color(0xFFFF5252)
+    else -> androidx.compose.ui.graphics.Color(0xFFF44336)
 }

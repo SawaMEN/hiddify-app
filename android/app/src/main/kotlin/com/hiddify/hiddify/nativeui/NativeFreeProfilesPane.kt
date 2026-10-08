@@ -49,7 +49,7 @@ internal fun NativeFreeProfilesPane(onImport: (NativeFreeProfile, String) -> Uni
             failed -> Column(Modifier.fillMaxSize(), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center) {
                 Text(stringResource(R.string.native_free_load_failed))
-                TextButton(onClick = { retry++ }) { Text(stringResource(R.string.native_profiles_retry)) }
+                NativeTextButton(onClick = { retry++ }) { Text(stringResource(R.string.native_profiles_retry)) }
             }
             available == null -> Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
             available.isEmpty() -> Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
@@ -92,9 +92,9 @@ internal fun NativeFreeProfilesPane(onImport: (NativeFreeProfile, String) -> Uni
                     it.text = Html.fromHtml(consentHtml(profile.consent(russian)), Html.FROM_HTML_MODE_COMPACT)
                 })
             }
-        }, confirmButton = { TextButton(onClick = { consentUrl = null; onImport(profile, profile.title(russian)) }) {
+        }, confirmButton = { NativeTextButton(onClick = { consentUrl = null; onImport(profile, profile.title(russian)) }) {
             Text(stringResource(R.string.native_free_continue))
-        } }, dismissButton = { TextButton(onClick = { consentUrl = null }) { Text(stringResource(android.R.string.cancel)) } })
+        } }, dismissButton = { NativeTextButton(onClick = { consentUrl = null }) { Text(stringResource(android.R.string.cancel)) } })
     }
 }
 

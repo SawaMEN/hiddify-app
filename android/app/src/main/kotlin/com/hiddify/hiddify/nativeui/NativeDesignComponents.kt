@@ -92,15 +92,21 @@ internal fun NativeButton(
     onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
     content: @Composable RowScope.() -> Unit,
 ) {
+    val shape = RoundedCornerShape(20.dp)
+    val scheme = MaterialTheme.colorScheme
+    val base = if (enabled) scheme.primary else scheme.onSurface.copy(alpha = .12f)
     androidx.compose.material3.Button(
-        onClick = onClick, modifier = modifier.defaultMinSize(minHeight = 48.dp), enabled = enabled,
-        shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp),
+        onClick = onClick,
+        modifier = modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+            .background(Brush.linearGradient(listOf(
+                if (enabled) Color.White.copy(alpha = .12f).compositeOver(base) else base, base)), shape),
+        enabled = enabled, shape = shape,
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent,
+            contentColor = scheme.onPrimary, disabledContainerColor = Color.Transparent,
+            disabledContentColor = scheme.onSurface.copy(alpha = .38f)),
         border = if (enabled) BorderStroke(1.dp, Color.White.copy(alpha = .18f)) else null,
-        content = {
-            Box(Modifier.background(Brush.linearGradient(listOf(Color.White.copy(alpha = if (enabled) .12f else 0f), Color.Transparent)))) {
-                androidx.compose.foundation.layout.Row(content = content)
-            }
-        },
+        content = content,
     )
 }
 
@@ -110,9 +116,22 @@ internal fun NativeOutlinedButton(
     content: @Composable RowScope.() -> Unit,
 ) {
     androidx.compose.material3.OutlinedButton(
-        onClick = onClick, modifier = modifier.defaultMinSize(minHeight = 48.dp), enabled = enabled,
+        onClick = onClick, modifier = modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp), enabled = enabled,
         shape = RoundedCornerShape(20.dp), contentPadding = PaddingValues(horizontal = 24.dp, vertical = 10.dp),
         border = BorderStroke(1.dp, if (enabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface.copy(alpha = .12f)),
         colors = ButtonDefaults.outlinedButtonColors(), content = content,
+    )
+}
+
+@Composable
+internal fun NativeTextButton(
+    onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+    content: @Composable RowScope.() -> Unit,
+) {
+    androidx.compose.material3.TextButton(
+        onClick = onClick, modifier = modifier.defaultMinSize(minWidth = 48.dp, minHeight = 48.dp),
+        enabled = enabled, shape = RoundedCornerShape(20.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp),
+        content = content,
     )
 }

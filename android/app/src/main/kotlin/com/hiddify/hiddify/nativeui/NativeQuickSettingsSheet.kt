@@ -259,11 +259,11 @@ private fun LanPasswordDialog(password: String, onPassword: (String) -> Unit, bu
                 supportingText = { if (invalid) Text(stringResource(R.string.native_quick_password_invalid)) },
                 textStyle = MaterialTheme.typography.bodyLarge.copy(textDirection = TextDirection.Ltr),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done), keyboardActions = KeyboardActions(onDone = { submit() }))
-        }, confirmButton = { TextButton(enabled = !busy, onClick = { submit() }) { Text(stringResource(android.R.string.ok)) } },
+        }, confirmButton = { NativeTextButton(enabled = !busy, onClick = { submit() }) { Text(stringResource(android.R.string.ok)) } },
         dismissButton = {
             Row {
-                TextButton(enabled = !busy, onClick = onReset) { Text(stringResource(R.string.native_quick_reset)) }
-                TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
+                NativeTextButton(enabled = !busy, onClick = onReset) { Text(stringResource(R.string.native_quick_reset)) }
+                NativeTextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
             }
         })
 }
@@ -290,5 +290,5 @@ private fun LanQrDialog(link: String, onDismiss: () -> Unit) {
                 ?: if (failed) Text(stringResource(R.string.native_profile_share_failed)) else CircularProgressIndicator()
             Text(link, style = MaterialTheme.typography.bodySmall)
         }
-    }, confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.ok)) } })
+    }, confirmButton = { NativeTextButton(onClick = onDismiss) { Text(stringResource(android.R.string.ok)) } })
 }

@@ -192,7 +192,7 @@ internal fun NativeJsonEditor(
             verticalAlignment = Alignment.CenterVertically) {
             Text("Config Editor: ", color = MaterialTheme.colorScheme.onPrimary, fontSize = 16.sp)
             Box {
-                TextButton(enabled = active && error == null, onClick = { modeOpen = true }) {
+                NativeTextButton(enabled = active && error == null, onClick = { modeOpen = true }) {
                     Text(if (textMode) "text" else "tree", color = MaterialTheme.colorScheme.onPrimary)
                     Icon(painterResource(R.drawable.native_drop_down), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimary)
                 }
@@ -364,11 +364,11 @@ private fun JsonEditDialog(request: JsonEdit, value: JsonElement, choices: List<
                     Text("Boolean", Modifier.weight(1f)); Switch(text == "true", { text = it.toString() })
                 } else NativeTextField(text, { text = it; error = false }, label = { Text(stringResource(R.string.native_json_value)) }, isError = error, maxLines = 5)
                 if (choices.isNotEmpty()) Column(Modifier.heightIn(max = 160.dp).verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-                    choices.forEach { choice -> TextButton(onClick = { text = choice }) { Text(choice.ifEmpty { "\"\"" }) } }
+                    choices.forEach { choice -> NativeTextButton(onClick = { text = choice }) { Text(choice.ifEmpty { "\"\"" }) } }
                 }
             }
         }
-    }, confirmButton = { TextButton(enabled = enabled, onClick = {
+    }, confirmButton = { NativeTextButton(enabled = enabled, onClick = {
         try {
             val replacement = when {
                 request.action in listOf("rename", "merge") -> initial
@@ -379,7 +379,7 @@ private fun JsonEditDialog(request: JsonEdit, value: JsonElement, choices: List<
             }
             onApply(name, replacement)
         } catch (_: Exception) { error = true }
-    }) { Text(stringResource(android.R.string.ok)) } }, dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } })
+    }) { Text(stringResource(android.R.string.ok)) } }, dismissButton = { NativeTextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) } })
 }
 
 
@@ -409,7 +409,7 @@ private fun InlineJsonText(value: String, enabled: Boolean, maxWidth: Int, onEdi
 private fun JsonValueChoices(value: String, choices: List<String>, enabled: Boolean, onSelect: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { open = true }, enabled = enabled, contentPadding = PaddingValues(horizontal = 3.dp), modifier = Modifier.heightIn(min = 30.dp)) {
+        NativeTextButton(onClick = { open = true }, enabled = enabled, contentPadding = PaddingValues(horizontal = 3.dp), modifier = Modifier.heightIn(min = 30.dp)) {
             Text(value.ifEmpty { "\"\"" }, fontSize = 16.sp)
             Icon(painterResource(R.drawable.native_drop_down), null, Modifier.size(20.dp))
         }

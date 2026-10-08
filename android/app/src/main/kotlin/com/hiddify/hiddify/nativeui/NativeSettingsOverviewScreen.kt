@@ -117,12 +117,12 @@ internal fun NativeSettingsOverviewScreen(
         onDismissRequest = { pendingImport = "" },
         title = { Text(stringResource(R.string.native_settings_page_confirm_import)) },
         text = { Text(stringResource(R.string.native_settings_page_confirm_import_message)) },
-        confirmButton = { TextButton(enabled = !busy, onClick = {
+        confirmButton = { NativeTextButton(enabled = !busy, onClick = {
             val fromFile = pendingImport == "file"
             pendingImport = ""
             if (fromFile) onImportFile() else onImportClipboard()
         }) { Text(stringResource(android.R.string.ok)) } },
-        dismissButton = { TextButton(onClick = { pendingImport = "" }) { Text(stringResource(android.R.string.cancel)) } },
+        dismissButton = { NativeTextButton(onClick = { pendingImport = "" }) { Text(stringResource(android.R.string.cancel)) } },
     )
 }
 

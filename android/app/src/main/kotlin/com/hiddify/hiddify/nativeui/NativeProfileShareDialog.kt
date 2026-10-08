@@ -112,7 +112,7 @@ fun NativeProfileShareDialog(
                     ) {
                         Text(stringResource(R.string.native_profile_share_url))
                     }
-                    TextButton(onClick = { showQr = !showQr }) {
+                    NativeTextButton(onClick = { showQr = !showQr }) {
                         Text(stringResource(R.string.native_profile_show_qr))
                     }
                     if (showQr) {
@@ -137,7 +137,7 @@ fun NativeProfileShareDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.ok)) }
+            NativeTextButton(onClick = onDismiss) { Text(stringResource(android.R.string.ok)) }
         },
     )
 }

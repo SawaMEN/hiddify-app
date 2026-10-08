@@ -90,7 +90,7 @@ object NativePerAppBackupCodec {
     }
 }
 
-/** Same bits as Drift; native checkboxes represent the effective two-state selection. */
+/** Same bits as Drift; native checkboxes preserve automatic, manual and forced-off states. */
 object NativePerAppFlags {
     const val USER_SELECTION = 1
     const val FORCE_DESELECTION = 2
@@ -100,11 +100,27 @@ object NativePerAppFlags {
     fun selected(flags: Int): Boolean =
         flags and FORCE_DESELECTION == 0 && flags and (USER_SELECTION or AUTO_SELECTION) != 0
 
-    fun toggle(flags: Int): Int = if (selected(flags)) {
-        if (flags and AUTO_SELECTION != 0) (flags and USER_SELECTION.inv()) or FORCE_DESELECTION
-        else flags and MANUAL_MASK.inv()
-    } else {
-        (flags and FORCE_DESELECTION.inv()) or USER_SELECTION
+    /** AppProxyDao.updatePkg: auto -> selected -> forced off -> auto. */
+    fun toggle(flags: Int): Int = when {
+        flags == 0 -> USER_SELECTION
+        flags and AUTO_SELECTION == 0 -> 0
+        flags and FORCE_DESELECTION != 0 -> flags and MANUAL_MASK.inv()
+        flags and USER_SELECTION != 0 -> (flags and USER_SELECTION.inv()) or FORCE_DESELECTION
+        else -> flags or USER_SELECTION
+    }
+
+    fun checkboxValue(flags: Int): Boolean? = when {
+        flags and FORCE_DESELECTION != 0 -> false
+        flags and AUTO_SELECTION != 0 && flags and USER_SELECTION == 0 -> null
+        flags and USER_SELECTION != 0 -> true
+        else -> null
+    }
+
+    fun priority(flags: Int?): Int = when {
+        flags == null -> 4
+        flags and USER_SELECTION != 0 -> 1
+        flags and AUTO_SELECTION != 0 && flags and FORCE_DESELECTION == 0 -> 2
+        else -> 3
     }
 
     fun restoreManual(existing: Int, selected: Boolean): Int =

@@ -245,6 +245,7 @@ fun NativeApp(
     onPerAppModeChanged: (String) -> Unit,
     onTogglePerAppPackage: (String) -> Unit,
     onClearPerApp: () -> Unit,
+    onReloadPerApp: () -> Unit,
     onImportPerAppClipboard: () -> Unit,
     onImportPerAppFile: () -> Unit,
     onExportPerAppClipboard: () -> Unit,
@@ -310,7 +311,7 @@ fun NativeApp(
     fun goBack() {
         if (privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy || generalOptionsBusy || tunnelBusy || generalPreferencesBusy) return
         if (page == PAGE_DIAGNOSTICS) onCancelDiagnostics()
-        if (page == PAGE_PER_APP_BACKUP) onDismissPerAppImport()
+        if (page == PAGE_PER_APP_BACKUP || page == PAGE_PER_APP) onDismissPerAppImport()
         page = pageTrail.substringAfterLast('|', PAGE_HOME)
         pageTrail = pageTrail.substringBeforeLast('|', "")
     }
@@ -349,11 +350,11 @@ fun NativeApp(
                         .fillMaxSize()
                         .statusBarsPadding()
                         .navigationBarsPadding()
-                        .padding(top = if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY || page == PAGE_SETTINGS || page == PAGE_ABOUT || page == PAGE_LOGS) 0.dp else 8.dp),
+                        .padding(top = if (page in setOf(PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS, PAGE_DIAGNOSTICS, PAGE_PROTECTION, PAGE_TRAFFIC_FILTERS, PAGE_WIFI_GUIDE, PAGE_PER_APP)) 0.dp else 8.dp),
             ) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                     Box((if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY || page == PAGE_SETTINGS) Modifier else Modifier.widthIn(max = 680.dp))
-                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
+                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS, PAGE_DIAGNOSTICS, PAGE_PROTECTION, PAGE_TRAFFIC_FILTERS, PAGE_WIFI_GUIDE, PAGE_PER_APP -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
                         when (page) {
                             PAGE_DIAGNOSTICS ->
                                 NativeDiagnosticsScreen(
@@ -362,7 +363,6 @@ fun NativeApp(
                                     report = diagnosticReport,
                                     onBack = { goBack() },
                                     onRun = onRunDiagnostics,
-                                    onCancel = onCancelDiagnostics,
                                     onShareReport = onShareDiagnosticReport,
                                 )
 
@@ -414,7 +414,6 @@ fun NativeApp(
                                 NativeVpnProtectionScreen(
                                     protection = vpnProtection,
                                     onBack = { goBack() },
-                                    onRefresh = onRefreshVpnProtection,
                                     onOpenSettings = onOpenVpnSettings,
                                 )
 
@@ -465,13 +464,20 @@ fun NativeApp(
                             PAGE_PER_APP ->
                                 NativePerAppScreen(
                                     snapshot = perAppSnapshot,
-                                    canChange = status == Status.Stopped,
+                                    canChange = status == Status.Stopped || status == Status.Started,
                                     busy = perAppBusy,
                                     onBack = { goBack() },
                                     onModeChanged = onPerAppModeChanged,
                                     onTogglePackage = onTogglePerAppPackage,
                                     onClear = onClearPerApp,
-                                    onOpenBackup = { openPage(PAGE_PER_APP_BACKUP) },
+                                    onRetry = onReloadPerApp,
+                                    pendingImport = pendingPerAppImport,
+                                    onImportClipboard = onImportPerAppClipboard,
+                                    onImportFile = onImportPerAppFile,
+                                    onExportClipboard = onExportPerAppClipboard,
+                                    onExportFile = onExportPerAppFile,
+                                    onConfirmImport = onConfirmPerAppImport,
+                                    onDismissImport = onDismissPerAppImport,
                                 )
 
                             PAGE_LOGS ->
@@ -791,7 +797,7 @@ fun NativeApp(
             AlertDialog(
                 onDismissRequest = onDismissError,
                 confirmButton = {
-                    TextButton(onClick = onDismissError) {
+                    NativeTextButton(onClick = onDismissError) {
                         Text(stringResource(android.R.string.ok))
                     }
                 },
@@ -840,7 +846,7 @@ private fun HomeScreen(
         onDismissRequest = { noProfileNotice = false; onAddProfile() },
         title = { Text(stringResource(R.string.native_home_choose_profile)) },
         text = { Text(stringResource(R.string.native_profile_help_message)) },
-        confirmButton = { TextButton(onClick = { noProfileNotice = false; onAddProfile() }) { Text(stringResource(android.R.string.ok)) } },
+        confirmButton = { NativeTextButton(onClick = { noProfileNotice = false; onAddProfile() }) { Text(stringResource(android.R.string.ok)) } },
     )
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 16.dp),
@@ -890,7 +896,7 @@ private fun HomeScreen(
                         }
                         profilesLoadFailed -> Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(stringResource(R.string.native_profiles_load_failed), color = MaterialTheme.colorScheme.error)
-                            TextButton(onClick = onRetryProfiles) { Text(stringResource(R.string.native_profiles_retry)) }
+                            NativeTextButton(onClick = onRetryProfiles) { Text(stringResource(R.string.native_profiles_retry)) }
                         }
                         activeProfile != null -> NativeProfileTile(profile = activeProfile, isMain = true,
                             busy = busyProfileId != null,
@@ -917,7 +923,7 @@ private fun HomeScreen(
                         if (status == Status.Started && activeOutbound != null) {
                             NativeActiveProxyDelay(activeOutbound, outboundBusy, onTestActive)
                         }
-                        TextButton(onClick = onOpenDiagnostics, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
+                        NativeTextButton(onClick = onOpenDiagnostics, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
                             Text(if (recoveryAttempt > 0) stringResource(R.string.native_recovery_attempt, recoveryAttempt)
                                 else stringResource(if (status != Status.Started) R.string.native_home_health_stopped else when (internetHealth) {
                                     NativeInternetHealth.UNCHECKED -> R.string.native_health_unchecked

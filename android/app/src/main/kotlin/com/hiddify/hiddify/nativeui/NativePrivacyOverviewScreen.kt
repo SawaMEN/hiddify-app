@@ -350,8 +350,8 @@ private fun PrivacyDomainPreference(title: Int, value: String, enabled: Boolean,
         AlertDialog(onDismissRequest = { open = false }, title = { Text(stringResource(title)) },
             text = { NativeTextField(draft, { draft = it }, singleLine = true, isError = !valid,
                 supportingText = { if (!valid) Text(stringResource(R.string.native_regional_domains_hint)) }) },
-            confirmButton = { TextButton(enabled = valid && enabled, onClick = { open = false; onSave(draft) }) { Text(stringResource(android.R.string.ok)) } },
-            dismissButton = { TextButton(onClick = { open = false }) { Text(stringResource(android.R.string.cancel)) } })
+            confirmButton = { NativeTextButton(enabled = valid && enabled, onClick = { open = false; onSave(draft) }) { Text(stringResource(android.R.string.ok)) } },
+            dismissButton = { NativeTextButton(onClick = { open = false }) { Text(stringResource(android.R.string.cancel)) } })
     }
 }
 

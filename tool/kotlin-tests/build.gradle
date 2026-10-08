@@ -19,6 +19,8 @@ sourceSets {
             srcDir '../../android/app/src/main/kotlin'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileTransfer.kt'
             include 'com/hiddify/hiddify/nativelog/NativeLogPresentation.kt'
+            include 'com/hiddify/hiddify/nativeui/NativeWifiGuideContent.kt'
+            include 'com/hiddify/hiddify/nativediagnostics/NativeDiagnosticEndpoint.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileImportCancellation.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileValidation.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeImportSummary.kt'

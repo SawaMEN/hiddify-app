@@ -81,7 +81,7 @@ internal fun NativeOutboundInfoDialog(outbound: NativeOutbound, onDismiss: () ->
                 InfoRow(R.string.native_outbound_child, outbound.selectedChild.orEmpty())
             }
         }
-    }, confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.native_outbound_close)) } })
+    }, confirmButton = { NativeTextButton(onClick = onDismiss) { Text(stringResource(R.string.native_outbound_close)) } })
 }
 
 @Composable

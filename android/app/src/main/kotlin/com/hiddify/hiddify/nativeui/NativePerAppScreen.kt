@@ -1,236 +1,180 @@
 package com.hiddify.hiddify.nativeui
 
-import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import com.hiddify.hiddify.nativeui.NativeCard as Card
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.MaterialTheme
-import com.hiddify.hiddify.nativeui.NativeTextField as OutlinedTextField
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.triStateToggleable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.constant.PerAppProxyMode
 import com.hiddify.hiddify.nativerouting.NativeInstalledApp
+import com.hiddify.hiddify.nativerouting.NativePerAppBackup
+import com.hiddify.hiddify.nativerouting.NativePerAppFlags
 import com.hiddify.hiddify.nativerouting.NativePerAppSnapshot
+import kotlinx.coroutines.launch
 
 @Composable
-fun NativePerAppScreen(
-    snapshot: NativePerAppSnapshot,
-    canChange: Boolean,
-    busy: Boolean,
-    onBack: () -> Unit,
-    onModeChanged: (String) -> Unit,
-    onTogglePackage: (String) -> Unit,
-    onClear: () -> Unit,
-    onOpenBackup: () -> Unit,
-) {
-    var search by remember { mutableStateOf("") }
-    val filtered =
-        remember(snapshot.apps, search) {
-            val query = search.trim()
-            if (query.isEmpty()) {
-                snapshot.apps
-            } else {
-                snapshot.apps.filter {
-                    it.label.contains(query, ignoreCase = true) ||
-                        it.packageName.contains(query, ignoreCase = true)
-                }
+fun NativePerAppScreen(snapshot: NativePerAppSnapshot, canChange: Boolean, busy: Boolean,
+    onBack: () -> Unit, onModeChanged: (String) -> Unit, onTogglePackage: (String) -> Unit,
+    onClear: () -> Unit, onRetry: () -> Unit, pendingImport: NativePerAppBackup?,
+    onImportClipboard: () -> Unit, onImportFile: () -> Unit, onExportClipboard: () -> Unit,
+    onExportFile: () -> Unit, onConfirmImport: () -> Unit, onDismissImport: () -> Unit) {
+    var search by rememberSaveable { mutableStateOf("") }
+    var searching by rememberSaveable { mutableStateOf(false) }
+    var hideSystem by rememberSaveable { mutableStateOf(false) }
+    var menu by remember { mutableStateOf<String?>(null) }
+    var modeMenu by remember { mutableStateOf(false) }
+    var closeWhenOff by remember { mutableStateOf(false) }
+    val list = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val focus = remember { FocusRequester() }
+    val filtered = remember(snapshot.apps, snapshot.flags, search, hideSystem) {
+        val visible = snapshot.apps.filter { !hideSystem || !it.system }
+        if (search.isBlank()) visible.sortedBy { NativePerAppFlags.priority(snapshot.flags[it.packageName]) }
+        else visible.filter { it.label.contains(search, ignoreCase = true) }
+    }
+    LaunchedEffect(searching) { if (searching) focus.requestFocus() }
+    LaunchedEffect(snapshot.mode, busy) {
+        if (closeWhenOff && snapshot.mode == PerAppProxyMode.OFF && !busy) { closeWhenOff = false; onBack() }
+    }
+    val enabled = canChange && !busy
+    Column(Modifier.fillMaxSize()) {
+        if (searching) Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = { search = ""; searching = false }) {
+                Icon(painterResource(R.drawable.native_close), stringResource(android.R.string.cancel))
             }
-        }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        item {
-            NativePageHeader(stringResource(R.string.native_per_app_title), onBack)
-        }
-        item {
-            TextButton(onClick = onOpenBackup, enabled = !busy) {
-                Text(stringResource(R.string.native_per_app_backup_title))
-            }
-        }
-        item {
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.padding(vertical = 6.dp)) {
-                    ModeRow(
-                        title = stringResource(R.string.native_per_app_all),
-                        summary = stringResource(R.string.native_per_app_all_summary),
-                        selected = snapshot.mode == PerAppProxyMode.OFF,
-                        enabled = canChange && !busy,
-                        onClick = { onModeChanged(PerAppProxyMode.OFF) },
-                    )
-                    ModeRow(
-                        title = stringResource(R.string.native_per_app_include),
-                        summary = stringResource(R.string.native_per_app_include_summary),
-                        selected = snapshot.mode == PerAppProxyMode.INCLUDE,
-                        enabled = canChange && !busy,
-                        onClick = { onModeChanged(PerAppProxyMode.INCLUDE) },
-                    )
-                    ModeRow(
-                        title = stringResource(R.string.native_per_app_exclude),
-                        summary = stringResource(R.string.native_per_app_exclude_summary),
-                        selected = snapshot.mode == PerAppProxyMode.EXCLUDE,
-                        enabled = canChange && !busy,
-                        onClick = { onModeChanged(PerAppProxyMode.EXCLUDE) },
-                    )
-                }
-            }
-        }
-        if (!canChange) {
-            item {
-                Text(
-                    text = stringResource(R.string.native_per_app_disconnect),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        if (snapshot.mode != PerAppProxyMode.OFF) {
-            item {
-                OutlinedTextField(
-                    value = search,
-                    onValueChange = { search = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text(stringResource(R.string.native_per_app_search)) },
-                )
-            }
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = stringResource(R.string.native_per_app_selected_count, snapshot.selectedPackages.size),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    TextButton(
-                        enabled = canChange && !busy && snapshot.selectedPackages.isNotEmpty(),
-                        onClick = onClear,
-                    ) { Text(stringResource(R.string.native_per_app_clear)) }
-                }
-            }
-            items(filtered, key = { it.packageName }) { app ->
-                AppRow(
-                    app = app,
-                    selected = app.packageName in snapshot.selectedPackages,
-                    enabled = canChange && !busy,
-                    onToggle = { onTogglePackage(app.packageName) },
-                )
+            Box(Modifier.weight(1f).padding(end = 16.dp)) {
+                if (search.isEmpty()) Text(stringResource(R.string.native_per_app_search), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                BasicTextField(search, { search = it.take(256) }, Modifier.fillMaxWidth().focusRequester(focus),
+                    singleLine = true, textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface))
             }
         } else {
-            item {
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = stringResource(R.string.native_per_app_all_active),
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+            NativePageHeader(stringResource(R.string.native_per_app_title), onBack) {
+                IconButton(onClick = { searching = true }) {
+                    Icon(painterResource(R.drawable.native_search), stringResource(R.string.native_per_app_search), Modifier.size(24.dp))
                 }
+                Box {
+                    if (busy) Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(32.dp)) }
+                    else IconButton(onClick = { menu = "main" }) {
+                        Icon(painterResource(R.drawable.native_per_app_more), stringResource(R.string.native_per_app_actions), Modifier.size(24.dp))
+                    }
+                    DropdownMenu(menu != null, { menu = null }) {
+                        when (menu) {
+                            "import" -> {
+                                DropdownMenuItem(text = { Text(stringResource(R.string.native_per_app_import_clipboard)) }, enabled = enabled,
+                                    onClick = { menu = null; onImportClipboard() })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.native_per_app_import_file)) }, enabled = enabled,
+                                    onClick = { menu = null; onImportFile() })
+                            }
+                            "export" -> {
+                                DropdownMenuItem(text = { Text(stringResource(R.string.native_per_app_export_clipboard)) }, onClick = { menu = null; onExportClipboard() })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.native_per_app_export_file)) }, onClick = { menu = null; onExportFile() })
+                            }
+                            else -> {
+                                DropdownMenuItem(text = { Text(stringResource(R.string.native_import_confirm)) }, onClick = { menu = "import" })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.native_per_app_export)) }, onClick = { menu = "export" })
+                                HorizontalDivider()
+                                DropdownMenuItem(text = { Text(stringResource(R.string.native_per_app_clear_all)) }, enabled = enabled && snapshot.mode != PerAppProxyMode.OFF,
+                                    onClick = { menu = null; onClear() })
+                            }
+                        }
+                    }
+                }
+            }
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box {
+                    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.surface,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                        Row(Modifier.clickable(enabled = enabled, onClick = { modeMenu = true }).padding(start = 16.dp, end = 8.dp).heightIn(min = 32.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(modeTitle(snapshot.mode)))
+                            Spacer(Modifier.width(4.dp))
+                            Icon(painterResource(R.drawable.native_drop_down), null, Modifier.size(24.dp))
+                        }
+                    }
+                    DropdownMenu(modeMenu, { modeMenu = false }) {
+                        listOf(PerAppProxyMode.OFF, PerAppProxyMode.INCLUDE, PerAppProxyMode.EXCLUDE).forEach { mode ->
+                            DropdownMenuItem(text = { Text(stringResource(modeTitle(mode))) }, enabled = enabled,
+                                onClick = { modeMenu = false; if (mode != snapshot.mode) { closeWhenOff = mode == PerAppProxyMode.OFF; onModeChanged(mode) } })
+                        }
+                    }
+                }
+                FilterChip(hideSystem, { hideSystem = !hideSystem }, label = { Text(stringResource(R.string.native_per_app_hide_system)) }, shape = RoundedCornerShape(8.dp))
+            }
+        }
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            when {
+                !snapshot.loaded && busy -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                !snapshot.loaded -> Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stringResource(R.string.native_settings_load_failed), color = MaterialTheme.colorScheme.error)
+                    NativeTextButton(onRetry) { Text(stringResource(R.string.native_profiles_retry)) }
+                }
+                else -> LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(bottom = 88.dp)) {
+                    items(filtered, key = { it.packageName }) { app ->
+                        PerAppRow(app, snapshot.flags[app.packageName], enabled && snapshot.mode != PerAppProxyMode.OFF) { onTogglePackage(app.packageName) }
+                    }
+                }
+            }
+            if (list.firstVisibleItemIndex > 4 || list.firstVisibleItemScrollOffset > 300) FloatingActionButton(
+                onClick = { scope.launch { list.animateScrollToItem(0) } }, modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
+                shape = RoundedCornerShape(24.dp), elevation = FloatingActionButtonDefaults.elevation(0.dp, 0.dp, 0.dp, 0.dp)) {
+                Icon(painterResource(R.drawable.native_arrow_up), stringResource(R.string.native_per_app_scroll_top), Modifier.size(24.dp))
             }
         }
     }
+    NativePerAppImportDialog(pendingImport, busy, canChange, onConfirmImport, onDismissImport)
+}
+
+private fun modeTitle(mode: String) = when (mode) {
+    PerAppProxyMode.INCLUDE -> R.string.native_per_app_include
+    PerAppProxyMode.EXCLUDE -> R.string.native_per_app_exclude
+    else -> R.string.native_per_app_all
 }
 
 @Composable
-private fun ModeRow(
-    title: String,
-    summary: String,
-    selected: Boolean,
-    enabled: Boolean,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .clickable(enabled = enabled, onClick = onClick)
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        RadioButton(
-            selected = selected,
-            onClick = onClick,
-            enabled = enabled,
-        )
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                text = summary,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+private fun PerAppRow(app: NativeInstalledApp, flags: Int?, enabled: Boolean, onToggle: () -> Unit) {
+    val state = when (flags?.let(NativePerAppFlags::checkboxValue) ?: if (flags == null) false else null) {
+        true -> ToggleableState.On
+        false -> ToggleableState.Off
+        null -> ToggleableState.Indeterminate
     }
-}
-
-@Composable
-private fun AppRow(
-    app: NativeInstalledApp,
-    selected: Boolean,
-    enabled: Boolean,
-    onToggle: () -> Unit,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .toggleable(value = selected, enabled = enabled, role = androidx.compose.ui.semantics.Role.Checkbox,
-                    onValueChange = { onToggle() })
-                .padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
+    Row(Modifier.fillMaxWidth().triStateToggleable(state, enabled = enabled, role = Role.Checkbox, onClick = onToggle)
+        .padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         NativeInstalledAppIcon(app.packageName)
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = app.label,
-                style = MaterialTheme.typography.bodyLarge,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = app.packageName,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (app.system) {
-                    Text(
-                        text = stringResource(R.string.native_per_app_system),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(app.label, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (flags != null && flags and NativePerAppFlags.FORCE_DESELECTION != 0) {
+                    Spacer(Modifier.width(6.dp))
+                    Box(Modifier.size(6.dp).background(MaterialTheme.colorScheme.error, CircleShape))
                 }
             }
+            Text(app.packageName, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Checkbox(checked = selected, onCheckedChange = null, enabled = enabled)
+        TriStateCheckbox(state, onClick = null, enabled = enabled)
     }
 }

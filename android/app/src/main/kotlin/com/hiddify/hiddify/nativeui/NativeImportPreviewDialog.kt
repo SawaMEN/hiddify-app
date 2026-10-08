@@ -42,6 +42,6 @@ internal fun NativeImportPreviewDialog(summary: NativeImportSummary, onDecision:
             }
         },
         confirmButton = { Button(onClick = { onDecision(true) }) { Text(stringResource(R.string.native_import_confirm)) } },
-        dismissButton = { TextButton(onClick = { onDecision(false) }) { Text(stringResource(android.R.string.cancel)) } },
+        dismissButton = { NativeTextButton(onClick = { onDecision(false) }) { Text(stringResource(android.R.string.cancel)) } },
     )
 }

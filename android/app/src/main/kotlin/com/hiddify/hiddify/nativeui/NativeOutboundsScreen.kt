@@ -102,7 +102,7 @@ internal fun NativeOutboundsScreen(
                     style = MaterialTheme.typography.titleLarge)
                 Box {
                     IconButton(onClick = { sortOpen = true }, enabled = !smartSelectionBusy) {
-                        Icon(painterResource(R.drawable.native_sort), stringResource(R.string.native_outbounds_sort))
+                        Icon(painterResource(R.drawable.native_outbound_sort), stringResource(R.string.native_outbounds_sort))
                     }
                     DropdownMenu(expanded = sortOpen, onDismissRequest = { sortOpen = false }) {
                         NativeOutboundSort.entries.forEach { mode ->
@@ -144,7 +144,7 @@ internal fun NativeOutboundsScreen(
                 failure != null -> Column(Modifier.weight(1f).fillMaxWidth().padding(20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                     Text(failure.orEmpty(), style = MaterialTheme.typography.bodyMedium)
-                    TextButton(onClick = { retry++ }) { Text(stringResource(R.string.native_profiles_retry)) }
+                    NativeTextButton(onClick = { retry++ }) { Text(stringResource(R.string.native_profiles_retry)) }
                 }
                 group == null -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Text(stringResource(R.string.native_outbounds_empty))

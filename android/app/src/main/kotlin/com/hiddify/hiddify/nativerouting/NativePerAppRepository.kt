@@ -11,6 +11,8 @@ data class NativePerAppSnapshot(
     val mode: String,
     val apps: List<NativeInstalledApp>,
     val selectedPackages: Set<String>,
+    val flags: Map<String, Int> = emptyMap(),
+    val loaded: Boolean = false,
 )
 
 /**
@@ -44,19 +46,35 @@ class NativePerAppRepository(private val context: Context) {
 
         val apps = installedApps()
         val installed = apps.asSequence().map { it.packageName }.toSet()
-        val selected =
-            if (mode == PerAppProxyMode.OFF) {
-                emptySet()
-            } else {
-                activePackages(mode).filterTo(linkedSetOf()) { it in installed }
+        val flags = if (mode == PerAppProxyMode.OFF) emptyMap() else openDatabase().use { db ->
+            db.rawQuery("SELECT pkg_name, flags FROM app_proxy_entries WHERE mode = ?", arrayOf(mode)).use { cursor ->
+                buildMap { while (cursor.moveToNext()) { val pkg = cursor.getString(0)
+                    if (pkg in installed) put(pkg, cursor.getInt(1))
+                } }
             }
+        }
+        val selected = flags.filterValues(NativePerAppFlags::selected).keys
         if (mode != PerAppProxyMode.OFF) Settings.setPerAppProxyPackages(mode, selected)
-        return NativePerAppSnapshot(mode = mode, apps = apps, selectedPackages = selected)
+        return NativePerAppSnapshot(mode, apps, selected, flags, loaded = true)
     }
 
     fun setMode(mode: String): NativePerAppSnapshot {
         require(mode in setOf(PerAppProxyMode.OFF, PerAppProxyMode.INCLUDE, PerAppProxyMode.EXCLUDE)) {
             "Unsupported per-app routing mode"
+        }
+        val preferences = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        if ((preferences.all["flutter.auto_apps_selection_region"] as? String).orEmpty().isNotEmpty()) {
+            val previousMode = Settings.perAppProxyMode
+            openDatabase().use { db ->
+                db.beginTransaction()
+                try {
+                    db.execSQL("UPDATE app_proxy_entries SET flags = flags & ? WHERE mode = ?",
+                        arrayOf<Any>(NativePerAppFlags.AUTO_SELECTION.inv(), previousMode))
+                    db.delete("app_proxy_entries", "mode = ? AND flags = 0", arrayOf(previousMode))
+                    db.setTransactionSuccessful()
+                } finally { db.endTransaction() }
+            }
+            preferences.edit().remove("flutter.auto_apps_selection_region").remove("flutter.auto_apps_selection_last_update").apply()
         }
         Settings.perAppProxyMode = mode
         if (mode != PerAppProxyMode.OFF) {
@@ -118,6 +136,8 @@ class NativePerAppRepository(private val context: Context) {
             }
             Settings.setPerAppProxyPackages(mode, emptyList())
         }
+        context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE).edit()
+            .remove("flutter.auto_apps_selection_region").remove("flutter.auto_apps_selection_last_update").apply()
         return snapshot()
     }
 

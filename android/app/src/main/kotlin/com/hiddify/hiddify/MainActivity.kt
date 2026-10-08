@@ -527,6 +527,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onPerAppModeChanged = ::setPerAppMode,
                 onTogglePerAppPackage = ::togglePerAppPackage,
                 onClearPerApp = ::clearPerAppPackages,
+                onReloadPerApp = ::refreshPerApp,
                 onImportPerAppClipboard = ::importPerAppClipboard,
                 onImportPerAppFile = { perAppImportLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
                 onExportPerAppClipboard = ::exportPerAppClipboard,
@@ -681,8 +682,23 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshVpnProtection()
         diagnosticJob = lifecycleScope.launch {
             try {
-                diagnosticSnapshot.value = diagnosticsRepository.run { progress ->
+                val activeTag = activeOutbound.value?.tag
+                val selected = profiles.value.firstOrNull { it.active }
+                val editor = withContext(Dispatchers.IO) {
+                    profileOperationMutex.withLock { selected?.let { runCatching { profileRepository.loadEditor(it.id) }.getOrNull() } }
+                }
+                val headers = editor?.profile?.populatedHeaders?.let {
+                    runCatching { org.json.JSONObject(it).keys().asSequence().toSet() }.getOrDefault(emptySet())
+                }.orEmpty()
+                diagnosticSnapshot.value = diagnosticsRepository.run(editor?.content, headers, activeTag) { progress ->
                     diagnosticSnapshot.value = progress
+                    progress.checks.lastOrNull()?.takeIf { it.stage == com.hiddify.hiddify.nativediagnostics.NativeDiagnosticStage.TUNNEL }?.let {
+                        internetHealth.value = when (it.outcome) {
+                            com.hiddify.hiddify.nativediagnostics.NativeDiagnosticOutcome.PASSED -> NativeInternetHealth.AVAILABLE
+                            com.hiddify.hiddify.nativediagnostics.NativeDiagnosticOutcome.FAILED -> NativeInternetHealth.UNAVAILABLE
+                            else -> NativeInternetHealth.UNCHECKED
+                        }
+                    }
                 }
             } catch (error: CancellationException) {
                 throw error
@@ -1031,21 +1047,18 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun runPerAppOperation(operation: () -> NativePerAppSnapshot) {
         if (perAppBusy.value) return
-        if (serviceStatus.value != Status.Stopped) {
-            errorMessage.value = getString(R.string.native_per_app_disconnect)
-            return
-        }
+        if (serviceStatus.value == Status.Starting || serviceStatus.value == Status.Stopping || reconnectBusy.value || nativeStartPending || pendingStartAfterVpnPermission) return
         perAppBusy.value = true
         lifecycleScope.launch {
             try {
                 perAppSnapshot.value = withContext(Dispatchers.IO) {
                     perAppOperationMutex.withLock {
                         BoxService.withNativeLifecycle {
-                            check(!BoxService.hasActiveCore()) { getString(R.string.native_per_app_disconnect) }
                             operation()
                         }
                     }
                 }
+                coreChangesSaved()
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -1995,6 +2008,15 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     NetworkPrivacySettings.saveFilters(applicationContext, value)
                 }
                 trafficFilters.value = NetworkPrivacySettings.loadFilters(applicationContext)
+                coreChangesSaved()
+                val message = when (value.enabled.size) {
+                    0 -> R.string.native_filters_all_off
+                    com.hiddify.hiddify.privacy.NativeTrafficFilter.entries.size -> R.string.native_filters_all_on
+                    else -> R.string.native_filters_applied
+                }
+                Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {

@@ -26,6 +26,7 @@ import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun NativeProfileDetailsScreen(
     editor: NativeProfileEditor?,
@@ -46,7 +47,7 @@ fun NativeProfileDetailsScreen(
                 Icon(painterResource(R.drawable.native_back_arrow), stringResource(R.string.native_back))
             }
             Text(stringResource(R.string.native_profile_details), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-            TextButton(enabled = ready && !busy && session.changed && jsonValid && session.content.isNotBlank(), onClick = {
+            NativeTextButton(enabled = ready && !busy && session.changed && jsonValid && session.content.isNotBlank(), onClick = {
                 validateName = true
                 if (session.name.isNotBlank()) onSave(session.name.trim(), session.disableAutoUpdate,
                     session.intervalHours.takeIf { it > 0 }, session.content)
@@ -60,7 +61,7 @@ fun NativeProfileDetailsScreen(
             Column(Modifier.weight(1f).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 if (loadFailed) {
                     Text(stringResource(R.string.native_editor_load_failed), color = MaterialTheme.colorScheme.error)
-                    TextButton(onClick = onRetry) { Text(stringResource(R.string.native_profiles_retry)) }
+                    NativeTextButton(onClick = onRetry) { Text(stringResource(R.string.native_profiles_retry)) }
                 } else CircularProgressIndicator()
             }
         } else if (editor != null) {
@@ -109,8 +110,12 @@ fun NativeProfileDetailsScreen(
                 if (profile.isRemote && profile.upload != null && profile.download != null && profile.total != null) {
                     HorizontalDivider(Modifier.padding(horizontal = 16.dp))
                     Column(Modifier.padding(horizontal = 18.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(R.string.native_editor_traffic, editorBytes(profile.upload), editorBytes(profile.download), editorBytes(profile.total)), style = MaterialTheme.typography.bodySmall)
-                        profile.expire?.let { Text(stringResource(R.string.native_editor_expiry, editorDate(it)), style = MaterialTheme.typography.bodySmall) }
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                            SubscriptionValue(R.drawable.native_sub_upload, R.string.native_outbound_upload, editorBytes(profile.upload))
+                            SubscriptionValue(R.drawable.native_sub_download, R.string.native_outbound_download, editorBytes(profile.download))
+                            SubscriptionValue(R.drawable.native_sub_total, R.string.native_editor_total, editorBytes(profile.total))
+                        }
+                        profile.expire?.let { SubscriptionValue(R.drawable.native_sub_expiry, R.string.native_editor_expire_date, editorDate(it)) }
                     }
                 }
                 HorizontalDivider()
@@ -133,4 +138,13 @@ private fun editorBytes(bytes: Long): String {
     var value = bytes.toDouble(); var unit = 0
     while (value >= 1024 && unit < units.lastIndex) { value /= 1024; unit++ }
     return String.format(Locale.getDefault(), if (unit == 0) "%.0f %s" else "%.2f %s", value, units[unit])
+}
+
+@Composable
+private fun SubscriptionValue(icon: Int, label: Int, value: String) {
+    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Icon(painterResource(icon), stringResource(label), Modifier.size(16.dp))
+        Text(value, style = MaterialTheme.typography.bodySmall)
+    }
 }

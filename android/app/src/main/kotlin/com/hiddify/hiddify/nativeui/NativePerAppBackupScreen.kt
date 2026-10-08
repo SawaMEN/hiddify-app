@@ -54,6 +54,12 @@ fun NativePerAppBackupScreen(
             Text(stringResource(R.string.native_per_app_export_file))
         }
     }
+    NativePerAppImportDialog(pendingImport, busy, canImport, onConfirmImport, onDismissImport)
+}
+
+@Composable
+internal fun NativePerAppImportDialog(pendingImport: NativePerAppBackup?, busy: Boolean, canImport: Boolean,
+    onConfirmImport: () -> Unit, onDismissImport: () -> Unit) {
     if (pendingImport != null) {
         AlertDialog(
             onDismissRequest = onDismissImport,
@@ -68,12 +74,12 @@ fun NativePerAppBackupScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = onConfirmImport, enabled = canImport && !busy) {
+                NativeTextButton(onClick = onConfirmImport, enabled = canImport && !busy) {
                     Text(stringResource(R.string.native_per_app_restore))
                 }
             },
             dismissButton = {
-                TextButton(onClick = onDismissImport) { Text(stringResource(android.R.string.cancel)) }
+                NativeTextButton(onClick = onDismissImport) { Text(stringResource(android.R.string.cancel)) }
             },
         )
     }

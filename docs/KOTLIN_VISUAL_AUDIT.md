@@ -87,3 +87,12 @@ when no app.log exists; this is not full Android logcat capture. Missing files s
 Automatic service updates still refresh the screen; the extra refresh toolbar action was removed.
 Resource/reference checks and git whitespace checks pass. Compilation/runtime comparison
 is still unavailable locally and these changes do not close whole-app parity.
+
+
+## Follow-up: 200 source differences
+
+See KOTLIN_DART_200_DIFFS.md / .json for the next 200 unique findings and implemented
+changes. Original Fluent vectors now replace the listed approximate glyphs; diagnostics,
+per-app routing, Wi-Fi guide, anonymization and protection receive source-based layout
+corrections. Log typography and severity filtering now follow Dart. Device rendering and
+interaction parity remain unverified; this supersedes the earlier notes for these items.

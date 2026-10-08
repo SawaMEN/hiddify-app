@@ -7,15 +7,23 @@ class NativeLogPresentationTest {
     @Test fun terminalColorsAreRemovedWithoutChangingMessages() {
         assertEquals("INFO connection established", NativeLogPresentation.clean("\u001B[32mINFO\u001B[0m connection established\r"))
     }
-    @Test fun levelAndSearchFiltersAreIndependent() {
+    @Test fun severityIsAMinimumAndUnknownEntriesRemainVisible() {
         val lines = listOf("INFO connected", "ERROR connection failed", "WARN disconnected", "unstructured line")
-        assertEquals(listOf("ERROR connection failed"), NativeLogPresentation.visible(lines, "CONNECTION", "ERROR"))
-        assertEquals(listOf("unstructured line"), NativeLogPresentation.visible(lines, "unstructured", null))
-        assertTrue(NativeLogPresentation.visible(lines, "unstructured", "INFO").isEmpty())
+        assertEquals(listOf("ERROR connection failed", "WARN disconnected", "unstructured line"),
+            NativeLogPresentation.visible(lines, "", "WARN"))
+        assertEquals(listOf("ERROR connection failed"), NativeLogPresentation.visible(lines, "connection", "INFO"))
+        assertTrue(NativeLogPresentation.visible(lines, "CONNECTION", null).isEmpty())
+        assertTrue(NativeLogPresentation.visible(lines, " connection ", null).isEmpty())
     }
-    @Test fun warningsAreNormalizedAndUnknownLinesRemainUnknown() {
+    @Test fun severityWordsInsideTheMessageAreNotAHeader() {
+        assertNull(NativeLogPresentation.level("request body contains ERROR but completed successfully"))
         assertEquals("WARN", NativeLogPresentation.level("[box.log] WARNING network unavailable"))
-        assertNull(NativeLogPresentation.level("connection failed without a structured severity"))
-        assertNull(NativeLogPresentation.level("information received"))
+    }
+    @Test fun timestampAndSourceAreSeparatedFromTheMessage() {
+        val entry = NativeLogPresentation.entry("[box.log] +0300 2026-10-08 12:30:05 INFO connected")
+        assertEquals("INFO", entry.level)
+        assertEquals("2026-10-08 12:30:05", entry.time)
+        assertEquals("connected", entry.message)
+        assertEquals(listOf("TRACE", "DEBUG", "INFO", "WARN"), NativeLogPresentation.levels)
     }
 }

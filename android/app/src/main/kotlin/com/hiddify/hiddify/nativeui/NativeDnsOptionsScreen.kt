@@ -71,7 +71,7 @@ internal fun NativeDnsOptionsScreen(
         if ((options == null && !loadFailed) || busy) LinearProgressIndicator(Modifier.fillMaxWidth())
         if (options == null && loadFailed) Column(Modifier.padding(16.dp)) {
             Text(stringResource(R.string.native_settings_load_failed), color = MaterialTheme.colorScheme.error)
-            TextButton(onClick = onRetry) { Text(stringResource(R.string.native_profiles_retry)) }
+            NativeTextButton(onClick = onRetry) { Text(stringResource(R.string.native_profiles_retry)) }
         }
         if (options != null) Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
             NativePreferenceTile(R.string.native_core_remote_dns, R.drawable.native_dns_vpn_lock,
@@ -113,15 +113,15 @@ internal fun NativeDnsOptionsScreen(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Done),
                     onDone = { save(field, address) }, modifier = Modifier.focusRequester(focus))
             }, confirmButton = {
-                if (!strategy) TextButton(onClick = { save(field, address) }, enabled = enabled && valid) {
+                if (!strategy) NativeTextButton(onClick = { save(field, address) }, enabled = enabled && valid) {
                     Text(stringResource(android.R.string.ok))
                 }
             }, dismissButton = {
                 Row {
-                    TextButton(onClick = { save(field, field.value(NativeDnsOptions()).toString()) }, enabled = enabled) {
+                    NativeTextButton(onClick = { save(field, field.value(NativeDnsOptions()).toString()) }, enabled = enabled) {
                         Text(stringResource(R.string.native_quick_reset))
                     }
-                    TextButton(onClick = { editor = null }) { Text(stringResource(android.R.string.cancel)) }
+                    NativeTextButton(onClick = { editor = null }) { Text(stringResource(android.R.string.cancel)) }
                 }
             })
     }
