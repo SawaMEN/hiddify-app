@@ -235,6 +235,7 @@ fun NativeApp(
     onRefreshProfile: (NativeProfile) -> Unit,
     onOpenProfileEditor: (NativeProfile) -> Unit,
     onSaveProfileEditor: (String, Boolean, Int?, String) -> Unit,
+    onCancelProfileImport: () -> Unit,
     onImportProfile: (String, String?, Int?, Boolean) -> Unit,
     onImportFreeProfile: (com.hiddify.hiddify.nativeprofile.NativeFreeProfile, String) -> Unit,
     onCopyProfileConfig: (NativeProfile) -> Unit,
@@ -755,6 +756,8 @@ fun NativeApp(
         if (addProfileOpen) {
             NativeAddProfileSheet(
                 busy = busyProfileId != null,
+                canCancelImport = busyProfileId == "__import__",
+                onCancelImport = onCancelProfileImport,
                 onDismiss = { addProfileOpen = false },
                 onImportFree = onImportFreeProfile,
                 onImport = { raw, name, interval, disabled ->

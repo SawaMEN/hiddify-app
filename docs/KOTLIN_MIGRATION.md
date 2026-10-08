@@ -538,3 +538,16 @@ and verifies the ARM64 core/root companion and application metadata. Existing Ko
 checks are still available to CI through its `run-tests` option; Dart tests are gone. Stable
 release feeds and tag checks read the same version properties as the Android build. Local
 Gradle execution was blocked while downloading the pinned distribution (`Network is unreachable`).
+
+
+## Profile import cancellation
+
+Native import and free-provider download operations now use a request-scoped cancellation token.
+The import sheet exposes Cancel, retains its draft after cancellation and prevents drag dismissal
+while busy. The repository cancels the current OkHttp request, checks nested downloads and
+arbitrates cancellation against the start of file/database commit. Activity destruction cancels
+the token before the lifecycle scope is destroyed. Existing automatic updates remain separate.
+
+`NativeProfileImportCancellationTest` is included in the standalone JVM suite. Native resource
+checks and `git diff --check` pass; JVM tests could not start because Gradle download is blocked
+by network access. No APK build is awaited, and this step does not establish device pixel parity.

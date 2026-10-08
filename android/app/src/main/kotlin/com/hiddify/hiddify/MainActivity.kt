@@ -34,6 +34,7 @@ import com.hiddify.hiddify.nativediagnostics.NativeVpnProtection
 import com.hiddify.hiddify.nativeprofile.NativeProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
 import com.hiddify.hiddify.nativeprofile.NativeProfileTransfer
+import com.hiddify.hiddify.nativeprofile.NativeProfileImportCancellation
 import com.hiddify.hiddify.nativeprofile.NativeProfileRepository
 import com.hiddify.hiddify.nativelog.NativeLogRepository
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
@@ -237,6 +238,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private var diagnosticJob: Job? = null
     private var profileUpdateJob: Job? = null
+    private var profileImportCancellation: NativeProfileImportCancellation? = null
     private var logRefreshJob: Job? = null
     private var statsRefreshJob: Job? = null
     private var activeOutboundRefreshJob: Job? = null
@@ -511,6 +513,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onRefreshProfile = ::refreshRemoteProfile,
                 onOpenProfileEditor = ::openProfileEditor,
                 onSaveProfileEditor = ::saveProfileEditor,
+                onCancelProfileImport = { profileImportCancellation?.cancel() },
                 onImportProfile = ::importProfile,
                 onImportFreeProfile = ::importFreeProfile,
                 onCopyProfileConfig = ::copyProfileConfig,
@@ -1155,10 +1158,11 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun importFreeProfile(profile: com.hiddify.hiddify.nativeprofile.NativeFreeProfile, title: String) {
-        runProfileOperation(IMPORT_BUSY_ID, requireDisconnected = true,
+        val cancellation = NativeProfileImportCancellation()
+        runProfileOperation(IMPORT_BUSY_ID, requireDisconnected = true, importCancellation = cancellation,
             onSuccess = { profileImportRevision.value += 1 }) {
             profileRepository.importRemote(profile.url, requestedName = title, updateIntervalHours = 12,
-                replaceFeatures = true, neededFeatures = profile.neededFeatures)
+                replaceFeatures = true, neededFeatures = profile.neededFeatures, cancellation = cancellation)
         }
     }
 
@@ -1168,10 +1172,12 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         intervalHours: Int?,
         disableAutoUpdate: Boolean,
     ) {
-        runProfileOperation(IMPORT_BUSY_ID, requireDisconnected = true,
+        val cancellation = NativeProfileImportCancellation()
+        runProfileOperation(IMPORT_BUSY_ID, requireDisconnected = true, importCancellation = cancellation,
             onSuccess = { profileImportRevision.value += 1 }) {
             profileRepository.importInput(
                 rawInput = raw,
+                cancellation = cancellation,
                 name = name,
                 updateIntervalHours = intervalHours,
                 disableAutoUpdate = disableAutoUpdate,
@@ -1184,6 +1190,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         requireDisconnected: Boolean,
         onSuccess: () -> Unit = {},
         stopBeforeDeletingId: String? = null,
+        importCancellation: NativeProfileImportCancellation? = null,
         operation: () -> Unit,
     ) {
         if (busyProfileId.value != null) return
@@ -1194,6 +1201,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
 
         busyProfileId.value = operationId
+        profileImportCancellation = importCancellation
         lifecycleScope.launch {
             try {
                 val deletingUsedProfile = stopBeforeDeletingId != null && withContext(Dispatchers.IO) {
@@ -1210,6 +1218,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 val loaded =
                     withContext(Dispatchers.IO) {
                         suspend fun mutate() = profileOperationMutex.withLock {
+                            currentCoroutineContext().ensureActive()
+                            importCancellation?.ensureActive()
                             operation()
                             profileRepository.synchronizeActiveProfile()
                             profileRepository.listProfiles()
@@ -1224,8 +1234,13 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 refreshProfileSnapshot()
                 if (stopBeforeDeletingId != null) runCatching { refreshChainOptions() }
                 onSuccess()
-            } catch (timeout: kotlinx.coroutines.TimeoutCancellationException) {
-                errorMessage.value = getString(R.string.native_connection_stop_timeout)
+            } catch (cancelled: CancellationException) {
+                // User cancellation returns to the retained import draft without an error dialog.
+                // Lifecycle cancellation still propagates to the Activity scope.
+                currentCoroutineContext().ensureActive()
+                if (cancelled is kotlinx.coroutines.TimeoutCancellationException) {
+                    errorMessage.value = getString(R.string.native_connection_stop_timeout)
+                } else if (importCancellation == null) throw cancelled
             } catch (error: Exception) {
                 if (error is kotlinx.coroutines.CancellationException) throw error
                 runCatching { withContext(Dispatchers.IO) { profileOperationMutex.withLock {
@@ -1234,6 +1249,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 } } }.onSuccess { profiles.value = it; profilesLoadFailed.value = false; refreshProfileSnapshot() }
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
+                profileImportCancellation = null
                 busyProfileId.value = null
             }
         }
@@ -2249,6 +2265,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     override fun onDestroy() {
+        profileImportCancellation?.cancel()
         AutomaticHotspot.removeObserver(hotspotObserver)
         hotspotPermission?.cancel()
         super.onDestroy()

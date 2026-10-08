@@ -389,7 +389,9 @@ class NativeProfileRepository(private val context: Context) {
         name: String? = null,
         updateIntervalHours: Int? = null,
         disableAutoUpdate: Boolean = false,
+        cancellation: NativeProfileImportCancellation? = null,
     ): NativeProfile {
+        cancellation?.ensureActive()
         val input = rawInput.trim()
         require(input.isNotEmpty()) { "Profile is empty" }
 
@@ -400,9 +402,10 @@ class NativeProfileRepository(private val context: Context) {
                 requestedName = name?.takeIf { it.isNotBlank() } ?: link.second,
                 updateIntervalHours = updateIntervalHours,
                 disableAutoUpdate = disableAutoUpdate,
+                cancellation = cancellation,
             )
         } else {
-            importLocal(input, name)
+            importLocal(input, name, cancellation)
         }
     }
 
@@ -415,7 +418,9 @@ class NativeProfileRepository(private val context: Context) {
         existingOverride: String? = null,
         replaceFeatures: Boolean = false,
         neededFeatures: Set<String>? = null,
+        cancellation: NativeProfileImportCancellation? = null,
     ): NativeProfile {
+        cancellation?.ensureActive()
         require(isHttpUrl(url)) { "Only HTTP and HTTPS subscription URLs are supported natively" }
 
         val existing =
@@ -424,8 +429,8 @@ class NativeProfileRepository(private val context: Context) {
             }
         val id = existing?.id ?: UUID.randomUUID().toString()
         val active = existing?.active ?: true
-        val response = download(url, nested = false)
-        val expanded = expandNestedSubscriptions(response.body)
+        val response = download(url, nested = false, cancellation = cancellation)
+        val expanded = expandNestedSubscriptions(response.body, cancellation)
         val mergedHeaders = mergeHeaders(response.headers, expanded)
         val override =
             buildUserOverride(
@@ -467,11 +472,17 @@ class NativeProfileRepository(private val context: Context) {
                 populatedHeaders = JSONObject(mergedHeaders).toString(),
                 userOverride = override,
             )
+        cancellation?.beginCommit()
         commit(profile, expanded, isNew = existing == null)
         return profile
     }
 
-    fun importLocal(content: String, requestedName: String? = null): NativeProfile {
+    fun importLocal(
+        content: String,
+        requestedName: String? = null,
+        cancellation: NativeProfileImportCancellation? = null,
+    ): NativeProfile {
+        cancellation?.ensureActive()
         val decoded = safeDecodeBase64(content)
         require(decoded.toByteArray(Charsets.UTF_8).size <= MAX_CONFIG_BYTES) { "Configuration exceeds 8 MiB" }
 
@@ -504,6 +515,7 @@ class NativeProfileRepository(private val context: Context) {
                             .toString()
                     },
             )
+        cancellation?.beginCommit()
         commit(profile, decoded, isNew = true)
         return profile
     }
@@ -554,7 +566,12 @@ class NativeProfileRepository(private val context: Context) {
         }
     }
 
-    private fun download(url: String, nested: Boolean): DownloadResult {
+    private fun download(
+        url: String,
+        nested: Boolean,
+        cancellation: NativeProfileImportCancellation? = null,
+    ): DownloadResult {
+        cancellation?.ensureActive()
         val request =
             Request.Builder()
                 .url(url)
@@ -563,29 +580,40 @@ class NativeProfileRepository(private val context: Context) {
                 .get()
                 .build()
         val client = if (nested) nestedHttp else http
-        return client.newCall(request).execute().use { response ->
-            check(response.isSuccessful) { "Subscription HTTP ${response.code}" }
-            val body = readLimited(response)
-            val headers =
-                buildMap {
-                    for (name in response.headers.names()) {
-                        val key = name.lowercase()
-                        if (key in allowedHeaders) {
-                            response.header(name)?.takeIf { it.isNotBlank() }?.let { put(key, it) }
+        val call = client.newCall(request)
+        cancellation?.attachRequest(call::cancel)
+        try {
+            return call.execute().use { response ->
+                check(response.isSuccessful) { "Subscription HTTP ${response.code}" }
+                val body = readLimited(response, cancellation)
+                val headers =
+                    buildMap {
+                        for (name in response.headers.names()) {
+                            val key = name.lowercase()
+                            if (key in allowedHeaders) {
+                                response.header(name)?.takeIf { it.isNotBlank() }?.let { put(key, it) }
+                            }
                         }
                     }
-                }
-            DownloadResult(body, headers)
+                cancellation?.ensureActive()
+                DownloadResult(body, headers)
+            }
+        } catch (error: Exception) {
+            cancellation?.ensureActive()
+            throw error
+        } finally {
+            cancellation?.detachRequest()
         }
     }
 
-    private fun readLimited(response: Response): String {
+    private fun readLimited(response: Response, cancellation: NativeProfileImportCancellation?): String {
         val body = response.body ?: error("Subscription response is empty")
         val output = ByteArrayOutputStream()
         body.byteStream().use { input ->
             val buffer = ByteArray(8192)
             var total = 0
             while (true) {
+                cancellation?.ensureActive()
                 val count = input.read(buffer)
                 if (count < 0) break
                 total += count
@@ -596,7 +624,8 @@ class NativeProfileRepository(private val context: Context) {
         return output.toByteArray().toString(Charsets.UTF_8)
     }
 
-    private fun expandNestedSubscriptions(content: String): String {
+    private fun expandNestedSubscriptions(content: String, cancellation: NativeProfileImportCancellation?): String {
+        cancellation?.ensureActive()
         val lines = content.split("\n")
         val nestedCount = lines.count { isHttpUrl(it.trim()) }
         require(nestedCount <= MAX_NESTED_SUBSCRIPTIONS) { "Too many nested subscriptions" }
@@ -605,10 +634,11 @@ class NativeProfileRepository(private val context: Context) {
 
         val expanded =
             lines.map { original ->
+                cancellation?.ensureActive()
                 val line = original.trim()
                 if (!isHttpUrl(line)) return@map original
                 validateNestedPublicUrl(line)
-                val nested = download(line, nested = true).body.trim()
+                val nested = download(line, nested = true, cancellation = cancellation).body.trim()
                 totalBytes += nested.toByteArray(Charsets.UTF_8).size
                 require(totalBytes <= MAX_CONFIG_BYTES) { "Nested subscriptions exceed 8 MiB" }
                 nested

@@ -35,6 +35,8 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun NativeAddProfileSheet(
     busy: Boolean,
+    canCancelImport: Boolean,
+    onCancelImport: () -> Unit,
     onDismiss: () -> Unit,
     onImport: (String, String?, Int?, Boolean) -> Unit,
     onImportFree: (com.hiddify.hiddify.nativeprofile.NativeFreeProfile, String) -> Unit,
@@ -57,6 +59,7 @@ internal fun NativeAddProfileSheet(
     var scannerOpen by rememberSaveable { mutableStateOf(false) }
     var helpOpen by rememberSaveable { mutableStateOf(false) }
     val enabled = !busy && !fileBusy
+    val canDismiss by rememberUpdatedState(enabled)
 
     fun importSource(text: String) {
         raw = text
@@ -105,7 +108,10 @@ internal fun NativeAddProfileSheet(
 
     ModalBottomSheet(
         onDismissRequest = { if (enabled) onDismiss() },
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetState = rememberModalBottomSheetState(
+            skipPartiallyExpanded = true,
+            confirmValueChange = { it != SheetValue.Hidden || canDismiss },
+        ),
         sheetMaxWidth = 456.dp,
         shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
         dragHandle = null,
@@ -117,6 +123,12 @@ internal fun NativeAddProfileSheet(
                     Text(stringResource(R.string.native_profile_adding), style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(20.dp))
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), trackColor = androidx.compose.ui.graphics.Color.Transparent)
+                    if (canCancelImport) {
+                        Spacer(Modifier.height(12.dp))
+                        TextButton(onClick = onCancelImport) {
+                            Text(stringResource(android.R.string.cancel))
+                        }
+                    }
                 }
             } else if (!manual) {
                 BoxWithConstraints(Modifier.fillMaxWidth().padding(16.dp)) {

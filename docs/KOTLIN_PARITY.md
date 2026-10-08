@@ -90,8 +90,8 @@ repository import directly, as in Dart, instead of requiring a second submission
 multiline input dialog. QR image import remains available as an additional action. File
 reads remain limited to 8 MiB on IO, image processing stays on IO, cancelled pickers do
 nothing, and failed imports retain their source for Retry. The sheet closes only after
-the Activity publishes a successful import revision. Busy operations show the original text/linear-progress arrangement. Import cancellation
-still needs a repository-level cancellation path; the busy sheet currently stays open.
+the Activity publishes a successful import revision. Busy operations show the original text/linear-progress arrangement. Import cancellation now has a repository-level path; the busy sheet stays open until
+the cancelled request exits, then restores its existing draft.
 
 Manual import has required name and HTTP(S) URL fields, the disable-auto-update switch,
 a discrete 0–96 hour slider and an Auto value that leaves subscription timing to metadata.
@@ -496,3 +496,25 @@ paths. It was run with Kotlin 2.2.0 and coroutines 1.8.0. All production Kotlin 
 PSI syntax parsing, native boundary/resource checks and whitespace checks. No APK was built.
 These checks do not establish Android type/link compatibility or on-device VPN connectivity;
 real tunnel/permission/OEM behavior and reported device errors still require runtime validation.
+
+
+## Cancellable profile imports
+
+The adding state exposes Cancel for ordinary and free-provider imports. Each import owns a
+separate cancellation token. It cancels the active OkHttp call (including response-body reads),
+checks between nested subscriptions and blocks profile persistence when cancellation wins.
+Cancellation does not surface a network-error dialog or advance the successful-import revision;
+the sheet restores its retained options/manual draft for retry. Busy sheets reject drag dismissal
+until their operation finishes, preventing a hidden sheet with an in-flight import.
+
+Cancellation and the start of file/database replacement share one lock. If replacement already
+began, it finishes through the existing rollback-capable transaction; late cancellation cannot
+leave half a profile. Activity destruction cancels an unfinished import before cancelling its
+lifecycle scope. Independent automatic subscription updates are unaffected. File-picker reads
+and platform DNS resolution are still synchronous IO work: this change does not claim immediate
+cancellation of those operations or preservation of large drafts across process death.
+
+Five JVM tests cover cancellation before request attachment, nested-request isolation, late
+cancellation during commit, independent retries and 250 concurrent cancel/commit races. Local
+execution could not start because the pinned Gradle download reports `Network is unreachable`.
+Native/resource and whitespace checks pass. APK compilation and device parity are not awaited.
