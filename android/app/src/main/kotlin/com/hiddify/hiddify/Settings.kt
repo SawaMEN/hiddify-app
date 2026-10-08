@@ -10,6 +10,7 @@ import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.constant.SettingsKey
 import com.hiddify.hiddify.privacy.NativeProxyPrivacy
 import com.hiddify.hiddify.privacy.VpnServiceVisibility
+import com.hiddify.hiddify.nativecore.NativeServiceModeOptions
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.ObjectInputStream
@@ -48,7 +49,12 @@ object Settings {
     val privacyEncryptedDns get() = getBoolean("flutter.privacy-encrypted-dns", true)
     val privacyPublicDns get() = getBoolean("flutter.privacy-public-dns", false)
     val privacyDisableSystemProxy get() = getBoolean(NativeProxyPrivacy.DISABLE_SYSTEM_PROXY_KEY, true)
-    val privacyDisableIpv6 get() = getString("flutter.ipv6-mode", "ipv4_only") == "ipv4_only"
+    // Match the effective core settings rather than always relying on a stale Flutter
+    // alias. A mismatched policy makes Android omit the TUN IPv6 address while sing-box
+    // still tries to bind its IPv6 TCP stack to that address.
+    val privacyDisableIpv6 get() = NativeServiceModeOptions.isIpv4Only(
+        configOptions, getString("flutter.ipv6-mode", "ipv4_only"),
+    )
     val privacyUseRootRequested get() = getBoolean("flutter.privacy-use-root", false)
 
     fun setPrivacyUseRoot(enabled: Boolean) {

@@ -25,7 +25,11 @@ object NativeCoreControl {
         val overrides = com.hiddify.hiddify.nativeprofile.NativeProfileOverrides.apply(
             Settings.configOptions, profile?.populatedHeaders, profile?.userOverride,
         )
-        return NativeServiceModeOptions.apply(overrides, Settings.serviceMode == ServiceMode.VPN)
+        return NativeServiceModeOptions.apply(
+            overrides,
+            vpnMode = Settings.serviceMode == ServiceMode.VPN,
+            ipv4Only = Settings.privacyDisableIpv6,
+        )
     }
 
     fun applyStoredSettings(context: android.content.Context) {
