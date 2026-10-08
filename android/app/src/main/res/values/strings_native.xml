@@ -665,4 +665,5 @@ Don’t have a VPN server yet? No worries—just follow the tutorial below to se
     <string name="native_setting_memory_limit">Memory limit</string>
     <string name="native_setting_memory_limit_summary">Enable if you’re experiencing out of memory errors or frequent app crashes</string>
     <string name="native_setting_debug_notice">Restart the app for applying this change</string>
+    <string name="native_settings_load_failed">Could not load settings</string>
 </resources>

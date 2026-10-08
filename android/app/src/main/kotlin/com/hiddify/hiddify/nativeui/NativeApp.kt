@@ -136,7 +136,9 @@ fun NativeApp(
     onSaveTlsOptions: (com.hiddify.hiddify.nativecore.NativeTlsOptions) -> Unit,
     dnsOptions: com.hiddify.hiddify.nativecore.NativeDnsOptions?,
     dnsBusy: Boolean,
-    onSaveDnsOptions: (com.hiddify.hiddify.nativecore.NativeDnsOptions) -> Unit,
+    dnsLoadFailed: Boolean,
+    onReloadDnsOptions: () -> Unit,
+    onSaveDnsOption: (com.hiddify.hiddify.nativecore.NativeDnsOptionField, String) -> Unit,
     inboundOptions: com.hiddify.hiddify.nativecore.NativeInboundOptions,
     inboundBusy: Boolean,
     onSaveInboundOptions: (com.hiddify.hiddify.nativecore.NativeInboundOptions) -> Unit,
@@ -550,9 +552,9 @@ fun NativeApp(
 
                             PAGE_DNS -> NativeDnsOptionsScreen(
                                 options = dnsOptions, busy = dnsBusy,
-                                canSave = status == Status.Stopped && !wifiSharingBusy && !chainBusy && !inboundBusy && !tlsBusy,
-                                onBack = { goBack() }, onSave = onSaveDnsOptions,
-                                onOpenPrivacy = { openCategory(NativeSettingsCategory.DNS) },
+                                canSave = status != Status.Starting && status != Status.Stopping && !reconnectBusy && !wifiSharingBusy && !chainBusy && !inboundBusy && !tlsBusy && !generalOptionsBusy && !tunnelBusy && !privacySetupBusy && !proxyPrivacyBusy,
+                                loadFailed = dnsLoadFailed, onRetry = onReloadDnsOptions,
+                                onBack = { goBack() }, onSave = onSaveDnsOption,
                             )
 
                             PAGE_INBOUND -> NativeInboundOptionsScreen(

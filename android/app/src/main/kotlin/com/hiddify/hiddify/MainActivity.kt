@@ -139,6 +139,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val dnsRepository by lazy { com.hiddify.hiddify.nativecore.NativeDnsOptionsRepository(applicationContext) }
     private val dnsOptions = mutableStateOf<com.hiddify.hiddify.nativecore.NativeDnsOptions?>(null)
     private val dnsBusy = mutableStateOf(false)
+    private val dnsLoadFailed = mutableStateOf(false)
     private var dnsSnapshotJob: Job? = null
     private val inboundRepository by lazy { com.hiddify.hiddify.nativecore.NativeInboundOptionsRepository(applicationContext) }
     private val inboundOptions = mutableStateOf(com.hiddify.hiddify.nativecore.NativeInboundOptions())
@@ -399,7 +400,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onSaveTlsOptions = ::saveTlsOptions,
                 dnsOptions = dnsOptions.value,
                 dnsBusy = dnsBusy.value,
-                onSaveDnsOptions = ::saveDnsOptions,
+                dnsLoadFailed = dnsLoadFailed.value,
+                onReloadDnsOptions = ::refreshDnsOptions,
+                onSaveDnsOption = ::saveDnsOption,
                 inboundOptions = inboundOptions.value,
                 inboundBusy = inboundBusy.value,
                 onSaveInboundOptions = ::saveInboundOptions,
@@ -2004,6 +2007,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun refreshDnsOptions() {
+        if (dnsBusy.value) return
+        dnsLoadFailed.value = false
         dnsSnapshotJob?.cancel()
         dnsSnapshotJob = lifecycleScope.launch {
             try {
@@ -2011,29 +2016,25 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
+                dnsLoadFailed.value = true
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             }
         }
     }
 
-    private fun saveDnsOptions(value: com.hiddify.hiddify.nativecore.NativeDnsOptions) {
-        if (dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value || inboundBusy.value || chainBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || wifiSharingBusy.value) return
-        if (serviceStatus.value != Status.Stopped || pendingStartAfterVpnPermission || nativeStartPending) {
-            errorMessage.value = getString(R.string.native_dns_disconnect)
-            return
-        }
+    private fun saveDnsOption(field: com.hiddify.hiddify.nativecore.NativeDnsOptionField, input: String) {
+        if (dnsBusy.value || reconnectBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value || inboundBusy.value || chainBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || wifiSharingBusy.value ||
+            serviceStatus.value == Status.Starting || serviceStatus.value == Status.Stopping || pendingStartAfterVpnPermission || nativeStartPending) return
         dnsBusy.value = true
         dnsSnapshotJob?.cancel()
-        cancelRecovery()
         lifecycleScope.launch {
             try {
                 dnsOptions.value = BoxService.withNativeLifecycle {
-                    check(serviceStatus.value == Status.Stopped && !BoxService.hasActiveCore() && !nativeStartPending &&
-                        !pendingStartAfterVpnPermission) { getString(R.string.native_dns_disconnect) }
-                    withContext(Dispatchers.IO) { dnsRepository.save(value) }
+                    check(serviceStatus.value != Status.Starting && serviceStatus.value != Status.Stopping &&
+                        !nativeStartPending && !pendingStartAfterVpnPermission)
+                    withContext(Dispatchers.IO) { dnsRepository.saveField(field, input) }
                 }
-                refreshImportedSettingsSnapshots()
-                Toast.makeText(this@MainActivity, R.string.native_dns_saved, Toast.LENGTH_LONG).show()
+                coreChangesSaved()
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {

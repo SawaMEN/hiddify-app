@@ -3,24 +3,6 @@ package com.hiddify.hiddify.nativecore
 import android.content.Context
 import org.json.JSONObject
 
-data class NativeDnsOptions(
-    val remoteAddress: String = "tcp://8.8.8.8",
-    val remoteStrategy: String = "",
-    val fakeDns: Boolean = false,
-    val directAddress: String = "udp://1.1.1.1",
-    val directStrategy: String = "",
-) {
-    fun validated(): NativeDnsOptions {
-        fun address(value: String): String = value.trim().also {
-            require(it.isNotEmpty() && it.length <= 2048 && it.none(Char::isISOControl)) { "Invalid DNS address" }
-        }
-        require(remoteStrategy in NativeConfigChoices.domainStrategyChoices &&
-            directStrategy in NativeConfigChoices.domainStrategyChoices) { "Invalid DNS strategy" }
-        // Match Dart's nonempty-address validator; do not restrict core-supported resolver schemes.
-        return copy(remoteAddress = address(remoteAddress), directAddress = address(directAddress))
-    }
-}
-
 class NativeDnsOptionsRepository(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
 
@@ -40,17 +22,17 @@ class NativeDnsOptionsRepository(context: Context) {
     }
 
     /** IO, under the native service lifecycle barrier. Preserve every unrelated option. */
-    fun save(input: NativeDnsOptions): NativeDnsOptions {
-        val value = input.validated()
+    fun saveField(field: NativeDnsOptionField, input: String): NativeDnsOptions {
+        val updated = field.applyTo(load(), input)
+        val item = field.value(updated)
         val root = root(preferences.all)
-        val fields = mapOf(
-            "remote-dns-address" to value.remoteAddress, "remote-dns-domain-strategy" to value.remoteStrategy,
-            "direct-dns-address" to value.directAddress, "direct-dns-domain-strategy" to value.directStrategy,
-        )
+        root.put(field.storageKey, item)
         val editor = preferences.edit()
-        fields.forEach { (key, item) -> root.put(key, item); editor.putString("flutter.$key", item) }
-        root.put("enable-fake-dns", value.fakeDns)
-        editor.putBoolean("flutter.enable-fake-dns", value.fakeDns)
+        val key = "flutter.${field.storageKey}"
+        when (item) {
+            is String -> editor.putString(key, item)
+            is Boolean -> editor.putBoolean(key, item)
+        }
         editor.putString("config_options_json", root.toString())
         check(editor.commit()) { "Could not save DNS settings" }
         return load()

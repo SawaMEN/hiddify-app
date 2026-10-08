@@ -665,4 +665,5 @@
     <string name="native_setting_memory_limit">Ограничение памяти</string>
     <string name="native_setting_memory_limit_summary">Включите, если вы сталкиваетесь с ошибками нехватки памяти или частыми сбоями приложения</string>
     <string name="native_setting_debug_notice">Перезапустите приложение, чтобы применить это изменение</string>
+    <string name="native_settings_load_failed">Не удалось загрузить настройки</string>
 </resources>

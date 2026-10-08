@@ -127,7 +127,8 @@ object Settings {
         val inbound = com.hiddify.hiddify.nativecore.NativeInboundOptionsRepository(context).load()
         val chain = com.hiddify.hiddify.nativecore.NativeChainRepository().load()
         val general = com.hiddify.hiddify.nativecore.NativeGeneralOptionsRepository(context).load()
-        return com.google.gson.Gson().toJson(listOf(serviceMode, inbound.allowLan, inbound.lanPassword, chain, general))
+        val dns = com.hiddify.hiddify.nativecore.NativeDnsOptionsRepository(context).load()
+        return com.google.gson.Gson().toJson(listOf(serviceMode, inbound.allowLan, inbound.lanPassword, chain, general, dns))
     }
 
     var nativeReconnectRequired: Boolean

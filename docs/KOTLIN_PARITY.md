@@ -310,3 +310,32 @@ execution remains unverified because the pinned Gradle distribution is unavailab
 Native source/resource, drawable/font-reference and whitespace checks pass. No APK build is
 awaited. Full GeneralPage ordering/navigation, remaining application icons, original URL
 suggestion popup geometry and same-device screenshot parity still need verification/work.
+
+## DNS preference parity and editable suggestions
+
+The DNS page now follows the original five-row order, with the rounded VPN lock, bidirectional
+sync, private connectivity and public icons. Plain preference rows replace draft cards and the
+page-level Save button. Its header stays outside the scrolling content. DNS protection settings
+remain reachable from the DNS category on the privacy page, rather than adding a sixth row to
+DnsOptionsPage. Address inputs focus LTR text and support IME Done; choice rows persist immediately.
+Reset persists only that field's original default (including the empty Auto strategy) and closes.
+Cancel/back/dismissal leave the saved value intact. Initial loading errors show Retry.
+
+DNS writes merge one chosen key into freshly read core JSON and its legacy typed preference.
+Unrelated options, custom resolver schemes and unedited imported addresses are preserved. The
+existing nonempty/2048-character/control-character checks apply only to the edited address.
+Connected changes request reconnect through the applied-settings signature; startup, stopping,
+reconnect and concurrent settings transactions block edits. Snapshot refresh skips an active save.
+
+General and DNS pages now share a preference row and an editable input component. Suggestions
+use a dropdown anchored to the field, remain editable with the keyboard open, and follow Dart's
+case-insensitive contains filter and pattern-plus-presets fallback. Selecting a suggestion updates
+the draft; persistence still requires OK/IME Done. Suggestion text uses bodySmall, LTR and the
+source's 10/3 dp item padding. The shared general input also restores the Xray explanation and
+corrects the loading-error text that previously described Android application settings.
+
+Four DNS JVM scenarios cover scoped edits with legacy values, bare/IPv6/custom resolvers,
+invalid input and reset isolation. They are registered in the JVM suite but have not run locally:
+the pinned Gradle distribution remains unavailable. Native boundary/resource, drawable/font
+reference and whitespace checks pass. APK completion is not awaited. Dropdown placement with
+IME, accessibility, large text and same-device visual/interaction parity still require device QA.
