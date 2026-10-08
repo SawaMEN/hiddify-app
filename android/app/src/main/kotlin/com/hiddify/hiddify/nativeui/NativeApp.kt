@@ -49,6 +49,13 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.graphics.Color
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.clip
@@ -865,24 +872,26 @@ private fun HomeScreen(
         confirmButton = { NativeTextButton(onClick = { noProfileNotice = false; onAddProfile() }) { Text(stringResource(android.R.string.ok)) } },
     )
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Image(painterResource(R.drawable.vetroff_app_logo), contentDescription = null, modifier = Modifier.size(28.dp))
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // The brand has its own row; toolbar actions cannot squeeze it into VetrOF….
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Image(painterResource(R.drawable.vetroff_app_logo), contentDescription = null, modifier = Modifier.size(32.dp))
+                Text(stringResource(R.string.app_name), Modifier.weight(1f),
+                    style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(if (BuildConfig.CHANNEL == "prod") BuildConfig.VERSION_NAME
                     else "${BuildConfig.VERSION_NAME} ${BuildConfig.CHANNEL}",
-                    modifier = Modifier.semantics { contentDescription = versionLabel },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-            IconButton(onClick = onOpenDiagnostics) {
-                Icon(painterResource(R.drawable.home_health), stringResource(R.string.native_diagnostics_title))
-            }
-            FilledTonalIconButton(onClick = onAddProfile, enabled = busyProfileId == null) {
-                Icon(painterResource(R.drawable.home_add), stringResource(R.string.native_profile_add))
+                    modifier = Modifier.weight(1f).semantics { contentDescription = versionLabel },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                IconButton(onClick = onOpenDiagnostics) {
+                    Icon(painterResource(R.drawable.home_health), stringResource(R.string.native_diagnostics_title))
+                }
+                FilledTonalIconButton(onClick = onAddProfile, enabled = busyProfileId == null) {
+                    Icon(painterResource(R.drawable.home_add), stringResource(R.string.native_profile_add))
+                }
             }
         }
         if (!hasProfiles && !hasActiveProfile && !profilesLoading && !profilesLoadFailed) {
@@ -924,10 +933,10 @@ private fun HomeScreen(
                         }
                     }
                 }
-                Column(Modifier.fillMaxWidth().padding(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 20.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                Column(Modifier.fillMaxWidth().padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 20.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally) {
-                        ConnectionCard(status = status, recovering = recoveryAttempt > 0, delayMs = activeOutbound?.delayMs ?: 0,
+                        ConnectionCard(status = status, recovering = recoveryAttempt > 0, hapticFeedback = hapticFeedback,
                             requiresReconnect = requiresReconnect, reconnectBusy = reconnectBusy, failed = connectionFailed,
                             onToggleConnection = {
                                 if (status == Status.Stopped && !hasActiveProfile && !profilesLoading && !profilesLoadFailed) noProfileNotice = true
@@ -996,8 +1005,12 @@ private fun TrafficMetric(label: Int, rate: Long, total: Long, stats: NativeSyst
     val units = androidx.compose.ui.res.stringArrayResource(R.array.native_traffic_units)
     val session = nativeTrafficAmount(total)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(stringResource(label), style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(painterResource(if (label == R.string.native_speed_download) R.drawable.native_arrow_down else R.drawable.native_arrow_up),
+                null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+            Text(stringResource(label), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         Text(if (stats.speedAvailable) amount.value else "—", style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"))
         Text(if (stats.speedAvailable) stringResource(R.string.native_speed_unit, units[amount.unitIndex]) else stringResource(R.string.native_speed_waiting),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1010,7 +1023,7 @@ private fun TrafficMetric(label: Int, rate: Long, total: Long, stats: NativeSyst
 private fun ConnectionCard(
     status: Status,
     recovering: Boolean,
-    delayMs: Int,
+    hapticFeedback: Boolean,
     onToggleConnection: () -> Unit,
     requiresReconnect: Boolean = false,
     reconnectBusy: Boolean = false,
@@ -1030,20 +1043,41 @@ private fun ConnectionCard(
     })
     val scheme = MaterialTheme.colorScheme
     val connected = status == Status.Started
-    val accent by animateColorAsState(if (connected) scheme.primary else scheme.surfaceContainerHigh,
+    val accent by animateColorAsState(if (connected) scheme.primary else scheme.primaryContainer,
         tween(if (LocalNativeMotionEnabled.current) 180 else 0), label = "Connection color")
     val enabled = !reconnectBusy && (recovering || status != Status.Stopping)
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val motion = LocalNativeMotionEnabled.current
+    val scale by animateFloatAsState(if (pressed && enabled) .94f else 1f,
+        tween(if (motion) 140 else 0), label = "Power press")
+    val gradientEnd by animateColorAsState(if (connected) scheme.secondary else scheme.surfaceContainerHigh,
+        tween(if (motion) 180 else 0), label = "Power gradient")
+    val view = LocalView.current
+    val transitioning = status == Status.Starting || status == Status.Stopping || reconnectBusy
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        androidx.compose.material3.Surface(
-            onClick = onToggleConnection, enabled = enabled,
-            modifier = Modifier.size(144.dp).semantics { contentDescription = actionLabel },
-            shape = CircleShape, color = accent,
-            contentColor = if (connected) scheme.onPrimary else scheme.onSurface,
-        ) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Icon(painterResource(R.drawable.home_power), null, Modifier.size(52.dp))
+        Box(Modifier.size(164.dp), contentAlignment = Alignment.Center) {
+            // A quiet rim gives the control depth without glows or continuous redraws.
+            Box(Modifier.fillMaxSize().border(1.dp, scheme.primary.copy(alpha = .22f), CircleShape))
+            androidx.compose.material3.Surface(
+                onClick = {
+                    if (hapticFeedback) view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
+                    onToggleConnection()
+                }, enabled = enabled, interactionSource = interaction,
+                modifier = Modifier.size(144.dp).scale(scale).semantics { contentDescription = actionLabel },
+                shape = CircleShape, color = accent,
+                border = BorderStroke(1.dp, scheme.primary.copy(alpha = .45f)),
+                shadowElevation = if (pressed) 1.dp else 6.dp,
+                contentColor = if (connected) scheme.onPrimary else scheme.onPrimaryContainer,
+            ) {
+                Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(accent, gradientEnd))),
+                    contentAlignment = Alignment.Center) {
+                    Icon(painterResource(R.drawable.home_power), null, Modifier.size(52.dp))
+                }
             }
+            if (transitioning) CircularProgressIndicator(Modifier.size(164.dp),
+                color = scheme.primary, strokeWidth = 3.dp)
         }
         Text(actionLabel, style = MaterialTheme.typography.titleLarge,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -1103,3 +1137,7 @@ private fun EmptyHomePreview() = NativeHomePreview(NativeThemeMode.LIGHT, empty 
 @androidx.compose.ui.tooling.preview.Preview(name = "Home · connection error", widthDp = 390, heightDp = 844)
 @Composable
 private fun FailedHomePreview() = NativeHomePreview(NativeThemeMode.DARK, failed = true)
+
+@androidx.compose.ui.tooling.preview.Preview(name = "Home · compact large text", widthDp = 320, heightDp = 720, fontScale = 1.6f)
+@Composable
+private fun CompactHomePreview() = NativeHomePreview(NativeThemeMode.DARK)

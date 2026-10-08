@@ -26,7 +26,10 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 internal fun NativeAtmosphere(content: @Composable () -> Unit) {
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    val scheme = MaterialTheme.colorScheme
+    Box(Modifier.fillMaxSize().background(scheme.background)
+        .background(Brush.linearGradient(listOf(scheme.primary.copy(alpha = .065f),
+            Color.Transparent, scheme.secondary.copy(alpha = .045f))))) {
         val gridColor = MaterialTheme.colorScheme.onSurface.copy(alpha = .035f)
         Canvas(Modifier.fillMaxSize()) {
             val step = 32.dp.toPx()
@@ -71,7 +74,8 @@ internal fun NativeGlass(
         contentColor = MaterialTheme.colorScheme.onSurface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Box(Modifier.background(Brush.linearGradient(listOf(Color.White.copy(alpha = .045f), Color.Transparent)))) { content() }
+        Box(Modifier.background(Brush.linearGradient(listOf(accent.copy(alpha = .065f),
+            Color.Transparent, MaterialTheme.colorScheme.secondary.copy(alpha = .035f))))) { content() }
     }
 }
 

@@ -12,8 +12,6 @@ import androidx.compose.material3.*
 import com.hiddify.hiddify.nativeui.NativeNeonIcon as Icon
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.text.font.Font
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -69,7 +67,6 @@ internal fun NativeActiveProxyFooter(
 ) {
     val visibility = ipVisibilitySession ?: remember { NativeIpVisibilitySession() }
     val view = LocalView.current
-    val emojiFont = remember { FontFamily(Font(R.font.emoji)) }
     DisposableEffect(visibility) {
         visibility.attach()
         onDispose { visibility.detach() }
@@ -93,7 +90,7 @@ internal fun NativeActiveProxyFooter(
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(outbound.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    overflow = TextOverflow.Clip)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f).semantics { contentDescription = ipLabel }) {
                         if (ip.isNotBlank()) {
@@ -106,7 +103,7 @@ internal fun NativeActiveProxyFooter(
                                         visibility.toggle()
                                     },
                                         onLongClick = { if (!busy) onTest() }).padding(horizontal = 2.dp),
-                                    style = MaterialTheme.typography.labelMedium.copy(textDirection = TextDirection.Ltr, fontFamily = emojiFont),
+                                    style = MaterialTheme.typography.labelMedium.copy(textDirection = TextDirection.Ltr),
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         } else Text(stringResource(R.string.native_active_unknown_ip),
