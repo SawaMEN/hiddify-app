@@ -10,63 +10,61 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.graphics.Color
 import com.hiddify.hiddify.nativepreferences.NativeThemeMode
 
 // Stable, opaque surfaces and restrained accents keep both themes readable.
 private val DarkColors = darkColorScheme(
-    primary = Color(0xFFADC6FF),
-    onPrimary = Color(0xFF002E69),
-    primaryContainer = Color(0xFF284777),
-    onPrimaryContainer = Color(0xFFD9E2FF),
-    secondary = Color(0xFFB8C1E3),
-    onSecondary = Color(0xFF293149),
-    secondaryContainer = Color(0xFF404961),
-    onSecondaryContainer = Color(0xFFDDE3FC),
-    tertiary = Color(0xFFC0BDD5),
-    onTertiary = Color(0xFF302D43),
-    tertiaryContainer = Color(0xFF47445C),
-    onTertiaryContainer = Color(0xFFE5DFF9),
-    surface = Color(0xFF15191E),
-    surfaceContainerLowest = Color(0xFF101419),
-    surfaceContainerLow = Color(0xFF1B2026),
-    surfaceContainer = Color(0xFF22272E),
-    surfaceContainerHigh = Color(0xFF2C3239),
-    surfaceContainerHighest = Color(0xFF363D45),
-    onSurface = Color(0xFFE9EEF4),
-    onSurfaceVariant = Color(0xFFBFC8D2),
-    outline = Color(0xFF929DA9),
-    outlineVariant = Color(0xFF424B56),
+    primary = Color(0xFF7CE5D2),
+    onPrimary = Color(0xFF00382F),
+    primaryContainer = Color(0xFF174940),
+    onPrimaryContainer = Color(0xFFD5F5EE),
+    secondary = Color(0xFFB0C7FF),
+    onSecondary = Color(0xFF213451),
+    secondaryContainer = Color(0xFF324567),
+    onSecondaryContainer = Color(0xFFE0EAFF),
+    tertiary = Color(0xFFD4BFFF),
+    onTertiary = Color(0xFF392850),
+    tertiaryContainer = Color(0xFF503D68),
+    onTertiaryContainer = Color(0xFFEBDDFF),
+    surface = Color(0xFF121C24),
+    surfaceContainerLowest = Color(0xFF091219),
+    surfaceContainerLow = Color(0xFF17232D),
+    surfaceContainer = Color(0xFF1E2D38),
+    surfaceContainerHigh = Color(0xFF293945),
+    surfaceContainerHighest = Color(0xFF354854),
+    onSurface = Color(0xFFEAF3F7),
+    onSurfaceVariant = Color(0xFFB7C9D3),
+    outline = Color(0xFF8097A6),
+    outlineVariant = Color(0xFF30434F),
     error = Color(0xFFFFB4AB),
-    background = Color(0xFF101419),
+    background = Color(0xFF091219),
 )
 
 private val LightColors = lightColorScheme(
-    primary = Color(0xFF465E91),
+    primary = Color(0xFF006B59),
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFD9E2FF),
-    onPrimaryContainer = Color(0xFF001A43),
-    secondary = Color(0xFF555F7B),
+    primaryContainer = Color(0xFFCEF4E9),
+    onPrimaryContainer = Color(0xFF002019),
+    secondary = Color(0xFF435F91),
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFDDE3FC),
-    onSecondaryContainer = Color(0xFF293149),
-    tertiary = Color(0xFF625C78),
+    secondaryContainer = Color(0xFFE0EAFF),
+    onSecondaryContainer = Color(0xFF213451),
+    tertiary = Color(0xFF725498),
     onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFFE5DFF9),
-    onTertiaryContainer = Color(0xFF211D32),
-    surface = Color(0xFFF7F9FC),
+    tertiaryContainer = Color(0xFFEBDDFF),
+    onTertiaryContainer = Color(0xFF291641),
+    surface = Color(0xFFF7FAFC),
     surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFF1F4FA),
-    surfaceContainer = Color(0xFFEEF2F6),
-    surfaceContainerHigh = Color(0xFFE5EAF0),
-    surfaceContainerHighest = Color(0xFFDCE3EA),
-    onSurface = Color(0xFF18212B),
-    onSurfaceVariant = Color(0xFF465360),
-    outline = Color(0xFF717E8B),
-    outlineVariant = Color(0xFFC6D0DA),
+    surfaceContainerLow = Color(0xFFFFFFFF),
+    surfaceContainer = Color(0xFFEDF4F5),
+    surfaceContainerHigh = Color(0xFFE4ECEF),
+    surfaceContainerHighest = Color(0xFFD9E4E8),
+    onSurface = Color(0xFF162A33),
+    onSurfaceVariant = Color(0xFF4B626D),
+    outline = Color(0xFF718792),
+    outlineVariant = Color(0xFFCADADD),
     error = Color(0xFFBA1A1A),
     background = Color(0xFFFFFFFF),
 )
@@ -74,23 +72,24 @@ private val LightColors = lightColorScheme(
 @Composable
 fun NativeAppTheme(mode: NativeThemeMode, content: @Composable () -> Unit) {
     val dark = mode.isDark(isSystemInDarkTheme())
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val configuration = LocalConfiguration.current
-    val preview = LocalInspectionMode.current
-    val colors = remember(context, configuration, dark, preview) {
-        if (!preview && android.os.Build.VERSION.SDK_INT >= 31) {
-            if (dark) androidx.compose.material3.dynamicDarkColorScheme(context)
-            else androidx.compose.material3.dynamicLightColorScheme(context)
-        } else if (dark) DarkColors else LightColors
+    val colors = if (dark) DarkColors else LightColors
+    val typography = Typography().let { defaults ->
+        defaults.copy(
+            headlineSmall = defaults.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+            titleLarge = defaults.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+            titleMedium = defaults.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+            titleSmall = defaults.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+            labelLarge = defaults.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+        )
     }
     MaterialTheme(
         colorScheme = colors.copy(background = if (mode == NativeThemeMode.BLACK) Color.Black else colors.surfaceContainerLowest),
-        typography = Typography(),
+        typography = typography,
         shapes = Shapes(
-            small = RoundedCornerShape(12.dp),
-            medium = RoundedCornerShape(16.dp),
-            large = RoundedCornerShape(24.dp),
-            extraLarge = RoundedCornerShape(28.dp),
+            small = RoundedCornerShape(14.dp),
+            medium = RoundedCornerShape(18.dp),
+            large = RoundedCornerShape(26.dp),
+            extraLarge = RoundedCornerShape(32.dp),
         ),
         content = {
             CompositionLocalProvider(LocalNativeMotionEnabled provides nativeMotionEnabled()) {

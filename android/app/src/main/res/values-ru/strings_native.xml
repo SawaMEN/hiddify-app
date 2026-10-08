@@ -5,7 +5,7 @@
     <string name="native_status_starting">Подключение...</string>
     <string name="native_status_started">Подключено</string>
     <string name="native_status_stopping">Отключение...</string>
-    <string name="native_connect">Подключить</string>
+    <string name="native_connect">Подключиться</string>
     <string name="native_disconnect">Отключить</string>
     <string name="native_connecting">Подключение…</string>
     <string name="native_disconnecting">Отключение…</string>

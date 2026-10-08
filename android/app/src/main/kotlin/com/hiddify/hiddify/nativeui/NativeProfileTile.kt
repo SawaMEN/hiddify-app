@@ -1,6 +1,7 @@
 package com.hiddify.hiddify.nativeui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -46,10 +47,12 @@ internal fun NativeProfileTile(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color = if (profile.active) scheme.primaryContainer else scheme.surfaceContainerLow,
-        contentColor = if (profile.active) scheme.onPrimaryContainer else scheme.onSurface,
+        color = if (profile.active) androidx.compose.ui.graphics.lerp(scheme.surfaceContainerLow, scheme.primaryContainer, 0.45f) else scheme.surfaceContainerLow,
+        contentColor = scheme.onSurface,
+        border = BorderStroke(1.dp, if (profile.active) scheme.primary.copy(alpha = 0.45f) else scheme.outlineVariant.copy(alpha = 0.45f)),
+        shadowElevation = 2.dp,
     ) {
-        Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.heightIn(min = 64.dp).padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             if (profile.isRemote || !isMain) {
                 Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                     if (isMain) {

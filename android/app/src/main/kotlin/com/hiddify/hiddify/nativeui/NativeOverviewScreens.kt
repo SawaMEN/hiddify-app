@@ -28,7 +28,7 @@ import com.hiddify.hiddify.R
 @Composable
 internal fun NativePageHeader(title: String, onBack: (() -> Unit)? = null, actions: @Composable RowScope.() -> Unit = {}) {
     androidx.compose.material3.TopAppBar(
-        title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        title = { Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         navigationIcon = {
             if (onBack != null) IconButton(onClick = onBack) {
                 Icon(painterResource(R.drawable.native_back_arrow), stringResource(R.string.native_back))
@@ -38,7 +38,7 @@ internal fun NativePageHeader(title: String, onBack: (() -> Unit)? = null, actio
         // The page frame already consumes status bar insets.
         windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
         colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background),
+            containerColor = androidx.compose.ui.graphics.Color.Transparent),
     )
 }
 
@@ -50,16 +50,7 @@ internal fun NativeSettingsLink(title: Int, icon: Int, onClick: () -> Unit, summ
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        androidx.compose.material3.Surface(
-            modifier = Modifier.size(40.dp),
-            shape = MaterialTheme.shapes.medium,
-            color = MaterialTheme.colorScheme.secondaryContainer,
-            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        ) {
-            androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
-                Icon(painterResource(icon), null, Modifier.size(24.dp))
-            }
-        }
+        NativeIconBadge(icon, enabled)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
             if (summary != null) Text(stringResource(summary), style = MaterialTheme.typography.bodyMedium,

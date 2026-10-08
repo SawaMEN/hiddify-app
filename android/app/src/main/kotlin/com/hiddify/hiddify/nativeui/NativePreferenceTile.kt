@@ -28,11 +28,11 @@ internal fun NativePreferenceTile(title: Int, icon: Int, value: String?, enabled
     val interaction = if (checked == null || onToggle != null) Modifier.clickable(enabled = enabled, onClick = onClick)
         else Modifier.toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = { onClick() })
     Row(Modifier.fillMaxWidth().then(interaction).heightIn(min = if (value == null) 56.dp else 72.dp)
-        .padding(horizontal = 16.dp, vertical = 4.dp),
+        .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         val tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else .38f)
-        Icon(painterResource(icon), null, Modifier.size(24.dp), tint = if (enabled) MaterialTheme.colorScheme.primary else tint)
-        Column(Modifier.weight(1f)) {
+        NativeIconBadge(icon, enabled)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stringResource(title), style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else .38f))
             if (value != null) Text(value, style = MaterialTheme.typography.bodyMedium, color = tint)
