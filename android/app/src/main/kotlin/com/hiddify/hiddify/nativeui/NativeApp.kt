@@ -31,11 +31,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.layer.drawLayer
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.layout.positionInRoot
 import com.hiddify.hiddify.nativecore.nativeTrafficAmount
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
@@ -155,9 +151,6 @@ fun NativeApp(
     onChangeTheme: (NativeThemeMode) -> Unit,
     onOpenNotificationSettings: () -> Unit,
     onOpenBatterySettings: () -> Unit,
-    showBackgroundPermissionDialog: Boolean,
-    onAllowBackgroundPermission: () -> Unit,
-    onDismissBackgroundPermission: () -> Unit,
     status: Status,
     connectionFailed: Boolean,
     smartSelected: Boolean,
@@ -346,11 +339,7 @@ fun NativeApp(
 
     NativeAppTheme(themeMode) {
         NativeAtmosphere {
-            val backdrop = androidx.compose.ui.graphics.rememberGraphicsLayer()
-            var backdropOrigin by remember { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
             var dockHeight by remember { mutableStateOf(96.dp) }
-            val gridColor = MaterialTheme.colorScheme.onSurface.copy(alpha = .035f)
-            val backgroundColor = MaterialTheme.colorScheme.background
             val density = LocalDensity.current
             Box(
                 modifier =
@@ -360,26 +349,7 @@ fun NativeApp(
                         .navigationBarsPadding()
                         .padding(top = if (page in setOf(PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS, PAGE_DIAGNOSTICS, PAGE_PROTECTION, PAGE_TRAFFIC_FILTERS, PAGE_WIFI_GUIDE, PAGE_PER_APP, PAGE_DNS, PAGE_TLS, PAGE_INBOUND, PAGE_GENERAL_OPTIONS)) 0.dp else 8.dp),
             ) {
-                Box(Modifier.fillMaxSize()
-                    .onGloballyPositioned { backdropOrigin = it.positionInRoot() }
-                    .drawWithContent {
-                        backdrop.record {
-                            drawRect(backgroundColor)
-                            val step = 32.dp.toPx()
-                            var x = 0f
-                            while (x < size.width) {
-                                drawLine(gridColor, androidx.compose.ui.geometry.Offset(x, 0f), androidx.compose.ui.geometry.Offset(x, size.height))
-                                x += step
-                            }
-                            var y = 0f
-                            while (y < size.height) {
-                                drawLine(gridColor, androidx.compose.ui.geometry.Offset(0f, y), androidx.compose.ui.geometry.Offset(size.width, y))
-                                y += step
-                            }
-                            this@drawWithContent.drawContent()
-                        }
-                        drawLayer(backdrop)
-                    }.padding(bottom = if (page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY)) dockHeight else 0.dp), contentAlignment = Alignment.TopCenter) {
+                Box(Modifier.fillMaxSize().padding(bottom = if (page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY)) dockHeight else 0.dp), contentAlignment = Alignment.TopCenter) {
                     Box((if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY || page == PAGE_SETTINGS) Modifier else Modifier.widthIn(max = 680.dp))
                         .fillMaxWidth().padding(horizontal = when (page) { PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS, PAGE_DIAGNOSTICS, PAGE_PROTECTION, PAGE_TRAFFIC_FILTERS, PAGE_WIFI_GUIDE, PAGE_PER_APP, PAGE_DNS, PAGE_TLS, PAGE_INBOUND, PAGE_GENERAL_OPTIONS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
                         Crossfade(targetState = page,
@@ -761,7 +731,7 @@ fun NativeApp(
                     }
                 }
                 if (page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY)) {
-                    NativeDock(backdrop, backdropOrigin, Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                    NativeDock(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                         .onSizeChanged { dockHeight = with(density) { it.height.toDp() } }
                         .padding(horizontal = 12.dp).padding(bottom = 8.dp)) {
                         NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp, modifier = Modifier.heightIn(min = 80.dp)) {
@@ -833,31 +803,7 @@ fun NativeApp(
                 onDismiss = { quickSettingsOpen = false },
             )
         }
-        if (showBackgroundPermissionDialog) {
-            AlertDialog(
-                onDismissRequest = onDismissBackgroundPermission,
-                icon = {
-                    Icon(
-                        painterResource(R.drawable.native_info),
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                },
-                title = { Text(stringResource(R.string.native_background_title)) },
-                text = { Text(stringResource(R.string.native_background_message)) },
-                confirmButton = {
-                    NativeButton(onClick = onAllowBackgroundPermission) {
-                        Text(stringResource(R.string.native_background_allow))
-                    }
-                },
-                dismissButton = {
-                    NativeTextButton(onClick = onDismissBackgroundPermission) {
-                        Text(stringResource(R.string.native_background_later))
-                    }
-                },
-            )
-        }
-        if (errorMessage != null && !outboundsOpen && !showBackgroundPermissionDialog) {
+        if (errorMessage != null && !outboundsOpen) {
             AlertDialog(
                 onDismissRequest = onDismissError,
                 confirmButton = {

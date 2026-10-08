@@ -39,7 +39,7 @@ internal fun NativeAtmosphere(content: @Composable () -> Unit) {
     }
 }
 
-/** Kept as the shared surface hook for sheets and legacy call sites. */
+/** Shared surface decoration for native sheets and dialogs. */
 @Composable
 internal fun Modifier.nativeGlassDecoration(
     shape: Shape = RoundedCornerShape(20.dp),

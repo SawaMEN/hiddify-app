@@ -196,7 +196,7 @@ object Settings {
             ObjectOutputStream(bytes).use { it.writeObject(normalized) }
             LIST_IDENTIFIER + Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
         }
-        // This is the same legacy shared_preferences encoding that Dart getStringList() expects.
+        // Preserve the list encoding used by existing installations and settings backups.
         preferences.edit().putString(key, encoded).apply()
     }
 
@@ -312,22 +312,6 @@ object Settings {
     var baseDir: String
         get() = getString(SettingsKey.BASE_DIR, "./")
         set(value) = preferences.edit().putString(SettingsKey.BASE_DIR, value).apply()
-
-    var grpcFlutterPublicKey: ByteArray
-        get() {
-            val encoded = getString(SettingsKey.GRPC_FLUTTER_PUBLIC_KEY, "")
-            if (encoded.isBlank()) return ByteArray(0)
-            return try {
-                Base64.decode(encoded, Base64.DEFAULT)
-            } catch (e: IllegalArgumentException) {
-                Log.w(TAG, "invalid stored gRPC public key", e)
-                ByteArray(0)
-            }
-        }
-        set(value) {
-            val encoded = Base64.encodeToString(value, Base64.DEFAULT)
-            preferences.edit().putString(SettingsKey.GRPC_FLUTTER_PUBLIC_KEY, encoded).apply()
-        }
 
     var grpcServiceModePort: Int
         get() = getInt(SettingsKey.GRPC_PORT, grpcBackPort).takeIf { it in 1..65535 && it != grpcFrontPort } ?: grpcBackPort

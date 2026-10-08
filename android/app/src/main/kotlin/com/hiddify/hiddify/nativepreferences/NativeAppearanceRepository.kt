@@ -12,7 +12,7 @@ enum class NativeThemeMode(val value: String) {
     }
 }
 
-/** Uses the compatibility UI's theme preference without changing other general settings. */
+/** Uses the persisted theme preference without changing other general settings. */
 class NativeAppearanceRepository(context: Context) {
     private val preferences = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
 

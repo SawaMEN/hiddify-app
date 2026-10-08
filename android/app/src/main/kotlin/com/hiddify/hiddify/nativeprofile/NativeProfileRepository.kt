@@ -64,13 +64,7 @@ internal data class NativePreparedProfile(
     val expectedProfile: NativeProfile? = null,
 )
 
-/**
- * Kotlin owner for the legacy Drift profile database.
- *
- * The table/column layout intentionally matches Drift schema v6, so Flutter and Kotlin can read
- * the same database during the migration. Once the Flutter compatibility layer is removed this
- * repository can be moved to Room without a data migration.
- */
+/** Native owner of the profile database; preserve the schema and paths of existing installs. */
 class NativeProfileRepository(private val context: Context) {
 
     companion object {
@@ -99,7 +93,7 @@ class NativeProfileRepository(private val context: Context) {
         get() {
             // path_provider's getApplicationDocumentsDirectory() maps to Flutter's
             // PathUtils.getDataDirectory(), i.e. Context.getDir("flutter", MODE_PRIVATE).
-            // Keep using that exact location while Kotlin and Dart share Drift schema v6.
+            // Preserve that exact location for existing installations.
             val flutterDatabase = File(context.getDir("flutter", Context.MODE_PRIVATE), "db.sqlite")
             val earlyNativeDatabase = File(context.filesDir, "db.sqlite")
             return when {
@@ -168,7 +162,7 @@ class NativeProfileRepository(private val context: Context) {
         )
 
         // Drift schema v6 contains both tables. Create app_proxy_entries here too before bumping
-        // user_version so a clean native install can still be opened by the Flutter fallback.
+        // user_version matching the persisted profile schema.
         db.execSQL(
             """
             CREATE TABLE IF NOT EXISTS app_proxy_entries (

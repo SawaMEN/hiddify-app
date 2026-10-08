@@ -7,7 +7,10 @@ import com.hiddify.core.mobile.Mobile
 
 /** Native validation without Mobile.setup/start or changing the active core's options. */
 internal object NativeProfileValidator : NativeProfileValidationBackend {
-    override fun begin(id: String) = Mobile.beginProfileValidation(id)
+    override fun begin(id: String) {
+        NativeCoreLibrary.ensureLoaded()
+        Mobile.beginProfileValidation(id)
+    }
     override fun validate(id: String, content: String, settings: String) = Mobile.validateProfile(id, content, settings)
     override fun cancel(id: String) = Mobile.cancelProfileValidation(id)
     override fun finish(id: String) = Mobile.finishProfileValidation(id)

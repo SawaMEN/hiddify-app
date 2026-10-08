@@ -3,14 +3,10 @@ package com.hiddify.hiddify
 import android.app.Application
 import android.app.NotificationManager
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.net.ConnectivityManager
 import android.os.PowerManager
 import androidx.core.content.getSystemService
-import com.hiddify.hiddify.bg.AppChangeReceiver
 import com.hiddify.hiddify.privacy.VpnServiceVisibility
-import go.Seq
 import com.hiddify.hiddify.Application as BoxApplication
 
 class Application : Application() {
@@ -23,7 +19,6 @@ class Application : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        Seq.setContext(this)
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             Thread({
                 runCatching {
@@ -44,11 +39,6 @@ class Application : Application() {
         // ordinary package-manager service queries while root mode is selected, and restore
         // it automatically after switching back to the normal Android VPN path.
         VpnServiceVisibility.sync(this, Settings.privacyUseRoot)
-
-        registerReceiver(AppChangeReceiver(), IntentFilter().apply {
-            addAction(Intent.ACTION_PACKAGE_ADDED)
-            addDataScheme("package")
-        })
     }
 
     companion object {
