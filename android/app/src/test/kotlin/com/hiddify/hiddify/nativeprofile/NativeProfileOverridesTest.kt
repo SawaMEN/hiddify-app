@@ -4,6 +4,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeProfileOverridesTest {
+    @Test fun fragmentFlagPreservesSubscriptionTlsParameters() {
+        val headers = """{"tls-tricks":"{\"fragment-size\":\"30-60\",\"enable-padding\":true}","enable-fragment":"true"}"""
+        val result = NativeProfileOverrides.resolve(headers, null).getAsJsonObject("tls-tricks")
+        assertEquals("30-60", result.get("fragment-size").asString)
+        assertTrue(result.get("enable-padding").asBoolean)
+        assertTrue(result.get("enable-fragment").asBoolean)
+        val disabled = NativeProfileOverrides.resolve(headers, """{"enableFragment":false}""")
+            .getAsJsonObject("tls-tricks")
+        assertFalse(disabled.get("enable-fragment").asBoolean)
+        assertEquals("30-60", disabled.get("fragment-size").asString)
+        assertTrue(disabled.get("enable-padding").asBoolean)
+    }
+
     @Test fun explicitFlagsTakePrecedenceOverHeaders() {
         val headers = """{"enable-warp":"true","enable-fragment":"true"}"""
         val enabled = NativeProfileOverrides.resolve(headers, null)

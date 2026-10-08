@@ -17,7 +17,7 @@ class NativeGeneralOptionsTest {
         val imported = NativeGeneralOptions(intervalSeconds = 17, logLevel = "fatal")
         assertEquals(imported.copy(testUrl = "https://example.com:8443/ping"),
             NativeGeneralOptionField.TEST_URL.applyTo(imported, "  https://example.com:8443/ping  "))
-        listOf("file:///tmp/config", "https://", "http://example.com:65536", "https://example.com/\n").forEach {
+        listOf("file:///tmp/config", "https://", "https://example.com/a b", "https://[broken", "http://example.com:0", "http://example.com:65536", "https://example.com/\n").forEach {
             // Leading/trailing whitespace is accepted; an embedded control character is rejected.
             val invalid = if (it.endsWith("\n")) "https://example.com/\nx" else it
             assertThrows(IllegalArgumentException::class.java) {

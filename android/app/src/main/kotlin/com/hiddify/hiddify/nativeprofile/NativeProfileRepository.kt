@@ -69,8 +69,6 @@ class NativeProfileRepository(private val context: Context) {
     companion object {
         private const val MAX_CONFIG_BYTES = NativeProfileTransfer.MAX_CONFIG_BYTES
         private const val MAX_NESTED_SUBSCRIPTIONS = 128
-        private const val INFINITE_TRAFFIC = 1_099_511_627_776_001L
-        private const val INFINITE_EXPIRE_SECONDS = 92_233_720_368L
 
         private val importSchemes =
             setOf("hiddify", "v2ray", "v2rayn", "v2rayng", "clash", "clashmeta", "sing-box")
@@ -85,7 +83,7 @@ class NativeProfileRepository(private val context: Context) {
                 "enable-warp",
                 "enable-psiphon",
                 "enable-fragment",
-            )
+            ) + NativeProfileOverrides.supportedHeaders
     }
 
     private val databaseFile: File
@@ -311,8 +309,9 @@ class NativeProfileRepository(private val context: Context) {
             name = userOverrideName(profile.userOverride) ?: profile.name,
             disableAutoUpdate = userOverrideAutoUpdateDisabled(profile.userOverride),
             updateIntervalHours =
-                userOverrideIntervalHours(profile.userOverride)?.toInt()
-                    ?: profile.updateIntervalSeconds?.div(3600L)?.toInt()?.takeIf { it > 0 },
+                (userOverrideIntervalHours(profile.userOverride)
+                    ?: profile.updateIntervalSeconds?.div(3600L))
+                    ?.takeIf { it in 1..Int.MAX_VALUE.toLong() }?.toInt(),
         )
     }
 
@@ -353,8 +352,8 @@ class NativeProfileRepository(private val context: Context) {
             if (!existing.isRemote || disableAutoUpdate) {
                 null
             } else {
-                updateIntervalHours?.takeIf { it > 0 }?.toLong()?.times(3600L)
-                    ?: storedHeaders["profile-update-interval"]?.trim()?.toLongOrNull()?.times(3600L)
+                NativeSubscriptionMetadata.intervalSeconds(updateIntervalHours?.toLong())
+                    ?: NativeSubscriptionMetadata.intervalSeconds(storedHeaders["profile-update-interval"]?.trim()?.toLongOrNull())
             }
 
         val updated =
@@ -380,11 +379,7 @@ class NativeProfileRepository(private val context: Context) {
             .asSequence()
             .filter { it.isRemote && !userOverrideAutoUpdateDisabled(it.userOverride) }
             .filter { profile ->
-                val interval = profile.updateIntervalSeconds ?: return@filter false
-                val last =
-                    runCatching { java.time.LocalDateTime.parse(profile.lastUpdate) }
-                        .getOrNull() ?: return@filter true
-                !last.plusSeconds(interval).isAfter(now)
+                NativeSubscriptionMetadata.isUpdateDue(profile.lastUpdate, profile.updateIntervalSeconds, now)
             }
             .map { it.id }
             .toList()
@@ -450,8 +445,8 @@ class NativeProfileRepository(private val context: Context) {
             if (userOverrideAutoUpdateDisabled(override)) {
                 null
             } else {
-                userOverrideIntervalHours(override)?.times(3600L)
-                    ?: mergedHeaders["profile-update-interval"]?.trim()?.toLongOrNull()?.times(3600L)
+                NativeSubscriptionMetadata.intervalSeconds(userOverrideIntervalHours(override))
+                    ?: NativeSubscriptionMetadata.intervalSeconds(mergedHeaders["profile-update-interval"]?.trim()?.toLongOrNull())
             }
 
         val profile =
@@ -742,28 +737,8 @@ class NativeProfileRepository(private val context: Context) {
     }
 
     private fun parseSubscriptionInfo(value: String?): Subscription? {
-        val raw = value ?: return null
-        val values =
-            raw.split(';')
-                .mapNotNull { part ->
-                    val pieces = part.split('=', limit = 2)
-                    if (pieces.size != 2) null
-                    else pieces[0].trim().lowercase() to pieces[1].trim().toLongOrNull()
-                }
-                .toMap()
-        val upload = values["upload"] ?: return null
-        val download = values["download"] ?: return null
-        val total = values["total"].let { if (it == null || it == 0L) INFINITE_TRAFFIC else it }
-        var expireSeconds = values["expire"]
-        if (expireSeconds == null || expireSeconds == 0L || expireSeconds > 8_640_000_000_000L) {
-            expireSeconds = INFINITE_EXPIRE_SECONDS
-        }
-        return Subscription(
-            upload = upload,
-            download = download,
-            total = total,
-            expire = epochSecondsToLocalIso(expireSeconds),
-        )
+        val usage = NativeSubscriptionMetadata.usage(value) ?: return null
+        return Subscription(usage.upload, usage.download, usage.total, epochSecondsToLocalIso(usage.expireSeconds))
     }
 
     private fun parseRemoteLink(input: String): Pair<String, String?>? {

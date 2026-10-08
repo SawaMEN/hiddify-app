@@ -4,7 +4,7 @@ import com.google.gson.JsonObject
 
 /** Dart ProfileParser.profileOverride/applyProfileOverride, without changing global preferences. */
 object NativeProfileOverrides {
-    private val allowed = setOf("connection-test-url", "direct-dns-address", "remote-dns-address", "tls-tricks", "chain-status", "extra-security")
+    val supportedHeaders = setOf("connection-test-url", "direct-dns-address", "remote-dns-address", "tls-tricks", "chain-status", "extra-security")
     private fun objectOrEmpty(text: String?): JsonObject = runCatching {
         text?.takeIf { it.isNotBlank() }?.let { NativeJsonDocument.parse(it).asJsonObject }
     }.getOrNull() ?: JsonObject()
@@ -13,7 +13,7 @@ object NativeProfileOverrides {
         val source = objectOrEmpty(headers)
         val user = objectOrEmpty(userOverride)
         val result = JsonObject()
-        source.entrySet().filter { it.key in allowed && !it.value.isJsonNull }.forEach { (key, value) ->
+        source.entrySet().filter { it.key in supportedHeaders && !it.value.isJsonNull }.forEach { (key, value) ->
             if (value.isJsonPrimitive && value.asJsonPrimitive.isString && value.asString.isEmpty()) return@forEach
             if (key in setOf("tls-tricks", "extra-security") && value.isJsonPrimitive && value.asJsonPrimitive.isString) {
                 runCatching { NativeJsonDocument.parse(value.asString).asJsonObject }.getOrNull()?.let { result.add(key, it) }
@@ -35,7 +35,9 @@ object NativeProfileOverrides {
         }
         val fragment = flag("enableFragment", "enable-fragment")
         if (fragment == true || user.get("enableFragment")?.let { it.isJsonPrimitive && it.asJsonPrimitive.isBoolean && !it.asBoolean } == true) {
-            result.add("tls-tricks", JsonObject().apply { addProperty("enable-fragment", fragment) })
+            val tricks = result.get("tls-tricks")?.takeIf { it.isJsonObject }?.asJsonObject ?: JsonObject()
+            tricks.addProperty("enable-fragment", fragment)
+            result.add("tls-tricks", tricks)
         }
         return result
     }

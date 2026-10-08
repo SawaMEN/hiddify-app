@@ -228,7 +228,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val outboundsRepository by lazy { NativeOutboundsRepository() }
     private val statsRepository by lazy { NativeStatsRepository() }
     private val wifiSharingRepository by lazy { NativeWifiSharingRepository() }
-    private val settingsTransferRepository by lazy { NativeSettingsTransferRepository() }
+    private val settingsTransferRepository by lazy { NativeSettingsTransferRepository(this) }
     private val updateRepository by lazy { NativeUpdateRepository() }
     private val diagnosticsRepository by lazy { NativeDiagnosticsRepository() }
     private val perAppOperationMutex = Mutex()

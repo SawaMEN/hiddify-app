@@ -24,6 +24,14 @@ class NativeProfileTransferTest {
         }
     }
 
+    @Test fun malformedSubscriptionUrlsUseValidationErrors() {
+        listOf("https://", "https://example.com:0/sub", "https://example.com:65536/sub", "https://example.com/a b").forEach { url ->
+            assertThrows(IllegalArgumentException::class.java) {
+                NativeProfileTransfer.subscriptionLink(url, "VPN")
+            }
+        }
+    }
+
     @Test fun readsUtf8AndRemovesBom() {
         val input = ByteArrayInputStream("\uFEFFvless://token#Москва".toByteArray())
         assertEquals("vless://token#Москва", NativeProfileTransfer.readText(input))

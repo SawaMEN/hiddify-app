@@ -27,9 +27,9 @@ object NativeProfileTransfer {
     // share action does. Construct only the fragment so tokens are never decoded/re-encoded.
     fun subscriptionLink(url: String, name: String): String {
         val normalized = url.trim()
-        val uri = URI(normalized)
+        val uri = URI.create(normalized)
         require((uri.scheme.equals("https", true) || uri.scheme.equals("http", true)) &&
-            !uri.host.isNullOrBlank()) { "Invalid subscription URL" }
+            !uri.host.isNullOrBlank() && (uri.port == -1 || uri.port in 1..65535)) { "Invalid subscription URL" }
         val fragment = URI(null, null, name).toASCIIString()
         return normalized.substringBefore('#') + fragment
     }

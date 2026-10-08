@@ -17,7 +17,7 @@ data class NativeGeneralOptions(
         require(intervalSeconds in 1..86400 && clashPort in 1..65535) { "Invalid interval or API port" }
         val url = testUrl.trim()
         require(url.length in 1..2048 && url.none(Char::isISOControl)) { "Invalid connection test URL" }
-        val uri = URI(url)
+        val uri = URI.create(url)
         require(uri.scheme?.lowercase() in listOf("http", "https") && !uri.host.isNullOrBlank() &&
             (uri.port == -1 || uri.port in 1..65535)) { "Invalid connection test URL" }
         return copy(testUrl = url)
