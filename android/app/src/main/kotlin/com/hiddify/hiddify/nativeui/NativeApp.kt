@@ -56,7 +56,10 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.platform.LocalView
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
@@ -302,6 +305,8 @@ fun NativeApp(
     var quickSettingsOpen by rememberSaveable { mutableStateOf(false) }
     var outboundsOpen by rememberSaveable { mutableStateOf(false) }
     var page by rememberSaveable { mutableStateOf(PAGE_HOME) }
+    var navigationDirection by remember { mutableStateOf(0) }
+    val pageStateHolder = rememberSaveableStateHolder()
     var regionalAppKind by rememberSaveable { mutableStateOf(NativeRegionalAppKind.DIRECT.name) }
 
     // Only internal page names are stored, so this trail also survives Activity recreation.
@@ -310,6 +315,8 @@ fun NativeApp(
     var settingsCategory by rememberSaveable { mutableStateOf(NativeSettingsCategory.APP.name) }
     fun openPage(destination: String) {
         if (privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy || generalOptionsBusy || tunnelBusy || generalPreferencesBusy) return
+        if (page == destination) return
+        navigationDirection = 1
         pageTrail += "|$page"
         page = destination
     }
@@ -317,6 +324,7 @@ fun NativeApp(
         if (privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy || generalOptionsBusy || tunnelBusy || generalPreferencesBusy) return
         if (page == PAGE_DIAGNOSTICS) onCancelDiagnostics()
         if (page == PAGE_PER_APP_BACKUP || page == PAGE_PER_APP) onDismissPerAppImport()
+        navigationDirection = -1
         page = pageTrail.substringAfterLast('|', PAGE_HOME)
         pageTrail = pageTrail.substringBeforeLast('|', "")
     }
@@ -357,15 +365,11 @@ fun NativeApp(
                         .semantics { testTagsAsResourceId = true }
                         .fillMaxSize()
                         .statusBarsPadding()
-                        .navigationBarsPadding()
-                        .padding(top = if (page in setOf(PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS, PAGE_DIAGNOSTICS, PAGE_PROTECTION, PAGE_TRAFFIC_FILTERS, PAGE_WIFI_GUIDE, PAGE_PER_APP, PAGE_DNS, PAGE_TLS, PAGE_INBOUND, PAGE_GENERAL_OPTIONS)) 0.dp else 8.dp),
+                        .navigationBarsPadding(),
             ) {
-                Box(Modifier.fillMaxSize().testTag("page_$page").padding(bottom = if (page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY)) dockHeight else 0.dp), contentAlignment = Alignment.TopCenter) {
-                    Box((if (page == PAGE_HOME || page == PAGE_PROFILES || page == PAGE_PROFILE_DETAILS || page == PAGE_PRIVACY || page == PAGE_SETTINGS) Modifier else Modifier.widthIn(max = 680.dp))
-                        .fillMaxWidth().padding(horizontal = when (page) { PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS, PAGE_DIAGNOSTICS, PAGE_PROTECTION, PAGE_TRAFFIC_FILTERS, PAGE_WIFI_GUIDE, PAGE_PER_APP, PAGE_DNS, PAGE_TLS, PAGE_INBOUND, PAGE_GENERAL_OPTIONS -> 0.dp; PAGE_PRIVACY -> 16.dp; else -> 20.dp })) {
-                        Crossfade(targetState = page,
-                            animationSpec = tween(if (LocalNativeMotionEnabled.current) 180 else 0),
-                            label = "Page transition") { visiblePage ->
+                NativePageTransition(page, navigationDirection, Modifier.fillMaxSize()) { visiblePage ->
+                    pageStateHolder.SaveableStateProvider(visiblePage) {
+                        NativePageFrame(visiblePage, dockHeight) {
                             when (visiblePage) {
                                 PAGE_DIAGNOSTICS ->
                                     NativeDiagnosticsScreen(
@@ -743,8 +747,11 @@ fun NativeApp(
                         }
                     }
                 }
-                if (page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY)) {
-                    NativeDock(Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                AnimatedVisibility(visible = page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY),
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    enter = fadeIn(tween(if (LocalNativeMotionEnabled.current) 180 else 0)),
+                    exit = fadeOut(tween(if (LocalNativeMotionEnabled.current) 80 else 0))) {
+                    NativeDock(Modifier.fillMaxWidth()
                         .onSizeChanged { dockHeight = with(density) { it.height.toDp() } }
                         .padding(horizontal = 12.dp).padding(bottom = 8.dp)) {
                         NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp, modifier = Modifier.heightIn(min = 80.dp)) {
@@ -753,7 +760,13 @@ fun NativeApp(
                                 Triple(PAGE_PRIVACY, R.drawable.native_shield, R.string.native_privacy_title),
                                 Triple(PAGE_SETTINGS, R.drawable.native_settings, R.string.native_settings),
                             ).forEach { (destination, icon, label) ->
-                                NavigationBarItem(modifier = Modifier.testTag("nav_$destination"), selected = page == destination, enabled = !privacySetupBusy && !proxyPrivacyBusy && !inboundBusy && !dnsBusy && !tlsBusy && !generalOptionsBusy && !tunnelBusy && !generalPreferencesBusy, onClick = { pageTrail = ""; page = destination },
+                                NavigationBarItem(modifier = Modifier.testTag("nav_$destination"), selected = page == destination, enabled = !privacySetupBusy && !proxyPrivacyBusy && !inboundBusy && !dnsBusy && !tlsBusy && !generalOptionsBusy && !tunnelBusy && !generalPreferencesBusy, onClick = {
+                                    if (page != destination) {
+                                        navigationDirection = 0
+                                        pageTrail = ""
+                                        page = destination
+                                    }
+                                },
                                     icon = { Icon(painterResource(icon), contentDescription = null, Modifier.size(26.dp)) },
                                     colors = androidx.compose.material3.NavigationBarItemDefaults.colors(
                                         selectedIconColor = MaterialTheme.colorScheme.primary, selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -828,6 +841,23 @@ fun NativeApp(
                 text = { Text(errorMessage) },
             )
         }
+    }
+}
+
+/** Padding belongs to the displayed screen, never to the incoming navigation target. */
+@Composable
+private fun NativePageFrame(page: String, dockHeight: androidx.compose.ui.unit.Dp, content: @Composable () -> Unit) {
+    val edgeToEdge = page in setOf(PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS,
+        PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS, PAGE_DIAGNOSTICS, PAGE_PROTECTION,
+        PAGE_TRAFFIC_FILTERS, PAGE_WIFI_GUIDE, PAGE_PER_APP, PAGE_DNS, PAGE_TLS,
+        PAGE_INBOUND, PAGE_GENERAL_OPTIONS)
+    Box(Modifier.fillMaxSize().testTag("page_$page")
+        .padding(top = if (edgeToEdge) 0.dp else 8.dp,
+            bottom = if (page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY)) dockHeight else 0.dp),
+        contentAlignment = Alignment.TopCenter) {
+        Box((if (page in setOf(PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_PRIVACY, PAGE_SETTINGS)) Modifier
+            else Modifier.widthIn(max = 680.dp)).fillMaxSize()
+            .padding(horizontal = if (edgeToEdge) 0.dp else if (page == PAGE_PRIVACY) 16.dp else 20.dp)) { content() }
     }
 }
 
