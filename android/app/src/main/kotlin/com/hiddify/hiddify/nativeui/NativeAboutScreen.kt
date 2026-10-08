@@ -57,7 +57,7 @@ fun NativeAboutScreen(
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            NativeCard(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
+            Card(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.native_about_fork_title), style = MaterialTheme.typography.titleMedium)
                     Text(stringResource(R.string.native_about_fork_description), style = MaterialTheme.typography.bodyMedium)

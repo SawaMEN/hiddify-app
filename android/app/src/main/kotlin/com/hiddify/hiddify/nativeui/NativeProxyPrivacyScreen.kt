@@ -1,5 +1,7 @@
 package com.hiddify.hiddify.nativeui
 
+import androidx.compose.material3.Card
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -54,7 +56,7 @@ internal fun NativeProxyPrivacyScreen(
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         NativePageHeader(stringResource(R.string.native_privacy_interfaces), onBack)
-        NativeCard(Modifier.fillMaxWidth()) {
+        Card(Modifier.fillMaxWidth()) {
             NativePreferenceSwitch(R.string.native_proxy_hide_local, R.string.native_proxy_hide_local_summary,
                 R.drawable.native_route, options.hideLocalProxy, !busy, { onSave(options.copy(hideLocalProxy = it)) })
             NativePreferenceSwitch(R.string.native_proxy_hide_clash, R.string.native_proxy_hide_clash_summary,
@@ -82,7 +84,7 @@ internal fun NativeProxyPrivacyScreen(
 @Composable
 private fun ProxyPrivacyPreview() {
     NativeAppTheme(com.hiddify.hiddify.nativepreferences.NativeThemeMode.DARK) {
-        NativeAtmosphere {
+        NativeBackground {
             Column(Modifier.padding(horizontal = 16.dp)) {
                 NativeProxyPrivacyScreen(NativeProxyPrivacy(), false, true, false, {}, {}, {})
             }

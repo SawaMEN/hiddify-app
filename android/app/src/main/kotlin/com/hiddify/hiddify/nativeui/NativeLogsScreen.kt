@@ -65,7 +65,7 @@ fun NativeLogsScreen(
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            NativeTextField(query, { query = it.take(256) }, Modifier.weight(1f), singleLine = true,
+            OutlinedTextField(query, { query = it.take(256) }, Modifier.weight(1f), singleLine = true,
                 placeholder = { Text(stringResource(R.string.native_logs_filter)) },
                 leadingIcon = { Icon(painterResource(R.drawable.native_search), null) })
             Box {

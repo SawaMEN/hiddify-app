@@ -3,7 +3,6 @@ package com.hiddify.hiddify.nativeui
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import com.hiddify.hiddify.nativeui.NativeButton as Button
 import androidx.compose.material3.AlertDialog

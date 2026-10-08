@@ -167,13 +167,13 @@ internal fun NativeAddProfileSheet(
                         Icon(painterResource(R.drawable.native_close), stringResource(R.string.native_back))
                     }
                 }
-                NativeTextField(name, { name = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     label = { Text(stringResource(R.string.native_profile_name)) }, singleLine = true,
                     isError = validate && name.isBlank(), supportingText = if (validate && name.isBlank()) {
                         { Text(stringResource(R.string.native_profile_name_required)) }
                     } else null)
                 Spacer(Modifier.height(16.dp))
-                NativeTextField(raw, { raw = it; importError = null }, Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                OutlinedTextField(raw, { raw = it; importError = null }, Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     label = { Text(stringResource(R.string.native_profile_url)) }, singleLine = true,
                     isError = validate && !validUrl, supportingText = if (validate && !validUrl) {
                         { Text(stringResource(R.string.native_profile_invalid_url)) }

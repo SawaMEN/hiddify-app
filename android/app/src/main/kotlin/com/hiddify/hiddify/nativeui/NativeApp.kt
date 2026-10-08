@@ -36,7 +36,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.FilledTonalIconButton
-import androidx.compose.ui.text.style.TextOverflow
 import com.hiddify.hiddify.BuildConfig
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
@@ -342,8 +341,8 @@ fun NativeApp(
     BackHandler(enabled = privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy || generalOptionsBusy || tunnelBusy || generalPreferencesBusy || page != PAGE_HOME) { goBack() }
 
     NativeAppTheme(themeMode) {
-        NativeAtmosphere {
-            var dockHeight by remember { mutableStateOf(80.dp) }
+        NativeBackground {
+            var navigationBarHeight by remember { mutableStateOf(80.dp) }
             val density = LocalDensity.current
             Box(
                 modifier =
@@ -355,7 +354,7 @@ fun NativeApp(
             ) {
                 NativePageTransition(page, navigationDirection, Modifier.fillMaxSize()) { visiblePage ->
                     pageStateHolder.SaveableStateProvider(visiblePage) {
-                        NativePageFrame(visiblePage, dockHeight) {
+                        NativePageFrame(visiblePage, navigationBarHeight) {
                             when (visiblePage) {
                                 PAGE_DIAGNOSTICS ->
                                     NativeDiagnosticsScreen(
@@ -703,7 +702,6 @@ fun NativeApp(
                                         smartSelected = smartSelected,
                                         internetHealth = internetHealth,
                                         recoveryAttempt = recoveryAttempt,
-                                        activeProfileName = activeProfileName,
                                         hasActiveProfile = hasActiveProfile,
                                         activeProfile = profiles.firstOrNull { it.active },
                                         hasProfiles = profiles.isNotEmpty(),
@@ -738,8 +736,10 @@ fun NativeApp(
                     enter = fadeIn(tween(if (LocalNativeMotionEnabled.current) 180 else 0)),
                     exit = fadeOut(tween(if (LocalNativeMotionEnabled.current) 80 else 0))) {
                     NavigationBar(windowInsets = androidx.compose.foundation.layout.WindowInsets(0, 0, 0, 0),
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        tonalElevation = 0.dp,
                         modifier = Modifier.fillMaxWidth()
-                            .onSizeChanged { dockHeight = with(density) { it.height.toDp() } }) {
+                            .onSizeChanged { navigationBarHeight = with(density) { it.height.toDp() } }) {
                         listOf(
                             Triple(PAGE_HOME, R.drawable.native_power, R.string.native_home),
                             Triple(PAGE_PRIVACY, R.drawable.native_shield, R.string.native_privacy_title),
@@ -826,14 +826,14 @@ fun NativeApp(
 
 /** Padding belongs to the displayed screen, never to the incoming navigation target. */
 @Composable
-private fun NativePageFrame(page: String, dockHeight: androidx.compose.ui.unit.Dp, content: @Composable () -> Unit) {
+private fun NativePageFrame(page: String, navigationBarHeight: androidx.compose.ui.unit.Dp, content: @Composable () -> Unit) {
     val edgeToEdge = page in setOf(PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS,
         PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS, PAGE_DIAGNOSTICS, PAGE_PROTECTION,
         PAGE_TRAFFIC_FILTERS, PAGE_WIFI_GUIDE, PAGE_PER_APP, PAGE_DNS, PAGE_TLS,
         PAGE_INBOUND, PAGE_GENERAL_OPTIONS)
     Box(Modifier.fillMaxSize().testTag("page_$page")
         .padding(top = if (edgeToEdge) 0.dp else 8.dp,
-            bottom = if (page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY)) dockHeight else 0.dp),
+            bottom = if (page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY)) navigationBarHeight else 0.dp),
         contentAlignment = Alignment.TopCenter) {
         Box((if (page in setOf(PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_PRIVACY, PAGE_SETTINGS)) Modifier
             else Modifier.widthIn(max = 680.dp)).fillMaxSize()
@@ -848,7 +848,6 @@ private fun HomeScreen(
     smartSelected: Boolean = false,
     internetHealth: NativeInternetHealth,
     recoveryAttempt: Int,
-    activeProfileName: String,
     hasActiveProfile: Boolean,
     activeProfile: NativeProfile? = null,
     hasProfiles: Boolean = hasActiveProfile,
@@ -975,8 +974,8 @@ private fun HomeScreen(
                     Spacer(Modifier.height(12.dp))
                     ConnectionStatsCard(systemStats, smartSelected)
                     Spacer(Modifier.height(16.dp))
-                    NativeSurface(Modifier.fillMaxWidth().clickable(onClick = onOpenSettings)) {
-                        Row(Modifier.padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    NativeSurface(Modifier.fillMaxWidth()) {
+                        Row(Modifier.fillMaxWidth().clickable(onClick = onOpenSettings).padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(painterResource(R.drawable.home_tune), null, tint = MaterialTheme.colorScheme.primary)
                             Text(stringResource(R.string.native_quick_settings), Modifier.weight(1f).padding(start = 12.dp),
                                 style = MaterialTheme.typography.titleSmall)
@@ -1063,6 +1062,11 @@ private fun ConnectionCard(
                 onToggleConnection()
             }, enabled = enabled,
             modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp).semantics { contentDescription = actionLabel },
+            shape = MaterialTheme.shapes.extraLarge,
+            colors = if (status == Status.Started && !requiresReconnect) androidx.compose.material3.ButtonDefaults.buttonColors(
+                containerColor = scheme.secondaryContainer,
+                contentColor = scheme.onSecondaryContainer,
+            ) else androidx.compose.material3.ButtonDefaults.buttonColors(),
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 20.dp),
         ) {
             if (transitioning) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp,
@@ -1072,12 +1076,10 @@ private fun ConnectionCard(
             Text(actionLabel, style = MaterialTheme.typography.titleMedium,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center)
         }
-        Row(Modifier.heightIn(min = 28.dp).semantics { liveRegion = LiveRegionMode.Polite }, verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(label, style = MaterialTheme.typography.bodyMedium,
-                color = if (failed) scheme.error else scheme.onSurfaceVariant,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        }
+        Text(label, Modifier.heightIn(min = 28.dp).semantics { liveRegion = LiveRegionMode.Polite },
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (failed) scheme.error else scheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
 
@@ -1101,13 +1103,13 @@ private fun NativeHomePreview(mode: NativeThemeMode, empty: Boolean = false, fai
         42, "example.invalid", 443, 0L, 0L, null,
         ipInfo = com.hiddify.hiddify.nativecore.NativeOutboundIpInfo(ip = "192.0.2.1", countryCode = "NL"))
     NativeAppTheme(mode) {
-        NativeAtmosphere {
+        NativeBackground {
             Box(Modifier.fillMaxSize()) {
                 HomeScreen(
                     status = if (empty || failed) Status.Stopped else Status.Started,
                     connectionFailed = failed, smartSelected = !empty && !failed,
                     internetHealth = NativeInternetHealth.AVAILABLE,
-                    recoveryAttempt = 0, activeProfileName = "VetrOFF", hasActiveProfile = !empty,
+                    recoveryAttempt = 0, hasActiveProfile = !empty,
                     activeProfile = if (empty) null else profile,
                     activeOutbound = if (empty || failed) null else outbound,
                     systemStats = NativeSystemStats(downlink = 1258291, uplink = 52428, trafficAvailable = true, speedAvailable = true),

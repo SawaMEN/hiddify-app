@@ -1,5 +1,7 @@
 package com.hiddify.hiddify.nativeui
 
+import androidx.compose.material3.OutlinedTextField
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -39,7 +41,7 @@ internal fun NativePreferenceInput(
     val matches = possibleValues.filter { it.contains(value, ignoreCase = true) }
     val suggestions = if (matches.size <= 1) (listOf(value) + possibleValues).distinct() else matches
     Box(Modifier.fillMaxWidth()) {
-        NativeTextField(value, {
+        OutlinedTextField(value, {
             dismissed = false
             onValueChange(it.replace("\r", "").replace("\n", ""))
         }, modifier = modifier.fillMaxWidth().onSizeChanged { width = it.width }.onFocusChanged {

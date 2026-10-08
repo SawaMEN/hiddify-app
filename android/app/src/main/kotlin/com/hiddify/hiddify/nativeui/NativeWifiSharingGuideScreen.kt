@@ -60,11 +60,11 @@ fun NativeWifiSharingGuideScreen(rootMode: Boolean, details: NativeWifiSharingDe
                 Text(t("Этот телефон с приложением раздаёт Wi-Fi через VPN. Выберите ОС устройства, которое получает Wi-Fi от телефона. Все шаги и схемы ниже относятся к получающему устройству.",
                     "This phone runs the app and shares Wi-Fi through VPN. Choose the OS of the device receiving Wi-Fi from this phone. All steps and diagrams below apply to the receiving device."))
                 Spacer(Modifier.height(16.dp))
-                if (details.ssid.isNotBlank() && details.wifiPassword.isNotBlank()) NativeCard(Modifier.fillMaxWidth()) {
+                if (details.ssid.isNotBlank() && details.wifiPassword.isNotBlank()) Card(Modifier.fillMaxWidth()) {
                     SelectionContainer { Text("${t("Подключитесь к сети", "Join network")}: ${details.ssid}\n" +
                         "${t("Пароль Wi-Fi", "Wi-Fi password")}: ${details.wifiPassword}", Modifier.padding(16.dp)) }
                 }
-                if (!rootMode) NativeCard(Modifier.fillMaxWidth()) {
+                if (!rootMode) Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
                         Text(t("Данные для подключения", "Connection details"), style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(8.dp))

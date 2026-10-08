@@ -67,7 +67,7 @@ fun NativeProfileDetailsScreen(
         } else if (editor != null) {
             val profile = editor.profile
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).imePadding()) {
-                NativeTextField(session.name, { session.name = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                OutlinedTextField(session.name, { session.name = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     enabled = !busy, singleLine = true, label = { Text(stringResource(R.string.native_profile_name)) },
                     isError = validateName && session.name.isBlank(), supportingText = if (validateName && session.name.isBlank()) {
                         { Text(stringResource(R.string.native_profile_name_required)) }

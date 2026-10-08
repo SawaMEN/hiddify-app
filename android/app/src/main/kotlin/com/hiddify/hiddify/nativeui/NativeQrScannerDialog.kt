@@ -216,6 +216,6 @@ private fun QrScannerPreview() {
 @Composable
 private fun QrScannerDeniedPreview() {
     NativeAppTheme(com.hiddify.hiddify.nativepreferences.NativeThemeMode.DARK) {
-        NativeAtmosphere { NativeQrScannerContent(false, true, {}) {} }
+        NativeBackground { NativeQrScannerContent(false, true, {}) {} }
     }
 }

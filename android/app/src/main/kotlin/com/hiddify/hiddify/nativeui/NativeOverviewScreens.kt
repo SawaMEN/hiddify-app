@@ -45,12 +45,21 @@ internal fun NativePageHeader(title: String, onBack: (() -> Unit)? = null, actio
 @Composable
 internal fun NativeSettingsLink(title: Int, icon: Int, onClick: () -> Unit, summary: Int? = null, enabled: Boolean = true) {
     Row(
-        Modifier.fillMaxWidth().clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+        Modifier.fillMaxWidth().alpha(if (enabled) 1f else .38f).clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .heightIn(min = 64.dp).padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Icon(painterResource(icon), null, Modifier.size(24.dp), tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = .38f))
+        androidx.compose.material3.Surface(
+            modifier = Modifier.size(40.dp),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        ) {
+            androidx.compose.foundation.layout.Box(contentAlignment = Alignment.Center) {
+                Icon(painterResource(icon), null, Modifier.size(24.dp))
+            }
+        }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
             if (summary != null) Text(stringResource(summary), style = MaterialTheme.typography.bodyMedium,
