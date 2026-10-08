@@ -13,11 +13,11 @@ Seven workstreams remain; a stream can contain multiple implementation/review it
 
 | Workstream | Known work remaining | Acceptance evidence |
 | --- | --- | --- |
-| Home/profile state | Exact empty-state shield artwork; connection color/reconnect state | Same state, data and action targets as Dart HomePage/ProfileTile/ConnectionButton |
+| Home/profile state | Connection failure color and device checks of connection/reconnect state | Same state, data and action targets as Dart HomePage/ProfileTile/ConnectionButton |
 | Profile flows | Match import/add/detail/editor/QR sheets and dialogs, list container/navigation, sorting/filtering and confirmation behavior | Compare each original flow and round-trip identical profiles |
-| Proxy presentation | Original circular country/provider artwork; IP visibility lifetime/haptics; stream recovery and active URL-test inspection sequence | Same selected/active proxy, operations, layout and state transitions |
+| Proxy presentation | Device checks of country/provider artwork, IP visibility and stream recovery; settings/dialog source audit | Same selected/active proxy, operations, layout and state transitions |
 | Settings/navigation | Quick-settings rendering/dialog details; preference pages and picker/input/confirmation dialogs; back/deep-link behavior | One-to-one route/action/preferences audit against original widgets |
-| Shared visual system | Exact Material/Fluent/provider icons, Emoji font where used, blur, shimmer and motion; theme/spacing refinements across remaining screens | Device screenshot comparisons in light/dark/black themes, matching font scale |
+| Shared visual system | Remaining Material/Fluent icons, blur and motion in secondary screens; theme/spacing refinements | Device screenshot comparisons in light/dark/black themes, matching font scale |
 | Functional edge cases | Audit IP auto-check/manual refresh, notices/consent, subscriptions/errors, profile upgrades and stored preferences; reconnect/network switching/background operation/root/sharing | Reproduce original user-visible behavior without changing persisted settings |
 | Device parity verification | Same-device screenshots and interaction comparison; small/large widths, landscape, Russian/English, font scaling and accessibility | Recorded visual comparisons and scenario results; successful CI alone is insufficient |
 
@@ -204,3 +204,45 @@ visual/interaction comparison still need work. NativeOutboundPresentationTest ex
 ordering/search, group precedence, unknown-delay ordering and usage overflow against the
 production model. Native/resource and whitespace checks pass. JVM execution remains blocked
 by the Gradle distribution download; no APK build is awaited.
+
+
+## Offline proxy artwork and home interaction parity
+
+The original 301 country/region SVGs from flutter_circle_flags at the Dart lockfile commit
+`19d83cba` are converted to Android vectors, including ir-shir, unknown-region fallback,
+rounded corners and masks/clips. Country badges use the original size-minus-8 artwork and
+provider overlays at size/2.5. Eleven organization keywords preserve their precedence and
+colors; eight brand paths are from the pinned Simple Icons snapshot, and cloud/storage use
+the original Material shapes. The Fluent question-circle and WiFi glyphs and Material
+add-moderator empty-state artwork replace approximations. The existing Emoji font is now
+available to native IP text. Artwork is offline and has packaged license notices.
+
+`tool/vendor_proxy_artwork.py` checks all three source repository commits before conversion.
+The flag conversion was rendered and compared with the pinned SVGs using Cairo, with
+opaque masks normalized to clips and a one-pixel antialias boundary excluded. This validates
+asset geometry, not Android rendering or whole-screen screenshot parity.
+
+The connection button now uses the active proxy delay (<=0 or >=65000 is amber), with
+reconnect taking precedence. Idle/connected colors follow the actual AppTheme extension
+(primary/tertiary), including Android dynamic colors. Native canvas uses surfaceContainerLowest
+as in Dart. Color/scale motion is 180 ms, label fade/size/slide is 250 ms, and TalkBack
+exploration disables those transitions; Compose also honors Android animator scale. Connecting
+can be cancelled, clearing user intent before broadcasting stop so native startup sees it.
+Always-on disconnection opens VPN settings; explicit reconnect remains available.
+
+IP reveal state lives in an Activity ViewModel, survives rotation, and resets after 20 seconds
+without a footer listener. Remaining on the screen does not time out the visible IP. Reveal
+uses the original medium-impact Android haptic mapping and honors the stored haptic switch.
+Inspection waits for an operation completion revision, then resolves refreshed active metadata;
+it cannot open prematurely because a busy transition was missed by composition. Cancellation
+is no longer presented as an outbound-operation error.
+
+The primary-group stream reconnects after failure with 1/2/4/8/8-second backoff, retaining
+the last snapshot and displaying progress. Five consecutive failures expose Error/Retry.
+Receiving a snapshot resets the failure count; closing/backgrounding cancels the Wire read
+and backoff. Resource/whitespace checks pass. The JVM task still cannot start because the
+Gradle distribution download reports Network is unreachable. No APK build is awaited.
+
+Remaining: secondary-screen icon/dialog audit, measured same-device layouts and interactions,
+and connection-error presentation. The Simple Icons snapshot is newer than the Dart package;
+brand path differences need device/source comparison before claiming exact provider parity.

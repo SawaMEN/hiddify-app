@@ -13,6 +13,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.collect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -59,17 +61,30 @@ internal fun NativeOutboundsScreen(
     var group by remember { mutableStateOf<NativeOutboundGroup?>(null) }
     var loading by remember { mutableStateOf(connected) }
     var failure by remember { mutableStateOf<String?>(null) }
+    var reconnectAttempt by remember { mutableIntStateOf(0) }
     var retry by remember { mutableIntStateOf(0) }
     LaunchedEffect(lifecycleOwner, connected, retry) {
-        group = null; failure = null; loading = connected
+        group = null; failure = null; loading = connected; reconnectAttempt = 0
         if (connected) lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            loading = true; failure = null
-            try {
-                repository.watchPrimary().collect { value -> group = value; loading = false; failure = null }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: Exception) {
-                loading = false; failure = error.message ?: error.javaClass.simpleName
+            loading = group == null; failure = null; reconnectAttempt = 0
+            while (isActive) {
+                try {
+                    repository.watchPrimary().collect { value ->
+                        group = value; loading = false; failure = null; reconnectAttempt = 0
+                    }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (error: Exception) {
+                    reconnectAttempt++
+                    if (reconnectAttempt > 5) {
+                        loading = false; failure = error.message ?: error.javaClass.simpleName
+                        reconnectAttempt = 0
+                        break
+                    }
+                    // Retain the last snapshot while re-subscribing; backgrounding cancels
+                    // both this backoff and the Wire stream through repeatOnLifecycle.
+                    delay((1_000L shl (reconnectAttempt - 1)).coerceAtMost(8_000L))
+                }
             }
         }
     }
@@ -113,6 +128,13 @@ internal fun NativeOutboundsScreen(
                 Spacer(Modifier.width(16.dp))
                 Switch(checked = smartSelection, onCheckedChange = onChangeSmartSelection,
                     enabled = !smartSelectionBusy && busyTag == null)
+            }
+            if (reconnectAttempt > 0) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                    LinearProgressIndicator(Modifier.fillMaxWidth())
+                    Text(stringResource(R.string.native_outbounds_reconnecting, reconnectAttempt),
+                        style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 4.dp))
+                }
             }
             when {
                 !connected -> Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -165,7 +187,8 @@ private fun OutboundTile(outbound: NativeOutbound, selected: Boolean, selectable
             .combinedClickable(role = Role.RadioButton, onClick = { if (selectable) onSelect() }, onLongClick = onInfo)
             .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            NativeOutboundCountryBadge(outbound.ipInfo?.countryCode.orEmpty())
+            NativeOutboundCountryBadge(outbound.ipInfo?.countryCode.orEmpty(),
+                organization = outbound.ipInfo?.organization.orEmpty())
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(outbound.name, style = MaterialTheme.typography.bodyLarge,

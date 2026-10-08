@@ -45,6 +45,18 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -187,6 +199,7 @@ fun NativeApp(
     onQuickServiceMode: (Boolean) -> Unit,
     onQuickLanSharing: (Boolean, String) -> Unit,
     outboundBusyTag: String?,
+    outboundOperationRevision: Int,
     systemStats: NativeSystemStats,
     wifiSharingDetails: NativeWifiSharingDetails,
     wifiSharingDetailsBusy: Boolean,
@@ -206,6 +219,7 @@ fun NativeApp(
     onOpenVpnSettings: () -> Unit,
     onDismissError: () -> Unit,
     onToggleConnection: () -> Unit,
+    ipVisibilitySession: NativeIpVisibilitySession,
     onSelectProfile: (NativeProfile) -> Unit,
     onDeleteProfile: (NativeProfile) -> Unit,
     onRefreshProfile: (NativeProfile) -> Unit,
@@ -655,9 +669,12 @@ fun NativeApp(
                                     systemStats = systemStats,
                                     activeOutbound = activeOutbound,
                                     outboundBusy = outboundBusyTag != null,
+                                    outboundOperationRevision = outboundOperationRevision,
                                     requiresReconnect = requiresReconnect,
                                     reconnectBusy = reconnectBusy,
                                     onTestActive = { onTestOutbound("") },
+                                    ipVisibilitySession = ipVisibilitySession,
+                                    hapticFeedback = generalPreferences.hapticFeedback,
                                     onToggleConnection = onToggleConnection,
                                     onOpenProfiles = { profilesSheetOpen = true },
                                     onOpenSettings = { onRefreshWifiSharingDetails(); quickSettingsOpen = true },
@@ -763,10 +780,13 @@ private fun HomeScreen(
     systemStats: NativeSystemStats,
     activeOutbound: com.hiddify.hiddify.nativecore.NativeOutbound? = null,
     outboundBusy: Boolean = false,
+    outboundOperationRevision: Int = 0,
     requiresReconnect: Boolean = false,
     reconnectBusy: Boolean = false,
     onTestActive: () -> Unit = {},
     onToggleConnection: () -> Unit,
+    ipVisibilitySession: NativeIpVisibilitySession? = null,
+    hapticFeedback: Boolean = true,
     onOpenProfiles: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenDiagnostics: () -> Unit,
@@ -797,7 +817,7 @@ private fun HomeScreen(
         if (!hasProfiles && !hasActiveProfile && !profilesLoading && !profilesLoadFailed) {
             Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Icon(painterResource(R.drawable.native_shield), null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.primary)
+                Icon(painterResource(R.drawable.native_add_moderator), null, Modifier.size(72.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(24.dp))
                 Text(stringResource(R.string.native_profile_help_message), style = MaterialTheme.typography.titleMedium,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center)
@@ -836,7 +856,7 @@ private fun HomeScreen(
                 Column(Modifier.fillMaxWidth().padding(start = 20.dp, top = 24.dp, end = 20.dp, bottom = 20.dp)) {
                     Column(Modifier.fillMaxWidth().padding(vertical = 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally) {
-                        ConnectionCard(status = status, recovering = recoveryAttempt > 0, internetHealth = internetHealth,
+                        ConnectionCard(status = status, recovering = recoveryAttempt > 0, delayMs = activeOutbound?.delayMs ?: 0,
                             requiresReconnect = requiresReconnect, reconnectBusy = reconnectBusy,
                             onToggleConnection = onToggleConnection)
                         Spacer(Modifier.height(12.dp))
@@ -854,7 +874,9 @@ private fun HomeScreen(
                         }
                     }
                     if (status == Status.Started && activeOutbound != null) {
-                        NativeActiveProxyFooter(activeOutbound, outboundBusy, onOpenOutbounds, onTestActive)
+                        NativeActiveProxyFooter(activeOutbound, outboundBusy, onOpenOutbounds, onTestActive,
+                            ipVisibilitySession = ipVisibilitySession, hapticFeedback = hapticFeedback,
+                            operationRevision = outboundOperationRevision)
                     }
                     Spacer(Modifier.height(12.dp))
                     ConnectionStatsCard(systemStats)
@@ -905,7 +927,7 @@ private fun formatTraffic(value: Long): String {
 private fun ConnectionCard(
     status: Status,
     recovering: Boolean,
-    internetHealth: NativeInternetHealth,
+    delayMs: Int,
     onToggleConnection: () -> Unit,
     requiresReconnect: Boolean = false,
     reconnectBusy: Boolean = false,
@@ -923,15 +945,19 @@ private fun ConnectionCard(
         Status.Stopping -> R.string.native_disconnecting
     })
     val scheme = MaterialTheme.colorScheme
-    val accent = when {
+    val targetAccent = when {
         status == Status.Started && requiresReconnect -> scheme.secondary
-        status == Status.Started && internetHealth == NativeInternetHealth.UNAVAILABLE -> Color(0xFFFFC857)
+        status == Status.Started && (delayMs <= 0 || delayMs >= 65000) -> Color(0xFFFFC857)
         status == Status.Started -> scheme.tertiary
         else -> scheme.primary
     }
-    val enabled = !reconnectBusy && (recovering || status == Status.Stopped || status == Status.Started)
+    val motionDuration = if (LocalNativeMotionEnabled.current) 180 else 0
+    val textDuration = if (LocalNativeMotionEnabled.current) 250 else 0
+    val accent by animateColorAsState(targetAccent, tween(motionDuration), label = "Connection color")
+    val enabled = !reconnectBusy && (recovering || status != Status.Stopping)
+    val scale by animateFloatAsState(if (enabled) 1f else .94f, tween(motionDuration), label = "Connection scale")
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(176.dp).background(
+        Box(Modifier.size(176.dp).graphicsLayer { scaleX = scale; scaleY = scale }.background(
             Brush.radialGradient(listOf(accent.copy(alpha = .12f), Color.Transparent)), CircleShape,
         ).border(2.dp, accent.copy(alpha = .28f), CircleShape), contentAlignment = Alignment.Center) {
             NativeGlass(Modifier.padding(14.dp).fillMaxSize(), radius = 100, accent = accent) {
@@ -943,8 +969,15 @@ private fun ConnectionCard(
             }
             if (!enabled) CircularProgressIndicator(Modifier.fillMaxSize(), strokeWidth = 2.dp)
         }
-        Text(label, Modifier.padding(top = 24.dp), style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.SemiBold)
+        AnimatedContent(label, Modifier.padding(top = 24.dp), contentAlignment = Alignment.Center,
+            transitionSpec = {
+                (fadeIn(tween(textDuration)) + slideInVertically(tween(textDuration)) { -(it * .2f).toInt() } +
+                    expandHorizontally(tween(textDuration), expandFrom = Alignment.CenterHorizontally) { (it * .88f).toInt() })
+                    .togetherWith(fadeOut(tween(textDuration)) + slideOutVertically(tween(textDuration)) { -(it * .2f).toInt() } +
+                        shrinkHorizontally(tween(textDuration), shrinkTowards = Alignment.CenterHorizontally) { (it * .88f).toInt() })
+            }, label = "Connection label") { text ->
+            Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 

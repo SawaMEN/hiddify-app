@@ -103,6 +103,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val profileImportRevision = mutableStateOf(0)
     private val profileSelectionRevision = mutableStateOf(0)
     private val busyProfileId = mutableStateOf<String?>(null)
+    private val ipVisibilitySession by lazy { androidx.lifecycle.ViewModelProvider(this)[com.hiddify.hiddify.nativeui.NativeIpVisibilitySession::class.java] }
     private val editorSession by lazy { androidx.lifecycle.ViewModelProvider(this)[com.hiddify.hiddify.nativeprofile.NativeProfileEditorSession::class.java] }
     private var profileEditorId: String? = null
     private val profileEditorLoadFailed = mutableStateOf(false)
@@ -148,6 +149,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val requiresReconnect = mutableStateOf(Settings.nativeReconnectRequired)
     private val reconnectBusy = mutableStateOf(false)
     private val activeOutbound = mutableStateOf<com.hiddify.hiddify.nativecore.NativeOutbound?>(null)
+    private val outboundOperationRevision = mutableStateOf(0)
     private val outboundBusyTag = mutableStateOf<String?>(null)
     private val systemStats = mutableStateOf(NativeSystemStats())
     private val wifiSharingDetails = mutableStateOf(NativeWifiSharingDetails())
@@ -459,6 +461,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onQuickServiceMode = ::saveQuickServiceMode,
                 onQuickLanSharing = ::saveQuickLanSharing,
                 outboundBusyTag = outboundBusyTag.value,
+                outboundOperationRevision = outboundOperationRevision.value,
                 systemStats = systemStats.value,
                 wifiSharingDetails = wifiSharingDetails.value,
                 wifiSharingDetailsBusy = wifiSharingDetailsBusy.value,
@@ -480,6 +483,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 errorMessage = errorMessage.value,
                 onDismissError = { errorMessage.value = null },
                 onToggleConnection = ::toggleConnection,
+                ipVisibilitySession = ipVisibilitySession,
                 onSelectProfile = ::selectProfile,
                 onDeleteProfile = ::deleteProfile,
                 onRefreshProfile = ::refreshRemoteProfile,
@@ -807,9 +811,12 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 outboundGroups.value = refreshed
                 val active = withContext(Dispatchers.IO) { outboundsRepository.loadActive() }
                 if (nativeForeground && serviceStatus.value == Status.Started) activeOutbound.value = active
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
+                outboundOperationRevision.value++
                 outboundBusyTag.value = null
             }
         }
@@ -2419,13 +2426,23 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             }
             Status.Started -> {
                 if (requiresReconnect.value) { reconnectWithSavedSettings(); return }
+                if (BoxService.vpnProtection()["alwaysOn"] == true) { openVpnSettings(); return }
                 connectionHaptic(stopping = true)
                 cancelRecovery()
                 Settings.connectionDesired = false
                 BoxService.stop()
             }
 
-            Status.Starting, Status.Stopping -> Unit
+            Status.Starting -> {
+                connectionHaptic(stopping = true)
+                Settings.connectionDesired = false
+                Settings.startedByUser = false
+                nativeStartPending = false
+                pendingStartAfterVpnPermission = false
+                cancelRecovery()
+                BoxService.stop()
+            }
+            Status.Stopping -> Unit
         }
     }
 
