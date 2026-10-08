@@ -6,6 +6,7 @@
     <string name="native_status_started">Connected</string>
     <string name="native_status_stopping">Disconnecting...</string>
     <string name="native_connect">Connect</string>
+    <string name="native_settings_clipboard_too_large">Settings are too large for the clipboard. Export them to a file.</string>
     <string name="native_disconnect">Disconnect</string>
     <string name="native_connecting">Connecting…</string>
     <string name="native_disconnecting">Disconnecting…</string>

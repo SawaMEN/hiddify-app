@@ -22,7 +22,18 @@ object NativeQrCodec {
         )
 
     fun decode(width: Int, height: Int, pixels: IntArray): String {
-        val source = RGBLuminanceSource(width, height, pixels)
+        require(width > 0 && height > 0 && width.toLong() * height == pixels.size.toLong()) { "Invalid QR image dimensions" }
+        // Bitmap pixels are ARGB; RGBLuminanceSource ignores alpha. Composite transparent
+        // PNG backgrounds over white instead of interpreting them as black modules.
+        val opaque = IntArray(pixels.size) { index ->
+            val pixel = pixels[index]
+            val alpha = pixel ushr 24
+            if (alpha == 255) pixel else {
+                fun channel(shift: Int) = (((pixel ushr shift) and 255) * alpha + 255 * (255 - alpha) + 127) / 255
+                (255 shl 24) or (channel(16) shl 16) or (channel(8) shl 8) or channel(0)
+            }
+        }
+        val source = RGBLuminanceSource(width, height, opaque)
         val hints = mapOf(DecodeHintType.TRY_HARDER to true, DecodeHintType.CHARACTER_SET to "UTF-8")
         val reader = QRCodeReader()
         return try {

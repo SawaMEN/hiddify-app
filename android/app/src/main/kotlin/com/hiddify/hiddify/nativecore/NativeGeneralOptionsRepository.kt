@@ -12,8 +12,7 @@ class NativeGeneralOptionsRepository(context: Context) {
         fun text(key: String, fallback: String) = (root.opt(key) as? String) ?: (values["flutter.$key"] as? String) ?: fallback
         fun flag(key: String) = (root.opt(key) as? Boolean) ?: (values["flutter.$key"] as? Boolean) ?: false
         fun number(key: String, fallback: Int, range: IntRange) =
-            ((root.opt(key) as? Number) ?: (values["flutter.$key"] as? Number))?.toLong()
-                ?.takeIf { it in range.first.toLong()..range.last.toLong() }?.toInt() ?: fallback
+            NativeStoredNumbers.int(root.opt(key) ?: values["flutter.$key"], range) ?: fallback
         val url = text("connection-test-url", "http://captive.apple.com/hotspot-detect.html")
         require(url.length <= 2048) { "Connection test URL is too large" }
         return NativeGeneralOptions(

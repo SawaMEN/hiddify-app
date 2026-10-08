@@ -343,7 +343,7 @@ private fun ProfileChoiceButton(
                 Column(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                 ) {
-                    profiles.forEach { profile ->
+                    profiles.filterNot { it.active }.forEach { profile ->
                         NativeTextButton(
                             onClick = {
                                 onSelected(profile.id)

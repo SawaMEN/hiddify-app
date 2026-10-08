@@ -70,9 +70,9 @@ internal fun NativeActiveProxyFooter(
         visibility.attach()
         onDispose { visibility.detach() }
     }
-    var inspectPending by remember { mutableStateOf(false) }
-    var inspecting by remember { mutableStateOf(false) }
-    var requestedAtRevision by remember { mutableIntStateOf(0) }
+    var inspectPending by remember(outbound.tag) { mutableStateOf(false) }
+    var inspecting by remember(outbound.tag) { mutableStateOf(false) }
+    var requestedAtRevision by remember(outbound.tag) { mutableIntStateOf(0) }
     LaunchedEffect(inspectPending, busy, operationRevision) {
         if (inspectPending && operationRevision != requestedAtRevision && !busy) {
             inspectPending = false; inspecting = true

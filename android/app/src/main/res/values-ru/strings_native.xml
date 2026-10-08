@@ -6,6 +6,7 @@
     <string name="native_status_started">Подключено</string>
     <string name="native_status_stopping">Отключение...</string>
     <string name="native_connect">Подключиться</string>
+    <string name="native_settings_clipboard_too_large">Настройки слишком велики для буфера обмена. Экспортируйте их в файл.</string>
     <string name="native_disconnect">Отключить</string>
     <string name="native_connecting">Подключение…</string>
     <string name="native_disconnecting">Отключение…</string>

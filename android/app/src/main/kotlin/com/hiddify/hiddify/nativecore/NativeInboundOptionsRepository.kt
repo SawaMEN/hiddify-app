@@ -32,15 +32,15 @@ class NativeInboundOptionsRepository(context: Context) {
         val root = root(values)
         fun flag(key: String, fallback: Boolean) = if (root.has(key)) root.optBoolean(key, fallback)
             else values["flutter.$key"] as? Boolean ?: fallback
-        fun port(key: String, fallback: Int): Int = root.optInt(key, -1).takeIf { it in 1..65535 }
-            ?: (values["flutter.$key"] as? Number)?.toInt()?.takeIf { it in 1..65535 } ?: fallback
+        fun storedPort(key: String) = if (root.has(key)) root.opt(key) else values["flutter.$key"]
+        fun port(key: String, fallback: Int): Int = NativeStoredNumbers.int(storedPort(key), 1..65535) ?: fallback
         return NativeInboundOptions(
             strictRoute = flag("strict-route", true),
             tunImplementation = root.optString("tun-implementation",
                 values["flutter.tun-implementation"] as? String ?: "gvisor").takeIf { it in listOf("mixed", "system", "gvisor") } ?: "gvisor",
-            mixedEnabled = flag("enable-mixed-port", true) && root.optInt("mixed-port", 12334) != 0,
+            mixedEnabled = flag("enable-mixed-port", true) && NativeStoredNumbers.int(storedPort("mixed-port"), 0..65535) != 0,
             mixedPort = port("mixed-port", 12334),
-            directEnabled = flag("enable-direct-port", true) && root.optInt("direct-port", 12337) != 0,
+            directEnabled = flag("enable-direct-port", true) && NativeStoredNumbers.int(storedPort("direct-port"), 0..65535) != 0,
             directPort = port("direct-port", 12337),
             allowLan = flag("allow-connection-from-lan", false),
             lanPassword = root.optString("lan-sharing-password", values["flutter.lan_sharing_password"] as? String ?: ""),

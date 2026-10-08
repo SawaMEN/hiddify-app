@@ -1,10 +1,37 @@
 package com.hiddify.hiddify.nativecore
 
 import com.hiddify.hiddify.nativeprofile.NativeJsonDocument
+import com.google.gson.JsonParser
 import org.junit.Assert.*
 import org.junit.Test
 
 class NativeCoreOptionsProjectionTest {
+    @Test fun deletingTheActiveChainProfileDisablesTheBrokenStage() {
+        val original = """{"chain-status":"extra_security","extra-security":{"mode":"profile","profile":{"id":"chain"}},
+            "unblocker":{"mode":"warp","profile":{"id":"chain"}},"mixed-port":12334}"""
+        val root = JsonParser.parseString(NativeCoreOptionsProjection.removeDeletedChainProfile(original, "chain")).asJsonObject
+        assertEquals("off", root.get("chain-status").asString)
+        assertTrue(root.getAsJsonObject("extra-security").getAsJsonObject("profile").get("id").isJsonNull)
+        assertTrue(root.getAsJsonObject("unblocker").getAsJsonObject("profile").get("id").isJsonNull)
+        assertEquals(12334, root.get("mixed-port").asInt)
+        assertEquals(original, NativeCoreOptionsProjection.removeDeletedChainProfile(original, "unrelated"))
+    }
+
+    @Test fun deletingAnUnusedProfileReferenceKeepsWarpActive() {
+        val root = JsonParser.parseString(NativeCoreOptionsProjection.removeDeletedChainProfile(
+            """{"chain-status":"unblocker","unblocker":{"mode":"warp","profile":{"id":"chain"}}}""", "chain")).asJsonObject
+        assertEquals("unblocker", root.get("chain-status").asString)
+    }
+
+    @Test fun chainSelectionRejectsMissingAndMainProfilesBeforeSaving() {
+        fun config(id: String?) = """{"chain-status":"extra_security","extra-security":{"mode":"profile","profile":{"id":${id?.let { "\"$it\"" } ?: "null"}}}}"""
+        for (id in listOf(null, "missing", "main")) {
+            assertThrows(IllegalArgumentException::class.java) {
+                NativeCoreOptionsProjection.validateChainSelection(config(id), "main", setOf("main", "chain"))
+            }
+        }
+        NativeCoreOptionsProjection.validateChainSelection(config("chain"), "main", setOf("main", "chain"))
+    }
     private fun project(json: String) = NativeJsonDocument.parse(NativeCoreOptionsProjection.apply(json)).asJsonObject
 
     @Test fun coreReceivesTheDefaultsShownByNativeEditors() {

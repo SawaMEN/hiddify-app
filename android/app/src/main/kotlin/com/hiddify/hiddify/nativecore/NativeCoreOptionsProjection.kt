@@ -6,6 +6,38 @@ import com.hiddify.hiddify.nativeprofile.NativeJsonDocument
 
 /** Translate the native editor schema to the options accepted by the pinned core. */
 internal object NativeCoreOptionsProjection {
+    fun validateChainSelection(json: String, currentProfileId: String?, availableIds: Set<String>) {
+        val root = NativeJsonDocument.parse(json.ifBlank { "{}" }).asJsonObject
+        val key = when (root.get("chain-status")?.asString ?: "off") {
+            "off" -> return
+            "extra_security" -> "extra-security"
+            "unblocker" -> "unblocker"
+            else -> error("Invalid chain status")
+        }
+        val stage = root.get(key)?.takeIf { it.isJsonObject }?.asJsonObject ?: return
+        if (stage.get("mode")?.asString != "profile") return
+        val id = stage.get("profile")?.takeIf { it.isJsonObject }?.asJsonObject
+            ?.get("id")?.takeUnless { it.isJsonNull }?.asString
+        require(!id.isNullOrBlank() && id in availableIds) { "Select an existing chain profile" }
+        require(id != currentProfileId) { "The chain profile must differ from the main profile" }
+    }
+
+    fun removeDeletedChainProfile(json: String, id: String): String {
+        val root = NativeJsonDocument.parse(json.ifBlank { "{}" }).asJsonObject
+        var changed = false
+        for ((key, status) in mapOf("extra-security" to "extra_security", "unblocker" to "unblocker")) {
+            val stage = root.get(key)?.takeIf { it.isJsonObject }?.asJsonObject ?: continue
+            val profile = stage.get("profile")?.takeIf { it.isJsonObject }?.asJsonObject ?: continue
+            if (profile.get("id")?.takeUnless { it.isJsonNull }?.asString != id) continue
+            profile.add("id", com.google.gson.JsonNull.INSTANCE)
+            changed = true
+            if (stage.get("mode")?.asString == "profile" && root.get("chain-status")?.asString == status) {
+                root.addProperty("chain-status", "off")
+            }
+        }
+        return if (changed) root.toString() else json
+    }
+
     fun apply(json: String, currentProfileId: String? = null, profileContent: ((String) -> String)? = null): String {
         val root = NativeJsonDocument.parse(json.ifBlank { "{}" }).asJsonObject.deepCopy()
         fun putDefault(target: JsonObject, key: String, value: Any) {

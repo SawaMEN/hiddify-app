@@ -4,6 +4,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeQrCodecTest {
+    @Test fun transparentPngBackgroundIsCompositedOnWhite() {
+        val text = "vless://token@vpn.example:443#Москва"
+        val matrix = NativeQrCodec.encode(text)
+        val pixels = IntArray(matrix.width * matrix.height) { index ->
+            if (matrix[index % matrix.width, index / matrix.width]) 0xff000000.toInt() else 0x00000000
+        }
+        assertEquals(text, NativeQrCodec.decode(matrix.width, matrix.height, pixels))
+    }
     private fun roundTrip(text: String, inverted: Boolean = false) {
         val matrix = NativeQrCodec.encode(text)
         val pixels = IntArray(matrix.width * matrix.height) { index ->

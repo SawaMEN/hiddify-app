@@ -243,7 +243,13 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private var backgroundPermissionRequestInFlight = false
     // Preserve the reminder history from existing installations.
     private val backgroundPromptPreferenceKey = "battery_prompt_material_v2_shown"
-    private var pendingSettingsExport: String? = null
+    private val settingsExportSession by lazy {
+        androidx.lifecycle.ViewModelProvider(this)[com.hiddify.hiddify.nativecore.NativeSettingsExportSession::class.java]
+    }
+    private var pendingSettingsExport: String?
+        get() = settingsExportSession.payload
+        set(value) { settingsExportSession.payload = value }
+    private var settingsExportPreparing = false
     private var pendingProfileExportId: String? = null
 
     private val vpnPermissionLauncher =
@@ -310,6 +316,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                         R.string.native_settings_export_success,
                         Toast.LENGTH_SHORT,
                     ).show()
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (error: Exception) {
                     errorMessage.value = error.message ?: error.javaClass.simpleName
                 }
@@ -1792,6 +1800,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun saveConnectionOptions(options: NativeConnectionOptions) {
         if (connectionOptionsBusy.value) return
+        val corePolicyChanged = connectionOptions.value.corePolicy() != options.corePolicy()
         connectionOptionsBusy.value = true
         lifecycleScope.launch {
             try {
@@ -1802,6 +1811,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 restartHealthMonitor()
                 startSmartSelectionLoop()
                 refreshRecoveryIndicator()
+                if (corePolicyChanged) coreChangesSaved()
                 Toast.makeText(this@MainActivity, R.string.native_connection_saved, Toast.LENGTH_SHORT).show()
             } catch (error: CancellationException) {
                 throw error
@@ -2384,52 +2394,68 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         settingsImportLauncher.launch(arrayOf("application/json", "text/json", "text/plain"))
     }
 
-    private fun applyImportedSettings(input: String) {
-        if (serviceStatus.value != Status.Stopped) {
+    private fun applyImportedSettings(input: String) = changeImportedSettings(input)
+
+    private fun resetCoreSettings() = changeImportedSettings(null)
+
+    private fun changeImportedSettings(input: String?) {
+        if (generalOptionsBusy.value || tunnelBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value ||
+            chainBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || wifiSharingBusy.value) return
+        if (serviceStatus.value != Status.Stopped || nativeStartPending || pendingStartAfterVpnPermission || BoxService.hasActiveCore()) {
             errorMessage.value = getString(R.string.native_settings_import_disconnect)
             return
         }
-        try {
-            settingsTransferRepository.importJson(input)
-            refreshImportedSettingsSnapshots()
-            Toast.makeText(this, R.string.native_settings_import_success, Toast.LENGTH_SHORT).show()
-        } catch (error: Exception) {
-            errorMessage.value = error.message ?: error.javaClass.simpleName
+        generalOptionsBusy.value = true
+        generalOptionsSnapshotJob?.cancel()
+        lifecycleScope.launch {
+            try {
+                BoxService.withNativeLifecycle {
+                    check(serviceStatus.value == Status.Stopped && !BoxService.hasActiveCore() && !BoxService.isRunning() &&
+                        !nativeStartPending && !pendingStartAfterVpnPermission) { getString(R.string.native_settings_import_disconnect) }
+                    withContext(Dispatchers.IO) {
+                        if (input == null) settingsTransferRepository.resetCoreSettings()
+                        else settingsTransferRepository.importJson(input)
+                    }
+                }
+                refreshImportedSettingsSnapshots()
+                Toast.makeText(this@MainActivity, if (input == null) R.string.native_settings_reset_success
+                    else R.string.native_settings_import_success, Toast.LENGTH_SHORT).show()
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { errorMessage.value = error.message ?: error.javaClass.simpleName }
+            finally { generalOptionsBusy.value = false }
         }
     }
 
     private fun exportSettingsToClipboard(includePrivate: Boolean) {
-        try {
-            val payload = settingsTransferRepository.exportJson(includePrivate)
-            getSystemService(ClipboardManager::class.java)
-                ?.setPrimaryClip(ClipData.newPlainText("VetrOFF options.json", payload))
-            Toast.makeText(this, R.string.native_settings_export_success, Toast.LENGTH_SHORT).show()
-        } catch (error: Exception) {
-            errorMessage.value = error.message ?: error.javaClass.simpleName
+        lifecycleScope.launch {
+            try {
+                val payload = withContext(Dispatchers.IO) {
+                    settingsTransferRepository.exportJson(includePrivate).also {
+                        require(it.toByteArray(Charsets.UTF_8).size <= NativeProfileTransfer.MAX_CLIPBOARD_BYTES) {
+                            getString(R.string.native_settings_clipboard_too_large)
+                        }
+                    }
+                }
+                val clipboard = requireNotNull(getSystemService(ClipboardManager::class.java)) { "Clipboard is unavailable" }
+                clipboard.setPrimaryClip(ClipData.newPlainText("VetrOFF options.json", payload))
+                Toast.makeText(this@MainActivity, R.string.native_settings_export_success, Toast.LENGTH_SHORT).show()
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { errorMessage.value = error.message ?: error.javaClass.simpleName }
         }
     }
 
     private fun exportSettingsToFile(includePrivate: Boolean) {
-        try {
-            pendingSettingsExport = settingsTransferRepository.exportJson(includePrivate)
-            settingsExportLauncher.launch("options.json")
-        } catch (error: Exception) {
-            pendingSettingsExport = null
-            errorMessage.value = error.message ?: error.javaClass.simpleName
-        }
-    }
-
-    private fun resetCoreSettings() {
-        if (serviceStatus.value != Status.Stopped) {
-            errorMessage.value = getString(R.string.native_settings_import_disconnect)
-            return
-        }
-        try {
-            settingsTransferRepository.resetCoreSettings()
-            refreshImportedSettingsSnapshots()
-            Toast.makeText(this, R.string.native_settings_reset_success, Toast.LENGTH_SHORT).show()
-        } catch (error: Exception) {
-            errorMessage.value = error.message ?: error.javaClass.simpleName
+        if (settingsExportPreparing || pendingSettingsExport != null) return
+        settingsExportPreparing = true
+        lifecycleScope.launch {
+            try {
+                pendingSettingsExport = withContext(Dispatchers.IO) { settingsTransferRepository.exportJson(includePrivate) }
+                settingsExportLauncher.launch("options.json")
+            } catch (cancelled: CancellationException) { pendingSettingsExport = null; throw cancelled }
+            catch (error: Exception) {
+                pendingSettingsExport = null
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally { settingsExportPreparing = false }
         }
     }
 

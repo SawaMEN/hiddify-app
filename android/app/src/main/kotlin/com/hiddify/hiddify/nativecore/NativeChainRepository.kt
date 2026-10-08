@@ -73,20 +73,12 @@ class NativeChainRepository {
     }
 
     fun replaceDeletedProfile(id: String) {
-        val root = runCatching { root() }.getOrElse {
+        val previous = Settings.configOptions
+        val updated = runCatching { NativeCoreOptionsProjection.removeDeletedChainProfile(previous, id) }.getOrElse {
             android.util.Log.w("NativeChainRepository", "Cannot repair references in invalid chain settings", it)
             return
         }
-        var changed = false
-        for (key in listOf("extra-security", "unblocker")) {
-            val profile = root.optJSONObject(key)?.optJSONObject("profile") ?: continue
-            if (profile.optString("id") == id) {
-                // Never substitute the main profile: that creates a self-referencing chain.
-                profile.putNullable("id", null)
-                changed = true
-            }
-        }
-        if (changed) Settings.configOptions = root.toString()
+        if (updated != previous) Settings.configOptions = updated
     }
 
     fun save(value: NativeChainOptions): NativeChainOptions {
@@ -125,6 +117,7 @@ class NativeChainRepository {
         unblocker.objectFor("profile").putNullable("id", value.unblockerProfileId)
         root.put("unblocker", unblocker)
 
+        validateSelection(root)
         Settings.configOptions = root.toString()
         return load()
     }
@@ -142,8 +135,15 @@ class NativeChainRepository {
             root.objectFor(stage).put("mode", mode)
             root.put("chain-status", status)
         }
+        validateSelection(root)
         Settings.configOptions = root.toString()
         return load()
+    }
+
+    private fun validateSelection(root: JSONObject) {
+        val profiles = com.hiddify.hiddify.nativeprofile.NativeProfileRepository(com.hiddify.hiddify.Application.application).listProfiles()
+        NativeCoreOptionsProjection.validateChainSelection(root.toString(), profiles.firstOrNull { it.active }?.id,
+            profiles.map { it.id }.toSet())
     }
 
     private fun root(): JSONObject =
