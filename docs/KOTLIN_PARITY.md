@@ -463,3 +463,36 @@ Light/dark/black previews now include an actual profile and active outbound; emp
 connection-error previews cover the additional states. Native boundary, resource-reference
 and whitespace checks pass. No APK build was started. Android compilation, runtime
 animations and same-device screenshot parity still require device verification.
+
+
+## Connection and profile deletion functionality fixes
+
+Android no longer waits for the lifecycle mutex to cancel a blocking `Mobile.start()`.
+`Mobile.stop()` cancels Go's startup context concurrently; cancellation is repeated while
+startup is active to cover a stop arriving just before Go installs that context. Cleanup
+waits for that cancellation worker before releasing ownership or reusing the service.
+Destroy/revoke and explicit stop also cancel startup. Native close retries once after a
+teardown error, avoiding ownership stuck on a service still bound by the UI. Expected cancellation is cleaned up
+without presenting a startup error, and initial setup/configuration errors no longer trigger
+an automatic retry loop. Unexpected failures after an established connection retain recovery.
+
+MainActivity marks issued starts immediately, ignores initial binding Stopped snapshots,
+blocks duplicate starts and allows stop during pending permission/start/recovery/reconnect.
+Stopping cancels queued reconnect and recovery work, clears user intent and ignores stale
+Starting/Started callbacks. A start with no running service or owner after 20 seconds returns
+a useful error instead of leaving the UI pending indefinitely. Connection start cannot race
+profile edits/deletion; offline mutations also acquire the native lifecycle barrier.
+
+Deleting an inactive profile no longer requires disconnecting. Deleting the active or a
+chain-referenced profile stops VPN first and waits up to 30 seconds for status and ownership
+to clear. Timeout leaves the profile intact. The config file is renamed before the database
+transaction, restored on transaction failure, and cleaned up after commit. Chain profile
+references move to the next active profile, matching the original Dart deletion flow.
+
+The standalone `tool/check_connection_functionality.kt` runner compiles production helpers
+and passes regression checks for initial binding snapshots, failed/retried startup, cancellation
+arriving before Go startup, successful file removal, rollback, missing config and invalid file
+paths. It was run with Kotlin 2.2.0 and coroutines 1.8.0. All production Kotlin files also pass
+PSI syntax parsing, native boundary/resource checks and whitespace checks. No APK was built.
+These checks do not establish Android type/link compatibility or on-device VPN connectivity;
+real tunnel/permission/OEM behavior and reported device errors still require runtime validation.

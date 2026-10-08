@@ -72,6 +72,22 @@ class NativeChainRepository {
         )
     }
 
+    fun replaceDeletedProfile(id: String, nextActiveId: String?) {
+        val root = runCatching { root() }.getOrElse {
+            android.util.Log.w("NativeChainRepository", "Cannot repair references in invalid chain settings", it)
+            return
+        }
+        var changed = false
+        for (key in listOf("extra-security", "unblocker")) {
+            val profile = root.optJSONObject(key)?.optJSONObject("profile") ?: continue
+            if (profile.optString("id") == id) {
+                profile.putNullable("id", nextActiveId)
+                changed = true
+            }
+        }
+        if (changed) Settings.configOptions = root.toString()
+    }
+
     fun save(value: NativeChainOptions): NativeChainOptions {
         val root = root()
         root.put("chain-status", value.status.validChoice(statusChoices, "off"))

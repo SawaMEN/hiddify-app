@@ -208,6 +208,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private var stableConnectionJob: Job? = null
     private val recoveryAttempt = mutableStateOf(0)
     private var nativeStartPending = false
+    private val serviceStartTracker = ServiceStartTracker()
+    private var reconnectJob: Job? = null
+    private var serviceStartWatchdog: Job? = null
     private val regionalAppsRevision = mutableStateOf(0)
     private val regionalApps = mutableStateOf<NativeRegionalAppSnapshot?>(null)
     private val regionalOperationMutex = Mutex()
@@ -253,6 +256,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 startForegroundVpn()
             } else {
                 Settings.connectionDesired = false
+                Settings.startedByUser = false
+                serviceStartTracker.reset()
+                serviceStatus.value = Status.Stopped
                 homeConnectionFailed.value = true
                 errorMessage.value = getString(R.string.native_vpn_permission_denied)
             }
@@ -1123,7 +1129,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun deleteProfile(profile: NativeProfile) {
-        runProfileOperation(profile.id, requireDisconnected = true) {
+        runProfileOperation(profile.id, requireDisconnected = false, stopBeforeDeletingId = profile.id) {
             profileRepository.delete(profile.id)
         }
     }
@@ -1177,10 +1183,12 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         operationId: String,
         requireDisconnected: Boolean,
         onSuccess: () -> Unit = {},
+        stopBeforeDeletingId: String? = null,
         operation: () -> Unit,
     ) {
         if (busyProfileId.value != null) return
-        if (requireDisconnected && serviceStatus.value != Status.Stopped) {
+        if (requireDisconnected && (serviceStatus.value != Status.Stopped || nativeStartPending ||
+                pendingStartAfterVpnPermission || BoxService.hasActiveCore())) {
             errorMessage.value = getString(R.string.native_profile_disconnect_required)
             return
         }
@@ -1188,18 +1196,36 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         busyProfileId.value = operationId
         lifecycleScope.launch {
             try {
+                val deletingUsedProfile = stopBeforeDeletingId != null && withContext(Dispatchers.IO) {
+                    profileOperationMutex.withLock {
+                        val chain = runCatching { chainRepository.load() }.getOrNull()
+                        profileRepository.activeProfile()?.id == stopBeforeDeletingId ||
+                            chain?.extraProfileId == stopBeforeDeletingId || chain?.unblockerProfileId == stopBeforeDeletingId
+                    }
+                }
+                if (deletingUsedProfile) {
+                    requestStop()
+                    awaitServiceStopped()
+                }
                 val loaded =
                     withContext(Dispatchers.IO) {
-                        profileOperationMutex.withLock {
+                        suspend fun mutate() = profileOperationMutex.withLock {
                             operation()
                             profileRepository.synchronizeActiveProfile()
                             profileRepository.listProfiles()
                         }
+                        if (requireDisconnected || deletingUsedProfile) BoxService.withNativeLifecycle {
+                            check(!BoxService.hasActiveCore()) { getString(R.string.native_profile_disconnect_required) }
+                            mutate()
+                        } else mutate()
                     }
                 profiles.value = loaded
                 profilesLoadFailed.value = false
                 refreshProfileSnapshot()
+                if (stopBeforeDeletingId != null) runCatching { refreshChainOptions() }
                 onSuccess()
+            } catch (timeout: kotlinx.coroutines.TimeoutCancellationException) {
+                errorMessage.value = getString(R.string.native_connection_stop_timeout)
             } catch (error: Exception) {
                 if (error is kotlinx.coroutines.CancellationException) throw error
                 runCatching { withContext(Dispatchers.IO) { profileOperationMutex.withLock {
@@ -1747,8 +1773,12 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                                 recoveryPolicy.recordAttempt()
                                 Settings.startCoreAfterStartingService = true
                                 nativeStartPending = true
+                                observeIssuedServiceStart()
+                                serviceStatus.value = Status.Starting
                                 try { BoxService.start() } catch (error: Exception) {
                                     nativeStartPending = false
+                                    serviceStartTracker.reset()
+                                    serviceStatus.value = Status.Stopped
                                     errorMessage.value = error.message ?: error.javaClass.simpleName
                                 }
                                 NativeRecoveryDecision.START
@@ -2132,7 +2162,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         if (reconnectBusy.value) return
         reconnectBusy.value = true
         cancelRecovery()
-        lifecycleScope.launch {
+        reconnectJob = lifecycleScope.launch {
             try {
                 BoxService.stop(preserveIntent = true)
                 withTimeout(30_000) {
@@ -2140,11 +2170,19 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 }
                 connection.reconnect()
                 requestStart()
+            } catch (timeout: kotlinx.coroutines.TimeoutCancellationException) {
+                Settings.connectionDesired = false
+                errorMessage.value = getString(R.string.native_connection_stop_timeout)
             } catch (cancelled: CancellationException) { throw cancelled }
             catch (error: Exception) {
                 Settings.connectionDesired = false
                 errorMessage.value = error.message ?: error.javaClass.simpleName
-            } finally { reconnectBusy.value = false }
+            } finally {
+                if (reconnectJob == currentCoroutineContext()[Job]) {
+                    reconnectBusy.value = false
+                    reconnectJob = null
+                }
+            }
         }
     }
 
@@ -2449,21 +2487,43 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshSettingsSnapshot()
     }
 
+    private fun requestStop() {
+        val waitingForService = nativeStartPending || BoxService.hasActiveCore() || BoxService.isRunning() ||
+            serviceStatus.value == Status.Started || serviceStatus.value == Status.Stopping ||
+            (serviceStatus.value == Status.Starting && !pendingStartAfterVpnPermission)
+        reconnectJob?.cancel()
+        reconnectJob = null
+        reconnectBusy.value = false
+        cancelRecovery()
+        Settings.connectionDesired = false
+        Settings.startedByUser = false
+        nativeStartPending = false
+        pendingStartAfterVpnPermission = false
+        serviceStartWatchdog?.cancel()
+        serviceStartWatchdog = null
+        serviceStartTracker.reset()
+        homeConnectionFailed.value = false
+        serviceStatus.value = if (waitingForService) Status.Stopping else Status.Stopped
+        BoxService.stop()
+    }
+
+    private suspend fun awaitServiceStopped() {
+        withTimeout(30_000) {
+            while (serviceStatus.value != Status.Stopped || BoxService.hasActiveCore() || BoxService.isRunning()) delay(100)
+        }
+    }
+
     private fun toggleConnection() {
-        if (reconnectBusy.value || chainBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value) return
-        if (recoveryJob != null || recoveryAttempt.value > 0) {
-            homeConnectionFailed.value = false
+        // Stop must remain available while startup, recovery or settings reconnect is pending.
+        if (reconnectBusy.value || recoveryJob != null || recoveryAttempt.value > 0 ||
+            nativeStartPending || pendingStartAfterVpnPermission || serviceStatus.value == Status.Starting) {
             connectionHaptic(stopping = true)
-            Settings.connectionDesired = false
-            Settings.startedByUser = false
-            nativeStartPending = false
-            pendingStartAfterVpnPermission = false
-            cancelRecovery()
-            BoxService.stop()
+            requestStop()
             return
         }
         when (serviceStatus.value) {
             Status.Stopped -> {
+                if (BoxService.hasActiveCore()) { requestStop(); return }
                 connectionHaptic(stopping = false)
                 requestStart()
             }
@@ -2471,26 +2531,17 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 if (requiresReconnect.value) { reconnectWithSavedSettings(); return }
                 if (BoxService.vpnProtection()["alwaysOn"] == true) { openVpnSettings(); return }
                 connectionHaptic(stopping = true)
-                cancelRecovery()
-                Settings.connectionDesired = false
-                BoxService.stop()
+                requestStop()
             }
-
-            Status.Starting -> {
-                connectionHaptic(stopping = true)
-                Settings.connectionDesired = false
-                Settings.startedByUser = false
-                nativeStartPending = false
-                pendingStartAfterVpnPermission = false
-                cancelRecovery()
-                BoxService.stop()
-            }
+            Status.Starting -> requestStop()
             Status.Stopping -> Unit
         }
     }
 
     private fun requestStart() {
-        if (privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value) return
+        if (privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value ||
+            chainBusy.value || busyProfileId.value != null || profileEditorBusy.value || nativeStartPending ||
+            pendingStartAfterVpnPermission || serviceStatus.value != Status.Stopped || BoxService.hasActiveCore()) return
         cancelRecovery()
         recoveryPolicy.reset()
         nativeStartPending = false
@@ -2520,6 +2571,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
             if (permissionIntent != null) {
                 pendingStartAfterVpnPermission = true
+                serviceStatus.value = Status.Starting
                 vpnPermissionLauncher.launch(permissionIntent)
                 return
             }
@@ -2528,15 +2580,37 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         startForegroundVpn()
     }
 
+    private fun observeIssuedServiceStart() {
+        serviceStartTracker.markIssued()
+        serviceStartWatchdog?.cancel()
+        serviceStartWatchdog = lifecycleScope.launch {
+            delay(20_000)
+            if (nativeStartPending && !BoxService.hasActiveCore() && !BoxService.isRunning()) {
+                nativeStartPending = false
+                serviceStartTracker.reset()
+                Settings.connectionDesired = false
+                Settings.startedByUser = false
+                serviceStatus.value = Status.Stopped
+                homeConnectionFailed.value = true
+                errorMessage.value = getString(R.string.native_connection_service_unavailable)
+            }
+        }
+    }
+
     private fun startForegroundVpn() {
         try {
             Settings.connectionDesired = true
             Settings.startCoreAfterStartingService = true
             nativeStartPending = true
+            observeIssuedServiceStart()
+            serviceStatus.value = Status.Starting
             BoxService.start()
         } catch (error: Exception) {
             nativeStartPending = false
+            serviceStartTracker.reset()
+            serviceStatus.value = Status.Stopped
             Settings.connectionDesired = false
+            Settings.startedByUser = false
             homeConnectionFailed.value = true
             errorMessage.value = error.message ?: error.javaClass.simpleName
         }
@@ -2602,10 +2676,22 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     override fun onServiceStatusChanged(status: Status) {
         runOnUiThread {
+            // Binding delivers Stopped before a queued foreground start has reached onStartCommand.
+            if (pendingStartAfterVpnPermission && status == Status.Stopped) return@runOnUiThread
+            val startResult = serviceStartTracker.onStatus(status)
+            if (nativeStartPending && status == Status.Stopped && startResult == null) return@runOnUiThread
+            if (startResult != null) serviceStartTracker.reset()
+            // A queued Starting/Started callback must never undo a user's stop intent.
+            if (!Settings.connectionDesired && serviceStatus.value == Status.Stopping &&
+                (status == Status.Starting || status == Status.Started)) return@runOnUiThread
             serviceStatus.value = status
             if (status == Status.Starting || status == Status.Started) homeConnectionFailed.value = false
             requiresReconnect.value = Settings.nativeReconnectRequired
-            if (status == Status.Starting || status == Status.Started || status == Status.Stopped) nativeStartPending = false
+            if (status == Status.Started || status == Status.Stopped) {
+                nativeStartPending = false
+                serviceStartWatchdog?.cancel()
+                serviceStartWatchdog = null
+            }
             if (status == Status.Started) trackStableConnection()
             else {
                 stableConnectionJob?.cancel()
@@ -2647,6 +2733,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         runOnUiThread {
             homeConnectionFailed.value = true
             nativeStartPending = false
+            serviceStartTracker.reset()
+            serviceStartWatchdog?.cancel()
+            serviceStartWatchdog = null
             if (type != Alert.StartService && type != Alert.CreateService) {
                 Settings.connectionDesired = false
                 cancelRecovery()

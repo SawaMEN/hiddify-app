@@ -1001,7 +1001,7 @@ private fun ConnectionCard(
     val motionDuration = if (LocalNativeMotionEnabled.current) 180 else 0
     val textDuration = if (LocalNativeMotionEnabled.current) 250 else 0
     val accent by animateColorAsState(targetAccent, tween(motionDuration), label = "Connection color")
-    val enabled = !reconnectBusy && (recovering || status != Status.Stopping)
+    val enabled = reconnectBusy || recovering || status != Status.Stopping
     val scale by animateFloatAsState(if (enabled) 1f else .94f, tween(motionDuration), label = "Connection scale")
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.size(176.dp).graphicsLayer { scaleX = scale; scaleY = scale }.background(

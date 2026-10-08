@@ -740,4 +740,6 @@
     <string name="native_home_choose_profile">Choose a profile</string>
     <string name="native_home_selection_reason">Selected after repeated successful checks</string>
     <string name="native_home_version">Version</string>
+    <string name="native_connection_stop_timeout">Unable to stop the VPN within 30 seconds. Wait for the service to stop and try again.</string>
+    <string name="native_connection_service_unavailable">The VPN service did not start. Please try connecting again.</string>
 </resources>
