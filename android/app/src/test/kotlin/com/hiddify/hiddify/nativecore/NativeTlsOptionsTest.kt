@@ -21,7 +21,7 @@ class NativeTlsOptionsTest {
     }
 
     @Test fun invalidRangeNeverProducesAnUpdate() {
-        listOf("", " ", "-1", "1-", "1-2-3", "3-2", "1.5", "+1", "1 - 2", "2147483648", "1\n-2").forEach { input ->
+        listOf("-1", "1-", "1-2-3", "3-2", "1.5", "+1", "1 - 2", "2147483648", "1\n-2").forEach { input ->
             assertThrows(IllegalArgumentException::class.java) {
                 NativeTlsOptionField.FRAGMENT_SIZE.applyTo(NativeTlsOptions(), input)
             }
@@ -31,7 +31,7 @@ class NativeTlsOptionsTest {
         }
     }
 
-    @Test fun importedEmptyRangesStayValidWithoutAllowingEmptyEdits() {
+    @Test fun storedOptionalRangesAndStrictHelperHaveSeparateContracts() {
         val imported = NativeTlsOptions(fragmentSize = "", fragmentSleep = "", paddingSize = "")
         assertEquals(imported, imported.validated())
         assertEquals("", NativeTlsOptions.normalizeRange(" ", allowEmpty = true))
@@ -51,7 +51,9 @@ class NativeTlsOptionsTest {
     }
     @Test fun rangeFieldsCanBeClearedLikeStoredOptionalRanges() {
         listOf(NativeTlsOptionField.FRAGMENT_SIZE, NativeTlsOptionField.FRAGMENT_SLEEP, NativeTlsOptionField.PADDING_SIZE).forEach { field ->
-            assertEquals("", field.value(field.applyTo(NativeTlsOptions(), "")))
+            listOf("", " ").forEach { input ->
+                assertEquals("", field.value(field.applyTo(NativeTlsOptions(), input)))
+            }
         }
     }
 }
