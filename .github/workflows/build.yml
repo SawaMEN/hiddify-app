@@ -152,7 +152,7 @@ jobs:
       - name: Check core privacy and adaptive connection policies
         if: ${{ inputs.run-tests }}
         working-directory: hiddify-core
-        run: go test -ldflags=-checklinkname=0 -tags with_quic,with_utls,with_gvisor,with_wireguard,with_clash_api ./v2/config ./v2/hcore
+        run: go test -ldflags=-checklinkname=0 -tags with_quic,with_utls,with_gvisor,with_wireguard,with_clash_api ./v2/config ./v2/hcore ./platform/mobile
 
       - name: Build standalone Kotlin Android ARM64 APK
         working-directory: android

@@ -743,7 +743,7 @@
     <string name="native_connection_stop_timeout">Не удалось остановить VPN за 30 секунд. Дождитесь завершения остановки и повторите действие.</string>
     <string name="native_connection_service_unavailable">Служба VPN не запустилась. Попробуйте подключиться снова.</string>
     <string name="native_import_preview">Предпросмотр импорта</string>
-    <string name="native_import_hint">Проверьте конфигурацию перед импортом. Счётчики — оценки для поддерживаемых форматов.</string>
+    <string name="native_import_hint">Подготовленная конфигурация проверена ядром. Счётчики — оценки для поддерживаемых форматов.</string>
     <string name="native_import_servers">Найдено серверов: %1$d</string>
     <string name="native_import_duplicates">Дубликаты: %1$d</string>
     <string name="native_import_unknown_types">Неизвестные типы протоколов: %1$d</string>

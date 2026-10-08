@@ -548,5 +548,35 @@ Six NativeImportSummaryTest cases cover JSON/endpoints, duplicates, unknown type
 credential handling, Base64 links, YAML, header names/HTTP warning and malformed inputs. The JVM
 test command was attempted but could not download Gradle (`Network is unreachable`). Native
 resource/boundary checks, protocol-catalogue comparison and whitespace checks pass. APK build
-and on-device rendering are not awaited. Core validation of staged configurations and full
-small-screen/device parity remain separate outstanding work.
+and on-device rendering are not awaited. The next stage adds native core validation below; full small-screen/device parity remains
+outstanding.
+
+
+## Core validation before persistence
+
+All native profile imports, automatic/manual subscription refreshes and editor saves now validate
+the staged source through the pinned hiddify-core parser and sing-box CheckConfigOptions before
+file/database replacement. Invalid source, malformed setting types and parser failures preserve
+the existing profile. Import previews are shown only after validation succeeds, so the original
+Dart EN/RU hint stating core validation is restored. Profile-specific options are merged into a
+private JSON snapshot; they are not applied to the active service or saved as global preferences.
+
+The core adds BeginProfileValidation/ValidateProfile/CancelProfileValidation/FinishProfileValidation
+to the gomobile API. Each bounded session has its own libbox context and 45-second deadline,
+registered before parser entry. It uses DefaultHiddifyOptions plus the supplied typed options
+and the same ParseConfig/CheckConfigOptions path as Parse RPC. It never calls Setup, Start, Stop,
+ChangeHiddifySettings or database persistence. Cancellation checks bracket parsing and use the
+parser context; legacy parser helpers that do not observe context can delay return, but cancelled
+validation cannot proceed to preview or commit. No independent TUN or proxy service is started.
+
+The Kotlin bridge attaches the import token to the native session and releases it in finally,
+including cancellation before JNI entry, parser exceptions and a native call returning after
+cancellation. Five JVM tests cover these cases. Six Go tests cover supported JSON shapes, invalid
+source/types, size bounds, cancellation isolation, registration cleanup, session limits and expiry.
+The Android CI core-test step now includes platform/mobile. The app pins the new core commit;
+new bindings require rebuilding the AAR through the existing build pipeline.
+
+Native/resource checks and whitespace checks pass. JVM tests could not start because Gradle
+download is blocked; Go tests could not run because this environment has no Go toolchain. No
+APK build is awaited. Native linking, actual parser acceptance across protocol formats and same-
+device visual/interaction comparison remain CI/device verification work.

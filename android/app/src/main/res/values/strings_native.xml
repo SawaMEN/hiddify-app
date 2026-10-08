@@ -743,7 +743,7 @@
     <string name="native_connection_stop_timeout">Unable to stop the VPN within 30 seconds. Wait for the service to stop and try again.</string>
     <string name="native_connection_service_unavailable">The VPN service did not start. Please try connecting again.</string>
     <string name="native_import_preview">Import preview</string>
-    <string name="native_import_hint">Review the configuration before importing. Counts are estimates for supported formats.</string>
+    <string name="native_import_hint">The staged configuration has been validated by the core. Counts are estimates for supported formats.</string>
     <string name="native_import_servers">Detected servers: %1$d</string>
     <string name="native_import_duplicates">Duplicates: %1$d</string>
     <string name="native_import_unknown_types">Unknown protocol types: %1$d</string>

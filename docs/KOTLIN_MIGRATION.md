@@ -560,8 +560,23 @@ summary dialog before saving; automatic subscription updates keep their existing
 behavior. The dialog restores Dart's server/duplicate/unknown/override estimates and HTTP warning,
 with a cancellation-aware suspending decision. Rejecting it preserves the old profile/configuration
 and the current import draft. Prepared source is reused after confirmation and stays out of saved
-instance state. Core validation and device screenshot verification remain pending.
+instance state. Core validation is added in the following stage; device screenshot verification remains pending.
 
 NativeImportSummaryTest is included in the JVM suite. Resource/boundary checks, the original
 protocol-catalogue comparison and whitespace checks pass. The local JVM test command is blocked
 by the Gradle distribution download; no APK build is awaited.
+
+
+## Isolated native profile validation
+
+Imports, subscription refreshes and editor saves now use a separate gomobile validation session
+before committing the staged source. The core validates with private options and the existing
+config parser/sing-box checker, without starting its RPC/VPN services or changing active settings.
+The original preview hint is restored only after this validation succeeds. Sessions register
+cancellation before native entry, have a 45-second context deadline and are always released by
+the Kotlin bridge. Cancellation cannot commit a profile even if a parser helper returns late.
+
+Five Kotlin lifecycle tests and six Go validation tests are added, and the Android workflow runs
+the mobile package with the existing core checks. The core submodule is updated to include the
+new gomobile methods. Local tests remain blocked by unavailable Gradle downloads and the missing
+Go toolchain; resource and whitespace checks pass. APK compilation is not awaited.

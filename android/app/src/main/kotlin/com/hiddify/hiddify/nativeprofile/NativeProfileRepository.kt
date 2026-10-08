@@ -378,6 +378,7 @@ class NativeProfileRepository(private val context: Context) {
                 populatedHeaders = JSONObject(storedHeaders).toString(),
                 userOverride = userOverride,
             )
+        validateContent(updated, content, null)
         commit(updated, content, isNew = false)
         return updated
     }
@@ -495,6 +496,7 @@ class NativeProfileRepository(private val context: Context) {
                 populatedHeaders = JSONObject(mergedHeaders).toString(),
                 userOverride = override,
             )
+        validateContent(profile, expanded, cancellation)
         cancellation?.ensureActive()
         return NativePreparedProfile(profile, expanded, existing == null,
             NativeImportSummary.parse(expanded, mergedHeaders.keys, java.net.URI(url).scheme.equals("http", true)))
@@ -538,8 +540,19 @@ class NativeProfileRepository(private val context: Context) {
                             .toString()
                     },
             )
+        validateContent(profile, decoded, cancellation)
         cancellation?.ensureActive()
         return NativePreparedProfile(profile, decoded, true, NativeImportSummary.parse(decoded, headers.keys))
+    }
+
+    private fun validateContent(
+        profile: NativeProfile,
+        content: String,
+        cancellation: NativeProfileImportCancellation?,
+    ) {
+        val options = NativeProfileOverrides.apply(Settings.configOptions,
+            profile.populatedHeaders, profile.userOverride)
+        com.hiddify.hiddify.nativecore.NativeProfileValidator.validate(content, options, cancellation)
     }
 
     internal fun commitPrepared(
