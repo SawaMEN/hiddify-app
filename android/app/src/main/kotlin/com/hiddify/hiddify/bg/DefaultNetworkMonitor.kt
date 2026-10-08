@@ -33,6 +33,7 @@ object DefaultNetworkMonitor {
     private var generation = 0
     private var lastInterface: Pair<String, Int>? = null
     private var lastNetwork: Network? = null
+    private var lastCost: Pair<Boolean, Boolean>? = null
 
     suspend fun start() {
         DefaultNetworkListener.start(this) {
@@ -50,6 +51,7 @@ object DefaultNetworkMonitor {
             updateJob = null
             lastInterface = null
             lastNetwork = null
+            lastCost = null
         }
         // Do not let Mobile.close() race an already-issued updateDefaultInterface/Mobile.wake.
         synchronized(nativeCallbackLock) { }
@@ -70,6 +72,11 @@ object DefaultNetworkMonitor {
 
     fun setListener(newListener: InterfaceUpdateListener?) {
         synchronized(listenerLock) {
+            if (listener !== newListener) {
+                lastInterface = null
+                lastNetwork = null
+                lastCost = null
+            }
             listener = newListener
         }
         checkDefaultInterfaceUpdate(defaultNetwork)
@@ -103,11 +110,16 @@ object DefaultNetworkMonitor {
     }
 
     private fun notifyListener(interfaceName: String, interfaceIndex: Int, network: Network?, expectedGeneration: Int) {
+        val cost = runCatching {
+            val capabilities = network?.let { Application.connectivity.getNetworkCapabilities(it) }
+            val expensive = capabilities != null && !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+            expensive to (expensive && Application.connectivity.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED)
+        }.getOrDefault(false to false)
         val snapshot = synchronized(listenerLock) {
             if (expectedGeneration != generation) return
             val currentListener = listener ?: return
             val next = Pair(interfaceName, interfaceIndex)
-            if (next == lastInterface && network == lastNetwork) return
+            if (next == lastInterface && network == lastNetwork && cost == lastCost) return
             Triple(currentListener, next, lastInterface != null && interfaceIndex >= 0)
         }
         val (currentListener, next, recovering) = snapshot
@@ -119,17 +131,14 @@ object DefaultNetworkMonitor {
             if (!stillCurrent) return
 
             runCatching {
-                val capabilities = network?.let { Application.connectivity.getNetworkCapabilities(it) }
-                val expensive = capabilities != null && !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-                val constrained = expensive &&
-                    Application.connectivity.restrictBackgroundStatus == ConnectivityManager.RESTRICT_BACKGROUND_STATUS_ENABLED
-                currentListener.updateDefaultInterface(interfaceName, interfaceIndex, expensive, constrained)
+                currentListener.updateDefaultInterface(interfaceName, interfaceIndex, cost.first, cost.second)
                 if (recovering) Mobile.wake()
             }.onSuccess {
                 synchronized(listenerLock) {
                     if (expectedGeneration == generation && listener === currentListener) {
                         lastInterface = next
                         lastNetwork = network
+                        lastCost = cost
                     }
                 }
             }.onFailure {

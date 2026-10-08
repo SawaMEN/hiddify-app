@@ -110,7 +110,11 @@ internal object NativeSettingsDocument {
             val port = port(key, fallback)
             if (enabled("enable-$key", fallback != 0) && port != 0) listeners += port
         }
-        if (enabled("enable-clash-api", false)) listeners += port("clash-api-port", 16756)
+        if (enabled("enable-clash-api", false)) {
+            val clashPort = port("clash-api-port", 16756)
+            require(clashPort != 0) { "Enabled Clash API requires a nonzero port" }
+            listeners += clashPort
+        }
         require(listeners.distinct().size == listeners.size) { "Enabled listeners must use different ports" }
         val mode = root.get("ipv6-mode")?.asString ?: "ipv4_only"
         require(mode in setOf("", "ipv4_only") || (root.get("mtu")?.asInt ?: 9000) >= 1280) { "IPv6 requires an MTU of at least 1280" }

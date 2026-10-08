@@ -27,6 +27,7 @@ class ServiceConnection(
     private val callback = ServiceCallback(callback)
     @Volatile
     private var service: IService? = null
+    @Volatile private var bindingRequested = false
 
     val status: Status
         get() {
@@ -43,10 +44,13 @@ class ServiceConnection(
         }
 
     fun connect() {
+        if (bindingRequested) return
+        bindingRequested = true
         val intent = Intent(context, Settings.serviceClass()).setAction(Action.SERVICE)
         runCatching {
-            context.bindService(intent, this, AppCompatActivity.BIND_AUTO_CREATE)
+            check(context.bindService(intent, this, AppCompatActivity.BIND_AUTO_CREATE)) { "Service binding was rejected" }
         }.onFailure {
+            bindingRequested = false
             Log.e(TAG, "failed to bind service", it)
             callback.onServiceStatusChanged(Status.Stopped.ordinal)
         }
@@ -54,6 +58,7 @@ class ServiceConnection(
     }
 
     fun disconnect() {
+        bindingRequested = false
         clearService()
         try {
             context.unbindService(this)
@@ -63,22 +68,13 @@ class ServiceConnection(
     }
 
     fun reconnect() {
-        clearService()
-        try {
-            context.unbindService(this)
-        } catch (_: IllegalArgumentException) {
-        }
-        val intent = Intent(context, Settings.serviceClass()).setAction(Action.SERVICE)
-        runCatching {
-            context.bindService(intent, this, AppCompatActivity.BIND_AUTO_CREATE)
-        }.onFailure {
-            Log.e(TAG, "failed to rebind service", it)
-            callback.onServiceStatusChanged(Status.Stopped.ordinal)
-        }
+        disconnect()
+        connect()
         Log.d(TAG, "request reconnect")
     }
 
     override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+        if (!bindingRequested) return
         val service = IService.Stub.asInterface(binder)
         this.service = service
         try {
@@ -105,12 +101,12 @@ class ServiceConnection(
 
     override fun onBindingDied(name: ComponentName?) {
         clearService()
-        reconnect()
+        if (bindingRequested) reconnect()
         Log.d(TAG, "service dead")
     }
 
     override fun onNullBinding(name: ComponentName?) {
-        clearService()
+        disconnect()
         callback.onServiceStatusChanged(Status.Stopped.ordinal)
         Log.w(TAG, "service returned a null binding")
     }

@@ -5,6 +5,12 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeServiceModeOptionsTest {
+    @Test fun legacyAutoIpv6ModeIsMigratedBeforeNativeStartup() {
+        for (vpn in listOf(true, false)) {
+            val root = JsonParser.parseString(NativeServiceModeOptions.apply("""{"ipv6-mode":"auto"}""", vpn)).asJsonObject
+            assertEquals("prefer_ipv4", root.get("ipv6-mode").asString)
+        }
+    }
     @Test fun freshAndroidVpnConfigCreatesTunInbound() {
         val root = JsonParser.parseString(NativeServiceModeOptions.apply("", true)).asJsonObject
         assertTrue(root.get("enable-tun").asBoolean)

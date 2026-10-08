@@ -36,7 +36,7 @@ class NativeChainRepository {
     }
 
     fun load(): NativeChainOptions {
-        val root = root()
+        val root = runCatching { root() }.getOrElse { JSONObject() }
         val extra = root.optJSONObject("extra-security") ?: JSONObject()
         val extraWarp = extra.optJSONObject("warp") ?: JSONObject()
         val extraPsiphon = extra.optJSONObject("psiphon") ?: JSONObject()
@@ -72,7 +72,7 @@ class NativeChainRepository {
         )
     }
 
-    fun replaceDeletedProfile(id: String, nextActiveId: String?) {
+    fun replaceDeletedProfile(id: String) {
         val root = runCatching { root() }.getOrElse {
             android.util.Log.w("NativeChainRepository", "Cannot repair references in invalid chain settings", it)
             return
@@ -81,7 +81,8 @@ class NativeChainRepository {
         for (key in listOf("extra-security", "unblocker")) {
             val profile = root.optJSONObject(key)?.optJSONObject("profile") ?: continue
             if (profile.optString("id") == id) {
-                profile.putNullable("id", nextActiveId)
+                // Never substitute the main profile: that creates a self-referencing chain.
+                profile.putNullable("id", null)
                 changed = true
             }
         }
@@ -89,6 +90,10 @@ class NativeChainRepository {
     }
 
     fun save(value: NativeChainOptions): NativeChainOptions {
+        require(value.status in statusChoices && value.extraMode in modeChoices && value.unblockerMode in modeChoices) { "Invalid chain selection" }
+        require(value.unblockerWarpPort in 0..65535) { "Invalid WARP port" }
+        listOf(value.unblockerWarpNoise, value.unblockerWarpNoiseSize, value.unblockerWarpNoiseDelay)
+            .forEach { NativeTlsOptions.normalizeRange(it, allowEmpty = true) }
         val root = root()
         root.put("chain-status", value.status.validChoice(statusChoices, "off"))
 
@@ -142,12 +147,7 @@ class NativeChainRepository {
     }
 
     private fun root(): JSONObject =
-        runCatching {
-            Settings.configOptions.trim()
-                .takeIf { it.isNotEmpty() }
-                ?.let(::JSONObject)
-                ?: JSONObject()
-        }.getOrElse { JSONObject() }
+        Settings.configOptions.trim().takeIf { it.isNotEmpty() }?.let(::JSONObject) ?: JSONObject()
 
     private fun JSONObject.objectFor(key: String): JSONObject {
         val child = optJSONObject(key) ?: JSONObject()

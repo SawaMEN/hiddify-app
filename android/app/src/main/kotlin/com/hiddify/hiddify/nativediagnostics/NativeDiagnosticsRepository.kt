@@ -12,7 +12,8 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.URI
-import java.util.concurrent.Executors
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.ArrayBlockingQueue
 import kotlinx.coroutines.runInterruptible
 import java.time.Instant
 import java.util.concurrent.TimeUnit
@@ -25,9 +26,10 @@ import kotlinx.coroutines.withContext
 class NativeDiagnosticsRepository {
     companion object {
         // Platform DNS may ignore interruption. Keep its workers and caller wait bounded.
-        private val dnsWorkers = Executors.newFixedThreadPool(2) { task ->
-            Thread(task, "native-diagnostic-dns").apply { isDaemon = true }
-        }
+        private val dnsWorkers = ThreadPoolExecutor(2, 2, 0L, TimeUnit.MILLISECONDS,
+            ArrayBlockingQueue<Runnable>(8), { task ->
+                Thread(task, "native-diagnostic-dns").apply { isDaemon = true }
+            }, ThreadPoolExecutor.AbortPolicy())
     }
     fun protection(): NativeVpnProtection {
         val values = BoxService.vpnProtection()
@@ -61,9 +63,11 @@ class NativeDiagnosticsRepository {
         ))
         val dnsAvailable = try {
             val host = URI(testUrl).host?.takeIf { it.isNotBlank() } ?: error("Invalid probe host")
-            val future = dnsWorkers.submit<Boolean> { InetAddress.getAllByName(host).isNotEmpty() }
+            val network = com.hiddify.hiddify.bg.DefaultNetworkListener.underlyingNetwork()
+                ?: error("No underlying network")
+            val future = dnsWorkers.submit<Boolean> { network.getAllByName(host).isNotEmpty() }
             try { runInterruptible(Dispatchers.IO) { future.get(5, TimeUnit.SECONDS) } }
-            finally { future.cancel(true) }
+            finally { future.cancel(true); dnsWorkers.purge() }
         } catch (error: CancellationException) { throw error } catch (_: Exception) { false }
         add(NativeDiagnosticCheck(NativeDiagnosticStage.DNS,
             if (dnsAvailable) NativeDiagnosticOutcome.PASSED else NativeDiagnosticOutcome.FAILED,
@@ -77,9 +81,19 @@ class NativeDiagnosticsRepository {
                     NativeDiagnosticCheck(NativeDiagnosticStage.SERVER, NativeDiagnosticOutcome.SKIPPED, NativeDiagnosticDetail.TRANSPORT_SKIPPED)
                 else -> {
                     val socket = Socket()
-                    val future = dnsWorkers.submit<Boolean> { socket.connect(InetSocketAddress(endpoint.host, endpoint.port), 5_000); true }
-                    try { runInterruptible(Dispatchers.IO) { future.get(5, TimeUnit.SECONDS) } }
-                    finally { future.cancel(true); socket.close() }
+                    try {
+                        val network = com.hiddify.hiddify.bg.DefaultNetworkListener.underlyingNetwork()
+                            ?: error("No underlying network")
+                        network.bindSocket(socket)
+                        val future = dnsWorkers.submit<Boolean> {
+                            val addresses = network.getAllByName(endpoint.host)
+                            check(addresses.isNotEmpty()) { "Server DNS returned no addresses" }
+                            socket.connect(InetSocketAddress(addresses.first(), endpoint.port), 5_000)
+                            true
+                        }
+                        try { runInterruptible(Dispatchers.IO) { future.get(5, TimeUnit.SECONDS) } }
+                        finally { future.cancel(true); dnsWorkers.purge() }
+                    } finally { socket.close() }
                     NativeDiagnosticCheck(NativeDiagnosticStage.SERVER, NativeDiagnosticOutcome.PASSED, NativeDiagnosticDetail.SERVER_AVAILABLE)
                 }
             }

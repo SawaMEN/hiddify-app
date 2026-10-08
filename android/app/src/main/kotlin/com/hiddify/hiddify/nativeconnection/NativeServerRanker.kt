@@ -23,10 +23,10 @@ class NativeServerRanker {
 
     fun restore(history: Map<String, NativeServerSample>, now: Long) {
         samples.clear()
-        history.entries.take(128).forEach { (tag, s) ->
+        history.entries.sortedByDescending { it.value.updated }.forEach { (tag, s) ->
             if (tag.isNotBlank() && tag.length <= 1024 && s.average.isFinite() && s.average in 0.0..64999.0 &&
                 s.successes in 0..100 && s.failures in 0..20 && s.updated > 0 && now - s.updated in 0..86399999L) {
-                samples[tag] = Sample(s.average, s.successes, s.failures, s.updated)
+                if (samples.size < 128) samples[tag] = Sample(s.average, s.successes, s.failures, s.updated)
             }
         }
         candidate = null; wins = 0; evaluated = 0; lastSwitch = 0; revision = 0
@@ -38,7 +38,11 @@ class NativeServerRanker {
     private var lastSwitch = 0L
 
     fun observe(tag: String, delay: Int, timestamp: Long, now: Long) {
+        if (tag.isBlank() || tag.length > 1024) return
         if (timestamp <= 0 || timestamp > now + 1000) return
+        if (tag !in samples && samples.size >= 128) {
+            samples.entries.minByOrNull { it.value.updated }?.key?.let(samples::remove)
+        }
         val sample = samples.getOrPut(tag) { Sample() }
         if (timestamp <= sample.updated) return
         sample.updated = timestamp

@@ -18,6 +18,8 @@ sourceSets {
         kotlin {
             srcDir '../../android/app/src/main/kotlin'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileTransfer.kt'
+            include 'com/hiddify/hiddify/nativeprofile/NativeProfileFileReplacement.kt'
+            include 'com/hiddify/hiddify/nativeprofile/NativeProfileFileRemoval.kt'
             include 'com/hiddify/hiddify/nativelog/NativeLogPresentation.kt'
             include 'com/hiddify/hiddify/nativelog/NativeLogFiles.kt'
             include 'com/hiddify/hiddify/nativecore/NativeSettingsDocument.kt'
@@ -37,6 +39,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativecore/NativeTlsOptions.kt'
             include 'com/hiddify/hiddify/nativecore/NativeConfigChoices.kt'
             include 'com/hiddify/hiddify/nativecore/NativeServiceModeOptions.kt'
+            include 'com/hiddify/hiddify/nativecore/NativeCoreOptionsProjection.kt'
             include 'com/hiddify/hiddify/nativecore/NativeOutboundPresentation.kt'
             include 'com/hiddify/hiddify/nativepreferences/NativeOutboundSort.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeFreeProfiles.kt'
@@ -52,6 +55,9 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeconnection/NativeConnectionPolicy.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeBackgroundPermissionPolicy.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeRecoveryPolicy.kt'
+            include 'com/hiddify/hiddify/nativeconnection/NativeStartupCancellation.kt'
+            include 'com/hiddify/hiddify/ServiceStartTracker.kt'
+            include 'com/hiddify/hiddify/constant/Status.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeServerRanker.kt'
             include 'com/hiddify/hiddify/nativeprivacy/NativePrivacySetup.kt'
             include 'com/hiddify/hiddify/sharing/HotspotInterfaceSelection.kt'
@@ -67,6 +73,7 @@ sourceSets {
 dependencies {
     implementation 'com.google.code.gson:gson:2.14.0'
     implementation 'com.google.zxing:core:3.5.3'
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2'
     testImplementation 'junit:junit:4.13.2'
 }
 

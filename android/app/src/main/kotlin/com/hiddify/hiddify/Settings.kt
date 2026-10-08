@@ -43,7 +43,8 @@ object Settings {
         }
     val privacyFullTunnel get() = getBoolean("flutter.privacy-full-tunnel", false)
     val privacyHideLocalProxy get() = NativeProxyPrivacy.hideLocalProxyForCore(
-        getBoolean(NativeProxyPrivacy.HIDE_LOCAL_PROXY_KEY, true), wifiVpnSharing || getBoolean("flutter.allow-connection-from-lan", false), privacyUseRoot,
+        getBoolean(NativeProxyPrivacy.HIDE_LOCAL_PROXY_KEY, true), wifiVpnSharing ||
+            com.hiddify.hiddify.nativecore.NativeInboundOptionsRepository(Application.application).load().allowLan, privacyUseRoot,
     )
     val privacyHideClashApi get() = getBoolean(NativeProxyPrivacy.HIDE_CLASH_API_KEY, true)
     val privacyEncryptedDns get() = getBoolean("flutter.privacy-encrypted-dns", true)
@@ -116,7 +117,8 @@ object Settings {
     }
 
     val grpcFrontPort get() = getInt("local_control_front_port", 17078).takeIf { it in 1..65535 } ?: 17078
-    val grpcBackPort get() = getInt("local_control_back_port", 17079).takeIf { it in 1..65535 && it != grpcFrontPort } ?: 17079
+    val grpcBackPort get() = getInt("local_control_back_port", 17079).takeIf { it in 1..65535 && it != grpcFrontPort }
+        ?: if (grpcFrontPort == 17079) 17078 else 17079
     val grpcAuthToken: String
         @Synchronized get() {
             val saved = getString("local_control_token", "")
@@ -141,7 +143,17 @@ object Settings {
         val general = com.hiddify.hiddify.nativecore.NativeGeneralOptionsRepository(context).load()
         val dns = com.hiddify.hiddify.nativecore.NativeDnsOptionsRepository(context).load()
         val tls = com.hiddify.hiddify.nativecore.NativeTlsOptionsRepository(context).load()
-        return com.google.gson.Gson().toJson(listOf(serviceMode, handbookRouting, handbookProxy, handbookDirect, handbookProxySites, handbookDirectSites, inbound.allowLan, inbound.lanPassword, chain, general, dns, tls, perAppProxyMode, (if (perAppProxyEnabled) perAppProxyList else emptyList<String>()).toSortedSet(), com.hiddify.hiddify.privacy.NetworkPrivacySettings.loadFilters(context)))
+        val tunnel = com.hiddify.hiddify.nativecore.NativeTunnelOptionsRepository(context).load()
+        val privacy = com.hiddify.hiddify.privacy.NetworkPrivacySettings.loadProxyPrivacy(context)
+        val connection = com.hiddify.hiddify.privacy.NetworkPrivacySettings.loadConnection(context)
+        val referencedProfiles = com.hiddify.hiddify.nativeprofile.NativeProfileRepository(context).listProfiles()
+            .filter { it.active || it.id == chain.extraProfileId || it.id == chain.unblockerProfileId }
+            .sortedBy { it.id }.map { listOf(it.id, it.lastUpdate, it.populatedHeaders, it.userOverride) }
+        val regional = com.hiddify.hiddify.privacy.RegionalRouting.policy(context,
+            org.json.JSONObject(configOptions.ifBlank { "{}" }).optString("region", "other"))
+        return com.google.gson.Gson().toJson(listOf(serviceMode, privacyUseRoot, privacyFullTunnel, privacyEncryptedDns, privacyPublicDns,
+            disableMemoryLimit, wifiVpnSharing, privacy, connection, regional, handbookRouting, handbookProxy, handbookDirect, handbookProxySites, handbookDirectSites,
+            inbound, tunnel, chain, referencedProfiles, general, dns, tls, perAppProxyMode, (if (perAppProxyEnabled) perAppProxyList else emptyList<String>()).toSortedSet(), com.hiddify.hiddify.privacy.NetworkPrivacySettings.loadFilters(context)))
     }
 
     var nativeReconnectRequired: Boolean
