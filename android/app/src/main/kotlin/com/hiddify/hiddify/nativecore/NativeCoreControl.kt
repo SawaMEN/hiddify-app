@@ -3,6 +3,7 @@ package com.hiddify.hiddify.nativecore
 import com.hiddify.core.api.v2.hcore.ChangeHiddifySettingsRequest
 import com.hiddify.core.api.v2.hcore.CoreClient
 import com.hiddify.hiddify.Settings
+import com.hiddify.hiddify.constant.ServiceMode
 import com.hiddify.hiddify.utils.GrpcClientProvider
 
 /**
@@ -18,8 +19,13 @@ object NativeCoreControl {
 
     fun effectiveOptions(context: android.content.Context): String {
         val profile = com.hiddify.hiddify.nativeprofile.NativeProfileRepository(context).activeProfile()
-        return com.hiddify.hiddify.nativeprofile.NativeProfileOverrides.apply(Settings.configOptions,
-            profile?.populatedHeaders, profile?.userOverride)
+        // A VPN service must always ask sing-box to create its Android TUN inbound.
+        // The core's default enable-tun=false otherwise lets startup report Started
+        // while there is no Android VPN interface and no traffic can pass through it.
+        val overrides = com.hiddify.hiddify.nativeprofile.NativeProfileOverrides.apply(
+            Settings.configOptions, profile?.populatedHeaders, profile?.userOverride,
+        )
+        return NativeServiceModeOptions.apply(overrides, Settings.serviceMode == ServiceMode.VPN)
     }
 
     fun applyStoredSettings(context: android.content.Context) {

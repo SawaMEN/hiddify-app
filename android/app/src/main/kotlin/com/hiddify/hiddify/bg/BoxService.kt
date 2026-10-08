@@ -188,6 +188,10 @@ class BoxService(
                 stopAndAlert(Alert.EmptyConfiguration)
                 return
             }
+            if (!File(selectedConfigPath).isFile) {
+                stopAndAlert(Alert.EmptyConfiguration, "Selected profile file is missing: refresh or re-import the profile")
+                return
+            }
 
             activeProfileName = Settings.activeProfileName
 
@@ -279,6 +283,12 @@ class BoxService(
                             return
                         }
                         Mobile.start(selectedConfigPath, "")
+                        // A successful core start is not enough for Android VPN mode:
+                        // when enable-tun is missing the core can start only proxy listeners.
+                        // Never display Connected unless Android actually established a TUN.
+                        if (service is VPNService && fileDescriptor == null) {
+                            error("Android VPN interface was not created by the core (missing TUN inbound)")
+                        }
                     } finally { nativeStarting = false }
                     if (!Settings.connectionDesired || stopRequested) {
                         finishCancelledStart("cancelled during native start")
@@ -440,6 +450,7 @@ class BoxService(
             return
         }
         startCancellation?.join()
+        Log.e(TAG, "VPN/core startup failed ($type): ${message ?: "unknown error"}")
         // Initial setup/configuration failures require user correction, not repeated retries.
         if (status.value != Status.Started) Settings.connectionDesired = false
         if (!Settings.connectionDesired) Settings.startedByUser = false
