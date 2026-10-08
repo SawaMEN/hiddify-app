@@ -1,5 +1,6 @@
 package com.hiddify.hiddify.nativeui
 
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -62,19 +63,7 @@ fun NativePerAppScreen(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    text = stringResource(R.string.native_per_app_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f),
-                )
-                TextButton(onClick = onBack) { Text(stringResource(R.string.native_back)) }
-            }
+            NativePageHeader(stringResource(R.string.native_per_app_title), onBack)
         }
         item {
             TextButton(onClick = onOpenBackup, enabled = !busy) {
@@ -210,16 +199,13 @@ private fun AppRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .clickable(enabled = enabled, onClick = onToggle)
+                .toggleable(value = selected, enabled = enabled, role = androidx.compose.ui.semantics.Role.Checkbox,
+                    onValueChange = { onToggle() })
                 .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Checkbox(
-            checked = selected,
-            onCheckedChange = { onToggle() },
-            enabled = enabled,
-        )
+        NativeInstalledAppIcon(app.packageName)
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = app.label,
@@ -230,6 +216,7 @@ private fun AppRow(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = app.packageName,
+                    modifier = Modifier.weight(1f),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -244,5 +231,6 @@ private fun AppRow(
                 }
             }
         }
+        Checkbox(checked = selected, onCheckedChange = null, enabled = enabled)
     }
 }

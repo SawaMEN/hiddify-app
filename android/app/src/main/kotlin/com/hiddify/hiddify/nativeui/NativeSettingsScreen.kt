@@ -6,6 +6,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -129,6 +132,7 @@ fun NativeSettingsScreen(
             NativeSettingsLink(R.string.native_filters_title, R.drawable.native_shield, onOpenTrafficFilters)
             SettingSwitch(
                 title = stringResource(R.string.native_setting_proxy_only),
+                icon = R.drawable.native_chain_webhook,
                 summary = stringResource(R.string.native_setting_proxy_only_summary),
                 checked = state.serviceMode != ServiceMode.VPN,
                 enabled = canChangeServiceMode,
@@ -136,6 +140,7 @@ fun NativeSettingsScreen(
             )
             SettingSwitch(
                 title = stringResource(R.string.native_setting_root),
+                icon = R.drawable.privacy_admin,
                 summary = stringResource(R.string.native_setting_root_summary),
                 checked = state.rootRequested,
                 enabled = canChangeServiceMode && state.serviceMode == ServiceMode.VPN,
@@ -143,6 +148,7 @@ fun NativeSettingsScreen(
             )
             SettingSwitch(
                 title = stringResource(R.string.native_setting_wifi_sharing),
+                icon = R.drawable.native_chain_wifi,
                 summary = stringResource(R.string.native_setting_wifi_sharing_summary),
                 checked = state.wifiSharing,
                 enabled = !wifiSharingBusy,
@@ -154,6 +160,7 @@ fun NativeSettingsScreen(
             NativeSettingsLink(R.string.native_per_app_open, R.drawable.native_list, onOpenPerAppRouting)
             SettingSwitch(
                 title = stringResource(R.string.native_setting_full_tunnel),
+                icon = R.drawable.privacy_public,
                 summary = stringResource(R.string.native_setting_full_tunnel_summary),
                 checked = state.fullTunnel,
                 onCheckedChange = onFullTunnelChanged,
@@ -165,18 +172,21 @@ fun NativeSettingsScreen(
         if (category == null || category == NativeSettingsCategory.DNS) SettingsSection(title = stringResource(R.string.native_settings_dns)) {
             SettingSwitch(
                 title = stringResource(R.string.native_setting_encrypted_dns),
+                icon = R.drawable.native_dns_private_connectivity,
                 summary = stringResource(R.string.native_setting_encrypted_dns_summary),
                 checked = state.encryptedDns,
                 onCheckedChange = onEncryptedDnsChanged,
             )
             SettingSwitch(
                 title = stringResource(R.string.native_setting_public_dns),
+                icon = R.drawable.native_dns_public,
                 summary = stringResource(R.string.native_setting_public_dns_summary),
                 checked = state.publicDns,
                 onCheckedChange = onPublicDnsChanged,
             )
             SettingSwitch(
                 title = stringResource(R.string.native_setting_disable_system_proxy),
+                icon = R.drawable.privacy_network,
                 summary = stringResource(R.string.native_setting_disable_system_proxy_summary),
                 checked = state.disableSystemProxy,
                 onCheckedChange = onDisableSystemProxyChanged,
@@ -187,12 +197,14 @@ fun NativeSettingsScreen(
             NativeSettingsLink(R.string.native_regional_title, R.drawable.native_route, onOpenRegionalRouting)
             SettingSwitch(
                 title = stringResource(R.string.native_setting_custom_routing),
+                icon = R.drawable.privacy_route,
                 summary = stringResource(R.string.native_setting_custom_routing_summary),
                 checked = state.handbookRouting,
                 onCheckedChange = onHandbookRoutingChanged,
             )
             SettingSwitch(
                 title = stringResource(R.string.native_setting_proxy_list),
+                icon = R.drawable.privacy_apps,
                 summary = stringResource(R.string.native_setting_proxy_list_summary),
                 checked = state.handbookProxy,
                 enabled = state.handbookRouting,
@@ -209,6 +221,7 @@ fun NativeSettingsScreen(
             )
             SettingSwitch(
                 title = stringResource(R.string.native_setting_direct_list),
+                icon = R.drawable.privacy_apps_outline,
                 summary = stringResource(R.string.native_setting_direct_list_summary),
                 checked = state.handbookDirect,
                 enabled = state.handbookRouting,
@@ -255,6 +268,7 @@ fun NativeSettingsScreen(
             }
             SettingSwitch(
                 title = stringResource(R.string.native_settings_include_private),
+                icon = R.drawable.native_shield,
                 summary = stringResource(R.string.native_settings_include_private_summary),
                 checked = includePrivateExport,
                 onCheckedChange = { includePrivateExport = it },
@@ -292,6 +306,7 @@ fun NativeSettingsScreen(
                 onOpenBatterySettings, R.string.native_battery_settings_summary)
             SettingSwitch(
                 title = stringResource(R.string.native_setting_dynamic_notification),
+                icon = R.drawable.native_info,
                 summary = stringResource(R.string.native_setting_dynamic_notification_summary),
                 checked = state.dynamicNotification,
                 onCheckedChange = onDynamicNotificationChanged,
@@ -302,12 +317,14 @@ fun NativeSettingsScreen(
                 R.drawable.native_layers, generalPreferences.hapticFeedback, !generalPreferencesBusy, onChangeHapticFeedback)
             SettingSwitch(
                 title = stringResource(R.string.native_setting_memory_limit),
+                icon = R.drawable.native_general_api,
                 summary = stringResource(R.string.native_setting_memory_limit_summary),
                 checked = !state.disableMemoryLimit,
                 onCheckedChange = { onDisableMemoryLimitChanged(!it) },
             )
             SettingSwitch(
                 title = stringResource(R.string.native_setting_debug),
+                icon = R.drawable.native_general_description,
                 summary = stringResource(R.string.native_setting_debug_summary),
                 checked = state.debugMode,
                 onCheckedChange = { if (it) debugNoticeOpen = true else onDebugModeChanged(false) },
@@ -445,6 +462,7 @@ private fun SettingsSection(
 @Composable
 private fun SettingSwitch(
     title: String,
+    icon: Int = R.drawable.native_settings,
     summary: String,
     checked: Boolean,
     enabled: Boolean = true,
@@ -455,6 +473,7 @@ private fun SettingSwitch(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        Icon(painterResource(icon), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = title,

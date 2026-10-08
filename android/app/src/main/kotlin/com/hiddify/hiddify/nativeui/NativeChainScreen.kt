@@ -48,19 +48,7 @@ fun NativeChainScreen(
                 .padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Text(
-                text = stringResource(R.string.native_chain_title),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-            )
-            TextButton(onClick = onBack) {
-                Text(stringResource(R.string.native_back))
-            }
-        }
+        NativePageHeader(stringResource(R.string.native_chain_title), onBack)
 
         Text(
             text = stringResource(R.string.native_chain_summary),

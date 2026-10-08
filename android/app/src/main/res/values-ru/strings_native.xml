@@ -750,4 +750,11 @@
     <string name="native_import_overrides">Изменения DNS / маршрутизации: %1$s</string>
     <string name="native_import_plain_http">Подписка использует незашифрованный HTTP.</string>
     <string name="native_import_confirm">Импортировать</string>
+    <string name="native_json_previous">Предыдущее совпадение</string>
+    <string name="native_json_next">Следующее совпадение</string>
+    <string name="native_logs_pause">Пауза</string>
+    <string name="native_logs_resume">Продолжить</string>
+    <string name="native_logs_filter">Фильтр</string>
+    <string name="native_logs_all">Все</string>
+    <string name="native_logs_no_matches">Нет подходящих записей</string>
 </resources>

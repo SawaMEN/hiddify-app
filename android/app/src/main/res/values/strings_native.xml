@@ -750,4 +750,11 @@
     <string name="native_import_overrides">DNS / routing overrides: %1$s</string>
     <string name="native_import_plain_http">This subscription uses unencrypted HTTP.</string>
     <string name="native_import_confirm">Import</string>
+    <string name="native_json_previous">Previous match</string>
+    <string name="native_json_next">Next match</string>
+    <string name="native_logs_pause">Pause</string>
+    <string name="native_logs_resume">Resume</string>
+    <string name="native_logs_filter">Filter</string>
+    <string name="native_logs_all">All</string>
+    <string name="native_logs_no_matches">No matching logs</string>
 </resources>

@@ -46,6 +46,12 @@ internal fun NativeTextField(
             disabledContainerColor = scheme.surfaceContainerLow,
             errorContainerColor = scheme.surfaceContainerLow,
             unfocusedBorderColor = scheme.outline,
+            focusedTextColor = scheme.onSurface, unfocusedTextColor = scheme.onSurface,
+            errorTextColor = scheme.onSurface,
+            unfocusedLabelColor = scheme.onSurfaceVariant,
+            focusedLabelColor = scheme.primary,
+            focusedPlaceholderColor = scheme.onSurfaceVariant,
+            unfocusedPlaceholderColor = scheme.onSurfaceVariant,
         ),
     )
 }

@@ -48,10 +48,7 @@ fun NativeDiagnosticsScreen(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(stringResource(R.string.native_diagnostics_title), style = MaterialTheme.typography.headlineSmall)
-            TextButton(onClick = onBack) { Text(stringResource(R.string.native_back)) }
-        }
+        NativePageHeader(stringResource(R.string.native_diagnostics_title), onBack)
         Text(stringResource(R.string.native_diagnostics_summary))
         Button(onClick = onRun, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.native_diagnostics_run))

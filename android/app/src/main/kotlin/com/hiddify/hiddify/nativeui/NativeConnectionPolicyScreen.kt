@@ -25,11 +25,7 @@ fun NativeConnectionPolicyScreen(options: NativeConnectionOptions, busy: Boolean
     onBack: () -> Unit, onSave: (NativeConnectionOptions) -> Unit) {
     Column(modifier = Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.native_connection_policy_title), modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.headlineSmall)
-            TextButton(onClick = onBack) { Text(stringResource(R.string.native_back)) }
-        }
+        NativePageHeader(stringResource(R.string.native_connection_policy_title), onBack)
         Text(stringResource(R.string.native_settings_reconnect_note))
         if (busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         ConnectionPolicySwitch(R.string.native_connection_masked, R.string.native_connection_masked_summary,

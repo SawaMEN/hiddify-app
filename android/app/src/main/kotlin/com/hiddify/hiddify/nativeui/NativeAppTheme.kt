@@ -79,10 +79,10 @@ private val LightColors = lightColorScheme(
 )
 
 private val Manrope = FontFamily(
-    Font(R.font.manrope, weight = FontWeight.Normal),
-    Font(R.font.manrope, weight = FontWeight.Medium),
-    Font(R.font.manrope, weight = FontWeight.SemiBold),
-    Font(R.font.manrope, weight = FontWeight.Bold),
+    Font(R.font.manrope_regular, weight = FontWeight.Normal),
+    Font(R.font.manrope_medium, weight = FontWeight.Medium),
+    Font(R.font.manrope_semibold, weight = FontWeight.SemiBold),
+    Font(R.font.manrope_bold, weight = FontWeight.Bold),
 )
 private val BaseTypography = Typography()
 private val AppTypography = Typography(

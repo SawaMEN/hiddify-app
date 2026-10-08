@@ -40,11 +40,7 @@ fun NativeTrafficFiltersScreen(
         modifier = Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.native_filters_title), modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.headlineSmall)
-            TextButton(onClick = onBack) { Text(stringResource(R.string.native_back)) }
-        }
+        NativePageHeader(stringResource(R.string.native_filters_title), onBack)
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(stringResource(R.string.native_filters_warning), style = MaterialTheme.typography.titleMedium)

@@ -29,10 +29,7 @@ fun NativeVpnProtectionScreen(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(stringResource(R.string.native_protection_title), style = MaterialTheme.typography.headlineSmall)
-            TextButton(onClick = onBack) { Text(stringResource(R.string.native_back)) }
-        }
+        NativePageHeader(stringResource(R.string.native_protection_title), onBack)
         Text(stringResource(R.string.native_protection_summary))
         ProtectionRow(R.string.native_protection_always_on, protection.alwaysOn)
         ProtectionRow(R.string.native_protection_lockdown, protection.lockdown)

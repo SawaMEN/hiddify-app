@@ -193,7 +193,8 @@ internal fun NativeJsonEditor(
             Text("Config Editor: ", color = MaterialTheme.colorScheme.onPrimary, fontSize = 16.sp)
             Box {
                 TextButton(enabled = active && error == null, onClick = { modeOpen = true }) {
-                    Text(if (textMode) "text ▾" else "tree ▾", color = MaterialTheme.colorScheme.onPrimary)
+                    Text(if (textMode) "text" else "tree", color = MaterialTheme.colorScheme.onPrimary)
+                    Icon(painterResource(R.drawable.native_drop_down), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimary)
                 }
                 DropdownMenu(modeOpen, { modeOpen = false }) {
                     DropdownMenuItem(text = { Text("Tree") }, onClick = { editorFocus.clearFocus(); textMode = false; modeOpen = false })
@@ -205,14 +206,14 @@ internal fun NativeJsonEditor(
                     textStyle = TextStyle(color = MaterialTheme.colorScheme.onPrimary, fontSize = 14.sp),
                     decorationBox = { inner -> Box { if (query.isEmpty()) Text(stringResource(R.string.native_json_search), color = MaterialTheme.colorScheme.onPrimary); inner() } })
                 if (query.isNotBlank()) Text("${if (matches.isEmpty()) 0 else matchIndex + 1}/${matches.size}", color = MaterialTheme.colorScheme.onPrimary)
-                TextButton(enabled = matches.isNotEmpty(), onClick = { matchIndex = (matchIndex - 1 + matches.size) % matches.size }) {
-                    Text("↑", color = MaterialTheme.colorScheme.onPrimary)
+                IconButton(enabled = matches.isNotEmpty(), onClick = { matchIndex = (matchIndex - 1 + matches.size) % matches.size }) {
+                    Icon(painterResource(R.drawable.native_arrow_up), stringResource(R.string.native_json_previous), tint = MaterialTheme.colorScheme.onPrimary)
                 }
-                TextButton(enabled = matches.isNotEmpty(), onClick = { matchIndex = (matchIndex + 1) % matches.size }) {
-                    Text("↓", color = MaterialTheme.colorScheme.onPrimary)
+                IconButton(enabled = matches.isNotEmpty(), onClick = { matchIndex = (matchIndex + 1) % matches.size }) {
+                    Icon(painterResource(R.drawable.native_arrow_down), stringResource(R.string.native_json_next), tint = MaterialTheme.colorScheme.onPrimary)
                 }
             }
-            TextButton(onClick = ::copy) { Text(stringResource(R.string.native_json_copy), color = MaterialTheme.colorScheme.onPrimary) }
+            IconButton(onClick = ::copy) { Icon(painterResource(R.drawable.native_clipboard), stringResource(R.string.native_json_copy), tint = MaterialTheme.colorScheme.onPrimary) }
             Box {
                 IconButton(onClick = { toolsOpen = true }, enabled = active) {
                     Icon(painterResource(R.drawable.native_more), stringResource(R.string.native_profile_actions), tint = MaterialTheme.colorScheme.onPrimary)
@@ -409,7 +410,8 @@ private fun JsonValueChoices(value: String, choices: List<String>, enabled: Bool
     var open by remember { mutableStateOf(false) }
     Box {
         TextButton(onClick = { open = true }, enabled = enabled, contentPadding = PaddingValues(horizontal = 3.dp), modifier = Modifier.heightIn(min = 30.dp)) {
-            Text(value.ifEmpty { "\"\"" } + " ↓", fontSize = 16.sp)
+            Text(value.ifEmpty { "\"\"" }, fontSize = 16.sp)
+            Icon(painterResource(R.drawable.native_drop_down), null, Modifier.size(20.dp))
         }
         DropdownMenu(open, { open = false }) {
             (choices + value).distinct().forEach { choice -> DropdownMenuItem(text = { Text(choice.ifEmpty { "\"\"" }) },

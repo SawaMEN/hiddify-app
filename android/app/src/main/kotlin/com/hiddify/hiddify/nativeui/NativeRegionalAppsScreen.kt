@@ -59,12 +59,8 @@ fun NativeRegionalAppsScreen(
 
     LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(if (kind == NativeRegionalAppKind.DIRECT) R.string.native_regional_apps_direct_title
-                    else R.string.native_regional_apps_proxy_title), modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.headlineSmall)
-                TextButton(onClick = onBack) { Text(stringResource(R.string.native_back)) }
-            }
+            NativePageHeader(stringResource(if (kind == NativeRegionalAppKind.DIRECT)
+                R.string.native_regional_apps_direct_title else R.string.native_regional_apps_proxy_title), onBack)
         }
         item {
             Text(stringResource(if (kind == NativeRegionalAppKind.DIRECT) R.string.native_regional_apps_direct_hint
@@ -100,6 +96,7 @@ fun NativeRegionalAppsScreen(
             }
             Row(modifier = Modifier.fillMaxWidth().clickable(enabled = enabled) { toggle() }.padding(vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                NativeInstalledAppIcon(app.packageName)
                 Column(modifier = Modifier.weight(1f)) {
                     Text(app.label, style = MaterialTheme.typography.bodyLarge)
                     Text(app.packageName, style = MaterialTheme.typography.bodySmall)

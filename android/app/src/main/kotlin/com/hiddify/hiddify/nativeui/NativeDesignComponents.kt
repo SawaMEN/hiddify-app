@@ -61,7 +61,8 @@ internal fun NativeAtmosphere(content: @Composable () -> Unit) {
 internal fun NativeCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     androidx.compose.material3.Card(
         modifier = modifier, shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            contentColor = MaterialTheme.colorScheme.onSurface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), content = content,
     )
@@ -77,6 +78,7 @@ internal fun NativeGlass(
     val base = MaterialTheme.colorScheme.surfaceContainerLow
     androidx.compose.material3.Surface(
         modifier = modifier, shape = RoundedCornerShape(radius.dp), color = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         border = BorderStroke(1.dp, accent.copy(alpha = .22f)),
     ) {
         Box(Modifier.background(Brush.linearGradient(listOf(accent.copy(alpha = .08f).compositeOver(base), base)))) {

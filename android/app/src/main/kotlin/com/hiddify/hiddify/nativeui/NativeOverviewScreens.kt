@@ -4,6 +4,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -24,12 +27,15 @@ import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 
 @Composable
-internal fun NativePageHeader(title: String, onBack: (() -> Unit)? = null) {
+internal fun NativePageHeader(title: String, onBack: (() -> Unit)? = null, actions: @Composable RowScope.() -> Unit = {}) {
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
         if (onBack != null) IconButton(onClick = onBack) {
-            Icon(painterResource(R.drawable.native_back_arrow), stringResource(R.string.native_back))
+            Icon(painterResource(R.drawable.native_back_arrow), stringResource(R.string.native_back), Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+        Text(title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+        actions()
     }
 }
 
@@ -41,13 +47,13 @@ internal fun NativeSettingsLink(title: Int, icon: Int, onClick: () -> Unit, summ
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        Icon(painterResource(icon), null, tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = .38f))
+        Icon(painterResource(icon), null, Modifier.size(24.dp), tint = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = .38f))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
             if (summary != null) Text(stringResource(summary), style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Icon(painterResource(R.drawable.native_chevron), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(painterResource(R.drawable.native_chevron), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -56,11 +62,11 @@ internal fun NativePreferenceValueRow(title: Int, value: String, enabled: Boolea
     Row(Modifier.fillMaxWidth().alpha(if (enabled) 1f else .38f).clickable(enabled = enabled, role = Role.Button, onClick = onClick)
         .padding(horizontal = 16.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Icon(painterResource(icon), null, tint = MaterialTheme.colorScheme.primary)
+        Icon(painterResource(icon), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(stringResource(title), style = MaterialTheme.typography.titleMedium)
             Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Icon(painterResource(R.drawable.native_chevron), null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(painterResource(R.drawable.native_chevron), null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

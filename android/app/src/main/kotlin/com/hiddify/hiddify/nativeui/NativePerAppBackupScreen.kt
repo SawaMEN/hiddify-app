@@ -37,10 +37,7 @@ fun NativePerAppBackupScreen(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(stringResource(R.string.native_per_app_backup_title), style = MaterialTheme.typography.headlineSmall)
-            TextButton(onClick = onBack) { Text(stringResource(R.string.native_back)) }
-        }
+        NativePageHeader(stringResource(R.string.native_per_app_backup_title), onBack)
         Text(stringResource(R.string.native_per_app_backup_summary))
         if (busy) CircularProgressIndicator()
         if (!canImport) Text(stringResource(R.string.native_per_app_disconnect))

@@ -580,3 +580,24 @@ Native/resource checks and whitespace checks pass. JVM tests could not start bec
 download is blocked; Go tests could not run because this environment has no Go toolchain. No
 APK build is awaited. Native linking, actual parser acceptance across protocol formats and same-
 device visual/interaction comparison remain CI/device verification work.
+
+
+## Readability, missing icons and secondary screen review
+
+A variable-font regression was found: the packaged Manrope defaults to ExtraLight (200), yet
+Compose declared that same resource as Normal/Medium/SemiBold/Bold without instancing its
+weight axis. Native typography now uses static 400/500/600/700 instances of the bundled font,
+with direct weight/Cyrillic inspection and an offline CI font-table guard. This applies to every
+screen using NativeAppTheme, including profiles, server lists, settings, dialogs and editors.
+
+Card/glass/input foreground roles are explicit. Eleven oversized title/text-back toolbars are
+replaced by shared 56 dp headers, preference/navigation glyph sizes are explicit, and app lists
+restore async 48 dp package artwork with a bounded cache. JSON-editor arrows/copy/dropdowns
+use scalable vectors. Existing callback targets and preference storage are preserved. Logs now
+restore pause/resume, text/severity filtering and newest-at-bottom display, with ANSI cleanup
+and larger readable monospace messages.
+
+The source inventory and precise limitations are recorded in KOTLIN_VISUAL_AUDIT.md. All drawable
+references, XML, static font tables and native resources pass. Three new log-model tests could
+not run because Gradle download is blocked. Original Fluent contours, remaining secondary
+layouts/actions and same-device comparisons remain open; this is not a pixel-parity claim.
