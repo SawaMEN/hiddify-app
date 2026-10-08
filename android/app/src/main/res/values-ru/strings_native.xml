@@ -30,7 +30,7 @@
     <string name="native_back">Назад</string>
     <string name="native_settings_vpn">VPN и маршрутизация</string>
     <string name="native_settings_dns">DNS и системный прокси</string>
-    <string name="native_settings_custom_routing">Пользовательские списки маршрутизации</string>
+    <string name="native_settings_custom_routing">Списки сообщества</string>
     <string name="native_setting_root">Root-режим</string>
     <string name="native_setting_root_summary">Использовать root-компаньон вместо Android VpnService.</string>
     <string name="native_setting_wifi_sharing">Раздавать VPN по Wi-Fi</string>
@@ -45,8 +45,8 @@
     <string name="native_setting_public_dns_summary">Использовать публичный DNS-резолвер, заданный VetrOFF.</string>
     <string name="native_setting_disable_system_proxy">Отключить системный прокси Android</string>
     <string name="native_setting_disable_system_proxy_summary">Не публиковать HTTP-прокси через Android VpnService.</string>
-    <string name="native_setting_custom_routing">Включить свои правила</string>
-    <string name="native_setting_custom_routing_summary">Добавлять списки proxy/direct в генерируемую конфигурацию.</string>
+    <string name="native_setting_custom_routing">Использовать списки сообщества</string>
+    <string name="native_setting_custom_routing_summary">Выберите сервисы для маршрутизации через VPN или напрямую.</string>
     <string name="native_setting_proxy_list">Список через VPN</string>
     <string name="native_setting_proxy_list_summary">Отправлять совпавшие домены через VPN.</string>
     <string name="native_setting_direct_list">Список напрямую</string>
@@ -391,7 +391,7 @@
     <string name="native_regional_title">Региональная маршрутизация</string>
     <string name="native_regional_summary">Настройте региональные правила приложений, российских доменов/IP и дополнительные домены. Отключение категории сохраняет выбранные приложения. Исключения приложений также зависят от настроек VPN по приложениям.</string>
     <string name="native_regional_full_tunnel">Полный туннель имеет приоритет над прямыми исключениями. Сохранённые правила применятся после его отключения.</string>
-    <string name="native_regional_handbook">Ручная маршрутизация имеет приоритет над автоматической региональной. Региональные настройки сохраняются.</string>
+    <string name="native_regional_handbook">Списки сообщества имеют приоритет над автоматической региональной маршрутизацией. Региональные настройки сохраняются.</string>
     <string name="native_regional_mode">Режим автоматической маршрутизации приложений</string>
     <string name="native_regional_off">Выключено</string>
     <string name="native_regional_bypass">Российские сервисы напрямую</string>
@@ -480,7 +480,7 @@
     <string name="native_privacy_setup_again">Применить автоматические настройки снова</string>
     <string name="native_privacy_setup_restore">Вернуть всё как было</string>
     <string name="native_privacy_setup_disconnect">Отключите VPN перед применением или восстановлением автоматических настроек.</string>
-    <string name="native_privacy_setup_apply_note">Предыдущие настройки сохраняются один раз. Изменения применяются при следующем подключении. Root, пользовательские списки и фильтры трафика сохраняются.</string>
+    <string name="native_privacy_setup_apply_note">Предыдущие настройки сохраняются один раз. Изменения применяются при следующем подключении. Root, списки сообщества и фильтры трафика сохраняются.</string>
     <string name="native_privacy_setup_saved">Автоматические настройки сохранены. Подключите VPN для применения.</string>
     <string name="native_privacy_setup_restored">Предыдущие настройки восстановлены. Подключите VPN для применения.</string>
     <string name="native_proxy_hide_local">Не открывать локальный прокси</string>
@@ -686,13 +686,13 @@
     <string name="native_privacy_root_missing">Root на устройстве не обнаружен.</string>
     <string name="native_privacy_root_helper_missing">В этом APK нет исполняемого root-ядра.</string>
     <string name="native_privacy_root_summary">Запускает ядро без Android VpnService. Требуется разрешение root.</string>
-    <string name="native_privacy_handbook">Пользовательские списки My Handbook</string>
+    <string name="native_privacy_handbook">Списки сообщества</string>
     <string name="native_privacy_handbook_summary">Альтернатива встроенной маршрутизации: при включении встроенные списки не применяются. Полный туннель имеет приоритет. Кэш обновляется раз в сутки при подключении.</string>
-    <string name="native_privacy_handbook_proxy">Сервисы из iplist через VPN</string>
-    <string name="native_privacy_handbook_direct">Российские сервисы из ru-iplist напрямую</string>
-    <string name="native_privacy_handbook_proxy_sites">Сервисы через VPN (домены через запятую; пусто — все)</string>
-    <string name="native_privacy_handbook_direct_sites">Прямые сервисы (домены через запятую; пусто — все)</string>
-    <string name="native_privacy_handbook_note">Домены сервисов берите из каталога на сайте. Загружаются домены, IPv4 и IPv6 по HTTPS; первоначальная загрузка выполняется до подключения VPN. При пересечении списков VPN имеет приоритет. При первой загрузке требуется доступность источников; ошибка загрузки отображается как ошибка подключения.</string>
+    <string name="native_privacy_handbook_proxy">Через VPN</string>
+    <string name="native_privacy_handbook_direct">Напрямую</string>
+    <string name="native_privacy_handbook_proxy_sites">Выбранные сервисы через VPN</string>
+    <string name="native_privacy_handbook_direct_sites">Выбранные сервисы напрямую</string>
+    <string name="native_privacy_handbook_note">Выбирайте сервисы прямо в приложении. Домены и IP-сети загружаются из My Handbook. При пересечении VPN имеет приоритет; полный туннель имеет приоритет над списками. Для первого подключения нужен доступ к источникам.</string>
     <string name="native_privacy_masked">Только протоколы с маскировкой</string>
     <string name="native_privacy_masked_summary">TCP: AnyTLS и Naive с проверкой TLS. VLESS/VMess и непроверяемые цепочки исключаются. Для Hysteria 2 и TUIC разрешите UDP ниже. Нужны совместимые серверы в подписке; без них подключение остановится. Маскировка не гарантирует обход ТСПУ или блокировки IP/SNI.</string>
     <string name="native_privacy_udp">Разрешить UDP / QUIC</string>
@@ -790,4 +790,19 @@
     <string name="native_inbound_password_not_set">Пароль не установлен</string>
     <string name="native_inbound_copy_link">Копировать ссылку</string>
     <string name="native_inbound_qr">QR-код</string>
+    <string name="native_community_none">Сервисы не выбраны</string>
+    <string name="native_community_all">Все сервисы, включая новые</string>
+    <string name="native_community_selected">Выбрано: %1$d</string>
+    <string name="native_community_search">Поиск сервисов или доменов</string>
+    <string name="native_community_apply_note">Отметьте сервисы для этого маршрута. Изменения применятся после переподключения.</string>
+    <string name="native_community_cached">Источник недоступен. Показан сохранённый каталог.</string>
+    <string name="native_community_select_all">Выбрать все</string>
+    <string name="native_community_clear">Снять все</string>
+    <string name="native_community_load_failed">Не удалось загрузить каталог. Проверьте подключение и повторите попытку.</string>
+    <string name="native_community_saved_service">Сохранённый выбор; отсутствует в этом каталоге</string>
+    <string name="native_community_no_results">Сервисы не найдены</string>
+    <string name="native_community_apply">Применить</string>
+    <string name="native_community_invalid_saved">Снимите галочки с некорректных сохранённых записей перед применением.</string>
+    <string name="native_community_refreshing_cache">Показан сохранённый каталог; проверяются обновления.</string>
+    <string name="native_community_network_service">Сервис без примеров доменов</string>
 </resources>

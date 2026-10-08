@@ -283,6 +283,7 @@ fun NativeApp(
     onHandbookDirectChanged: (Boolean) -> Unit,
     onHandbookProxySitesChanged: (String) -> Unit,
     onHandbookDirectSitesChanged: (String) -> Unit,
+    onSaveCommunitySelection: (Boolean, Boolean, String) -> Unit,
     onDynamicNotificationChanged: (Boolean) -> Unit,
     onDebugModeChanged: (Boolean) -> Unit,
     onDisableMemoryLimitChanged: (Boolean) -> Unit,
@@ -603,7 +604,7 @@ fun NativeApp(
                             PAGE_PRIVACY -> NativePrivacyOverviewScreen(
                                 configured = privacyConfigured,
                                 canRestore = privacyCanRestore,
-                                busy = privacySetupBusy || regionalBusy || connectionOptionsBusy || proxyPrivacyBusy || dnsBusy || tlsBusy || generalOptionsBusy || tunnelBusy || inboundBusy || wifiSharingBusy,
+                                busy = status == Status.Starting || status == Status.Stopping || reconnectBusy || privacySetupBusy || regionalBusy || connectionOptionsBusy || proxyPrivacyBusy || dnsBusy || tlsBusy || generalOptionsBusy || tunnelBusy || inboundBusy || wifiSharingBusy,
                                 canApply = status == Status.Stopped && !wifiSharingBusy && !regionalBusy && !connectionOptionsBusy && !proxyPrivacyBusy,
                                 onConfigure = onConfigurePrivacy,
                                 onRestore = onRestorePrivacy,
@@ -632,6 +633,7 @@ fun NativeApp(
                                 onHandbookDirect = onHandbookDirectChanged,
                                 onHandbookProxySites = onHandbookProxySitesChanged,
                                 onHandbookDirectSites = onHandbookDirectSitesChanged,
+                                onSaveCommunitySelection = onSaveCommunitySelection,
                             )
 
                             PAGE_PREFERENCES ->
@@ -686,6 +688,7 @@ fun NativeApp(
                                     onHandbookDirectChanged = onHandbookDirectChanged,
                                     onHandbookProxySitesChanged = onHandbookProxySitesChanged,
                                     onHandbookDirectSitesChanged = onHandbookDirectSitesChanged,
+                                    onSaveCommunitySelection = onSaveCommunitySelection,
                                     onDynamicNotificationChanged = onDynamicNotificationChanged,
                                     onDebugModeChanged = onDebugModeChanged,
                                     onDisableMemoryLimitChanged = onDisableMemoryLimitChanged,

@@ -110,6 +110,7 @@ fun NativeSettingsScreen(
     onDynamicNotificationChanged: (Boolean) -> Unit,
     onDebugModeChanged: (Boolean) -> Unit,
     onDisableMemoryLimitChanged: (Boolean) -> Unit,
+    onSaveCommunitySelection: (Boolean, Boolean, String) -> Unit,
 ) {
     var languagePickerOpen by rememberSaveable { mutableStateOf(false) }
     var themePickerOpen by rememberSaveable { mutableStateOf(false) }
@@ -202,40 +203,8 @@ fun NativeSettingsScreen(
                 checked = state.handbookRouting,
                 onCheckedChange = onHandbookRoutingChanged,
             )
-            SettingSwitch(
-                title = stringResource(R.string.native_setting_proxy_list),
-                icon = R.drawable.privacy_apps,
-                summary = stringResource(R.string.native_setting_proxy_list_summary),
-                checked = state.handbookProxy,
-                enabled = state.handbookRouting,
-                onCheckedChange = onHandbookProxyChanged,
-            )
-            OutlinedTextField(
-                value = state.handbookProxySites,
-                onValueChange = onHandbookProxySitesChanged,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = state.handbookRouting && state.handbookProxy,
-                label = { Text(stringResource(R.string.native_setting_proxy_domains)) },
-                supportingText = { Text(stringResource(R.string.native_domains_hint)) },
-                minLines = 3,
-            )
-            SettingSwitch(
-                title = stringResource(R.string.native_setting_direct_list),
-                icon = R.drawable.privacy_apps_outline,
-                summary = stringResource(R.string.native_setting_direct_list_summary),
-                checked = state.handbookDirect,
-                enabled = state.handbookRouting,
-                onCheckedChange = onHandbookDirectChanged,
-            )
-            OutlinedTextField(
-                value = state.handbookDirectSites,
-                onValueChange = onHandbookDirectSitesChanged,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = state.handbookRouting && state.handbookDirect,
-                label = { Text(stringResource(R.string.native_setting_direct_domains)) },
-                supportingText = { Text(stringResource(R.string.native_domains_hint)) },
-                minLines = 3,
-            )
+            NativeCommunityPreferences(state, state.handbookRouting && !wifiSharingBusy, onSaveCommunitySelection)
+
         }
 
         if (category == null || category == NativeSettingsCategory.CORE) SettingsSection(title = stringResource(R.string.native_core_options_title)) {

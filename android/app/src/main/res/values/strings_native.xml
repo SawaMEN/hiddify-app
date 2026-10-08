@@ -30,7 +30,7 @@
     <string name="native_back">Back</string>
     <string name="native_settings_vpn">VPN and routing</string>
     <string name="native_settings_dns">DNS and system proxy</string>
-    <string name="native_settings_custom_routing">Custom routing lists</string>
+    <string name="native_settings_custom_routing">Community lists</string>
     <string name="native_setting_root">Root mode</string>
     <string name="native_setting_root_summary">Use the root companion instead of Android VpnService.</string>
     <string name="native_setting_wifi_sharing">Share VPN over Wi-Fi</string>
@@ -45,8 +45,8 @@
     <string name="native_setting_public_dns_summary">Use the public resolver path configured by VetrOFF.</string>
     <string name="native_setting_disable_system_proxy">Disable Android system proxy</string>
     <string name="native_setting_disable_system_proxy_summary">Do not publish an HTTP proxy through Android VpnService.</string>
-    <string name="native_setting_custom_routing">Enable custom routing</string>
-    <string name="native_setting_custom_routing_summary">Apply your proxy/direct domain lists to the generated config.</string>
+    <string name="native_setting_custom_routing">Enable community lists</string>
+    <string name="native_setting_custom_routing_summary">Select services to route through VPN or directly.</string>
     <string name="native_setting_proxy_list">Proxy list</string>
     <string name="native_setting_proxy_list_summary">Send matching domains through the VPN.</string>
     <string name="native_setting_direct_list">Direct list</string>
@@ -391,7 +391,7 @@
     <string name="native_regional_title">Regional routing</string>
     <string name="native_regional_summary">Configure regional app rules, Russian domains and IP ranges, and extra domain rules. Turning a category off preserves its saved selections. App exclusions also depend on your VPN per-app settings.</string>
     <string name="native_regional_full_tunnel">Full tunnel takes priority over direct exceptions. These saved rules apply when full tunnel is disabled.</string>
-    <string name="native_regional_handbook">Manual routing takes priority over automatic regional routing. Saved regional choices are retained.</string>
+    <string name="native_regional_handbook">Community lists take precedence over automatic regional routing. Saved regional choices are retained.</string>
     <string name="native_regional_mode">Automatic app routing mode</string>
     <string name="native_regional_off">Off</string>
     <string name="native_regional_bypass">Russian services directly</string>
@@ -480,7 +480,7 @@
     <string name="native_privacy_setup_again">Apply automatic setup again</string>
     <string name="native_privacy_setup_restore">Restore previous settings</string>
     <string name="native_privacy_setup_disconnect">Disconnect the VPN before applying or restoring automatic settings.</string>
-    <string name="native_privacy_setup_apply_note">The previous settings are saved once. Changes apply on the next connection. Root, custom lists and traffic filters are preserved.</string>
+    <string name="native_privacy_setup_apply_note">The previous settings are saved once. Changes apply on the next connection. Root, community lists and traffic filters are preserved.</string>
     <string name="native_privacy_setup_saved">Automatic settings saved. Connect the VPN to apply.</string>
     <string name="native_privacy_setup_restored">Previous settings restored. Connect the VPN to apply.</string>
     <string name="native_proxy_hide_local">Disable local proxy</string>
@@ -686,13 +686,13 @@
     <string name="native_privacy_root_missing">Root was not detected on this device.</string>
     <string name="native_privacy_root_helper_missing">This APK has no executable root companion.</string>
     <string name="native_privacy_root_summary">Runs the core without Android VpnService. Root permission is required.</string>
-    <string name="native_privacy_handbook">My Handbook routing lists</string>
+    <string name="native_privacy_handbook">Community lists</string>
     <string name="native_privacy_handbook_summary">Replaces built-in routing lists while enabled. Full tunnel takes precedence. Cache refreshes daily on connection.</string>
-    <string name="native_privacy_handbook_proxy">iplist services through VPN</string>
-    <string name="native_privacy_handbook_direct">ru-iplist Russian services direct</string>
-    <string name="native_privacy_handbook_proxy_sites">VPN services (comma-separated domains; empty = all)</string>
-    <string name="native_privacy_handbook_direct_sites">Direct services (comma-separated domains; empty = all)</string>
-    <string name="native_privacy_handbook_note">Use service domains from the linked catalogues. Loads domains, IPv4 and IPv6 over HTTPS before VPN starts. VPN wins on overlap. Sources must be reachable on first use; download failures appear as connection errors.</string>
+    <string name="native_privacy_handbook_proxy">Through VPN</string>
+    <string name="native_privacy_handbook_direct">Direct connection</string>
+    <string name="native_privacy_handbook_proxy_sites">Selected VPN services</string>
+    <string name="native_privacy_handbook_direct_sites">Selected direct services</string>
+    <string name="native_privacy_handbook_note">Select services in the app. Domains and IP networks are loaded from My Handbook. VPN wins on overlap; full tunnel takes precedence. A first connection requires access to the sources.</string>
     <string name="native_privacy_masked">Masked protocols only</string>
     <string name="native_privacy_masked_summary">TCP: AnyTLS and Naive with verified TLS. VLESS/VMess and unverifiable chains are excluded. Allow UDP below for Hysteria 2 and TUIC. Requires compatible subscription servers; otherwise connection stops. Masking cannot guarantee bypass of DPI or IP/SNI blocks.</string>
     <string name="native_privacy_udp">Allow UDP / QUIC</string>
@@ -790,4 +790,19 @@
     <string name="native_inbound_password_not_set">Password not set</string>
     <string name="native_inbound_copy_link">Copy link</string>
     <string name="native_inbound_qr">QR Code</string>
+    <string name="native_community_none">No services selected</string>
+    <string name="native_community_all">All services, including new ones</string>
+    <string name="native_community_selected">Selected: %1$d</string>
+    <string name="native_community_search">Search services or domains</string>
+    <string name="native_community_apply_note">Select the services for this route. Changes apply after reconnecting.</string>
+    <string name="native_community_cached">Source unavailable. Showing the saved catalogue.</string>
+    <string name="native_community_select_all">Select all</string>
+    <string name="native_community_clear">Clear selection</string>
+    <string name="native_community_load_failed">Could not load the catalogue. Check your connection and retry.</string>
+    <string name="native_community_saved_service">Saved selection; absent from this catalogue</string>
+    <string name="native_community_no_results">No services found</string>
+    <string name="native_community_apply">Apply</string>
+    <string name="native_community_invalid_saved">Remove invalid saved entries before applying.</string>
+    <string name="native_community_refreshing_cache">Showing the saved catalogue while checking for updates.</string>
+    <string name="native_community_network_service">Service without example domains</string>
 </resources>

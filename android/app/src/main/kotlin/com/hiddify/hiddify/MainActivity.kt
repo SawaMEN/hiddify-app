@@ -576,11 +576,17 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onPublicDnsChanged = { value -> updateSettings { Settings.setPrivacyPublicDns(value) } },
                 onDisableSystemProxyChanged = { value -> updateSettings { Settings.setPrivacyDisableSystemProxy(value) } },
                 onDisableIpv6Changed = { value -> updateSettings { Settings.setPrivacyDisableIpv6(value) } },
-                onHandbookRoutingChanged = { value -> updateSettings { Settings.setHandbookRouting(value) } },
+                onHandbookRoutingChanged = { value ->
+                    if (serviceStatus.value != Status.Starting && serviceStatus.value != Status.Stopping && !reconnectBusy.value) {
+                        updateSettings { Settings.setHandbookRouting(value) }
+                        coreChangesSaved()
+                    }
+                },
                 onHandbookProxyChanged = { value -> updateSettings { Settings.setHandbookProxy(value) } },
                 onHandbookDirectChanged = { value -> updateSettings { Settings.setHandbookDirect(value) } },
                 onHandbookProxySitesChanged = { value -> updateSettings { Settings.setHandbookProxySites(value) } },
                 onHandbookDirectSitesChanged = { value -> updateSettings { Settings.setHandbookDirectSites(value) } },
+                onSaveCommunitySelection = ::saveCommunitySelection,
                 onDynamicNotificationChanged = { value ->
                     updateSettings { Settings.dynamicNotification = value }
                     com.hiddify.hiddify.bg.ServiceNotification.refreshActive()
@@ -2219,6 +2225,14 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             Settings.nativeReconnectRequired = applied.isBlank() || Settings.quickSettingsSignature(applicationContext) != applied
         }
         requiresReconnect.value = Settings.nativeReconnectRequired
+    }
+
+    private fun saveCommunitySelection(proxy: Boolean, enabled: Boolean, sites: String) {
+        if (reconnectBusy.value || privacySetupBusy.value || regionalBusy.value ||
+            serviceStatus.value == Status.Starting || serviceStatus.value == Status.Stopping ||
+            nativeStartPending || pendingStartAfterVpnPermission) return
+        updateSettings { Settings.setCommunitySelection(proxy, enabled, sites) }
+        coreChangesSaved()
     }
 
     private fun saveQuickServiceMode(proxyOnly: Boolean) {

@@ -103,6 +103,12 @@ object Settings {
     fun setHandbookDirectSites(value: String) {
         preferences.edit().putString("flutter.handbook-direct-sites", value).apply()
     }
+    /** One preference transaction keeps the empty/all/disabled distinction intact. */
+    fun setCommunitySelection(proxy: Boolean, enabled: Boolean, sites: String) {
+        val prefix = if (proxy) "flutter.handbook-proxy" else "flutter.handbook-direct"
+        preferences.edit().putBoolean(prefix, enabled).putString("$prefix-sites", sites).apply()
+    }
+
     val grpcFrontPort get() = getInt("local_control_front_port", 17078).takeIf { it in 1..65535 } ?: 17078
     val grpcBackPort get() = getInt("local_control_back_port", 17079).takeIf { it in 1..65535 && it != grpcFrontPort } ?: 17079
     val grpcAuthToken: String
@@ -129,7 +135,7 @@ object Settings {
         val general = com.hiddify.hiddify.nativecore.NativeGeneralOptionsRepository(context).load()
         val dns = com.hiddify.hiddify.nativecore.NativeDnsOptionsRepository(context).load()
         val tls = com.hiddify.hiddify.nativecore.NativeTlsOptionsRepository(context).load()
-        return com.google.gson.Gson().toJson(listOf(serviceMode, inbound.allowLan, inbound.lanPassword, chain, general, dns, tls, perAppProxyMode, (if (perAppProxyEnabled) perAppProxyList else emptyList<String>()).toSortedSet(), com.hiddify.hiddify.privacy.NetworkPrivacySettings.loadFilters(context)))
+        return com.google.gson.Gson().toJson(listOf(serviceMode, handbookRouting, handbookProxy, handbookDirect, handbookProxySites, handbookDirectSites, inbound.allowLan, inbound.lanPassword, chain, general, dns, tls, perAppProxyMode, (if (perAppProxyEnabled) perAppProxyList else emptyList<String>()).toSortedSet(), com.hiddify.hiddify.privacy.NetworkPrivacySettings.loadFilters(context)))
     }
 
     var nativeReconnectRequired: Boolean

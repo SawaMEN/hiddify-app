@@ -45,6 +45,7 @@ sourceSets {
             include 'com/hiddify/hiddify/privacy/NativeTrafficFilters.kt'
             include 'com/hiddify/hiddify/privacy/BinaryXml.kt'
             include 'com/hiddify/hiddify/privacy/NativeProxyPrivacy.kt'
+            include 'com/hiddify/hiddify/privacy/NativeCommunityLists.kt'
             include 'com/hiddify/hiddify/privacy/NativeRegionalOptions.kt'
             include 'com/hiddify/hiddify/privacy/NativeRegionalPackages.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeConnectionPolicy.kt'

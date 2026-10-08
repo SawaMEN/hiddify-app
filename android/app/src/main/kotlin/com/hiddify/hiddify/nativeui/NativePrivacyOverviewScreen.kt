@@ -1,7 +1,5 @@
 package com.hiddify.hiddify.nativeui
 
-import android.content.Intent
-import android.net.Uri
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -20,12 +18,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -43,7 +39,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -93,6 +88,7 @@ internal fun NativePrivacyOverviewScreen(
     onHandbookDirect: (Boolean) -> Unit,
     onHandbookProxySites: (String) -> Unit,
     onHandbookDirectSites: (String) -> Unit,
+    onSaveCommunitySelection: (Boolean, Boolean, String) -> Unit = { _, _, _ -> },
 ) {
     val context = LocalContext.current
     val preview = LocalInspectionMode.current
@@ -200,12 +196,7 @@ internal fun NativePrivacyOverviewScreen(
                 PrivacySwitch(R.string.native_privacy_handbook, R.string.native_privacy_handbook_summary, null,
                     settings.handbookRouting, !busy, onHandbook)
                 if (settings.handbookRouting) {
-                    PrivacySwitch(R.string.native_privacy_handbook_proxy, null, null, settings.handbookProxy, !busy, onHandbookProxy)
-                    PrivacyDomainPreference(R.string.native_privacy_handbook_proxy_sites, settings.handbookProxySites, !busy, onHandbookProxySites)
-                    PrivacyCatalogueLink("iplist.my-handbook.ru")
-                    PrivacySwitch(R.string.native_privacy_handbook_direct, null, null, settings.handbookDirect, !busy, onHandbookDirect)
-                    PrivacyDomainPreference(R.string.native_privacy_handbook_direct_sites, settings.handbookDirectSites, !busy, onHandbookDirectSites)
-                    PrivacyCatalogueLink("ru-iplist.my-handbook.ru")
+                    NativeCommunityPreferences(settings, !busy, onSaveCommunitySelection)
                     Text(stringResource(R.string.native_privacy_handbook_note), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
                 }
                 PrivacySwitch(R.string.native_privacy_direct_network, R.string.native_privacy_direct_network_summary,
@@ -332,38 +323,6 @@ private fun PrivacySwitch(title: Int, summary: Int?, icon: Int?, checked: Boolea
             uncheckedBorderColor = scheme.outline, disabledCheckedTrackColor = scheme.surfaceContainerHighest,
             disabledUncheckedTrackColor = scheme.surfaceContainerHighest,
             disabledCheckedThumbColor = scheme.onSurface.copy(alpha = .38f), disabledUncheckedThumbColor = scheme.onSurface.copy(alpha = .38f)))
-    }
-}
-
-@Composable
-private fun PrivacyDomainPreference(title: Int, value: String, enabled: Boolean, onSave: (String) -> Unit) {
-    var open by rememberSaveable { mutableStateOf(false) }
-    var draft by rememberSaveable { mutableStateOf("") }
-    Row(Modifier.fillMaxWidth().clickable(enabled, role = Role.Button) { draft = value; open = true }
-        .padding(horizontal = 16.dp, vertical = 10.dp).alpha(if (enabled) 1f else .38f), verticalAlignment = Alignment.CenterVertically) {
-        Text(stringResource(title), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-        Text(value, Modifier.padding(start = 16.dp).widthIn(max = 120.dp), style = MaterialTheme.typography.bodyMedium)
-    }
-    if (open) {
-        val sites = draft.split(Regex("[\\s,;]+")).filter { it.isNotEmpty() }
-        val valid = sites.size <= 128 && sites.all { it.length <= 253 && Regex("[a-zA-Z0-9_-]+(\\.[a-zA-Z0-9_-]+)+").matches(it) }
-        AlertDialog(onDismissRequest = { open = false }, title = { Text(stringResource(title)) },
-            text = { NativeTextField(draft, { draft = it }, singleLine = true, isError = !valid,
-                supportingText = { if (!valid) Text(stringResource(R.string.native_regional_domains_hint)) }) },
-            confirmButton = { NativeTextButton(enabled = valid && enabled, onClick = { open = false; onSave(draft) }) { Text(stringResource(android.R.string.ok)) } },
-            dismissButton = { NativeTextButton(onClick = { open = false }) { Text(stringResource(android.R.string.cancel)) } })
-    }
-}
-
-@Composable
-private fun PrivacyCatalogueLink(host: String) {
-    val context = LocalContext.current
-    Row(Modifier.fillMaxWidth().clickable(role = Role.Button) {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://$host/ru"))
-        if (intent.resolveActivity(context.packageManager) != null) context.startActivity(intent)
-    }.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(host, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-        Icon(painterResource(R.drawable.privacy_open), null, Modifier.size(24.dp))
     }
 }
 
