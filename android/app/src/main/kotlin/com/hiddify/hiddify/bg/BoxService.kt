@@ -28,6 +28,7 @@ import android.net.VpnService
 import com.hiddify.hiddify.nativeconnection.NativeHealthProbePolicy
 import com.hiddify.hiddify.nativeconnection.NativeHealthRepository
 import com.hiddify.hiddify.nativeconnection.NativeInternetHealth
+import com.hiddify.hiddify.nativeconnection.NativeStartupDeadline
 import com.hiddify.hiddify.nativeconnection.NativeRecoveryPolicy
 import com.hiddify.hiddify.nativeconnection.NativeServiceState
 import com.hiddify.hiddify.nativecore.NativeStatsFeed
@@ -170,6 +171,7 @@ class BoxService(
     private var activeProfileName = ""
     @Volatile private var stopRequested = false
     @Volatile private var nativeStarting = false
+    @Volatile private var nativeStartupTimedOut = false
     @Volatile private var startCancellation: kotlinx.coroutines.Job? = null
     @Volatile private var rootActive = false
     private var rootMonitor: kotlinx.coroutines.Job? = null
@@ -314,6 +316,23 @@ class BoxService(
                     // Stop() cancels the Go startup context before taking its lifecycle lock.
                     // It must be issued concurrently: waiting for our mutex first cannot abort Start().
                     nativeStarting = true
+                    nativeStartupTimedOut = false
+                    // Mobile.start() is a blocking JNI call. A separate IO coroutine can
+                    // cancel Go's startup context even when Psiphon bootstrap stalls.
+                    val startupWatchdog = serviceScope.launch {
+                        delay(NativeStartupDeadline.TIMEOUT_MS)
+                        if (NativeStartupDeadline.shouldAbort(
+                                starting = nativeStarting,
+                                stopRequested = stopRequested,
+                                connectionDesired = Settings.connectionDesired,
+                                ownsCore = coreOwner === this@BoxService,
+                            )) {
+                            nativeStartupTimedOut = true
+                            Log.e(TAG, "Native VPN core startup exceeded ${NativeStartupDeadline.TIMEOUT_MS} ms; cancelling")
+                            runCatching { Mobile.stop() }
+                                .onFailure { Log.e(TAG, "Unable to cancel stalled core startup", it) }
+                        }
+                    }
                     try {
                         if (!Settings.connectionDesired || stopRequested) {
                             nativeStarting = false
@@ -321,6 +340,7 @@ class BoxService(
                             return
                         }
                         Mobile.start(selectedConfigPath, "")
+                        if (nativeStartupTimedOut) error("VPN core connection timed out during startup (90 seconds); check Psiphon bootstrap/network logs")
                         // Mobile.start builds a StartRequest with disable_memory_limit=false,
                         // overriding the flag applied before setup. Restore the requested policy.
                         Libbox.setMemoryLimit(!Settings.disableMemoryLimit)
@@ -330,7 +350,10 @@ class BoxService(
                         if (service is VPNService && fileDescriptor == null) {
                             error("Android VPN interface was not created by the core (missing TUN inbound)")
                         }
-                    } finally { nativeStarting = false }
+                    } finally {
+                        nativeStarting = false
+                        startupWatchdog.cancel()
+                    }
                     if (!Settings.connectionDesired || stopRequested) {
                         finishCancelledStart("cancelled during native start")
                         return
