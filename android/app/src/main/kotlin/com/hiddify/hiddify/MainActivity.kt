@@ -2768,6 +2768,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             if (serviceStatus.value != status) resetTrafficStats()
             if (status == Status.Started && serviceStatus.value != status) pingSession++
             serviceStatus.value = status
+            if (startResult == false) {
+                homeConnectionFailed.value = true
+                if (errorMessage.value == null) errorMessage.value = getString(R.string.native_connection_service_unavailable)
+            }
             if (status == Status.Starting || status == Status.Started) homeConnectionFailed.value = false
             requiresReconnect.value = Settings.nativeReconnectRequired
             if (status == Status.Started || status == Status.Stopped) {

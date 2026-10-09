@@ -21,6 +21,7 @@ android-apk-install-deps: android-install-deps
 android-libs:
 	$(MKDIR) $(ANDROID_OUT)
 	@test -f hiddify-core/go.mod || { echo "Run git submodule update --init --recursive first"; exit 1; }
+	python3 tool/download_core_modules.py
 	$(MAKE) -C hiddify-core android-arm64 CODE_VERSION="-X github.com/hiddify/hiddify-core/v2/hcommon/constants.Version=$(core.version)-$$(git -C hiddify-core rev-parse --short=12 HEAD) -X github.com/sagernet/sing-box/constant.Version=sawamen-$$(git -C hiddify-core/hiddify-sing-box rev-parse --short=12 HEAD)"
 	install -m 644 hiddify-core/bin/hiddify-core.aar $(ANDROID_OUT)/hiddify-core.aar
 	cd hiddify-core && go run ./cmd/internal/build_root
