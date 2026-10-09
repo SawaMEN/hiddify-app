@@ -628,7 +628,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         super.onResume()
         if (!generalPreferencesBusy.value && !pendingStartAfterVpnPermission && !nativeStartPending &&
             !tlsBusy.value && !generalOptionsBusy.value && !tunnelBusy.value && !dnsBusy.value && !inboundBusy.value && !privacySetupBusy.value &&
-            generalPreferencesRepository.load().language != appliedLanguage) {
+            runCatching { generalPreferencesRepository.load().language }.getOrDefault(appliedLanguage) != appliedLanguage) {
             recreate()
             return
         }
@@ -1507,21 +1507,30 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         )
 
     private fun refreshSettingsSnapshot() {
-        nativeSettings.value = readNativeSettings()
+        // A single corrupt/temporarily inaccessible preference must not crash Activity
+        // creation, resume or an asynchronous system callback. Keep last good values.
+        fun <T> restore(label: String, load: () -> T, apply: (T) -> Unit) {
+            try { apply(load()) }
+            catch (error: Exception) { Log.w(TAG, "Cannot restore $label; retaining previous UI state", error) }
+        }
+        restore("native settings", ::readNativeSettings) { nativeSettings.value = it }
         refreshProxyPrivacyState()
         refreshPrivacySetupState()
-        generalPreferences.value = generalPreferencesRepository.load()
-        themeMode.value = appearanceRepository.load()
-        accentColor.value = appearanceRepository.loadAccent()
-        connectionOptions.value = NetworkPrivacySettings.loadConnection(this)
-        regionalOptions.value = regionalRepository.load()
-        trafficFilters.value = NetworkPrivacySettings.loadFilters(this)
+        restore("general preferences", generalPreferencesRepository::load) { generalPreferences.value = it }
+        restore("theme", appearanceRepository::load) { themeMode.value = it }
+        restore("accent", appearanceRepository::loadAccent) { accentColor.value = it }
+        restore("connection policy", { NetworkPrivacySettings.loadConnection(this) }) { connectionOptions.value = it }
+        restore("regional options", regionalRepository::load) { regionalOptions.value = it }
+        restore("traffic filters", { NetworkPrivacySettings.loadFilters(this) }) { trafficFilters.value = it }
     }
 
     private fun refreshProxyPrivacyState() {
         proxyPrivacySnapshotJob?.cancel()
         proxyPrivacySnapshotJob = lifecycleScope.launch {
-            proxyPrivacy.value = withContext(Dispatchers.IO) { NetworkPrivacySettings.loadProxyPrivacy(applicationContext) }
+            try {
+                proxyPrivacy.value = withContext(Dispatchers.IO) { NetworkPrivacySettings.loadProxyPrivacy(applicationContext) }
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { Log.w(TAG, "Cannot restore proxy privacy options", error) }
         }
     }
 
@@ -1552,11 +1561,14 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun refreshPrivacySetupState() {
         privacySetupSnapshotJob?.cancel()
         privacySetupSnapshotJob = lifecycleScope.launch {
-            val (configured, canRestore) = withContext(Dispatchers.IO) {
-                privacySetupRepository.isConfigured() to privacySetupRepository.canRestore()
-            }
-            privacyConfigured.value = configured
-            privacyCanRestore.value = canRestore
+            try {
+                val (configured, canRestore) = withContext(Dispatchers.IO) {
+                    privacySetupRepository.isConfigured() to privacySetupRepository.canRestore()
+                }
+                privacyConfigured.value = configured
+                privacyCanRestore.value = canRestore
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (error: Exception) { Log.w(TAG, "Cannot restore privacy setup state", error) }
         }
     }
 
@@ -2388,13 +2400,16 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     withContext(Dispatchers.IO) {
                         wifiSharingRepository.load()
                     }
-            } catch (error: Exception) {
-                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } catch (cancelled: CancellationException) { throw cancelled }
+              catch (error: Exception) {
+                Log.w(TAG, "Unable to refresh Wi-Fi sharing details", error)
             } finally {
                 wifiSharingDetailsBusy.value = false
-                if (wifiDetailsRefreshPending) {
+                if (wifiDetailsRefreshPending && lifecycle.currentState != Lifecycle.State.DESTROYED) {
                     wifiDetailsRefreshPending = false
                     refreshWifiSharingDetails()
+                } else {
+                    wifiDetailsRefreshPending = false
                 }
             }
         }

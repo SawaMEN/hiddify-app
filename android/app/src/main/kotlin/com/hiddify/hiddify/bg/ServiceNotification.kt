@@ -137,8 +137,13 @@ class ServiceNotification(private val service: Service) : BroadcastReceiver() {
     }
 
     private fun updatePolling() {
-        if (!closed && foregroundOwner === this && Settings.dynamicNotification && checkPermission() &&
-            Application.powerManager.isInteractive) {
+        // Notification permission and OEM NotificationManager implementations can fail
+        // during a system permission toggle. This must never crash a running VPN.
+        val mayPoll = runCatching {
+            !closed && foregroundOwner === this && Settings.dynamicNotification &&
+                checkPermission() && Application.powerManager.isInteractive
+        }.onFailure { Log.w("notification", "Cannot inspect notification permissions", it) }.getOrDefault(false)
+        if (mayPoll) {
             if (streamingJob?.isActive != true) startListenSystemInfo()
         } else {
             stopListenSystemInfo()
@@ -196,12 +201,23 @@ class ServiceNotification(private val service: Service) : BroadcastReceiver() {
     private var streamingJob: Job? = null
 
     fun startListenSystemInfo() {
-        if (closed || foregroundOwner !== this || !Settings.dynamicNotification || !checkPermission() ||
-            !Application.powerManager.isInteractive || streamingJob?.isActive == true) return
+        val canStart = runCatching {
+            !closed && foregroundOwner === this && Settings.dynamicNotification && checkPermission() &&
+                Application.powerManager.isInteractive && streamingJob?.isActive != true
+        }.onFailure { Log.w("notification", "Cannot start traffic notification updates", it) }.getOrDefault(false)
+        if (!canStart) return
         val generation = ++pollingGeneration
         streamingJob = streamingCoroutineScope.launch(Dispatchers.Main.immediate) {
-            com.hiddify.hiddify.nativecore.NativeStatsFeed.snapshots.collect { snapshot ->
-                if (!closed && generation == pollingGeneration) updateStatus(snapshot)
+            try {
+                com.hiddify.hiddify.nativecore.NativeStatsFeed.snapshots.collect { snapshot ->
+                    if (!closed && generation == pollingGeneration) updateStatus(snapshot)
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) { throw cancelled }
+              catch (error: Exception) {
+                // A revoked notification permission or broken OEM service should only
+                // stop dynamic statistics, not terminate the entire Android process.
+                Log.w("notification", "Disabling traffic notification updates after an Android error", error)
+                stopListenSystemInfo()
             }
         }
     }

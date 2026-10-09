@@ -593,6 +593,7 @@ class BoxService(
             var policy = NativeHealthProbePolicy(false)
             delay(3000)
             while (isActive && !destroyed && coreOwner === this@BoxService && status.value == Status.Started) {
+                try {
                 if (android.os.SystemClock.elapsedRealtime() - connectedAt >= 60_000) recoveryPolicy.reset()
                 val options = NetworkPrivacySettings.loadConnection(service)
                 if (policy.adaptive != options.adaptiveNetwork) policy = NativeHealthProbePolicy(options.adaptiveNetwork)
@@ -618,14 +619,26 @@ class BoxService(
                 }
                 if (options.recoveryEnabled && coreFailures >= 3 && recoveryAllowed(Alert.StartService)) {
                     serviceScope.launch {
-                        lifecycleMutex.withLock {
-                            if (!destroyed && coreOwner === this@BoxService && !stopRequested && Settings.connectionDesired)
-                                stopAndAlert(Alert.StartService, "Core control channel is unavailable")
-                        }
+                        try {
+                            lifecycleMutex.withLock {
+                                if (!destroyed && coreOwner === this@BoxService && !stopRequested && Settings.connectionDesired)
+                                    stopAndAlert(Alert.StartService, "Core control channel is unavailable")
+                            }
+                        } catch (cancelled: CancellationException) { throw cancelled }
+                          catch (error: Exception) { Log.e(TAG, "Could not recover failed core control channel", error) }
                     }
                     break
                 }
                 delay(if (healthy) maxOf(60L, policy.intervalSeconds) * 1000 else policy.intervalSeconds * 1000)
+                } catch (cancelled: CancellationException) { throw cancelled }
+                  catch (error: Exception) {
+                    // A transient Android connectivity/permission exception is not a
+                    // fatal core error. Retry the health probe rather than crash the app.
+                    Log.w(TAG, "Connection health monitor failed; retrying", error)
+                    NativeServiceState.health(NativeInternetHealth.UNCHECKED)
+                    coreFailures = 0
+                    delay(15_000)
+                }
             }
         }
     }
