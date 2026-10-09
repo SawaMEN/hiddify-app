@@ -1,10 +1,11 @@
-import com.hiddify.hiddify.privacy.BinaryXml
+package com.hiddify.hiddify.privacy
+
+import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-/** Existing independent fixtures, ported from Java without adding scenarios. */
-object BinaryXmlTest {
+class BinaryXmlTest {
     private fun fixture(utf8: Boolean): ByteArray {
         val strings = listOf("app.hiddify.com", "app.hiddify.com.privacy.files", "com.hiddify.hiddify.MainActivity", "Hiddify")
         val data = ByteArrayOutputStream()
@@ -28,8 +29,7 @@ object BinaryXmlTest {
         }.array()
     }
 
-    @JvmStatic
-    fun main(args: Array<String>) {
+    @Test fun binaryXmlFixturesPreserveResourceAndManifestStructure() {
         for (utf8 in listOf(false, true)) {
             val source = fixture(utf8)
             var changes = 0
@@ -80,6 +80,5 @@ object BinaryXmlTest {
         val changed = ByteBuffer.wrap(BinaryXml.setApplicationIcon(icons.array(), 0x7f010002)).order(ByteOrder.LITTLE_ENDIAN)
         check(changed.getInt(applicationOffset + 52) == 0x7f010002 && changed.getInt(applicationOffset + 72) == 0x7f010002 &&
             changed.getInt(applicationOffset + 76 + 52) == 0x7f010001) { "Only application icons should change" }
-        println("BinaryXml fixtures passed (UTF-8, UTF-16, Unicode, authorities, corruption)")
     }
 }

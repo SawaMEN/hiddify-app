@@ -336,8 +336,11 @@ private fun PrivacyOverviewPreview() {
                 NativePrivacyOverviewScreen(
                     configured = false, canRestore = false, busy = false, canApply = true, canChangeRoot = true,
                     onConfigure = {}, onRestore = {}, expandedCategories = emptySet(), onToggleCategory = {},
-                    settings = NativeSettingsState("vpn", false, false, false, true, true, true, false,
-                        false, true, true, "", "", true, false, false),
+                    settings = NativeSettingsState(serviceMode = "vpn", rootRequested = false, wifiSharing = false,
+                        fullTunnel = false, encryptedDns = true, publicDns = true, disableSystemProxy = true,
+                        handbookRouting = false, handbookProxy = true, handbookDirect = true,
+                        handbookProxySites = "", handbookDirectSites = "", dynamicNotification = true,
+                        debugMode = false, disableMemoryLimit = false),
                     regional = NativeRegionalOptions(), regionalRevision = 0,
                     connection = NativeConnectionOptions(), proxy = NativeProxyPrivacy(),
                     onSaveRegional = {}, onSaveConnection = {}, onSaveProxy = {}, onOpenApps = {},

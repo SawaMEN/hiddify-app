@@ -43,7 +43,7 @@ class NativeUpdateRepository {
                 if (release.optBoolean("draft") || release.optBoolean("prerelease")) continue
 
                 val tag = release.optString("tag_name").trim()
-                val parsed = parseProductionTag(tag) ?: continue
+                val parsed = NativeReleasePolicy.productionTag(tag) ?: continue
                 val pageUrl = release.optString("html_url").trim()
                 if (!isTrustedReleasePage(pageUrl)) continue
 
@@ -85,8 +85,6 @@ class NativeUpdateRepository {
             (versionComparison == 0 && remote.buildNumber > currentBuild)
     }
 
-    private fun parseProductionTag(tag: String): Pair<String, Int>? = NativeReleasePolicy.productionTag(tag)
-
     private fun compare(
         left: NativeReleaseInfo,
         right: NativeReleaseInfo,
@@ -110,10 +108,9 @@ class NativeUpdateRepository {
     }
 
     private fun isTrustedReleasePage(value: String): Boolean =
-        trustedUri(value, "/SawaMEN/hiddify-app/releases/")
+        NativeReleasePolicy.trustedUrl(value, "/SawaMEN/hiddify-app/releases/")
 
     private fun isTrustedAsset(value: String): Boolean =
-        trustedUri(value, "/SawaMEN/hiddify-app/releases/download/")
+        NativeReleasePolicy.trustedUrl(value, "/SawaMEN/hiddify-app/releases/download/")
 
-    private fun trustedUri(value: String, pathPrefix: String): Boolean = NativeReleasePolicy.trustedUrl(value, pathPrefix)
 }

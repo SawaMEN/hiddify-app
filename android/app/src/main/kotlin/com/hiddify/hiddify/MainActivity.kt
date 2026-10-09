@@ -582,7 +582,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onEncryptedDnsChanged = { value -> updateSettings { Settings.setPrivacyEncryptedDns(value) } },
                 onPublicDnsChanged = { value -> updateSettings { Settings.setPrivacyPublicDns(value) } },
                 onDisableSystemProxyChanged = { value -> updateSettings { Settings.setPrivacyDisableSystemProxy(value) } },
-                onDisableIpv6Changed = { value -> updateSettings { Settings.setPrivacyDisableIpv6(value) } },
                 onHandbookRoutingChanged = { value ->
                     if (serviceStatus.value != Status.Starting && serviceStatus.value != Status.Stopping && !reconnectBusy.value) {
                         updateSettings { Settings.setHandbookRouting(value) }
@@ -1497,7 +1496,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             encryptedDns = Settings.privacyEncryptedDns,
             publicDns = Settings.privacyPublicDns,
             disableSystemProxy = Settings.privacyDisableSystemProxy,
-            disableIpv6 = Settings.privacyDisableIpv6,
             handbookRouting = Settings.handbookRouting,
             handbookProxy = Settings.handbookProxy,
             handbookDirect = Settings.handbookDirect,

@@ -1,4 +1,4 @@
-name: Native Kotlin regression tests
+name: Native core race regressions
 
 on:
   pull_request:
@@ -21,19 +21,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
-      - name: Test production Kotlin without Android, JNI or APK
-        run: bash android/gradlew -p tool/kotlin-tests test --console=plain
-
+  # JVM regression tests run once in CI/build.yml, including pull requests.
   core:
     runs-on: ubuntu-latest
     timeout-minutes: 20

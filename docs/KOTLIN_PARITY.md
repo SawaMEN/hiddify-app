@@ -489,7 +489,9 @@ to clear. Timeout leaves the profile intact. The config file is renamed before t
 transaction, restored on transaction failure, and cleaned up after commit. Chain profile
 references move to the next active profile, matching the original Dart deletion flow.
 
-The standalone `tool/check_connection_functionality.kt` runner compiles production helpers
+The connection fixtures are now consolidated in `ServiceStartTrackerTest`,
+`NativeStartupCancellationTest` and `NativeProfileFileRemovalTest` in the Gradle JVM suite,
+which compiles production helpers
 and passes regression checks for initial binding snapshots, failed/retried startup, cancellation
 arriving before Go startup, successful file removal, rollback, missing config and invalid file
 paths. It was run with Kotlin 2.2.0 and coroutines 1.8.0. All production Kotlin files also pass

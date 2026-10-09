@@ -31,7 +31,7 @@ Ordinary mode still exposes `VpnService`, `TRANSPORT_VPN` and the tunnel interfa
 
 Core tests: `go test -ldflags=-checklinkname=0 ./v2/config ./v2/hcore ./platform/mobile` (the linker flag is already used by the core build).
 
-Binary XML tests: compile `android/app/src/main/kotlin/com/hiddify/hiddify/privacy/BinaryXml.kt` and `tool/tests/BinaryXmlTest.kt` with `kotlinc -include-runtime -d /tmp/binary-xml.jar`, then run `java -jar /tmp/binary-xml.jar`. Fixtures cover UTF-8/UTF-16, Unicode, resizing, authorities and preserved node indexes.
+Binary XML tests: run `./android/gradlew -p tool/kotlin-tests test --tests "*BinaryXmlTest"`. Fixtures cover UTF-8/UTF-16, Unicode, resizing, authorities and preserved node indexes.
 
 Flutter navigation and policy tests: `flutter test test/reliability/navigation_test.dart test/reliability/vpn_privacy_policy_test.dart`.
 
@@ -63,4 +63,4 @@ Opening the privacy tab or resuming it discovers an executable `su` without runn
 
 The root daemon supports the existing authenticated control RPC for profile start/stop, reconnection, options, outbounds, logs and traffic statistics. Native background restart passes the selected profile name, logging mode and memory-limit preference. Kernel TUN and policy routing remain owned by sing-box; stop requests graceful cleanup over the parent pipe. A live daemon's nonzero shutdown is reported rather than accepted as confirmed cleanup. SELinux/kernel restrictions can still prevent TUN or netlink access despite an available su; startup reports those failures. Physical root-device acceptance remains required.
 
-Discovery regression fixture: compile `RootAccess.kt` with `tool/tests/RootAccessTest.kt` and run the resulting jar. It checks executable detection, rejection of nonexecutable files/directories, and absence of command execution during discovery.
+Discovery regression fixture: run `./android/gradlew -p tool/kotlin-tests test --tests "*RootAccessTest"`. It checks executable detection, rejection of nonexecutable files/directories, and absence of command execution during discovery.
