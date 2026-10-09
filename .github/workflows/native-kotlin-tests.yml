@@ -7,6 +7,8 @@ on:
       - 'android/app/src/test/kotlin/**'
       - 'tool/kotlin-tests/**'
       - '.github/workflows/native-kotlin-tests.yml'
+      - '.gitmodules'
+      - 'tool/download_core_modules.py'
       - 'hiddify-core'
   push:
     branches: [main]
@@ -15,6 +17,8 @@ on:
       - 'android/app/src/test/kotlin/**'
       - 'tool/kotlin-tests/**'
       - '.github/workflows/native-kotlin-tests.yml'
+      - '.gitmodules'
+      - 'tool/download_core_modules.py'
       - 'hiddify-core'
 
 permissions:
@@ -35,6 +39,8 @@ jobs:
           cache-dependency-path: |
             hiddify-core/go.sum
             hiddify-core/hiddify-sing-box/go.sum
+      - name: Download pinned core modules with network retries
+        run: python3 tool/download_core_modules.py
       - name: Test core route composition and profile validation without APK
         working-directory: hiddify-core
         run: go test -race -ldflags=-checklinkname=0 -tags with_quic,with_utls,with_gvisor,with_wireguard,with_clash_api ./v2/config ./v2/hcore ./platform/mobile

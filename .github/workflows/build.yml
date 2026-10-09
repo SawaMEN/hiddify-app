@@ -56,8 +56,7 @@ jobs:
       - name: Run existing native and release-tool tests
         run: |
           ./android/gradlew -p tool/kotlin-tests test --console=plain
-          python3 tool/test_appcast.py
-          python3 tool/test_app_version.py
+          python3 -m unittest discover -s tool -p 'test_*.py'
       - name: Upload native Kotlin test reports
         if: always()
         uses: actions/upload-artifact@v7.0.1
