@@ -1,4 +1,5 @@
 [submodule "hiddify-core"]
 	path = hiddify-core
-	url = https://github.com/SawaMEN/hiddify-core
+	# The pinned Android API revision is preserved in core1.
+	url = https://github.com/SawaMEN/hiddify-core1
 	branch = main
