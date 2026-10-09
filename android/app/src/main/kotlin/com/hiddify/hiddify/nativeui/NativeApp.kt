@@ -1068,7 +1068,7 @@ private fun connectionAccent(status: Status, recovering: Boolean, reconnectBusy:
     status == Status.Starting || status == Status.Stopping || reconnectBusy || recovering -> Color(0xFFF2B84B)
     failed && status == Status.Stopped -> MaterialTheme.colorScheme.error
     status == Status.Started -> MaterialTheme.colorScheme.primary
-    else -> MaterialTheme.colorScheme.primary
+    else -> MaterialTheme.colorScheme.primaryContainer
 }
 
 @Composable
@@ -1105,7 +1105,7 @@ private fun ConnectionCard(
         transitioning -> Color(0xFF302100)
         showError -> scheme.onError
         status == Status.Started -> scheme.onPrimary
-        else -> scheme.onPrimary
+        else -> scheme.onPrimaryContainer
     }, animationSpec = tween(animationDuration), label = "connectionContentColor")
     // Grow the circle with system text size so the action remains readable.
     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
