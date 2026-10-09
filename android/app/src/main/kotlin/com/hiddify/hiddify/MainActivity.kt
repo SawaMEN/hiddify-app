@@ -2623,6 +2623,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshProfileSnapshot()
 
         if (Settings.activeConfigPath.isBlank()) {
+            homeConnectionFailed.value = true
             errorMessage.value = getString(R.string.native_no_active_profile)
             return
         }

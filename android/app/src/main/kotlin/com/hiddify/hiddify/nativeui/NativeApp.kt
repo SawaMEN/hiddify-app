@@ -1060,8 +1060,8 @@ private fun TrafficMetric(label: Int, rate: Long, total: Long, stats: NativeSyst
 @Composable
 private fun connectionAccent(status: Status, recovering: Boolean, reconnectBusy: Boolean, failed: Boolean): Color = when {
     status == Status.Starting || status == Status.Stopping || reconnectBusy || recovering -> Color(0xFFF2B84B)
-    failed && status == Status.Stopped -> MaterialTheme.colorScheme.error
-    status == Status.Started -> MaterialTheme.colorScheme.primary
+    failed && status == Status.Stopped -> Color(0xFFD32F2F)
+    status == Status.Started -> Color(0xFF4CAF50)
     else -> MaterialTheme.colorScheme.primaryContainer
 }
 
@@ -1097,8 +1097,8 @@ private fun ConnectionCard(
         animationSpec = tween(animationDuration), label = "connectionColor")
     val contentColor by animateColorAsState(when {
         transitioning -> Color(0xFF302100)
-        showError -> scheme.onError
-        status == Status.Started -> scheme.onPrimary
+        showError -> Color.White
+        status == Status.Started -> Color(0xFF002105)
         else -> scheme.onPrimaryContainer
     }, animationSpec = tween(animationDuration), label = "connectionContentColor")
     // Grow the circle with system text size so the action remains readable.
@@ -1107,6 +1107,16 @@ private fun ConnectionCard(
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(buttonSize + 20.dp)
+                .drawWithCache {
+                    val halo = Brush.radialGradient(
+                        0f to Color.Transparent,
+                        0.80f to stateColor.copy(alpha = 0.10f),
+                        0.90f to stateColor.copy(alpha = 0.36f),
+                        1f to Color.Transparent,
+                        radius = size.minDimension / 2f,
+                    )
+                    onDrawBehind { drawCircle(halo) }
+                }
                 .background(stateColor.copy(alpha = 0.10f), CircleShape)
                 .border(1.dp, stateColor.copy(alpha = 0.24f), CircleShape),
                 contentAlignment = Alignment.Center) {
