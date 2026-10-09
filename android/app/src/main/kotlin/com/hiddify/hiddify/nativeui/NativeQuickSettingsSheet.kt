@@ -86,6 +86,9 @@ internal fun NativeQuickSettingsSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        // Let the scrollable content own vertical swipes. Competing sheet drag
+        // and child scroll gestures can repeatedly move the modal while scrolling.
+        sheetGesturesEnabled = false,
     ) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp).padding(bottom = 24.dp),
