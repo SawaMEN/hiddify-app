@@ -83,6 +83,12 @@ fun NativeAppTheme(mode: NativeThemeMode, accent: com.hiddify.hiddify.nativepref
             listOf(0xFFD0BCFF, 0xFF381E72, 0xFF4F378B, 0xFFEADDFF) else listOf(0xFF6750A4, 0xFFFFFFFF, 0xFFEADDFF, 0xFF21005D)
         com.hiddify.hiddify.nativepreferences.NativeAccentColor.ROSE -> if (dark)
             listOf(0xFFFFB1C5, 0xFF5E1133, 0xFF7B294A, 0xFFFFD9E2) else listOf(0xFF984061, 0xFFFFFFFF, 0xFFFFD9E2, 0xFF3E001C)
+        com.hiddify.hiddify.nativepreferences.NativeAccentColor.ORANGE -> if (dark)
+            listOf(0xFFFFB787, 0xFF542100, 0xFF753509, 0xFFFFDBC4) else listOf(0xFFFFB787, 0xFF542100, 0xFFFFE6D5, 0xFF331000)
+        com.hiddify.hiddify.nativepreferences.NativeAccentColor.GREEN -> if (dark)
+            listOf(0xFFA2D4AB, 0xFF0D381E, 0xFF285033, 0xFFBDEFC6) else listOf(0xFF356A4A, 0xFFFFFFFF, 0xFFBDEFC6, 0xFF00210D)
+        com.hiddify.hiddify.nativepreferences.NativeAccentColor.BROWN -> if (dark)
+            listOf(0xFFF1BCA0, 0xFF4B2816, 0xFF663E2A, 0xFFFFDBC8) else listOf(0xFF80543D, 0xFFFFFFFF, 0xFFFFDBC8, 0xFF301407)
         com.hiddify.hiddify.nativepreferences.NativeAccentColor.AMBER -> if (dark)
             listOf(0xFFE7C36D, 0xFF3D2E00, 0xFF574419, 0xFFFFE1A1) else listOf(0xFF735B18, 0xFFFFFFFF, 0xFFFFE1A1, 0xFF251A00)
     }

@@ -355,7 +355,7 @@ fun NativeSettingsScreen(
         AlertDialog(onDismissRequest = { accentPickerOpen = false },
             title = { Text(stringResource(R.string.native_accent_title)) },
             text = {
-                Column {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
                     com.hiddify.hiddify.nativepreferences.NativeAccentColor.entries.forEach { color ->
                         val selected = color == accentColor
                         Row(Modifier.fillMaxWidth().selectable(selected, !themeBusy, Role.RadioButton) {
@@ -369,6 +369,9 @@ fun NativeSettingsScreen(
                                 com.hiddify.hiddify.nativepreferences.NativeAccentColor.VIOLET -> 0xFF6750A4
                                 com.hiddify.hiddify.nativepreferences.NativeAccentColor.ROSE -> 0xFF984061
                                 com.hiddify.hiddify.nativepreferences.NativeAccentColor.AMBER -> 0xFF735B18
+                                com.hiddify.hiddify.nativepreferences.NativeAccentColor.ORANGE -> 0xFFFFB787
+                                com.hiddify.hiddify.nativepreferences.NativeAccentColor.GREEN -> 0xFF356A4A
+                                com.hiddify.hiddify.nativepreferences.NativeAccentColor.BROWN -> 0xFF80543D
                             }), CircleShape))
                             Text(stringResource(accentTitle(color)), Modifier.padding(start = 12.dp))
                         }
@@ -517,4 +520,7 @@ private fun accentTitle(color: com.hiddify.hiddify.nativepreferences.NativeAccen
     com.hiddify.hiddify.nativepreferences.NativeAccentColor.VIOLET -> R.string.native_accent_violet
     com.hiddify.hiddify.nativepreferences.NativeAccentColor.ROSE -> R.string.native_accent_rose
     com.hiddify.hiddify.nativepreferences.NativeAccentColor.AMBER -> R.string.native_accent_amber
+    com.hiddify.hiddify.nativepreferences.NativeAccentColor.ORANGE -> R.string.native_accent_orange
+    com.hiddify.hiddify.nativepreferences.NativeAccentColor.GREEN -> R.string.native_accent_green
+    com.hiddify.hiddify.nativepreferences.NativeAccentColor.BROWN -> R.string.native_accent_brown
 }

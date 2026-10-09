@@ -680,4 +680,7 @@
     <string name="native_accent_violet">Фиолетовый</string>
     <string name="native_accent_rose">Розовый</string>
     <string name="native_accent_amber">Янтарный</string>
+    <string name="native_accent_orange">Светло-оранжевый</string>
+    <string name="native_accent_green">Зелёный</string>
+    <string name="native_accent_brown">Коричневый</string>
 </resources>

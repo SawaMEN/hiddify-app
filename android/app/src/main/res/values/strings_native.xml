@@ -680,4 +680,7 @@
     <string name="native_accent_violet">Violet</string>
     <string name="native_accent_rose">Rose</string>
     <string name="native_accent_amber">Amber</string>
+    <string name="native_accent_orange">Light orange</string>
+    <string name="native_accent_green">Green</string>
+    <string name="native_accent_brown">Brown</string>
 </resources>

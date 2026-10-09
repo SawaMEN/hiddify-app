@@ -13,7 +13,8 @@ enum class NativeThemeMode(val value: String) {
 }
 
 enum class NativeAccentColor(val value: String) {
-    GRAY("gray"), BLUE("blue"), VIOLET("violet"), ROSE("rose"), AMBER("amber");
+    GRAY("gray"), BLUE("blue"), VIOLET("violet"), ROSE("rose"), AMBER("amber"),
+    ORANGE("orange"), GREEN("green"), BROWN("brown");
 }
 
 /** Uses the persisted theme preference without changing other general settings. */
