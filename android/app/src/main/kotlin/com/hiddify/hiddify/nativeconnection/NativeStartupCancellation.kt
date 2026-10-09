@@ -11,3 +11,11 @@ internal object NativeStartupCancellation {
         }
     }
 }
+
+/** A core that never finishes startup must not leave Android stuck in Connecting. */
+internal object NativeStartupDeadline {
+    const val TIMEOUT_MS = 90_000L
+
+    fun shouldAbort(starting: Boolean, stopRequested: Boolean, connectionDesired: Boolean, ownsCore: Boolean): Boolean =
+        starting && !stopRequested && connectionDesired && ownsCore
+}
