@@ -382,7 +382,9 @@ class BoxService(
             startConnectionMonitor()
         } catch (e: Exception) {
             if (stopRequested || !Settings.connectionDesired) finishCancelledStart("cancelled startup")
-            else stopAndAlert(Alert.StartService, e.message)
+            else stopAndAlert(Alert.StartService, if (nativeStartupTimedOut) {
+                "VPN core startup timed out after 90 seconds; inspect Psiphon and network logs"
+            } else e.message)
         }
     }
 
