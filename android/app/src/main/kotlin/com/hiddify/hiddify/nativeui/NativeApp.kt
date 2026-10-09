@@ -386,7 +386,7 @@ fun NativeApp(
                                 )
 
                                 PAGE_REGIONAL_APPS -> {
-                                    val kind = runCatching { NativeRegionalAppKind.valueOf(regionalAppKind) }.getOrDefault(NativeRegionalAppKind.DIRECT)
+                                    val kind = restoredEnumOrDefault(regionalAppKind, NativeRegionalAppKind.DIRECT)
                                     NativeRegionalAppsScreen(
                                         kind = kind,
                                         snapshot = regionalApps?.takeIf { it.kind == kind },
@@ -657,7 +657,7 @@ fun NativeApp(
                                         onChangeSmartSelection = onChangeSmartSelection,
                                         onOpenTunnel = { openPage(PAGE_TUNNEL) },
                                         onOpenGeneralOptions = { openPage(PAGE_GENERAL_OPTIONS) },
-                                        category = runCatching { NativeSettingsCategory.valueOf(settingsCategory) }.getOrDefault(NativeSettingsCategory.APP),
+                                        category = restoredEnumOrDefault(settingsCategory, NativeSettingsCategory.APP),
                                         state = settingsState,
                                         accentColor = accentColor,
                                         onChangeAccent = onChangeAccent,
