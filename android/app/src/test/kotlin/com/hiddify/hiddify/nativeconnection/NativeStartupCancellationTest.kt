@@ -26,6 +26,14 @@ class NativeStartupCancellationTest {
         assertTrue(calls >= 2)
     }
 
+    @Test fun startupDeadlineOnlyCancelsActiveOwnedConnections() {
+        assertTrue(NativeStartupDeadline.shouldAbort(starting = true, stopRequested = false, connectionDesired = true, ownsCore = true))
+        assertFalse(NativeStartupDeadline.shouldAbort(starting = false, stopRequested = false, connectionDesired = true, ownsCore = true))
+        assertFalse(NativeStartupDeadline.shouldAbort(starting = true, stopRequested = true, connectionDesired = true, ownsCore = true))
+        assertFalse(NativeStartupDeadline.shouldAbort(starting = true, stopRequested = false, connectionDesired = false, ownsCore = true))
+        assertFalse(NativeStartupDeadline.shouldAbort(starting = true, stopRequested = false, connectionDesired = true, ownsCore = false))
+    }
+
     @Test fun cancellationNeverStopsAnotherCompletedStartup() = runBlocking {
         NativeStartupCancellation.cancelWhileStarting({ false }) { fail("Must not stop completed startup") }
     }
