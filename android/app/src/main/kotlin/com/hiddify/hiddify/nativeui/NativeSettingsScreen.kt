@@ -267,7 +267,7 @@ fun NativeSettingsScreen(
             if (!themeBusy) NativeSettingsLink(R.string.native_theme_title, R.drawable.native_layers,
                 { themePickerOpen = true }, themeTitle(themeMode))
             else Text(stringResource(R.string.native_theme_title) + ": " + stringResource(themeTitle(themeMode)))
-            NativePreferenceValueRow(R.string.native_accent_title, accentTitle(accentColor),
+            NativePreferenceValueRow(R.string.native_accent_title, stringResource(accentTitle(accentColor)),
                 !themeBusy, R.drawable.native_layers) { accentPickerOpen = true }
             NativeSettingsLink(R.string.native_general_options_title, R.drawable.native_route, onOpenGeneralOptions)
             NativeSettingsLink(R.string.native_notification_settings, R.drawable.native_settings,
