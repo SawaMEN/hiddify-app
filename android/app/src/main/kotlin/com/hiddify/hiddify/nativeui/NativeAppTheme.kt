@@ -70,9 +70,24 @@ private val LightColors = lightColorScheme(
 )
 
 @Composable
-fun NativeAppTheme(mode: NativeThemeMode, content: @Composable () -> Unit) {
+fun NativeAppTheme(mode: NativeThemeMode, accent: com.hiddify.hiddify.nativepreferences.NativeAccentColor = com.hiddify.hiddify.nativepreferences.NativeAccentColor.GRAY, content: @Composable () -> Unit) {
     val dark = mode.isDark(isSystemInDarkTheme())
-    val colors = if (dark) DarkColors else LightColors
+    val base = if (dark) DarkColors else LightColors
+    // Four coordinated primary tones for each accent: foreground, text, container, container text.
+    val tones = when (accent) {
+        com.hiddify.hiddify.nativepreferences.NativeAccentColor.GRAY -> if (dark)
+            listOf(0xFFC3C7CF, 0xFF2B3038, 0xFF414750, 0xFFE0E3EB) else listOf(0xFF575E68, 0xFFFFFFFF, 0xFFE0E3EB, 0xFF171C24)
+        com.hiddify.hiddify.nativepreferences.NativeAccentColor.BLUE -> if (dark)
+            listOf(0xFFACC7FF, 0xFF12305C, 0xFF2C4774, 0xFFD8E3FF) else listOf(0xFF365F99, 0xFFFFFFFF, 0xFFD8E3FF, 0xFF001B3E)
+        com.hiddify.hiddify.nativepreferences.NativeAccentColor.VIOLET -> if (dark)
+            listOf(0xFFD0BCFF, 0xFF381E72, 0xFF4F378B, 0xFFEADDFF) else listOf(0xFF6750A4, 0xFFFFFFFF, 0xFFEADDFF, 0xFF21005D)
+        com.hiddify.hiddify.nativepreferences.NativeAccentColor.ROSE -> if (dark)
+            listOf(0xFFFFB1C5, 0xFF5E1133, 0xFF7B294A, 0xFFFFD9E2) else listOf(0xFF984061, 0xFFFFFFFF, 0xFFFFD9E2, 0xFF3E001C)
+        com.hiddify.hiddify.nativepreferences.NativeAccentColor.AMBER -> if (dark)
+            listOf(0xFFE7C36D, 0xFF3D2E00, 0xFF574419, 0xFFFFE1A1) else listOf(0xFF735B18, 0xFFFFFFFF, 0xFFFFE1A1, 0xFF251A00)
+    }
+    val colors = base.copy(primary = Color(tones[0]), onPrimary = Color(tones[1]),
+        primaryContainer = Color(tones[2]), onPrimaryContainer = Color(tones[3]))
     val typography = Typography().let { defaults ->
         defaults.copy(
             headlineSmall = defaults.headlineSmall.copy(fontWeight = FontWeight.SemiBold),

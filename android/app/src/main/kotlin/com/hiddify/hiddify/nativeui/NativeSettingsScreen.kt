@@ -1,5 +1,9 @@
 package com.hiddify.hiddify.nativeui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.semantics.Role
@@ -70,6 +74,8 @@ fun NativeSettingsScreen(
     onOpenTunnel: () -> Unit,
     state: NativeSettingsState,
     category: NativeSettingsCategory? = null,
+    accentColor: com.hiddify.hiddify.nativepreferences.NativeAccentColor,
+    onChangeAccent: (com.hiddify.hiddify.nativepreferences.NativeAccentColor) -> Unit,
     themeMode: NativeThemeMode,
     themeBusy: Boolean,
     onChangeTheme: (NativeThemeMode) -> Unit,
@@ -111,6 +117,7 @@ fun NativeSettingsScreen(
     onSaveCommunitySelection: (Boolean, Boolean, String) -> Unit,
 ) {
     var languagePickerOpen by rememberSaveable { mutableStateOf(false) }
+    var accentPickerOpen by rememberSaveable { mutableStateOf(false) }
     var themePickerOpen by rememberSaveable { mutableStateOf(false) }
     var debugNoticeOpen by rememberSaveable { mutableStateOf(false) }
     var includePrivateExport by rememberSaveable { mutableStateOf(false) }
@@ -266,6 +273,8 @@ fun NativeSettingsScreen(
             if (!themeBusy) NativeSettingsLink(R.string.native_theme_title, R.drawable.native_layers,
                 { themePickerOpen = true }, themeTitle(themeMode))
             else Text(stringResource(R.string.native_theme_title) + ": " + stringResource(themeTitle(themeMode)))
+            NativePreferenceValueRow(R.string.native_accent_title, accentTitle(accentColor),
+                !themeBusy, R.drawable.native_layers) { accentPickerOpen = true }
             NativeSettingsLink(R.string.native_general_options_title, R.drawable.native_route, onOpenGeneralOptions)
             NativeSettingsLink(R.string.native_notification_settings, R.drawable.native_settings,
                 onOpenNotificationSettings, R.string.native_notification_settings_summary)
@@ -339,6 +348,34 @@ fun NativeSettingsScreen(
                 }) { Text(stringResource(R.string.native_quick_reset)) }
             }, dismissButton = {
                 NativeTextButton(onClick = { languagePickerOpen = false }) { Text(stringResource(android.R.string.cancel)) }
+            })
+    }
+
+    if (accentPickerOpen) {
+        AlertDialog(onDismissRequest = { accentPickerOpen = false },
+            title = { Text(stringResource(R.string.native_accent_title)) },
+            text = {
+                Column {
+                    com.hiddify.hiddify.nativepreferences.NativeAccentColor.entries.forEach { color ->
+                        val selected = color == accentColor
+                        Row(Modifier.fillMaxWidth().selectable(selected, !themeBusy, Role.RadioButton) {
+                            accentPickerOpen = false
+                            onChangeAccent(color)
+                        }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = selected, enabled = !themeBusy, onClick = null)
+                            Box(Modifier.padding(start = 12.dp).size(18.dp).background(Color(when (color) {
+                                com.hiddify.hiddify.nativepreferences.NativeAccentColor.GRAY -> 0xFF575E68
+                                com.hiddify.hiddify.nativepreferences.NativeAccentColor.BLUE -> 0xFF365F99
+                                com.hiddify.hiddify.nativepreferences.NativeAccentColor.VIOLET -> 0xFF6750A4
+                                com.hiddify.hiddify.nativepreferences.NativeAccentColor.ROSE -> 0xFF984061
+                                com.hiddify.hiddify.nativepreferences.NativeAccentColor.AMBER -> 0xFF735B18
+                            }), CircleShape))
+                            Text(stringResource(accentTitle(color)), Modifier.padding(start = 12.dp))
+                        }
+                    }
+                }
+            }, confirmButton = {
+                NativeTextButton(onClick = { accentPickerOpen = false }) { Text(stringResource(android.R.string.cancel)) }
             })
     }
 
@@ -472,4 +509,12 @@ private fun languageTitle(language: com.hiddify.hiddify.nativepreferences.Native
     com.hiddify.hiddify.nativepreferences.NativeLanguage.SYSTEM -> stringResource(R.string.native_language_system)
     com.hiddify.hiddify.nativepreferences.NativeLanguage.ENGLISH -> "English"
     com.hiddify.hiddify.nativepreferences.NativeLanguage.RUSSIAN -> "Русский"
+}
+
+private fun accentTitle(color: com.hiddify.hiddify.nativepreferences.NativeAccentColor): Int = when (color) {
+    com.hiddify.hiddify.nativepreferences.NativeAccentColor.GRAY -> R.string.native_accent_gray
+    com.hiddify.hiddify.nativepreferences.NativeAccentColor.BLUE -> R.string.native_accent_blue
+    com.hiddify.hiddify.nativepreferences.NativeAccentColor.VIOLET -> R.string.native_accent_violet
+    com.hiddify.hiddify.nativepreferences.NativeAccentColor.ROSE -> R.string.native_accent_rose
+    com.hiddify.hiddify.nativepreferences.NativeAccentColor.AMBER -> R.string.native_accent_amber
 }

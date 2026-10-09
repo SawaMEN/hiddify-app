@@ -674,4 +674,10 @@
     <string name="native_speed_test_result">%1$s Мбит/с</string>
     <string name="native_speed_test_failed">Тест не завершён. Проверочный сервер может быть недоступен.</string>
     <string name="native_mtu_presets_hint">Сравнивайте MTU на одном сервере и в одной сети. Универсально самого быстрого значения нет.</string>
+    <string name="native_accent_title">Цвет оформления</string>
+    <string name="native_accent_gray">Серый</string>
+    <string name="native_accent_blue">Синий</string>
+    <string name="native_accent_violet">Фиолетовый</string>
+    <string name="native_accent_rose">Розовый</string>
+    <string name="native_accent_amber">Янтарный</string>
 </resources>

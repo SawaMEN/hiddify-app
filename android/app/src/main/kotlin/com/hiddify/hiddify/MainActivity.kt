@@ -185,6 +185,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val generalPreferences = mutableStateOf(com.hiddify.hiddify.nativepreferences.NativeGeneralPreferences())
     private val generalPreferencesBusy = mutableStateOf(false)
     private val generalPreferencesRepository by lazy { com.hiddify.hiddify.nativepreferences.NativeGeneralPreferencesRepository(applicationContext) }
+    private val accentColor = mutableStateOf(com.hiddify.hiddify.nativepreferences.NativeAccentColor.GRAY)
     private val themeMode = mutableStateOf(NativeThemeMode.SYSTEM)
     private val themeBusy = mutableStateOf(false)
     private val privacySetupRepository by lazy { com.hiddify.hiddify.nativeprivacy.NativePrivacySetupRepository(applicationContext) }
@@ -238,6 +239,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private var logRefreshJob: Job? = null
     private var statsRefreshJob: Job? = null
     private var activeOutboundRefreshJob: Job? = null
+    private var pingSession = 0L
     private var pendingStartAfterVpnPermission = false
     private var notificationRequestInFlight = false
     private var backgroundPermissionRequestInFlight = false
@@ -434,6 +436,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 privacyCanRestore = privacyCanRestore.value,
                 onConfigurePrivacy = { applyPrivacySetup(false) },
                 onRestorePrivacy = { applyPrivacySetup(true) },
+                accentColor = accentColor.value,
+                onChangeAccent = ::saveAccent,
                 themeMode = themeMode.value,
                 themeBusy = themeBusy.value,
                 onChangeTheme = ::saveTheme,
@@ -931,23 +935,30 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun startActiveOutboundRefreshLoop() {
         if (activeOutboundRefreshJob?.isActive == true) return
         activeOutboundRefreshJob = lifecycleScope.launch {
-            var previousOutbound = ""
+            val pingPolicy = com.hiddify.hiddify.nativecore.NativeAutoPingPolicy()
             while (isActive && nativeForeground) {
-                val snapshot = withTimeoutOrNull(15_000) {
-                    com.hiddify.hiddify.nativecore.NativeStatsFeed.snapshots.first {
-                        it.currentOutbound.isNotBlank() && it.currentOutbound != previousOutbound
-                    }
-                }
-                previousOutbound = snapshot?.currentOutbound ?: com.hiddify.hiddify.nativecore.NativeStatsFeed.snapshots.value.currentOutbound
                 if (serviceStatus.value == Status.Started) {
                     val profile = Settings.activeConfigPath
                     try {
                         val active = withContext(Dispatchers.IO) { outboundsRepository.loadActive() }
-                        if (nativeForeground && serviceStatus.value == Status.Started && profile == Settings.activeConfigPath)
+                        if (nativeForeground && serviceStatus.value == Status.Started && profile == Settings.activeConfigPath) {
                             activeOutbound.value = active
+                            if (active != null && outboundBusyTag.value == null &&
+                                !com.hiddify.hiddify.nativecore.NativeSpeedTestRepository.running &&
+                                pingPolicy.shouldTest(pingSession.toString() + ":" + profile + ":" + active.tag + ":" + active.selectedChildTag, android.os.SystemClock.elapsedRealtime())) {
+                                pingPolicy.started(android.os.SystemClock.elapsedRealtime())
+                                withContext(Dispatchers.IO) { outboundsRepository.test(active.tag) }
+                            }
+                        }
                     } catch (cancelled: CancellationException) { throw cancelled }
-                      catch (error: Exception) { Log.w(TAG, "failed to refresh active native outbound", error) }
-                } else { activeOutbound.value = null; previousOutbound = ""; delay(1000) }
+                      catch (error: Exception) { Log.w(TAG, "failed to refresh/test active native outbound", error) }
+                } else {
+                    activeOutbound.value = null
+                    pingPolicy.reset()
+                }
+                // UrlTest acknowledges scheduling; its result arrives later in core history.
+                // Read again promptly instead of waiting for the selected tag to change.
+                delay(2_000)
             }
         }
     }
@@ -1503,6 +1514,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshPrivacySetupState()
         generalPreferences.value = generalPreferencesRepository.load()
         themeMode.value = appearanceRepository.load()
+        accentColor.value = appearanceRepository.loadAccent()
         connectionOptions.value = NetworkPrivacySettings.loadConnection(this)
         regionalOptions.value = regionalRepository.load()
         trafficFilters.value = NetworkPrivacySettings.loadFilters(this)
@@ -1769,6 +1781,22 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         runCatching {
             window.decorView.performHapticFeedback(if (stopping) android.view.HapticFeedbackConstants.CONTEXT_CLICK
                 else android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+        }
+    }
+
+    private fun saveAccent(color: com.hiddify.hiddify.nativepreferences.NativeAccentColor) {
+        if (themeBusy.value || generalPreferencesBusy.value) return
+        themeBusy.value = true
+        lifecycleScope.launch {
+            try {
+                accentColor.value = withContext(Dispatchers.IO) { appearanceRepository.saveAccent(color) }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                errorMessage.value = error.message ?: error.javaClass.simpleName
+            } finally {
+                themeBusy.value = false
+            }
         }
     }
 
@@ -2739,6 +2767,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             if (!Settings.connectionDesired && serviceStatus.value == Status.Stopping &&
                 (status == Status.Starting || status == Status.Started)) return@runOnUiThread
             if (serviceStatus.value != status) resetTrafficStats()
+            if (status == Status.Started && serviceStatus.value != status) pingSession++
             serviceStatus.value = status
             if (status == Status.Starting || status == Status.Started) homeConnectionFailed.value = false
             requiresReconnect.value = Settings.nativeReconnectRequired

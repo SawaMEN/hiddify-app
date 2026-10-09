@@ -38,6 +38,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativecore/NativeLanSharingLink.kt'
             include 'com/hiddify/hiddify/nativecore/NativeGeneralOptions.kt'
             include 'com/hiddify/hiddify/nativecore/NativeStoredNumbers.kt'
+            include 'com/hiddify/hiddify/nativecore/NativeAutoPingPolicy.kt'
             include 'com/hiddify/hiddify/nativecore/NativeDnsOptions.kt'
             include 'com/hiddify/hiddify/nativecore/NativeTlsOptions.kt'
             include 'com/hiddify/hiddify/nativecore/NativeConfigChoices.kt'

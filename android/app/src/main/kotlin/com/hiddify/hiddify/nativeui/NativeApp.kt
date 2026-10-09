@@ -153,6 +153,8 @@ fun NativeApp(
     privacyCanRestore: Boolean,
     onConfigurePrivacy: () -> Unit,
     onRestorePrivacy: () -> Unit,
+    accentColor: com.hiddify.hiddify.nativepreferences.NativeAccentColor,
+    onChangeAccent: (com.hiddify.hiddify.nativepreferences.NativeAccentColor) -> Unit,
     themeMode: NativeThemeMode,
     themeBusy: Boolean,
     onChangeTheme: (NativeThemeMode) -> Unit,
@@ -350,7 +352,7 @@ fun NativeApp(
 
     BackHandler(enabled = privacySetupBusy || proxyPrivacyBusy || inboundBusy || dnsBusy || tlsBusy || generalOptionsBusy || tunnelBusy || generalPreferencesBusy || page != PAGE_HOME) { goBack() }
 
-    NativeAppTheme(themeMode) {
+    NativeAppTheme(themeMode, accentColor) {
         NativeBackground {
             var navigationBarHeight by remember { mutableStateOf(80.dp) }
             val density = LocalDensity.current
@@ -658,6 +660,8 @@ fun NativeApp(
                                         onOpenGeneralOptions = { openPage(PAGE_GENERAL_OPTIONS) },
                                         category = NativeSettingsCategory.valueOf(settingsCategory),
                                         state = settingsState,
+                                        accentColor = accentColor,
+                                        onChangeAccent = onChangeAccent,
                                         themeMode = themeMode,
                                         themeBusy = themeBusy,
                                         onChangeTheme = onChangeTheme,
@@ -1063,7 +1067,7 @@ private fun TrafficMetric(label: Int, rate: Long, total: Long, stats: NativeSyst
 private fun connectionAccent(status: Status, recovering: Boolean, reconnectBusy: Boolean, failed: Boolean): Color = when {
     status == Status.Starting || status == Status.Stopping || reconnectBusy || recovering -> Color(0xFFF2B84B)
     failed && status == Status.Stopped -> MaterialTheme.colorScheme.error
-    status == Status.Started -> Color(0xFF147D52)
+    status == Status.Started -> MaterialTheme.colorScheme.primary
     else -> MaterialTheme.colorScheme.primary
 }
 
@@ -1100,7 +1104,7 @@ private fun ConnectionCard(
     val contentColor by animateColorAsState(when {
         transitioning -> Color(0xFF302100)
         showError -> scheme.onError
-        status == Status.Started -> Color.White
+        status == Status.Started -> scheme.onPrimary
         else -> scheme.onPrimary
     }, animationSpec = tween(animationDuration), label = "connectionContentColor")
     // Grow the circle with system text size so the action remains readable.
