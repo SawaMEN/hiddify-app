@@ -27,6 +27,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativecore/NativeReleasePolicy.kt'
             include 'com/hiddify/hiddify/nativecore/NativeRuntimeInitialization.kt'
             include 'com/hiddify/hiddify/nativeui/NativeWifiGuideContent.kt'
+            include 'com/hiddify/hiddify/nativeui/NativeSavedEnum.kt'
             include 'com/hiddify/hiddify/nativediagnostics/NativeDiagnosticEndpoint.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileImportCancellation.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileValidation.kt'
