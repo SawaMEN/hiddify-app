@@ -329,8 +329,8 @@ class BoxService(
                             )) {
                             nativeStartupTimedOut = true
                             Log.e(TAG, "Native VPN core startup exceeded ${NativeStartupDeadline.TIMEOUT_MS} ms; cancelling")
-                            runCatching { Mobile.stop() }
-                                .onFailure { Log.e(TAG, "Unable to cancel stalled core startup", it) }
+                            // Cover the race where the JNI call has not installed its Go cancel context yet.
+                            cancelNativeStartup()
                         }
                     }
                     try {

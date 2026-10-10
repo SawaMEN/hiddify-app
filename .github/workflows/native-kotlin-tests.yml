@@ -44,6 +44,9 @@ jobs:
       - name: Test core route composition and profile validation without APK
         working-directory: hiddify-core
         run: go test -race -ldflags=-checklinkname=0 -tags with_quic,with_utls,with_gvisor,with_wireguard,with_clash_api ./v2/config ./v2/hcore ./platform/mobile
+      - name: Test WARP bootstrap cancellation and readiness without external tunnels
+        working-directory: hiddify-core/hiddify-sing-box
+        run: go test -race -ldflags=-checklinkname=0 -tags with_wireguard ./protocol/warp
       - name: Test Psiphon transport and shutdown without external tunnels
         working-directory: hiddify-core/hiddify-sing-box
         run: go test -race -ldflags=-checklinkname=0 ./protocol/psiphon ./protocol/hiddify/dnstt
