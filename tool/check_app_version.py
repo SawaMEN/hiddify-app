@@ -6,13 +6,28 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def version_code_for(version):
+    """Encode major.minor.patch as major*10000 + minor*100 + patch."""
+    major, minor, patch = map(int, version.split("."))
+    if not (0 <= minor <= 99 and 0 <= patch <= 99):
+        raise ValueError("Version minor and patch components must be between 0 and 99")
+    result = major * 10000 + minor * 100 + patch
+    if not (1 <= result <= 2100000000):
+        raise ValueError("Android versionCode must be a positive Android-compatible integer")
+    return result
+
+
 def declared_version(path=ROOT / "version.properties"):
     source = path.read_text()
     name = re.search(r"^versionName=(\d+\.\d+\.\d+)\s*$", source, re.M)
     code = re.search(r"^versionCode=([1-9]\d*)\s*$", source, re.M)
     if not name or not code:
         raise ValueError("version.properties must declare versionName and positive versionCode")
-    return name.group(1), code.group(1)
+    version, declared_code = name.group(1), code.group(1)
+    expected_code = version_code_for(version)
+    if int(declared_code) != expected_code:
+        raise ValueError(f"Android versionCode must equal {expected_code} for versionName {version}")
+    return version, declared_code
 
 
 def apk_minimum_sdk(metadata):

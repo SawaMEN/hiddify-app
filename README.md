@@ -42,10 +42,24 @@ Configure these four repository secrets under **Settings → Secrets and variabl
 Do not commit the keystore or its passwords. Preserve an offline backup: future APK
 updates must be signed by the same identity as earlier installed production builds.
 
-Once configured, use **Actions → Release VetrOFF Client → Run workflow** and
-select `prod`. With no tag supplied it uses the version from
-`version.properties` (currently `v1.0.1`). Release jobs reject missing production
-signing keys rather than publishing a debug-signed stable APK.
+After signing is configured, use **Actions → Release VetrOFF Client → Run workflow**,
+select `prod`, and provide the intended stable tag. Stable releases can also
+be created by pushing a version tag from a commit containing that version.
+The workflow does **not** publish stable releases when development versions
+change in `main`. Missing production signing keys always stop production builds.
+
+## Development versions
+
+The current development version is **1.1.0**, Android `versionCode=10100`.
+The code is derived from `major * 10000 + minor * 100 + patch` and validated in CI.
+Successful `main` CI builds publish the rolling `dev-latest` prerelease as
+**VetrOFF Client Dev 1.1.0**; the APK is built against the latest stable
+Hiddify-core release. Stable releases require an explicit tag or manual action.
+
+**Upgrade compatibility:** the previous Android `versionCode=40201` is higher
+than `10100`. Android does not install lower-versionCode APKs as normal
+in-place updates. Keep the existing signing key and plan the upgrade strategy
+if devices already have a build with versionCode 40201.
 
 ## Existing installations
 

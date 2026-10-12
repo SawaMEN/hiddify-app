@@ -355,6 +355,13 @@ jobs:
         run: |
           sed 's|RELEASE_TAG|${{ inputs.tag-name }}|g' ./.github/release_message.md > release.md
 
+      - name: Read application version for release title
+        id: app-version
+        run: |
+          version=$(sed -n 's/^versionName=//p' version.properties)
+          [ -n "$version" ] || exit 1
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Generate fork update manifest
         env:
           RELEASE_TAG: ${{ inputs.tag-name }}
@@ -368,7 +375,7 @@ jobs:
         with:
           prerelease: ${{ inputs.channel != 'prod' }}
           make_latest: ${{ inputs.channel == 'prod' }}
-          name: ${{ inputs.channel == 'dev' && 'VetrOFF Client Dev' || inputs.release-name || inputs.tag-name }}
+          name: ${{ inputs.channel == 'dev' && format('VetrOFF Client Dev {0}', steps.app-version.outputs.version) || inputs.release-name || inputs.tag-name }}
           tag_name: ${{ inputs.tag-name }}
           body_path: ./release.md
           files: ./out/*

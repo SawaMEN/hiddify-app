@@ -1,9 +1,27 @@
 import unittest
 
-from check_app_version import apk_minimum_sdk, declared_version, validate_tag
+from check_app_version import apk_minimum_sdk, declared_version, validate_tag, version_code_for
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 
 class VersionTests(unittest.TestCase):
+    def test_dev_version_uses_expected_android_code(self):
+        self.assertEqual(version_code_for("1.1.0"), 10100)
+        self.assertEqual(declared_version(), ("1.1.0", "10100"))
+
+    def test_mismatched_android_code_is_rejected(self):
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "version.properties"
+            path.write_text("versionName=1.1.0\\nversionCode=40201\\n".replace("\\n", "\n"))
+            with self.assertRaisesRegex(ValueError, "must equal 10100"):
+                declared_version(path)
+
+    def test_version_code_requires_supported_minor_patch(self):
+        for version in ("1.100.0", "1.1.100"):
+            with self.subTest(version=version), self.assertRaises(ValueError):
+                version_code_for(version)
+
     def test_apk_minimum_sdk_accepts_both_aapt_generations(self):
         for label in ['sdkVersion', 'minSdkVersion']:
             with self.subTest(label=label):

@@ -4,19 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       release-tag:
-        description: "Optional release tag (defaults to v<version.properties>)"
+        description: "Optional tag (dev-latest for dev; v<version.properties> for prod)"
         required: false
         type: string
       channel:
         description: "Release channel"
         required: true
-        default: prod
+        default: dev
         type: choice
         options: [prod, dev]
   push:
-    branches: [main]
-    paths:
-      - version.properties
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+.*'
@@ -47,9 +44,11 @@ jobs:
             if [[ "$tag" == *.dev ]]; then channel=dev; else channel=prod; fi
           elif [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
             tag="$REQUESTED_TAG"
-            [ -n "$tag" ] || tag="v$version"
             channel="$REQUESTED_CHANNEL"
-            [ -n "$channel" ] || channel=prod
+            [ -n "$channel" ] || channel=dev
+            if [ -z "$tag" ]; then
+              if [ "$channel" = dev ]; then tag=dev-latest; else tag="v$version"; fi
+            fi
           else
             tag="v$version"
             channel=prod

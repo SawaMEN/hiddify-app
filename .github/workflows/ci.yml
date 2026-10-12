@@ -25,3 +25,4 @@ jobs:
       upload-artifact: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref_name == 'main' || github.ref_name == 'dev') }}
       run-checks: true
       run-tests: true
+      tag-name: "dev-latest"
