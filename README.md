@@ -7,9 +7,11 @@ The VPN/protocol engine is the **latest stable release** of
 [SawaMEN/hiddify-core](https://github.com/SawaMEN/hiddify-core/releases/latest).
 Android builds download its verified ARM64 `hiddify-core.aar` and
 `libhiddify-root.so` pair (including SHA-256 and source provenance) rather than compiling
-the pinned Git submodule. Drafts and prereleases are excluded. The submodule
-remains available for optional Go source-level tests. Kotlin communicates with
-the engine through the Android AAR and authenticated local RPC.
+a pinned Git submodule. Drafts and prereleases are excluded. The application
+repository no longer contains the `hiddify-core` Git submodule. Optional Go
+regression tests temporarily fetch source matching the selected stable release,
+without committing a pinned core revision. Kotlin communicates with the engine
+through the Android AAR and authenticated local RPC.
 
 ## Build
 

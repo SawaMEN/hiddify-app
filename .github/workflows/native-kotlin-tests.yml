@@ -7,9 +7,9 @@ on:
       - 'android/app/src/test/kotlin/**'
       - 'tool/kotlin-tests/**'
       - '.github/workflows/native-kotlin-tests.yml'
-      - '.gitmodules'
       - 'tool/download_core_modules.py'
-      - 'hiddify-core'
+      - 'tool/checkout_stable_core_source.py'
+      - 'tool/fetch_stable_android_core.py'
   push:
     branches: [main]
     paths:
@@ -17,29 +17,28 @@ on:
       - 'android/app/src/test/kotlin/**'
       - 'tool/kotlin-tests/**'
       - '.github/workflows/native-kotlin-tests.yml'
-      - '.gitmodules'
       - 'tool/download_core_modules.py'
-      - 'hiddify-core'
+      - 'tool/checkout_stable_core_source.py'
+      - 'tool/fetch_stable_android_core.py'
 
 permissions:
   contents: read
 
 jobs:
-  # JVM regression tests run once in CI/build.yml, including pull requests.
   core:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7.0.1
-        with:
-          submodules: recursive
+      - name: Checkout source of latest stable core release for regression tests
+        run: python3 tool/checkout_stable_core_source.py --latest
       - uses: actions/setup-go@v7.0.0
         with:
           go-version-file: hiddify-core/go.mod
           cache-dependency-path: |
             hiddify-core/go.sum
             hiddify-core/hiddify-sing-box/go.sum
-      - name: Download pinned core modules with network retries
+      - name: Download released core modules with network retries
         run: python3 tool/download_core_modules.py
       - name: Test core route composition and profile validation without APK
         working-directory: hiddify-core

@@ -74,17 +74,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
-        with:
-          submodules: "${{ inputs.run-tests && 'recursive' || 'false' }}"
-
-      - name: Setup Go (only for optional core source regression tests)
-        if: "${{ inputs.run-tests }}"
-        uses: actions/setup-go@v7.0.0
-        with:
-          go-version-file: hiddify-core/go.mod
-          cache-dependency-path: |
-            hiddify-core/go.sum
-            hiddify-core/hiddify-sing-box/go.sum
+        # No pinned core submodule is downloaded when building the APK.
 
       - name: Setup Java
         uses: actions/setup-java@v6.0.1
@@ -154,6 +144,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: make android-apk-prepare
+
+      - name: Checkout matching source only for Go regression tests
+        if: ${{ inputs.run-tests }}
+        run: python3 tool/checkout_stable_core_source.py --provenance
+
+      - name: Setup Go for optional source tests
+        if: ${{ inputs.run-tests }}
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version-file: hiddify-core/go.mod
+          cache-dependency-path: |
+            hiddify-core/go.sum
+            hiddify-core/hiddify-sing-box/go.sum
 
       - name: Check core privacy and adaptive connection policies
         if: ${{ inputs.run-tests }}

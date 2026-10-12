@@ -1,5 +1,0 @@
-[submodule "hiddify-core"]
-	path = hiddify-core
-	# Core 5.0 includes the native Android API and compatibility fixes.
-	url = https://github.com/SawaMEN/hiddify-core.git
-	branch = main
