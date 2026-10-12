@@ -1,18 +1,67 @@
-name: Release
+name: Release VetrOFF Client
 
 on:
   workflow_dispatch:
+    inputs:
+      release-tag:
+        description: "Optional release tag (defaults to v<version.properties>)"
+        required: false
+        type: string
+      channel:
+        description: "Release channel"
+        required: true
+        default: prod
+        type: choice
+        options: [prod, dev]
   push:
+    branches: [main]
+    paths:
+      - version.properties
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+.*'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  prepare-release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      channel: ${{ steps.release.outputs.channel }}
+      title: ${{ steps.release.outputs.title }}
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Resolve and validate version
+        id: release
+        env:
+          REQUESTED_TAG: ${{ inputs.release-tag }}
+          REQUESTED_CHANNEL: ${{ inputs.channel }}
+        run: |
+          set -euo pipefail
+          version=$(python3 -c "import sys; sys.path.insert(0, 'tool'); from check_app_version import declared_version; print(declared_version()[0])")
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            tag="$GITHUB_REF_NAME"
+            if [[ "$tag" == *.dev ]]; then channel=dev; else channel=prod; fi
+          elif [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then
+            tag="$REQUESTED_TAG"
+            [ -n "$tag" ] || tag="v$version"
+            channel="$REQUESTED_CHANNEL"
+            [ -n "$channel" ] || channel=prod
+          else
+            tag="v$version"
+            channel=prod
+          fi
+          python3 tool/check_app_version.py --tag "$tag" --channel "$channel"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "title=VetrOFF Client $version" >> "$GITHUB_OUTPUT"
+          echo "Publishing $tag as $channel"
+
   build-release:
+    needs: prepare-release
     uses: ./.github/workflows/build.yml
     secrets: inherit
     permissions: write-all
@@ -20,5 +69,6 @@ jobs:
       upload-artifact: true
       run-checks: true
       run-tests: true
-      tag-name: "${{ github.ref_type == 'tag' && github.ref_name || 'dev-latest' }}"
-      channel: "${{ github.ref_type == 'tag' && !endsWith(github.ref_name, 'dev') && 'prod' || 'dev' }}"
+      tag-name: "${{ needs.prepare-release.outputs.tag }}"
+      channel: "${{ needs.prepare-release.outputs.channel }}"
+      release-name: "${{ needs.prepare-release.outputs.title }"

@@ -12,6 +12,9 @@ on:
       channel:
         type: string
         default: "dev"
+      release-name:
+        type: string
+        default: ""
       run-checks:
         type: boolean
         default: true
@@ -361,7 +364,7 @@ jobs:
         with:
           prerelease: ${{ inputs.channel != 'prod' }}
           make_latest: ${{ inputs.channel == 'prod' }}
-          name: ${{ inputs.channel == 'dev' && 'VetrOFF Client Dev' || inputs.tag-name }}
+          name: ${{ inputs.channel == 'dev' && 'VetrOFF Client Dev' || inputs.release-name || inputs.tag-name }}
           tag_name: ${{ inputs.tag-name }}
           body_path: ./release.md
           files: ./out/*
