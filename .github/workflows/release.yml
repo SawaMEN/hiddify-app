@@ -71,4 +71,4 @@ jobs:
       run-tests: true
       tag-name: "${{ needs.prepare-release.outputs.tag }}"
       channel: "${{ needs.prepare-release.outputs.channel }}"
-      release-name: "${{ needs.prepare-release.outputs.title }"
+      release-name: "${{ needs.prepare-release.outputs.title }}"
