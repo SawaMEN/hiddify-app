@@ -107,7 +107,11 @@ jobs:
              [ -z "${ANDROID_SIGNING_STORE_PASSWORD:-}" ] || \
              [ -z "${ANDROID_SIGNING_KEY_PASSWORD:-}" ] || \
              [ -z "${ANDROID_SIGNING_KEY_ALIAS:-}" ]; then
-            echo "::warning::Android signing secrets are incomplete; using the debug signing config for this CI build."
+            if [ "$CHANNEL" = "prod" ]; then
+              echo "::error::Stable Android release requires all four signing secrets: ANDROID_SIGNING_KEY, ANDROID_SIGNING_STORE_PASSWORD, ANDROID_SIGNING_KEY_PASSWORD, ANDROID_SIGNING_KEY_ALIAS."
+              exit 1
+            fi
+            echo "::warning::Android signing secrets are incomplete; dev builds use debug signing."
             exit 0
           fi
 
