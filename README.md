@@ -13,8 +13,9 @@ the engine through the Android AAR and authenticated local RPC.
 
 ## Build
 
-Requires Java 17, Android SDK platform 37.0, build-tools 37.0.0, NDK 30.0.16248370,
-and the Go toolchain specified by `hiddify-core/go.mod`. Gradle is pinned by the Android wrapper.
+Requires Java 17, Android SDK platform 37.0, build-tools 37.0.0 and NDK 30.0.16248370.
+Building the APK from the stable core release does not require Go; Go is needed
+only for optional source-level core tests. Gradle is pinned by the Android wrapper.
 
 ```sh
 make android-apk-prepare
