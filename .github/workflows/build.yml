@@ -149,7 +149,9 @@ jobs:
       - name: Check app and release version
         run: python3 tool/check_app_version.py --tag "${{ inputs.tag-name }}" --channel "${{ inputs.channel }}"
 
-      - name: Build the pinned VPN core
+      - name: Download verified latest stable Android core
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: make android-apk-prepare
 
       - name: Check core privacy and adaptive connection policies

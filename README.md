@@ -3,9 +3,13 @@
 Android VPN client built with Kotlin and Jetpack Compose. The application has no Dart sources,
 Flutter engine, Flutter SDK dependency or cross-platform compatibility UI. The UI uses Android system typography, shared surfaces and Android VPN integration.
 
-The VPN/protocol engine is the pinned `hiddify-core` Go submodule, exposed to Kotlin through
-its Android AAR and authenticated local RPC. Protocol parsing and transport implementations
-remain in that native engine.
+The VPN/protocol engine is the **latest stable release** of
+[SawaMEN/hiddify-core](https://github.com/SawaMEN/hiddify-core/releases/latest).
+Android builds download its verified ARM64 `hiddify-core.aar` and
+`libhiddify-root.so` pair (including SHA-256 and source provenance) rather than compiling
+the pinned Git submodule. Drafts and prereleases are excluded. The submodule
+remains available for optional Go source-level tests. Kotlin communicates with
+the engine through the Android AAR and authenticated local RPC.
 
 ## Build
 
@@ -13,7 +17,6 @@ Requires Java 17, Android SDK platform 37.0, build-tools 37.0.0, NDK 30.0.162483
 and the Go toolchain specified by `hiddify-core/go.mod`. Gradle is pinned by the Android wrapper.
 
 ```sh
-git submodule update --init --recursive
 make android-apk-prepare
 make android-apk-release
 ```
