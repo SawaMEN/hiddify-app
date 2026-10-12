@@ -29,6 +29,24 @@ Set `ANDROID_HOME` or `sdk.dir` in `android/local.properties`. App version/name 
 in `version.properties`. `CHANNEL=prod` requires a valid `android/key.properties` and keystore;
 dev builds can use debug signing. Signing files and local SDK configuration must not be committed.
 
+## Stable release signing
+
+Stable Android APK releases must be signed using the existing production keystore.
+Configure these four repository secrets under **Settings → Secrets and variables → Actions**:
+
+- `ANDROID_SIGNING_KEY`: base64-encoded JKS/PKCS12 keystore file, on a single line
+- `ANDROID_SIGNING_STORE_PASSWORD`: keystore password
+- `ANDROID_SIGNING_KEY_PASSWORD`: alias key password
+- `ANDROID_SIGNING_KEY_ALIAS`: signing key alias
+
+Do not commit the keystore or its passwords. Preserve an offline backup: future APK
+updates must be signed by the same identity as earlier installed production builds.
+
+Once configured, use **Actions → Release VetrOFF Client → Run workflow** and
+select `prod`. With no tag supplied it uses the version from
+`version.properties` (currently `v1.0.1`). Release jobs reject missing production
+signing keys rather than publishing a debug-signed stable APK.
+
 ## Existing installations
 
 The application ID remains `app.vetroff.client`. Existing preference names and profile database
