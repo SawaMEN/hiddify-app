@@ -75,9 +75,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
         with:
-          submodules: recursive
+          submodules: "${{ inputs.run-tests && 'recursive' || 'false' }}"
 
-      - name: Setup Go
+      - name: Setup Go (only for optional core source regression tests)
+        if: "${{ inputs.run-tests }}"
         uses: actions/setup-go@v7.0.0
         with:
           go-version-file: hiddify-core/go.mod
