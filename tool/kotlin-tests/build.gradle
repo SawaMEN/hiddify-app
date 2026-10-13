@@ -23,6 +23,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileFileRemoval.kt'
             include 'com/hiddify/hiddify/nativelog/NativeLogPresentation.kt'
             include 'com/hiddify/hiddify/nativelog/NativeLogFiles.kt'
+            include 'com/hiddify/hiddify/nativelog/NativeCrashRecorder.kt'
             include 'com/hiddify/hiddify/nativecore/NativeSettingsDocument.kt'
             include 'com/hiddify/hiddify/nativecore/NativeReleasePolicy.kt'
             include 'com/hiddify/hiddify/nativecore/NativeRuntimeInitialization.kt'

@@ -100,7 +100,12 @@ class BoxService(
         fun vpnProtection(): Map<String, Boolean?> {
             val vpn = coreOwner?.service as? VPNService
             return if (vpn != null) {
-                mapOf("alwaysOn" to vpn.isAlwaysOn, "lockdown" to vpn.isLockdownEnabled)
+                mapOf(
+                    "alwaysOn" to runCatching { vpn.isAlwaysOn }
+                        .onFailure { Log.w(TAG, "Always-on VPN state unavailable", it) }.getOrNull(),
+                    "lockdown" to runCatching { vpn.isLockdownEnabled }
+                        .onFailure { Log.w(TAG, "VPN lockdown state unavailable", it) }.getOrNull(),
+                )
             } else mapOf("alwaysOn" to null, "lockdown" to null)
         }
 

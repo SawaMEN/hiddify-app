@@ -2718,7 +2718,13 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
         notificationRequestInFlight = true
         Settings.notificationPermissionAsked = true
-        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        try {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } catch (error: Exception) {
+            notificationRequestInFlight = false
+            Settings.notificationPermissionAsked = false
+            Log.w(TAG, "Could not request Android notification permission", error)
+        }
     }
 
     private fun backgroundPromptPreferences() =
@@ -2802,8 +2808,11 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             if (status == Status.Started) {
                 coreChangesSaved()
                 refreshOutbounds(showError = false)
-                maybeRequestNotificationPermission()
-                maybePromptBatteryOptimization()
+                // Optional system permission UI must never terminate an established VPN.
+                runCatching { maybeRequestNotificationPermission() }
+                    .onFailure { Log.w(TAG, "Notification permission prompt unavailable", it) }
+                runCatching { maybePromptBatteryOptimization() }
+                    .onFailure { Log.w(TAG, "Background permission prompt unavailable", it) }
             } else if (status == Status.Stopped) {
                 outboundGroups.value = emptyList()
                 outboundBusyTag.value = null
