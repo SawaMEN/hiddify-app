@@ -36,6 +36,8 @@ class NativeLogRepository(private val context: Context) {
             File(working, "box.log"),
             File(working, "stderr.log"),
             File(working, "app.log"),
+            File(context.filesDir, "last-exits.json"),
+            File(context.filesDir, "app.log"),
         ).distinctBy { it.absolutePath }
     }
 
@@ -66,8 +68,10 @@ class NativeLogRepository(private val context: Context) {
     /** Copy the selected original log for a FileProvider grant; never share private source paths. */
     fun export(app: Boolean): File {
         val working = workingDir()
-        val candidates = if (app) listOf(File(working, "app.log"))
-            else listOf(File(working, "box.log"), File(working, "data/box.log"))
+        val candidates = if (app) listOf(File(context.filesDir, "app.log"), File(working, "app.log"),
+            File(context.filesDir, "last-exits.json"))
+            else listOf(File(working, "box.log"), File(working, "data/box.log"),
+                File(working, "stderr.log"), File(working, "data/stderr4.log"), File(working, "data/stderr3.log"))
         val source = candidates.firstOrNull { it.isFile && it.length() > 0 }
         val directory = File(context.cacheDir, "logs").apply { mkdirs() }
         if (source == null) {

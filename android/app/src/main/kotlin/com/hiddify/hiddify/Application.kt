@@ -19,6 +19,12 @@ class Application : Application() {
     override fun onCreate() {
         super.onCreate()
 
+        Thread.getDefaultUncaughtExceptionHandler()?.let { previous ->
+            Thread.setDefaultUncaughtExceptionHandler(
+                com.hiddify.hiddify.nativelog.NativeCrashRecorder(java.io.File(filesDir, "app.log"), previous),
+            )
+        }
+
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             Thread({
                 runCatching {
@@ -30,8 +36,8 @@ class Application : Application() {
                         result.put(org.json.JSONObject().put("time", entry.timestamp).put("reason", entry.reason)
                             .put("status", entry.status).put("pssKiB", entry.pss).put("rssKiB", entry.rss))
                     }
-                    val directory = java.io.File(Settings.workingDir).also { it.mkdirs() }
-                    java.io.File(directory, "last-exits.json").writeText(result.toString())
+                    // Core paths may still be "./" before the first VPN start.
+                    java.io.File(filesDir, "last-exits.json").writeText(result.toString())
                 }.onFailure { android.util.Log.w("A/Diagnostics", "Unable to collect previous process exits", it) }
             }, "process-exit-diagnostics").start()
         }
