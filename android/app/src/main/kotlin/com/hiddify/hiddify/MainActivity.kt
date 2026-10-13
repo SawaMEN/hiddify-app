@@ -1229,7 +1229,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         runProfileOperation(IMPORT_BUSY_ID, requireDisconnected = true, importCancellation = cancellation,
             onSuccess = { profileImportRevision.value += 1 }) {
             val prepared = when (val mode = profile.warpMode) {
-                null -> profileRepository.prepareRemote(profile.url, requestedName = title, updateIntervalHours = 12,
+                null -> profileRepository.prepareRemote(profile.url, requestedName = title,
+                    updateIntervalHours = if (com.hiddify.hiddify.nativeprofile.NativeOperaProfiles.region(profile.url) != null) 1 else 12,
                     replaceFeatures = true, neededFeatures = profile.neededFeatures, cancellation = cancellation)
                 com.hiddify.hiddify.nativeprofile.NativeWarpMode.GENERATED_AWG -> {
                     try {

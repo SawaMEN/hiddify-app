@@ -457,7 +457,7 @@ class NativeProfileRepository(private val context: Context) {
         cancellation: NativeProfileImportCancellation? = null,
     ): NativePreparedProfile {
         cancellation?.ensureActive()
-        require(isHttpUrl(url)) { "Only HTTP and HTTPS subscription URLs are supported natively" }
+        require(isHttpUrl(url) || NativeOperaProfiles.region(url) != null) { "Unsupported subscription source" }
 
         val existing =
             openDatabase().use { db ->
@@ -626,6 +626,11 @@ class NativeProfileRepository(private val context: Context) {
         cancellation: NativeProfileImportCancellation? = null,
     ): DownloadResult {
         cancellation?.ensureActive()
+        NativeOperaProfiles.region(url)?.let { region ->
+            check(!nested) { "Built-in sources cannot be nested" }
+            return DownloadResult(NativeOperaProfilesRepository().generate(region, cancellation),
+                mapOf("profile-update-interval" to "1"))
+        }
         val request =
             Request.Builder()
                 .url(url)
@@ -818,14 +823,14 @@ class NativeProfileRepository(private val context: Context) {
     }
 
     private fun parseRemoteLink(input: String): Pair<String, String?>? {
-        if (isHttpUrl(input)) return input to null
+        if (NativeOperaProfiles.region(input) != null || isHttpUrl(input)) return input to null
         val uri = Uri.parse(input)
         val scheme = uri.scheme?.lowercase().orEmpty()
         if (scheme !in importSchemes || !uri.host.equals("import", ignoreCase = true)) return null
 
         val queryUrl = uri.getQueryParameter("url")
         val queryName = uri.getQueryParameter("name")
-        if (!queryUrl.isNullOrBlank() && isHttpUrl(queryUrl)) return queryUrl.trim() to queryName
+        if (!queryUrl.isNullOrBlank() && (isHttpUrl(queryUrl) || NativeOperaProfiles.region(queryUrl) != null)) return queryUrl.trim() to queryName
 
         if (scheme == "hiddify") {
             val path = uri.path?.removePrefix("/")?.takeIf { it.isNotBlank() } ?: return null

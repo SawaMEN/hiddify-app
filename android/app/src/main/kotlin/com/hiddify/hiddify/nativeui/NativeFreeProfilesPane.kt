@@ -22,6 +22,7 @@ import com.hiddify.hiddify.R
 import com.hiddify.hiddify.Settings
 import com.hiddify.hiddify.nativeprofile.NativeFreeProfile
 import com.hiddify.hiddify.nativeprofile.NativeFreeProfilesRepository
+import com.hiddify.hiddify.nativeprofile.NativeOperaProfiles
 import com.hiddify.hiddify.nativeprofile.NativeWarpProfiles
 import kotlinx.coroutines.CancellationException
 import org.json.JSONObject
@@ -32,14 +33,14 @@ internal fun NativeFreeProfilesPane(onImport: (NativeFreeProfile, String) -> Uni
     val russian = context.resources.configuration.locales[0].language == "ru"
     val region = remember { runCatching { JSONObject(Settings.configOptions.ifBlank { "{}" }).optString("region", "other") }.getOrDefault("other") }
     val repository = remember { NativeFreeProfilesRepository() }
-    var profiles by remember { mutableStateOf(NativeWarpProfiles.profiles) }
+    var profiles by remember { mutableStateOf(NativeWarpProfiles.profiles + NativeOperaProfiles.profiles) }
     var loading by remember { mutableStateOf(true) }
     var failed by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
     var consentUrl by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(retry) {
         loading = true; failed = false
-        try { profiles = NativeWarpProfiles.profiles + repository.load() }
+        try { profiles = NativeWarpProfiles.profiles + NativeOperaProfiles.profiles + repository.load() }
         catch (error: CancellationException) { throw error }
         catch (_: Exception) { failed = true }
         finally { loading = false }

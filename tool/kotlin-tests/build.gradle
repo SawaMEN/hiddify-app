@@ -54,6 +54,8 @@ sourceSets {
             include 'com/hiddify/hiddify/nativepreferences/NativeOutboundSort.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeFreeProfiles.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeWarpProfiles.kt'
+            include 'com/hiddify/hiddify/nativeprofile/NativeOperaProfiles.kt'
+            include 'com/hiddify/hiddify/nativeprofile/NativeOperaProfilesRepository.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeWarpProfilesRepository.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileOverrides.kt'
             include 'com/hiddify/hiddify/nativediagnostics/NativeDiagnosticModels.kt'

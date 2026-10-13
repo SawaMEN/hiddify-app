@@ -229,6 +229,20 @@ class BoxService(
                 notification.show(activeProfileName, R.string.status_starting)
             }
 
+            // Temporary Opera credentials must be renewed even when starting from a tile,
+            // always-on VPN or after a long period with the Activity closed.
+            withContext(Dispatchers.IO) {
+                val repository = com.hiddify.hiddify.nativeprofile.NativeProfileRepository(service)
+                repository.activeProfile()?.let { profile ->
+                    if (com.hiddify.hiddify.nativeprofile.NativeOperaProfiles.region(profile.url) != null) {
+                        repository.refreshRemote(profile.id)
+                    }
+                }
+            }
+            if (!Settings.connectionDesired || stopRequested) {
+                finishCancelledStart("cancelled during profile renewal")
+                return
+            }
             val selectedConfigPath = Settings.activeConfigPath
             if (selectedConfigPath.isBlank()) {
                 stopAndAlert(Alert.EmptyConfiguration)

@@ -1,0 +1,13 @@
+# Opera Proxy in the Android client
+
+The native Free catalog contains Europe, Asia and Americas entries. Each entry opens a Russian/English explanation before import. It describes TCP-only operation, UDP/QUIC/call/game limitations, shared IPs, availability, credential renewal, privacy and configuration export risks.
+
+The client follows the registration/discovery API flow in [routerich/opera-proxy](https://github.com/routerich/opera-proxy): anonymous subscriber registration, device registration, then discovery for the selected region. Requests use HTTPS, Digest authentication and session cookies. There is no external executable, remote script, shared proxy account or disabled TLS verification. The upstream MIT notice is in `licenses/opera-proxy-MIT.txt`.
+
+Each discovered server becomes a native HTTP outbound with TLS and the upstream region certificate name (`eu0.sec-tunnel.com`, `as0.sec-tunnel.com` or `am0.sec-tunnel.com`). Normal core routing and DNS settings still apply. HTTP outbounds reject unsupported UDP. Existing direct routing exclusions still work: this feature does not impose a system-wide kill switch or guarantee that every application uses the proxy.
+
+Only three exact local source IDs are accepted: `builtin:opera-EU`, `builtin:opera-AS`, `builtin:opera-AM`. The remote Free catalog cannot create built-in entries, redirect the API, or supply client credentials. The generated configuration passes the existing core validation and staged import transaction. Updates preserve profile identity and user overrides. The default update interval is one hour; renewal also happens before service startup, including tiles and always-on starts. Renewal failure aborts startup rather than silently using stale credentials or choosing direct access. The foreground update loop can renew saved profiles, but a long-running session with the Activity closed may require reconnection when credentials expire.
+
+API calls have bounded timeouts, response size limits, cancellation for imports, and sanitized errors. The service startup path checks cancellation after renewal; a stop during renewal can take until the bounded request completes. Temporary proxy credentials are stored with the existing private profile files and are included in raw configuration exports; do not publish them.
+
+Verification: JVM tests cover catalog source validation, TLS configuration, invalid servers, Digest challenges, registration/discovery request composition, sanitized failures and cancellation. Real-device TCP/DNS connectivity, UDP rejection, blocked API behavior, and long-session renewal still require integration testing against the live service. API availability and backward compatibility are controlled by Opera, not this app.
