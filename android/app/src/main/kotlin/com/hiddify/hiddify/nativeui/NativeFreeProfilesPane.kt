@@ -22,6 +22,7 @@ import com.hiddify.hiddify.R
 import com.hiddify.hiddify.Settings
 import com.hiddify.hiddify.nativeprofile.NativeFreeProfile
 import com.hiddify.hiddify.nativeprofile.NativeFreeProfilesRepository
+import com.hiddify.hiddify.nativeprofile.NativeWarpProfiles
 import kotlinx.coroutines.CancellationException
 import org.json.JSONObject
 
@@ -31,27 +32,23 @@ internal fun NativeFreeProfilesPane(onImport: (NativeFreeProfile, String) -> Uni
     val russian = context.resources.configuration.locales[0].language == "ru"
     val region = remember { runCatching { JSONObject(Settings.configOptions.ifBlank { "{}" }).optString("region", "other") }.getOrDefault("other") }
     val repository = remember { NativeFreeProfilesRepository() }
-    var profiles by remember { mutableStateOf<List<NativeFreeProfile>?>(null) }
+    var profiles by remember { mutableStateOf(NativeWarpProfiles.profiles) }
+    var loading by remember { mutableStateOf(true) }
     var failed by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
     var consentUrl by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(retry) {
-        profiles = null; failed = false
-        try { profiles = repository.load() }
+        loading = true; failed = false
+        try { profiles = NativeWarpProfiles.profiles + repository.load() }
         catch (error: CancellationException) { throw error }
         catch (_: Exception) { failed = true }
+        finally { loading = false }
     }
-    val available = profiles?.filter { it.matches(region) }
+    val available = profiles.filter { it.matches(region) }
     Box(Modifier.fillMaxWidth().height(180.dp)) {
         when {
-            failed -> Column(Modifier.fillMaxSize(), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center) {
-                Text(stringResource(R.string.native_free_load_failed))
-                NativeTextButton(onClick = { retry++ }) { Text(stringResource(R.string.native_profiles_retry)) }
-            }
-            available == null -> Box(Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) { CircularProgressIndicator() }
             available.isEmpty() -> Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = androidx.compose.ui.Alignment.Center) {
-                Text(stringResource(if (profiles?.isEmpty() == true) R.string.native_free_empty else R.string.native_free_region_empty), style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(if (profiles.isEmpty()) R.string.native_free_empty else R.string.native_free_region_empty), style = MaterialTheme.typography.bodySmall)
             }
             else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(available) { profile ->
@@ -73,10 +70,17 @@ internal fun NativeFreeProfilesPane(onImport: (NativeFreeProfile, String) -> Uni
                         }
                     }
                 }
+                if (loading) item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
+                if (failed) item {
+                    Column {
+                        Text(stringResource(R.string.native_free_load_failed), style = MaterialTheme.typography.bodySmall)
+                        NativeTextButton(onClick = { retry++ }) { Text(stringResource(R.string.native_profiles_retry)) }
+                    }
+                }
             }
         }
     }
-    profiles?.firstOrNull { it.url == consentUrl }?.let { profile ->
+    profiles.firstOrNull { it.url == consentUrl }?.let { profile ->
         val color = MaterialTheme.colorScheme.onSurface.toArgb()
         val linkColor = MaterialTheme.colorScheme.primary.toArgb()
         AlertDialog(onDismissRequest = { consentUrl = null }, title = { Text(profile.title(russian)) }, text = {

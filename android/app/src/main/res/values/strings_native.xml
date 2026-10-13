@@ -483,6 +483,7 @@
     <string name="native_editor_load_failed">Failed to load profile configuration</string>
     <string name="native_editor_last_update">Last update</string>
     <string name="native_free_title">Free</string>
+    <string name="native_free_warp_generation_failed">Could not generate a valid WARP + AWG profile from any source. Try again later or select the automatic WARP + AmneziaWG profile.</string>
     <string name="native_free_load_failed">Failed to load free profiles</string>
     <string name="native_free_empty">No free profiles found</string>
     <string name="native_free_region_empty">No free profiles found for this region</string>

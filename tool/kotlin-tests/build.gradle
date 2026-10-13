@@ -53,6 +53,8 @@ sourceSets {
             include 'com/hiddify/hiddify/nativecore/NativeOutboundPresentation.kt'
             include 'com/hiddify/hiddify/nativepreferences/NativeOutboundSort.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeFreeProfiles.kt'
+            include 'com/hiddify/hiddify/nativeprofile/NativeWarpProfiles.kt'
+            include 'com/hiddify/hiddify/nativeprofile/NativeWarpProfilesRepository.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileOverrides.kt'
             include 'com/hiddify/hiddify/nativediagnostics/NativeDiagnosticModels.kt'
             include 'com/hiddify/hiddify/nativerouting/NativePerAppBackup.kt'
@@ -83,6 +85,7 @@ sourceSets {
 
 dependencies {
     implementation 'com.google.code.gson:gson:2.14.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.google.zxing:core:3.5.4'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0'
     testImplementation 'junit:junit:4.13.2'

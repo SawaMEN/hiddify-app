@@ -1228,8 +1228,21 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         val cancellation = NativeProfileImportCancellation()
         runProfileOperation(IMPORT_BUSY_ID, requireDisconnected = true, importCancellation = cancellation,
             onSuccess = { profileImportRevision.value += 1 }) {
-            val prepared = profileRepository.prepareRemote(profile.url, requestedName = title, updateIntervalHours = 12,
-                replaceFeatures = true, neededFeatures = profile.neededFeatures, cancellation = cancellation)
+            val prepared = when (val mode = profile.warpMode) {
+                null -> profileRepository.prepareRemote(profile.url, requestedName = title, updateIntervalHours = 12,
+                    replaceFeatures = true, neededFeatures = profile.neededFeatures, cancellation = cancellation)
+                com.hiddify.hiddify.nativeprofile.NativeWarpMode.GENERATED_AWG -> {
+                    try {
+                        com.hiddify.hiddify.nativeprofile.NativeWarpProfilesRepository().generate(cancellation) { content ->
+                            profileRepository.prepareInput(content, name = title, cancellation = cancellation)
+                        }
+                    } catch (_: com.hiddify.hiddify.nativeprofile.NativeWarpGenerationException) {
+                        error(getString(R.string.native_free_warp_generation_failed))
+                    }
+                }
+                else -> profileRepository.prepareInput(com.hiddify.hiddify.nativeprofile.NativeWarpProfiles.content(mode),
+                    name = title, cancellation = cancellation)
+            }
             confirmProfileImport(prepared, cancellation)
             profileRepository.commitPrepared(prepared, cancellation)
         }
