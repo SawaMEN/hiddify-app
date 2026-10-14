@@ -23,6 +23,7 @@ import com.hiddify.hiddify.Settings
 import com.hiddify.hiddify.constant.Action
 import com.hiddify.hiddify.constant.Alert
 import com.hiddify.hiddify.constant.Status
+import com.hiddify.hiddify.nativelog.NativeVpnProcessPhase
 import java.io.File
 import android.net.VpnService
 import com.hiddify.hiddify.nativeconnection.NativeHealthProbePolicy
@@ -130,7 +131,14 @@ class BoxService(
 
     @Volatile var fileDescriptor: ParcelFileDescriptor? = null
 
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val failureBoundary = com.hiddify.hiddify.nativeconnection.NativeServiceFailureBoundary(
+        onFailure = ::handleUnexpectedFailure,
+        onFatal = { error ->
+            Thread.getDefaultUncaughtExceptionHandler()?.uncaughtException(Thread.currentThread(), error)
+                ?: throw error
+        },
+    )
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO + failureBoundary)
     @Volatile private var destroyed = false
     private val status = MutableLiveData(Status.Stopped)
     private val binder = ServiceBinder(status)
@@ -177,13 +185,64 @@ class BoxService(
     @Volatile private var stopRequested = false
     @Volatile private var nativeStarting = false
     @Volatile private var nativeStartupTimedOut = false
-    @Volatile private var startCancellation: kotlinx.coroutines.Job? = null
+    private val startCancellation = com.hiddify.hiddify.nativeconnection.NativeStartupCancellationTask(serviceScope)
     @Volatile private var profilePreparationCancellation: com.hiddify.hiddify.nativeprofile.NativeProfileImportCancellation? = null
     @Volatile private var rootActive = false
     private var rootMonitor: kotlinx.coroutines.Job? = null
 
+    private suspend fun publishConnectionStatus(value: Status, @androidx.annotation.StringRes text: Int): Boolean =
+        withContext(Dispatchers.Main) {
+            // Stop/revoke runs on Main. Do not queue a postValue that can later overwrite
+            // its Stopping/Stopped state after the user has cancelled the connection.
+            if (destroyed || stopRequested || !Settings.connectionDesired) return@withContext false
+            notification.show(activeProfileName, text)
+            status.value = value
+            true
+        }
+
+    private fun handleUnexpectedFailure(error: Exception) {
+        Log.e(TAG, "Unexpected VPN service task failure; stopping the connection", error)
+        if (destroyed || (coreOwner != null && coreOwner !== this)) return
+        stopRequested = true
+        cancelProfilePreparation()
+        cancelNativeStartup()
+        recoveryJob?.cancel(); recoveryJob = null
+        monitorJob?.cancel(); monitorJob = null
+        serviceScope.launch {
+            com.hiddify.hiddify.nativelog.NativeCrashRecorder.recordServiceFailure(
+                File(service.filesDir, "service-failure.log"), error,
+            )
+            lifecycleMutex.withLock {
+                // An old service's failure must never stop its replacement's core.
+                if (destroyed || (coreOwner != null && coreOwner !== this@BoxService)) return@withLock
+                runCatching {
+                    Settings.connectionDesired = false
+                    Settings.startedByUser = false
+                }.onFailure { Log.e(TAG, "Could not persist disconnect intent after service failure", it) }
+                startCancellation.join()
+                NativeServiceState.reset()
+                NativeStatsFeed.reset(); com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
+                runCatching { com.hiddify.hiddify.sharing.AutomaticHotspot.stop() }
+                    .onFailure { Log.w(TAG, "Hotspot cleanup after service failure failed", it) }
+                runCatching { releaseNative("unexpected task failure") }
+                    .onFailure { Log.e(TAG, "Native cleanup after service failure failed", it) }
+                closeTun("unexpected task failure")
+                withContext(Dispatchers.Main) {
+                    if (destroyed) return@withContext
+                    unregisterReceiver()
+                    notification.close()
+                    status.value = Status.Stopped
+                    binder.broadcast { it.onServiceAlert(Alert.StartService.ordinal,
+                        error.message ?: error.javaClass.simpleName) }
+                    runCatching { service.stopSelf() }
+                        .onFailure { Log.e(TAG, "Android service stop after task failure failed", it) }
+                }
+            }
+        }
+    }
+
     private suspend fun finishCancelledStart(reason: String) {
-        startCancellation?.join()
+        startCancellation.join()
         if (!Settings.connectionDesired) Settings.startedByUser = false
         NativeServiceState.reset()
         NativeStatsFeed.reset(); com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
@@ -209,6 +268,11 @@ class BoxService(
             if (destroyed) return
             coreOwner?.takeIf { it !== this }?.let { previous ->
                 previous.stopRequested = true
+                previous.recoveryJob?.cancel(); previous.recoveryJob = null
+                previous.monitorJob?.cancel(); previous.monitorJob = null
+                // A concurrent Mobile.stop() issued by the old startup must finish before
+                // a replacement calls Mobile.setup()/start() on the shared Go runtime.
+                previous.startCancellation.join()
                 previous.releaseNative("replacement")
                 withContext(Dispatchers.Main) {
                     previous.unregisterReceiver()
@@ -221,17 +285,17 @@ class BoxService(
                 finishCancelledStart("cancelled before setup")
                 return
             }
+            NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.LOADING_CORE)
             initialize()
-            status.postValue(Status.Starting)
             Log.d(TAG, "starting service")
-
-            withContext(Dispatchers.Main) {
-                if (destroyed) return@withContext
-                notification.show(activeProfileName, R.string.status_starting)
+            if (!publishConnectionStatus(Status.Starting, R.string.status_starting)) {
+                finishCancelledStart("cancelled before preparing profile")
+                return
             }
 
             // Temporary Opera credentials must be renewed even when starting from a tile,
             // always-on VPN or after a long period with the Activity closed.
+            NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.PREPARING_PROFILE)
             withContext(Dispatchers.IO) {
                 val repository = com.hiddify.hiddify.nativeprofile.NativeProfileRepository(service)
                 repository.activeProfile()?.let { profile ->
@@ -262,9 +326,9 @@ class BoxService(
 
             activeProfileName = Settings.activeProfileName
 
-            withContext(Dispatchers.Main) {
-                if (destroyed) return@withContext
-                notification.show(activeProfileName, R.string.status_starting)
+            if (!publishConnectionStatus(Status.Starting, R.string.status_starting)) {
+                finishCancelledStart("cancelled before selecting native profile")
+                return
             }
 
             if (!Settings.connectionDesired || stopRequested) {
@@ -275,6 +339,7 @@ class BoxService(
             DefaultNetworkMonitor.start()
             if (Settings.privacyUseRoot) {
                 rootActive = true
+                NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STARTING_CORE)
                 com.hiddify.hiddify.privacy.RootCore.start(service)
                 if (!Settings.connectionDesired || stopRequested) {
                     finishCancelledStart("cancelled during root setup")
@@ -294,6 +359,7 @@ class BoxService(
                 Libbox.setMemoryLimit(!Settings.disableMemoryLimit)
 
                 try {
+                    NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.SETTING_UP_CORE)
                     Mobile.setup(
                         SetupOptions().also {
                             val memoryClass = (service.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager).memoryClass
@@ -323,6 +389,7 @@ class BoxService(
                     return
                 }
                 try {
+                    NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.APPLYING_SETTINGS)
                     NativeCoreControl.applyStoredSettings(service)
                 } catch (error: Exception) {
                     stopAndAlert(Alert.CreateService, "Unable to apply core settings: ${error.message ?: error.javaClass.simpleName}")
@@ -343,6 +410,7 @@ class BoxService(
                     // It must be issued concurrently: waiting for our mutex first cannot abort Start().
                     nativeStarting = true
                     nativeStartupTimedOut = false
+                    NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STARTING_CORE)
                     // Mobile.start() is a blocking JNI call. A separate IO coroutine can
                     // cancel Go's startup context even when Psiphon bootstrap stalls.
                     val startupWatchdog = serviceScope.launch {
@@ -395,10 +463,10 @@ class BoxService(
             }
             Settings.nativeAppliedQuickSettings = Settings.quickSettingsSignature(service)
             Settings.nativeReconnectRequired = false
-            status.postValue(Status.Started)
-            withContext(Dispatchers.Main) {
-                if (destroyed) return@withContext
-                notification.show(activeProfileName, R.string.status_started)
+            NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.CONNECTED)
+            if (!publishConnectionStatus(Status.Started, R.string.status_started)) {
+                finishCancelledStart("cancelled while publishing connected state")
+                return
             }
             notification.start()
             lastGoodProfile = Settings.activeConfigPath
@@ -427,13 +495,12 @@ class BoxService(
 
     suspend fun serviceReload0() {
         lifecycleMutex.withLock {
-            if (destroyed || coreOwner !== this@BoxService) return
+            if (destroyed || stopRequested || !Settings.connectionDesired || coreOwner !== this@BoxService) return
             monitorJob?.cancel(); monitorJob = null
             NativeStatsFeed.reset(); com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
-            status.postValue(Status.Starting)
-            withContext(Dispatchers.Main) {
-                if (destroyed) return@withContext
-                notification.show(activeProfileName, R.string.status_starting)
+            if (!publishConnectionStatus(Status.Starting, R.string.status_starting)) {
+                finishCancelledStart("cancelled before reload")
+                return
             }
 
             DefaultNetworkMonitor.detachCoreListener()
@@ -463,17 +530,18 @@ class BoxService(
     }
 
     private fun cancelNativeStartup() {
-        if (startCancellation?.isActive != true && nativeStarting && coreOwner === this && !rootActive) {
-            startCancellation = serviceScope.launch {
-                com.hiddify.hiddify.nativeconnection.NativeStartupCancellation.cancelWhileStarting(
-                    isStarting = { nativeStarting && coreOwner === this@BoxService },
-                    stopNative = {
-                        runCatching { Mobile.stop() }
-                            .onFailure { Log.w(TAG, "native startup cancellation failed", it) }
-                    },
-                )
-            }
-        }
+        startCancellation.request(
+            isStarting = { nativeStarting && coreOwner === this@BoxService && !rootActive },
+            stopNative = {
+                runCatching { Mobile.stop() }
+                    .onFailure { Log.w(TAG, "native startup cancellation failed", it) }
+            },
+        )
+    }
+
+    private fun cancelProfilePreparation() {
+        runCatching { profilePreparationCancellation?.cancel() }
+            .onFailure { Log.w(TAG, "Could not cancel profile preparation", it) }
     }
 
     private fun stopService(preserveIntent: Boolean = false) {
@@ -481,7 +549,7 @@ class BoxService(
         if (status.value == Status.Stopped && coreOwner !== this) return
 
         stopRequested = true
-        profilePreparationCancellation?.cancel()
+        cancelProfilePreparation()
         recoveryJob?.cancel(); recoveryJob = null
         monitorJob?.cancel(); monitorJob = null
         NativeServiceState.reset()
@@ -491,7 +559,7 @@ class BoxService(
         serviceScope.launch {
             lifecycleMutex.withLock {
                 if (destroyed) return@withLock
-                startCancellation?.join()
+                startCancellation.join()
 
                 // Keep Android network discovery alive until gomobile has actually stopped using it.
                 if (coreOwner !== this@BoxService) {
@@ -552,16 +620,16 @@ class BoxService(
         }
         monitorJob?.cancel(); monitorJob = null
         NativeStatsFeed.reset(); com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
-        startCancellation?.join()
+        startCancellation.join()
         Log.e(TAG, "VPN/core failed ($type): ${message ?: "unknown error"}")
         val recover = recoveryAllowed(type) && recoveryPolicy.nextDelaySeconds(NetworkPrivacySettings.loadConnection(service).adaptiveNetwork) != null
         if (!recover) { Settings.connectionDesired = false; Settings.startedByUser = false }
         val closeError = runCatching { releaseNative("service error") }.exceptionOrNull()
         closeTun("service error")
         if (recover && closeError == null && Settings.connectionDesired && !stopRequested) {
-            withContext(Dispatchers.Main) {
-                status.value = Status.Starting
-                notification.show(activeProfileName, R.string.status_starting)
+            if (!publishConnectionStatus(Status.Starting, R.string.status_starting)) {
+                finishCancelledStart("cancelled before recovery")
+                return
             }
             scheduleServiceRecovery()
             return
@@ -598,7 +666,10 @@ class BoxService(
                     lifecycleMutex.withLock {
                         if (!recoveryAllowed(Alert.StartService) || coreOwner != null || !isActive) return@withLock
                         recoveryPolicy.recordAttempt()
-                        withContext(Dispatchers.Main) { status.value = Status.Starting }
+                        if (!publishConnectionStatus(Status.Starting, R.string.status_starting)) {
+                            finishCancelledStart("cancelled before recovery start")
+                            return@withLock
+                        }
                         startService()
                     }
                     if (coreOwner === this@BoxService && status.value == Status.Started) break
@@ -614,13 +685,15 @@ class BoxService(
     }
 
     private fun startConnectionMonitor() {
+        if (destroyed || stopRequested || !Settings.connectionDesired) return
         monitorJob?.cancel()
         monitorJob = serviceScope.launch {
             val repository = NativeHealthRepository()
             var coreFailures = 0
             var policy = NativeHealthProbePolicy(false)
             delay(3000)
-            while (isActive && !destroyed && coreOwner === this@BoxService && status.value == Status.Started) {
+            while (isActive && !destroyed && !stopRequested && Settings.connectionDesired &&
+                coreOwner === this@BoxService && status.value == Status.Started) {
                 try {
                 if (android.os.SystemClock.elapsedRealtime() - connectedAt >= 60_000) recoveryPolicy.reset()
                 val options = NetworkPrivacySettings.loadConnection(service)
@@ -672,6 +745,7 @@ class BoxService(
     }
 
     private suspend fun closeCore() {
+        NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STOPPING_CORE)
         rootMonitor?.cancel(); rootMonitor = null
         if (rootActive) {
             com.hiddify.hiddify.privacy.RootCore.stop()
@@ -688,6 +762,7 @@ class BoxService(
                 }
             }
         }
+        NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STOPPED)
     }
 
     /** Probe through the core before accepting a built-in WARP endpoint. Stop between attempts,
@@ -703,34 +778,35 @@ class BoxService(
             Mobile.start(configPath, "")
             return
         }
-        val temporary = File.createTempFile("warp-start-", ".json", File(Settings.tempDir))
-        try {
-            val selected = com.hiddify.hiddify.nativeconnection.NativeWarpStartupPolicy.select(
-                candidates = candidates,
-                checkDesired = {
-                    if (nativeStartupTimedOut) error(service.getString(R.string.native_warp_no_traffic))
-                    if (stopRequested || destroyed || !Settings.connectionDesired)
-                        throw CancellationException("WARP startup cancelled")
-                },
-                start = { content ->
-                    temporary.writeText(content)
-                    Mobile.start(temporary.path, "")
-                    Libbox.setMemoryLimit(!Settings.disableMemoryLimit)
-                    if (service is VPNService && fileDescriptor == null)
-                        error("Android VPN interface was not created by the core (missing TUN inbound)")
-                },
-                probe = { NativeHealthRepository().probeStartingCore() },
-                stop = {
-                    Mobile.stop()
-                    DefaultNetworkMonitor.detachCoreListener()
-                    closeTun("WARP endpoint retry")
-                },
-            ) ?: error(service.getString(R.string.native_warp_no_traffic))
-            if (selected > 0) repository.saveEditedProfile(profile!!.id, candidates[selected], editor!!.name,
-                editor.disableAutoUpdate, editor.updateIntervalHours, expectedLastUpdate = profile.lastUpdate)
-        } finally {
-            temporary.delete()
-        }
+        val selected = com.hiddify.hiddify.nativeconnection.NativeWarpStartupPolicy.select(
+            candidates = candidates,
+            checkDesired = {
+                if (nativeStartupTimedOut) error(service.getString(R.string.native_warp_no_traffic))
+                if (stopRequested || destroyed || !Settings.connectionDesired)
+                    throw CancellationException("WARP startup cancelled")
+            },
+            start = { content ->
+                // The core persists its StartRequest for restart/hot reload. A deleted
+                // temporary path leaves an established WARP session unable to restart.
+                NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STARTING_CORE)
+                Mobile.start("", content)
+                Libbox.setMemoryLimit(!Settings.disableMemoryLimit)
+                if (service is VPNService && fileDescriptor == null)
+                    error("Android VPN interface was not created by the core (missing TUN inbound)")
+            },
+            probe = {
+                NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.PROBING_WARP)
+                NativeHealthRepository().probeStartingCore()
+            },
+            stop = {
+                NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STOPPING_CORE)
+                Mobile.stop()
+                DefaultNetworkMonitor.detachCoreListener()
+                closeTun("WARP endpoint retry")
+            },
+        ) ?: error(service.getString(R.string.native_warp_no_traffic))
+        if (selected > 0) repository.saveEditedProfile(profile!!.id, candidates[selected], editor!!.name,
+            editor.disableAutoUpdate, editor.updateIntervalHours, expectedLastUpdate = profile.lastUpdate)
     }
 
     private fun closeTun(reason: String) {
@@ -743,8 +819,8 @@ class BoxService(
     internal fun onStartCommand(): Int {
         if (destroyed) return Service.START_NOT_STICKY
         if (status.value != Status.Stopped) return if (Settings.connectionDesired) Service.START_STICKY else Service.START_NOT_STICKY
+        failureBoundary.reset()
         stopRequested = false
-        startCancellation = null
         status.value = Status.Starting
         try {
             // Android's foreground deadline starts before IO/setup, not after it.
@@ -822,7 +898,7 @@ class BoxService(
     fun onDestroy() {
         if (destroyed) return
         stopRequested = true
-        profilePreparationCancellation?.cancel()
+        cancelProfilePreparation()
         cancelNativeStartup()
         destroyed = true
         recoveryJob?.cancel(); recoveryJob = null
@@ -836,7 +912,7 @@ class BoxService(
         serviceScope.launch {
             try {
                 lifecycleMutex.withLock {
-                    startCancellation?.join()
+                    startCancellation.join()
                     if (coreOwner === this@BoxService && !Settings.connectionDesired) {
                         runCatching { com.hiddify.hiddify.sharing.AutomaticHotspot.stop() }
                     }

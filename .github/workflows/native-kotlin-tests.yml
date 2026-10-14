@@ -31,6 +31,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7.0.1
       - name: Checkout source of latest stable core release for regression tests
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: python3 tool/checkout_stable_core_source.py --latest
       - uses: actions/setup-go@v7.0.0
         with:
