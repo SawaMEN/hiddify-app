@@ -639,7 +639,7 @@ class NativeProfileRepository(private val context: Context) {
         cancellation?.ensureActive()
         NativeOperaProfiles.region(url)?.let { region ->
             check(!nested) { "Built-in sources cannot be nested" }
-            return DownloadResult(NativeOperaProfilesRepository().generate(region, cancellation),
+            return DownloadResult(NativeOperaProfilesRepository(russian = context.resources.configuration.locales[0].language == "ru").generate(region, cancellation),
                 mapOf("profile-update-interval" to "1"))
         }
         val request = options.request(url)

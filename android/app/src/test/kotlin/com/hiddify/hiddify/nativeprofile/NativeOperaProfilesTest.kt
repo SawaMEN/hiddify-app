@@ -12,7 +12,7 @@ import org.junit.Test
 
 class NativeOperaProfilesTest {
     @Test fun catalogRequiresExplanationAndSupportsOnlyKnownRegions() {
-        assertEquals(3, NativeOperaProfiles.profiles.size)
+        assertEquals(1, NativeOperaProfiles.profiles.size)
         NativeOperaProfiles.profiles.forEach {
             assertNotNull(NativeOperaProfiles.region(it.url))
             assertTrue(it.consentEn.contains("UDP"))
@@ -36,6 +36,7 @@ class NativeOperaProfilesTest {
             assertEquals("token", outbound.get("password").asString)
             val tls = outbound.getAsJsonObject("tls")
             assertTrue(tls.get("enabled").asBoolean)
+            assertTrue(tls.get("disable_sni").asBoolean)
             assertEquals("eu0.sec-tunnel.com", tls.get("server_name").asString)
             assertFalse(tls.has("insecure"))
         }
@@ -63,7 +64,7 @@ class NativeOperaProfilesTest {
 
     @Test fun unsafeOrUnsupportedDigestChallengesAreRejected() {
         val request = Request.Builder().url("https://api2.sec-tunnel.com/v4/discover").build()
-        for (challenge in listOf("Basic realm=\"api\"", "Digest realm=\"api\"", "Digest realm=\"api\",nonce=\"n\",qop=\"auth-int\"", "Digest realm=\"api\",nonce=\"n\",algorithm=SHA-256", "Digest realm=\"api\",nonce=\"bad\nnonce\"")) {
+        for (challenge in listOf("Basic realm=\"api\"", "Digest realm=\"api\"", "Digest realm=\"api\",nonce=\"n\",qop=\"auth-int\"", "Digest realm=\"api\",nonce=\"n\",algorithm=SHA-1", "Digest realm=\"api\",nonce=\"bad\nnonce\"")) {
             assertNull(OperaDigest.authorization(challenge, request))
         }
     }
@@ -86,11 +87,12 @@ class NativeOperaProfilesTest {
                 .body("""{"return_code":{"0":"OK"},"data":$payload}""".toResponseBody("application/json".toMediaType())).build()
         })
         val result = JsonParser.parseString(repository.generate("EU")).asJsonObject
-        assertEquals(3, requests.size)
+        assertEquals(5, requests.size)
+        assertEquals(3, result.getAsJsonArray("outbounds").size())
         val discovery = requests.last().body as okhttp3.FormBody
         assertEquals("serial_no", discovery.name(0))
         assertEquals(OperaDigest.hash("SHA-1", "test-device").uppercase(), discovery.value(0))
-        assertEquals("\"EU\",,", discovery.value(1))
+        assertEquals("\"AM\",,", discovery.value(1))
         assertEquals("temporary-secret", result.getAsJsonArray("outbounds")[0].asJsonObject.get("password").asString)
     }
 
@@ -102,6 +104,60 @@ class NativeOperaProfilesTest {
         val failure = assertThrows(NativeOperaUnavailableException::class.java) { repository.generate("AS") }
         assertFalse(failure.message!!.contains("secret-token"))
         assertNull(failure.cause)
+    }
+
+    @Test fun discoveryFailureKeepsCredentialsAndAllRegionChoices() {
+        val repository = NativeOperaProfilesRepository(Interceptor { chain ->
+            val request = chain.request()
+            val text = when (request.url.encodedPath) {
+                "/v4/register_subscriber" -> """{"return_code":{"0":"OK"},"data":null}"""
+                "/v4/register_device" -> """{"return_code":{"0":"OK"},"data":{"device_id":"device","device_password":"temporary"}}"""
+                else -> """{"return_code":{"801":"unavailable"},"data":null}"""
+            }
+            Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK").body(text.toResponseBody()).build()
+        })
+        val result = JsonParser.parseString(repository.generate()).asJsonObject.getAsJsonArray("outbounds")
+        assertEquals(listOf("eu0.sec-tunnel.com", "as0.sec-tunnel.com", "am0.sec-tunnel.com"),
+            result.map { it.asJsonObject.get("server").asString })
+        assertTrue(result.all { !it.asJsonObject.getAsJsonObject("tls").has("insecure") })
+    }
+
+    @Test fun errorsIdentifyStageAndStatusInOneLanguage() {
+        val repository = NativeOperaProfilesRepository(Interceptor { chain ->
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(405).message("Blocked")
+                .body("secret-body".toResponseBody()).build()
+        }, russian = true)
+        val failure = assertThrows(NativeOperaUnavailableException::class.java) { repository.generate() }
+        assertEquals("register_subscriber", failure.stage)
+        assertEquals(405, failure.status)
+        assertTrue(failure.message!!.contains("регистрация"))
+        assertTrue(failure.message!!.contains("HTTP 405"))
+        assertFalse(failure.message!!.contains("secret-body"))
+        assertFalse(failure.message!!.contains("unavailable"))
+    }
+
+    @Test fun unifiedConfigContainsStableRegionLabelsAndRejectsPrivateEndpoints() {
+        val choices = NativeOperaProfiles.regions.keys.associateWith { NativeOperaProfiles.fallback(it) }
+        val outbounds = JsonParser.parseString(NativeOperaProfiles.content(choices, "device", "access")).asJsonObject.getAsJsonArray("outbounds")
+        assertEquals(3, outbounds.size())
+        assertTrue(outbounds.any { it.asJsonObject.get("tag").asString.contains("Europe") })
+        assertTrue(outbounds.any { it.asJsonObject.get("tag").asString.contains("Asia") })
+        assertTrue(outbounds.any { it.asJsonObject.get("tag").asString.contains("Americas") })
+        for (ip in listOf("127.0.0.1", "10.0.0.1", "::1", "169.254.0.1", "224.0.0.1", "999.1.1.1", "example.test")) {
+            assertFalse(ip, NativeOperaProfiles.isPublicLiteral(ip))
+        }
+        assertTrue(NativeOperaProfiles.isPublicLiteral("77.111.244.26"))
+        assertEquals("ALL", NativeOperaProfiles.region(NativeOperaProfiles.SOURCE))
+        assertEquals("EU", NativeOperaProfiles.region("builtin:opera-EU"))
+        assertEquals(4, NativeOperaProfiles.noticePoints(true).size)
+    }
+
+    @Test fun digestSupportsSha256SessionChallenges() {
+        val request = Request.Builder().url("https://api2.sec-tunnel.com/v4/discover").build()
+        val header = OperaDigest.authorization("Digest realm=\"api\", nonce=\"n\", algorithm=sha-256-SESS, qop=\"auth\"", request, "c")!!
+        val ha1 = OperaDigest.hash("SHA-256", OperaDigest.hash("SHA-256", "se0316:api:SILrMEPBmJuhomxWkfm3JalqHX2Eheg1YhlEZiMh8II") + ":n:c")
+        val ha2 = OperaDigest.hash("SHA-256", "GET:/v4/discover")
+        assertTrue(header.contains(OperaDigest.hash("SHA-256", "$ha1:n:00000001:c:auth:$ha2")))
     }
 
     @Test fun cancelledGenerationDoesNotContactApi() {

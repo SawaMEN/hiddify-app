@@ -86,7 +86,21 @@ internal fun NativeFreeProfilesPane(onImport: (NativeFreeProfile, String) -> Uni
         val linkColor = MaterialTheme.colorScheme.primary.toArgb()
         AlertDialog(onDismissRequest = { consentUrl = null }, title = { Text(profile.title(russian)) }, text = {
             Box(Modifier.heightIn(max = 360.dp).verticalScroll(androidx.compose.foundation.rememberScrollState())) {
-                AndroidView(factory = { TextView(it).apply {
+                if (NativeOperaProfiles.region(profile.url) != null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Text(NativeOperaProfiles.introduction(russian), style = MaterialTheme.typography.bodyMedium)
+                        NativeOperaProfiles.noticePoints(russian).forEach { (heading, body) ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text("•", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.titleMedium)
+                                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text(heading, style = MaterialTheme.typography.titleSmall)
+                                    Text(body, style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+                            }
+                        }
+                    }
+                } else AndroidView(factory = { TextView(it).apply {
                     textSize = 14f
                     typeface = android.graphics.Typeface.DEFAULT
                     movementMethod = LinkMovementMethod.getInstance()

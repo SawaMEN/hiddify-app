@@ -56,6 +56,8 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeprofile/NativeWarpProfiles.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeOperaProfiles.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeOperaProfilesRepository.kt'
+            include 'com/hiddify/hiddify/nativeprofile/NativeOperaApiTransport.kt'
+            include 'com/hiddify/hiddify/nativeprofile/NativeOperaLiveSmoke.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeWarpProfilesRepository.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileOverrides.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeSubscriptionRequestOptions.kt'
@@ -102,4 +104,11 @@ test {
         events 'failed', 'skipped'
         exceptionFormat 'full'
     }
+}
+
+// Explicit opt-in: live service availability must not make ordinary unit tests nondeterministic.
+tasks.register('operaSmoke', JavaExec) {
+    dependsOn classes
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.hiddify.hiddify.nativeprofile.NativeOperaLiveSmokeKt'
 }
