@@ -1,7 +1,6 @@
 package com.hiddify.hiddify.nativeprofile
 
 import com.google.gson.JsonObject
-import java.util.Base64
 
 enum class NativeWarpMode { STANDARD, AWG, GENERATED_AWG }
 
@@ -13,21 +12,31 @@ object NativeWarpProfiles {
         profile(NativeWarpMode.AWG, "WARP + AmneziaWG", "WARP + AmneziaWG",
             listOf("Automatic registration", "AWG obfuscation"), listOf("Автоматическая регистрация", "Маскировка AWG")),
         profile(NativeWarpMode.GENERATED_AWG, "WARP + AWG — backup generators", "WARP + AWG — резервные генераторы",
-            listOf("4 sources", "Automatic fallback"), listOf("4 источника", "Автоматический резерв")),
+            listOf("3 sources", "Automatic fallback"), listOf("3 источника", "Автоматический резерв")),
     )
 
     private fun profile(mode: NativeWarpMode, en: String, ru: String, tagsEn: List<String>, tagsRu: List<String>): NativeFreeProfile {
         val generated = mode == NativeWarpMode.GENERATED_AWG
-        return NativeFreeProfile(emptyList(), en, ru, "builtin:warp-${mode.name.lowercase()}", tagsEn, tagsRu,
-            if (generated) "The app requests a new WARP configuration from third-party generators: warp.llimonix.pw, topor-warp.vercel.app, warp-gen.vercel.app and config-generator-warp.vercel.app. These services generate and can know the configuration's private key. Invalid or unavailable sources are skipped. The result is checked by the VPN engine and saved locally; updating a subscription will not replace its keys. To generate another configuration, add this profile again. Availability depends on your network. This uses free Cloudflare WARP, not a paid WARP+ subscription."
-            else "The VPN engine registers a free WARP account directly with Cloudflare on first connection and caches it on this device. No third-party configuration generator is used. ${if (mode == NativeWarpMode.AWG) "AmneziaWG adds junk packets while preserving WARP-compatible handshakes. " else ""}Availability depends on your network. This does not include a paid WARP+ subscription.",
-            if (generated) "Приложение запрашивает новый конфиг WARP у сторонних генераторов: warp.llimonix.pw, topor-warp.vercel.app, warp-gen.vercel.app и config-generator-warp.vercel.app. Эти сервисы создают конфиг и могут знать его приватный ключ. Недоступные источники и некорректные конфиги пропускаются. Результат проверяется VPN-ядром и сохраняется локально; обновление подписки не заменяет его ключи. Чтобы создать другой конфиг, добавьте этот профиль ещё раз. Доступность зависит от вашей сети. Используется бесплатный Cloudflare WARP, без платной подписки WARP+."
-            else "VPN-ядро регистрирует бесплатный аккаунт WARP напрямую в Cloudflare при первом подключении и сохраняет его на этом устройстве. Сторонние генераторы конфигов не используются. ${if (mode == NativeWarpMode.AWG) "AmneziaWG добавляет шумовые пакеты, сохраняя совместимость handshake с WARP. " else ""}Доступность зависит от вашей сети. Платная подписка WARP+ не включена.",
+        val operatorEn = if (generated) "The app requests a new WARP configuration from third-party generators: warp-config-generator-theta.vercel.app, dulcet-fox-556b08.netlify.app and santa-atmo.ru. These services generate and can know the private key. Invalid or unavailable sources are skipped."
+            else "The app registers a free WARP account directly with Cloudflare before saving the profile. The private key is generated and retained on this device; only the public key is sent to Cloudflare. No third-party generator is used."
+        val operatorRu = if (generated) "Приложение запрашивает новый конфиг WARP у сторонних генераторов: warp-config-generator-theta.vercel.app, dulcet-fox-556b08.netlify.app и santa-atmo.ru. Они создают конфиг и могут знать приватный ключ. Недоступные источники и некорректные ответы пропускаются."
+            else "Приложение регистрирует бесплатный аккаунт WARP напрямую в Cloudflare до сохранения профиля. Приватный ключ создаётся и остаётся на устройстве; Cloudflare получает только публичный ключ. Сторонние генераторы не используются."
+        return NativeFreeProfile(emptyList(), en, ru, "builtin:warp-${mode.name.lowercase(java.util.Locale.ROOT)}", tagsEn, tagsRu,
+            "$operatorEn The configuration is validated by the VPN engine and saved locally. Subscription refresh does not replace the keys. Add the profile again to generate another account. ${if (mode != NativeWarpMode.STANDARD) "AmneziaWG sends junk/signature packets while preserving WARP-compatible handshakes. " else ""}Registration and UDP access can be blocked by your provider; saving a configuration does not confirm tunnel connectivity. This uses free WARP and does not include a paid WARP+ license.",
+            "$operatorRu Конфиг проверяется VPN-ядром и сохраняется локально. Обновление подписки не меняет ключи. Чтобы создать другой аккаунт, добавьте профиль ещё раз. ${if (mode != NativeWarpMode.STANDARD) "AmneziaWG отправляет шумовые и signature-пакеты, сохраняя совместимость handshake с WARP. " else ""}Провайдер может блокировать регистрацию или UDP: сохранение конфига ещё не подтверждает передачу трафика. Используется бесплатный WARP, без платной лицензии WARP+.",
             emptySet(), mode)
     }
 
-    /** WARP endpoints lazily register through the core and retain credentials in its cache. */
-    fun content(mode: NativeWarpMode): String {
+    /** Only migrate exact profiles emitted by the first implementation; preserve custom edits. */
+    fun legacyMode(raw: String): NativeWarpMode? {
+        val document = runCatching { NativeJsonDocument.parse(raw) }.getOrNull() ?: return null
+        return listOf(NativeWarpMode.STANDARD, NativeWarpMode.AWG).firstOrNull {
+            document == NativeJsonDocument.parse(legacyContent(it))
+        }
+    }
+
+    /** Historical lazy template, retained solely to recognize and repair existing saved profiles. */
+    internal fun legacyContent(mode: NativeWarpMode): String {
         require(mode != NativeWarpMode.GENERATED_AWG)
         val endpoint = JsonObject().apply {
             addProperty("type", "warp")
@@ -46,33 +55,4 @@ object NativeWarpProfiles {
         }.toString()
     }
 
-    /** Decode only documented generator envelopes, never HTML, remote URLs or executable scripts. */
-    fun generatedContent(response: String, source: Int): String {
-        require(response.toByteArray(Charsets.UTF_8).size <= NativeProfileTransfer.MAX_CONFIG_BYTES)
-        fun field(obj: JsonObject, key: String): String {
-            val value = obj.get(key)
-            require(value != null && value.isJsonPrimitive && value.asJsonPrimitive.isString) { "Invalid WARP response" }
-            return value.asString
-        }
-        val conf = when (source) {
-            0 -> {
-                val root = NativeJsonDocument.parse(response).asJsonObject
-                require(root.get("success")?.let { it.isJsonPrimitive && it.asJsonPrimitive.isBoolean && it.asBoolean } == true) { "WARP generation failed" }
-                NativeSubscriptionContent.utf8(Base64.getDecoder().decode(field(root.getAsJsonObject("content"), "configBase64")))
-            }
-            1 -> response
-            2 -> field(NativeJsonDocument.parse(response).asJsonObject, "config")
-            3 -> NativeSubscriptionContent.utf8(Base64.getDecoder().decode(field(NativeJsonDocument.parse(response).asJsonObject, "content")))
-            else -> error("Unknown WARP generator")
-        }.trim()
-        require(conf.lineSequence().count { it.trim().equals("[Interface]", true) } == 1 &&
-            conf.lineSequence().any { it.trim().equals("[Peer]", true) } &&
-            listOf("PrivateKey", "PublicKey", "Address", "Endpoint").all { key ->
-                Regex("(?im)^\\s*$key\\s*=\\s*\\S+").containsMatchIn(conf)
-            } && Regex("(?im)^\\s*(?:Jc|Jmin|Jmax|I[1-5])\\s*=\\s*\\S+").containsMatchIn(conf)) {
-            "Generator did not return an AmneziaWG configuration"
-        }
-        // The core's panel-share parser accepts a base64url native .conf and preserves all AWG fields.
-        return "vpn://" + Base64.getUrlEncoder().withoutPadding().encodeToString(conf.toByteArray(Charsets.UTF_8))
-    }
 }

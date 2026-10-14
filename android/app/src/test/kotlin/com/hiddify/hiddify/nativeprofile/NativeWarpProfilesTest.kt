@@ -14,7 +14,7 @@ import java.util.concurrent.CancellationException
 class NativeWarpProfilesTest {
     private val conf = """
         [Interface]
-        PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        PrivateKey = AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
         Address = 172.16.0.2/32, 2606:4700:110:1234::2/128
         MTU = 1280
         Jc = 4
@@ -28,7 +28,7 @@ class NativeWarpProfilesTest {
         H4 = 4
         I1 = <b 0x01020304><r 16>
         [Peer]
-        PublicKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        PublicKey = AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=
         Endpoint = [2001:db8::1]:2408
         AllowedIPs = 0.0.0.0/0, ::/0
         PersistentKeepalive = 25
@@ -45,7 +45,7 @@ class NativeWarpProfilesTest {
         else -> error("Unexpected source")
     }
     private fun encoded(value: String) = Base64.getEncoder().encodeToString(value.toByteArray())
-    private fun decoded(value: String) = String(Base64.getUrlDecoder().decode(value.removePrefix("vpn://")))
+    private fun endpoint(value: String) = NativeJsonDocument.parse(value).asJsonObject.getAsJsonArray("endpoints")[0].asJsonObject
 
     @Test fun builtinsRemainAvailableInEveryRegionAndDoNotExposeGeneratorUrlsAsSubscriptions() {
         assertEquals(3, NativeWarpProfiles.profiles.size)
@@ -59,42 +59,52 @@ class NativeWarpProfilesTest {
         assertNull(remote.warpMode)
     }
 
-    @Test fun automaticAwgUsesWireguardCompatibleHeadersAndCacheIdentityWithoutCredentials() {
-        val ordinary = NativeJsonDocument.parse(NativeWarpProfiles.content(NativeWarpMode.STANDARD)).asJsonObject.getAsJsonArray("endpoints")[0].asJsonObject
-        assertFalse(ordinary.has("awg"))
-        val awg = NativeJsonDocument.parse(NativeWarpProfiles.content(NativeWarpMode.AWG)).asJsonObject.getAsJsonArray("endpoints")[0].asJsonObject
-        assertEquals("warp", awg.get("type").asString)
-        assertNotEquals(ordinary.get("unique_identifier"), awg.get("unique_identifier"))
-        assertFalse(awg.has("private_key")); assertFalse(awg.has("profile"))
-        val options = awg.getAsJsonObject("awg")
-        for (i in 1..4) {
-            assertEquals(0, options.get("s$i").asInt)
-            assertEquals(i.toString(), options.get("h$i").asString)
+    @Test fun onlyUnmodifiedLegacyBuiltinsAreRepaired() {
+        for (mode in listOf(NativeWarpMode.STANDARD, NativeWarpMode.AWG)) {
+            val raw = NativeWarpProfiles.legacyContent(mode)
+            assertEquals(mode, NativeWarpProfiles.legacyMode(raw))
+            assertNull(NativeWarpProfiles.legacyMode(raw.replace("1280", "1400")))
         }
-        assertTrue(options.get("jc").asInt > 0)
-        val summary = NativeImportSummary.parse(NativeWarpProfiles.content(NativeWarpMode.AWG))
-        assertEquals(1, summary.servers)
-        assertEquals(0, summary.unknownTypes)
+        assertNull(NativeWarpProfiles.legacyMode("{}"))
+        assertNull(NativeWarpProfiles.legacyMode(NativeWarpAccount.parse(conf).content(NativeWarpMode.AWG)))
     }
 
-    @Test fun allFourEnvelopesPreserveKeysIpv6RoutesAndSignaturePackets() {
+    @Test fun allFourEnvelopesPreserveKeysIpv6AndSignaturePackets() {
         for (source in 0..3) {
-            val link = NativeWarpProfiles.generatedContent(envelope(source), source)
-            assertEquals(conf, decoded(link))
-            assertEquals(1, NativeImportSummary.parse(link).servers)
-            assertEquals(0, NativeImportSummary.parse(link).unknownTypes)
+            val content = NativeWarpAccount.parse(envelope(source)).content(NativeWarpMode.GENERATED_AWG)
+            val node = endpoint(content)
+            assertEquals("awg", node.get("type").asString)
+            assertEquals("AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=", node.get("private_key").asString)
+            assertEquals(2, node.getAsJsonArray("address").size())
+            assertEquals("<b 0x01020304><r 16>", node.getAsJsonObject("awg").get("i1").asString)
+            assertEquals(25, node.getAsJsonArray("peers")[0].asJsonObject.get("persistent_keepalive_interval").asInt)
+            assertEquals(1, NativeImportSummary.parse(content).servers)
+            assertEquals(0, NativeImportSummary.parse(content).unknownTypes)
         }
     }
 
-    @Test fun rejectsHtmlUrlsMissingKeysMalformedEnvelopesAndPlainWireguard() {
+    @Test fun rejectsInvalidResponsesAndServerDependentAwgParameters() {
         val invalid = listOf("<html>Error</html>", "https://example.com/config", "{}", conf.replace("PrivateKey =", "MissingKey ="),
-            conf.replace("Jc =", "Other =").replace("Jmin =", "OtherMin =").replace("Jmax =", "OtherMax =").replace("I1 =", "OtherSignature ="))
-        for (content in invalid) for (source in 0..3) {
-            assertTrue(runCatching { NativeWarpProfiles.generatedContent(envelope(source, content), source) }.isFailure)
-        }
+            conf.replace("S1 = 0", "S1 = 20"), conf.replace("H1 = 1", "H1 = 123"),
+            conf.replace("[Peer]", "HeaderProtectionKey = secret\n[Peer]"), conf.replace("[Peer]", "[PostUp]"),
+            conf.replace("[2001:db8::1]", "example.com"), conf.replace("[2001:db8::1]", "abcdef"))
+        for (content in invalid) for (source in 0..3) assertTrue(runCatching { NativeWarpAccount.parse(envelope(source, content)) }.isFailure)
         for (content in listOf("""{"success":false,"content":{}}""", """{"success":"true","content":{"configBase64":"bad"}}""")) {
-            assertTrue(runCatching { NativeWarpProfiles.generatedContent(content, 0) }.isFailure)
+            assertTrue(runCatching { NativeWarpAccount.parse(content) }.isFailure)
         }
+    }
+
+    @Test fun addsSignatureToDesktopGeneratorConfigsAndKeepsWireguardHeaders() {
+        val desktop = conf.lineSequence().filterNot { it.startsWith("I1") }.joinToString("\n")
+        val node = endpoint(NativeWarpAccount.parse(desktop).content(NativeWarpMode.AWG))
+        val options = node.getAsJsonObject("awg")
+        assertTrue(options.get("i1").asString.startsWith("<b 0xc2"))
+        assertEquals(1280, node.get("mtu").asInt)
+        assertFalse(node.get("useIntegratedTun").asBoolean)
+        for (i in 1..4) { assertEquals(0, options.get("s$i").asInt); assertEquals(i.toString(), options.get("h$i").asString) }
+        val ordinary = endpoint(NativeWarpAccount.parse(desktop).content(NativeWarpMode.STANDARD))
+        assertEquals("wireguard", ordinary.get("type").asString)
+        assertFalse(ordinary.has("awg"))
     }
 
     private fun repository(reply: (Int) -> Pair<Int, String>): NativeWarpProfilesRepository {
@@ -120,9 +130,9 @@ class NativeWarpProfilesTest {
         }.generate(NativeProfileImportCancellation()) { content ->
             validations++
             if (validations == 1) error("Core rejected candidate")
-            decoded(content)
+            content
         }
-        assertEquals(conf, result)
+        assertEquals("awg", endpoint(result).get("type").asString)
         assertEquals(listOf(0, 1, 2, 3), attempts)
         assertEquals(2, validations)
     }

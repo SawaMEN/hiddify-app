@@ -1234,17 +1234,15 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 null -> profileRepository.prepareRemote(profile.url, requestedName = title,
                     updateIntervalHours = if (com.hiddify.hiddify.nativeprofile.NativeOperaProfiles.region(profile.url) != null) 1 else 12,
                     replaceFeatures = true, neededFeatures = profile.neededFeatures, cancellation = cancellation)
-                com.hiddify.hiddify.nativeprofile.NativeWarpMode.GENERATED_AWG -> {
+                else -> {
                     try {
-                        com.hiddify.hiddify.nativeprofile.NativeWarpProfilesRepository().generate(cancellation) { content ->
+                        com.hiddify.hiddify.nativeprofile.NativeWarpProfilesRepository().generate(cancellation, mode) { content ->
                             profileRepository.prepareInput(content, name = title, cancellation = cancellation)
                         }
-                    } catch (_: com.hiddify.hiddify.nativeprofile.NativeWarpGenerationException) {
-                        error(getString(R.string.native_free_warp_generation_failed))
+                    } catch (error: com.hiddify.hiddify.nativeprofile.NativeWarpGenerationException) {
+                        error(getString(R.string.native_free_warp_generation_failed, error.detail))
                     }
                 }
-                else -> profileRepository.prepareInput(com.hiddify.hiddify.nativeprofile.NativeWarpProfiles.content(mode),
-                    name = title, cancellation = cancellation)
             }
             confirmProfileImport(prepared, cancellation)
             profileRepository.commitPrepared(prepared, cancellation)

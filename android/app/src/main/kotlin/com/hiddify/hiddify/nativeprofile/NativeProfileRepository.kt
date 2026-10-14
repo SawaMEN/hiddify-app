@@ -334,6 +334,17 @@ class NativeProfileRepository(private val context: Context) {
         )
     }
 
+    /** One-time repair of exact old built-ins; keep the profile identity, name and user options. */
+    fun repairLegacyWarp(cancellation: NativeProfileImportCancellation) {
+        val profile = activeProfile()?.takeIf { !it.isRemote } ?: return
+        val editor = loadEditor(profile.id)
+        val mode = NativeWarpProfiles.legacyMode(editor.content) ?: return
+        NativeWarpProfilesRepository().generate(cancellation, mode) { content ->
+            saveEditedProfile(profile.id, content, editor.name, editor.disableAutoUpdate, editor.updateIntervalHours,
+                expectedLastUpdate = profile.lastUpdate, cancellation = cancellation)
+        }
+    }
+
     fun saveEditedProfile(
         id: String,
         content: String,
@@ -342,6 +353,7 @@ class NativeProfileRepository(private val context: Context) {
         updateIntervalHours: Int?,
         expectedLastUpdate: String? = null,
         networkOptions: NativeProfileNetworkOptions? = null,
+        cancellation: NativeProfileImportCancellation? = null,
     ): NativeProfile {
         val existing = openDatabase().use { db -> getById(db, id) ?: error("Profile not found") }
         check(expectedLastUpdate == null || existing.lastUpdate == expectedLastUpdate) {
@@ -394,7 +406,8 @@ class NativeProfileRepository(private val context: Context) {
                 populatedHeaders = JSONObject(storedHeaders).toString(),
                 userOverride = userOverride,
             )
-        validateContent(updated, content, null)
+        validateContent(updated, content, cancellation)
+        cancellation?.beginCommit()
         return commit(updated, content, isNew = false, expectedProfile = existing)
     }
 

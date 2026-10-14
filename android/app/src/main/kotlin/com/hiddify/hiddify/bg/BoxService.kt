@@ -178,6 +178,7 @@ class BoxService(
     @Volatile private var nativeStarting = false
     @Volatile private var nativeStartupTimedOut = false
     @Volatile private var startCancellation: kotlinx.coroutines.Job? = null
+    @Volatile private var profilePreparationCancellation: com.hiddify.hiddify.nativeprofile.NativeProfileImportCancellation? = null
     @Volatile private var rootActive = false
     private var rootMonitor: kotlinx.coroutines.Job? = null
 
@@ -238,6 +239,12 @@ class BoxService(
                         repository.refreshRemote(profile.id)
                     }
                 }
+                val cancellation = com.hiddify.hiddify.nativeprofile.NativeProfileImportCancellation()
+                profilePreparationCancellation = cancellation
+                try {
+                    if (stopRequested || destroyed || !Settings.connectionDesired) cancellation.cancel()
+                    repository.repairLegacyWarp(cancellation)
+                } finally { profilePreparationCancellation = null }
             }
             if (!Settings.connectionDesired || stopRequested) {
                 finishCancelledStart("cancelled during profile renewal")
@@ -403,6 +410,8 @@ class BoxService(
             if (stopRequested || !Settings.connectionDesired) finishCancelledStart("cancelled startup")
             else stopAndAlert(Alert.StartService, if (nativeStartupTimedOut) {
                 "VPN core startup timed out after 90 seconds; inspect Psiphon and network logs"
+            } else if (e is com.hiddify.hiddify.nativeprofile.NativeWarpGenerationException) {
+                service.getString(R.string.native_free_warp_generation_failed, e.detail)
             } else e.message)
         }
     }
@@ -473,6 +482,7 @@ class BoxService(
         if (status.value == Status.Stopped && coreOwner !== this) return
 
         stopRequested = true
+        profilePreparationCancellation?.cancel()
         recoveryJob?.cancel(); recoveryJob = null
         monitorJob?.cancel(); monitorJob = null
         NativeServiceState.reset()
@@ -770,6 +780,7 @@ class BoxService(
     fun onDestroy() {
         if (destroyed) return
         stopRequested = true
+        profilePreparationCancellation?.cancel()
         cancelNativeStartup()
         destroyed = true
         recoveryJob?.cancel(); recoveryJob = null

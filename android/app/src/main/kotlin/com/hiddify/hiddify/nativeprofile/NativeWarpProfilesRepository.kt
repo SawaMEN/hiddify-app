@@ -1,69 +1,105 @@
 package com.hiddify.hiddify.nativeprofile
 
+import com.google.gson.JsonObject
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.MediaType.Companion.toMediaType
+import org.bouncycastle.math.ec.rfc7748.X25519
+import java.security.SecureRandom
+import java.time.Instant
+import java.util.Base64
 import java.util.concurrent.CancellationException
 import java.util.concurrent.TimeUnit
 
-/** No credentials are logged and generator URLs are fixed locally, independent of the feed. */
+/** Registration is completed before import/VPN startup, outside the core's TUN bootstrap. */
 internal class NativeWarpProfilesRepository(
     private val http: OkHttpClient = defaultHttp,
     private val requests: List<Request> = defaultRequests,
+    private val registrationUrl: String = "https://api.cloudflareclient.com/v0i1909051800/reg",
 ) {
-    fun <T> generate(cancellation: NativeProfileImportCancellation, prepare: (String) -> T): T {
-        for ((source, request) in requests.withIndex()) {
-            cancellation.ensureActive()
-            val call = http.newCall(request)
-            cancellation.attachRequest(call::cancel)
-            val content = try {
-                call.execute().use { response ->
-                    check(response.isSuccessful) { "WARP generator unavailable" }
-                    val body = response.body ?: error("Empty WARP generator response")
-                    body.byteStream().use { NativeWarpProfiles.generatedContent(NativeProfileTransfer.readText(it), source) }
-                }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (_: Exception) {
-                cancellation.ensureActive()
-                null
-            } finally {
-                cancellation.detachRequest()
+    fun <T> generate(cancellation: NativeProfileImportCancellation, mode: NativeWarpMode = NativeWarpMode.GENERATED_AWG,
+        prepare: (String) -> T): T {
+        if (mode != NativeWarpMode.GENERATED_AWG) {
+            val key = ByteArray(32).also { X25519.generatePrivateKey(SecureRandom(), it) }
+            val publicKey = ByteArray(32).also { X25519.generatePublicKey(key, 0, it, 0) }
+            val body = JsonObject().apply {
+                addProperty("key", Base64.getEncoder().encodeToString(publicKey))
+                addProperty("install_id", ""); addProperty("fcm_token", "")
+                addProperty("tos", Instant.now().toString()); addProperty("type", "Android")
+                addProperty("model", "PC"); addProperty("locale", "en_US"); addProperty("warp_enabled", true)
             }
-            if (content != null) {
-                try {
-                    cancellation.ensureActive()
-                    return prepare(content)
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (_: Exception) {
-                    cancellation.ensureActive()
-                    // Core rejection is also a failed source; try the next one without persisting.
-                }
+            val request = Request.Builder().url(registrationUrl)
+                .header("User-Agent", "okhttp/3.12.1").header("Accept", "application/json")
+                .post(body.toString().toRequestBody(json)).build()
+            try {
+                val response = download(request, cancellation)
+                cancellation.ensureActive()
+                val account = NativeWarpAccount.parse(response, Base64.getEncoder().encodeToString(key))
+                return prepare(account.content(mode))
+            } catch (error: CancellationException) { throw error }
+              catch (error: Exception) {
+                cancellation.ensureActive()
+                throw NativeWarpGenerationException("Cloudflare: " + reason(error))
+            } finally { key.fill(0); publicKey.fill(0) }
+        }
+        val failures = mutableListOf<String>()
+        for (request in requests) {
+            cancellation.ensureActive()
+            try {
+                val account = NativeWarpAccount.parse(download(request, cancellation))
+                cancellation.ensureActive()
+                // A failed core validation also moves to the next source before persisting anything.
+                return prepare(account.content(mode))
+            } catch (error: CancellationException) { throw error }
+              catch (error: Exception) {
+                cancellation.ensureActive()
+                failures += request.url.host + ": " + reason(error)
             }
         }
-        throw NativeWarpGenerationException()
+        throw NativeWarpGenerationException(failures.joinToString("; "))
     }
+
+    private fun download(request: Request, cancellation: NativeProfileImportCancellation): String {
+        cancellation.ensureActive()
+        val call = http.newCall(request)
+        cancellation.attachRequest(call::cancel)
+        return try {
+            call.execute().use { response ->
+                if (!response.isSuccessful) throw GeneratorHttpException(response.code)
+                val body = response.body ?: error("Empty WARP response")
+                body.byteStream().use(NativeProfileTransfer::readText)
+            }
+        } finally { cancellation.detachRequest() }
+    }
+
+    private fun reason(error: Exception): String = when (error) {
+        is GeneratorHttpException -> "HTTP ${error.code}"
+        is java.net.SocketTimeoutException -> "timeout"
+        is java.net.UnknownHostException -> "DNS"
+        is java.io.IOException -> "network"
+        else -> "invalid configuration"
+    }
+    private class GeneratorHttpException(val code: Int) : Exception()
 
     companion object {
         private val defaultHttp = OkHttpClient.Builder().connectTimeout(8, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS).callTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS).callTimeout(25, TimeUnit.SECONDS)
             .followRedirects(false).followSslRedirects(false).build()
         private val json = "application/json; charset=utf-8".toMediaType()
+        // Verified live endpoints; the historical Routerich URLs return errors or HTML now.
         private val defaultRequests = listOf(
-            Request.Builder().url("https://warp.llimonix.pw/api/warp")
-                .header("Origin", "https://warp.llimonix.pw").header("Referer", "https://warp.llimonix.pw/")
-                .post("""{"selectedServices":[],"siteMode":"all","deviceType":"computer"}""".toRequestBody(json)).build(),
-            Request.Builder().url("https://topor-warp.vercel.app/generate")
-                .header("Origin", "https://topor-warp.vercel.app").header("Referer", "https://topor-warp.vercel.app/")
-                .post("""{"platform":"all"}""".toRequestBody(json)).build(),
-            Request.Builder().url("https://warp-gen.vercel.app/generate-config")
-                .header("Referer", "https://warp-gen.vercel.app/").build(),
-            Request.Builder().url("https://config-generator-warp.vercel.app/warp")
-                .header("Referer", "https://config-generator-warp.vercel.app/").build(),
-        )
+            "https://warp-config-generator-theta.vercel.app/api/warp",
+            "https://dulcet-fox-556b08.netlify.app/api/warp",
+        ).map { url ->
+            val origin = url.substringBefore("/api/")
+            Request.Builder().url(url).header("Origin", origin).header("Referer", "$origin/")
+                .header("Accept", "application/json").header("User-Agent", "Mozilla/5.0")
+                .post("""{"selectedServices":[],"siteMode":"all","deviceType":"computer","endpoint":"162.159.195.1:500"}""".toRequestBody(json)).build()
+        } + Request.Builder().url("https://santa-atmo.ru/warp/warp.php")
+            .header("Accept", "application/json").header("User-Agent", "Mozilla/5.0").build()
     }
 }
 
-internal class NativeWarpGenerationException : Exception("WARP generators are unavailable")
+/** Sanitized provider/status summary only; never attach response bodies or credential-bearing causes. */
+internal class NativeWarpGenerationException(val detail: String) : Exception("WARP registration failed: $detail")
