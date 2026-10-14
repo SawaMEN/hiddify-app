@@ -174,3 +174,10 @@ observed exit without its crash/exit evidence.
 References for these lifecycle constraints:
 - https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-cancellable-continuation/invoke-on-cancellation.html
 - https://developer.android.com/reference/android/graphics/Bitmap#recycle()
+
+Merge verification found three DNS assertions that assumed exception reference
+identity. CI enables coroutine stack recovery, which may copy an exception while
+preserving its original in the cause chain. The assertions now verify type,
+message and retention of the original failure in that chain. All **381 JVM tests
+also passed locally with `-ea -Dkotlinx.coroutines.debug=on`**. This correction
+changes tests only; no production behavior is altered and no test is disabled.

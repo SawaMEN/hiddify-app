@@ -6,6 +6,13 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeDnsQueryTest {
+    private fun assertOriginalFailure(expected: Throwable, actual: Throwable) {
+        // Coroutine debug/stack recovery can copy the exception and chain the original.
+        assertEquals(expected.javaClass, actual.javaClass)
+        assertEquals(expected.message, actual.message)
+        assertTrue(generateSequence(actual) { it.cause }.take(16).any { it === expected })
+    }
+
     @Test fun onlyTheFirstAndroidCallbackCompletesTheQuery() = runBlocking {
         var cancelled = 0
         val result = NativeDnsQuery.await<Pair<String, Int>>({ cancelled++ }, { fail("Unexpected cleanup error") }) { success, failure ->
@@ -50,7 +57,7 @@ class NativeDnsQueryTest {
         try {
             NativeDnsQuery.await<String>({ throw cleanup }, { reported += it }) { _, _ -> throw original }
             fail("Expected the original start failure")
-        } catch (error: IOException) { assertSame(original, error) }
+        } catch (error: IOException) { assertOriginalFailure(original, error) }
         assertEquals(listOf(cleanup), reported)
     }
 
@@ -63,7 +70,7 @@ class NativeDnsQueryTest {
                 throw original
             }
             fail("Expected original registration failure")
-        } catch (error: IOException) { assertSame(original, error) }
+        } catch (error: IOException) { assertOriginalFailure(original, error) }
     }
 
     @Test fun cancellationCanSynchronouslyInvokeALateCallback() = runBlocking {
@@ -98,6 +105,6 @@ class NativeDnsQueryTest {
                 success("late answer")
             }
             fail("Expected DNS query failure")
-        } catch (error: IOException) { assertSame(original, error) }
+        } catch (error: IOException) { assertOriginalFailure(original, error) }
     }
 }
