@@ -27,19 +27,25 @@ import com.hiddify.hiddify.nativecore.NativeTlsOptions
 internal fun NativeTlsOptionsScreen(
     options: NativeTlsOptions?, busy: Boolean, canSave: Boolean, loadFailed: Boolean,
     onRetry: () -> Unit, onBack: () -> Unit, onSave: (NativeTlsOptionField, String) -> Unit,
+    onOpenProfile: (() -> Unit)? = null,
 ) {
     var editor by rememberSaveable { mutableStateOf<NativeTlsOptionField?>(null) }
     var range by rememberSaveable { mutableStateOf("") }
     val enabled = !busy && canSave
     val dependentEnabled = enabled && options?.fragment == true
+    fun fieldEnabled(field: NativeTlsOptionField) = when (field) {
+        NativeTlsOptionField.FRAGMENT_SIZE, NativeTlsOptionField.FRAGMENT_SLEEP -> dependentEnabled
+        NativeTlsOptionField.PADDING_SIZE -> enabled && options?.padding == true
+        else -> enabled
+    }
     fun format(value: String) = runCatching { NativeTlsOptions.normalizeRange(value, allowEmpty = true) }.getOrDefault(value)
     fun edit(field: NativeTlsOptionField) {
-        if (options == null || !dependentEnabled) return
+        if (options == null || !fieldEnabled(field)) return
         range = format(field.value(options).toString())
         editor = field
     }
     fun save(field: NativeTlsOptionField, value: String) {
-        if (!enabled || (field != NativeTlsOptionField.FRAGMENT && !dependentEnabled)) return
+        if (!fieldEnabled(field)) return
         onSave(field, value)
         editor = null
     }
@@ -52,6 +58,10 @@ internal fun NativeTlsOptionsScreen(
             NativeTextButton(onClick = onRetry) { Text(stringResource(R.string.native_profiles_retry)) }
         }
         if (options != null) Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+            NativePreferenceTile(R.string.native_profile_tls_open, R.drawable.native_tls_text_fields,
+                stringResource(R.string.native_subscription_request_summary), enabled && onOpenProfile != null) { onOpenProfile?.invoke() }
+            Text(stringResource(R.string.native_tls_legacy_help), Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
             NativePreferenceTile(R.string.native_core_tls_fragment, R.drawable.native_tls_content_cut,
                 null, enabled, options.fragment) { save(NativeTlsOptionField.FRAGMENT, (!options.fragment).toString()) }
             NativePreferenceTile(R.string.native_core_tls_fragment_size, R.drawable.native_tls_straighten,
@@ -59,13 +69,11 @@ internal fun NativeTlsOptionsScreen(
             NativePreferenceTile(R.string.native_core_tls_fragment_sleep, R.drawable.native_tls_snooze,
                 format(options.fragmentSleep).ifEmpty { notSet }, dependentEnabled) { edit(NativeTlsOptionField.FRAGMENT_SLEEP) }
             NativePreferenceTile(R.string.native_core_tls_mixed_sni, R.drawable.native_tls_text_fields,
-                null, dependentEnabled, options.mixedSniCase) { save(NativeTlsOptionField.MIXED_SNI_CASE, (!options.mixedSniCase).toString()) }
+                null, enabled, options.mixedSniCase) { save(NativeTlsOptionField.MIXED_SNI_CASE, (!options.mixedSniCase).toString()) }
             NativePreferenceTile(R.string.native_core_tls_padding, R.drawable.native_tls_expand,
-                null, dependentEnabled, options.padding) { save(NativeTlsOptionField.PADDING, (!options.padding).toString()) }
-            // Dart gates the padding range on fragmentation, regardless of the padding switch.
-            // Its padding row uses format(), so an imported empty range has an empty subtitle.
+                null, enabled, options.padding) { save(NativeTlsOptionField.PADDING, (!options.padding).toString()) }
             NativePreferenceTile(R.string.native_core_tls_padding_size, R.drawable.native_tls_straighten,
-                format(options.paddingSize), dependentEnabled) { edit(NativeTlsOptionField.PADDING_SIZE) }
+                format(options.paddingSize), fieldEnabled(NativeTlsOptionField.PADDING_SIZE)) { edit(NativeTlsOptionField.PADDING_SIZE) }
         }
     }
     val field = editor
@@ -77,7 +85,7 @@ internal fun NativeTlsOptionsScreen(
         }
         val valid = runCatching { NativeTlsOptions.normalizeRange(range) }.isSuccess
         NativeSettingInputDialog(title = stringResource(title), value = range,
-            onValueChange = { if (it.length <= 21) range = it }, valid = valid, enabled = dependentEnabled,
+            onValueChange = { if (it.length <= 21) range = it }, valid = valid, enabled = fieldEnabled(field),
             invalidMessage = stringResource(R.string.native_tls_invalid), onDismiss = { editor = null },
             onConfirm = { save(field, range) }, onReset = { save(field, field.value(NativeTlsOptions()).toString()) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii, imeAction = ImeAction.Done))

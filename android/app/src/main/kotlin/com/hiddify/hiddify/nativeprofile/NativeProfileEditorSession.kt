@@ -13,7 +13,9 @@ class NativeProfileEditorSession : ViewModel() {
     var disableAutoUpdate by mutableStateOf(false)
     var intervalHours by mutableStateOf(0)
     var content by mutableStateOf("")
+    var networkOptions by mutableStateOf(NativeProfileNetworkOptions())
     private var original: NativeProfileEditor? = null
+    private var originalNetworkOptions = NativeProfileNetworkOptions()
 
     fun load(editor: NativeProfileEditor) {
         val key = "${editor.profile.id}:${editor.profile.lastUpdate}"
@@ -24,12 +26,15 @@ class NativeProfileEditorSession : ViewModel() {
         disableAutoUpdate = editor.disableAutoUpdate
         intervalHours = editor.updateIntervalHours ?: 0
         content = editor.content
+        networkOptions = NativeProfileNetworkOptions.fromOverride(editor.profile.userOverride)
+        originalNetworkOptions = networkOptions
     }
 
-    fun reset() { identity = null; original = null }
+    fun reset() { identity = null; original = null; networkOptions = NativeProfileNetworkOptions() }
 
     val changed: Boolean get() = original?.let {
         name != it.name || disableAutoUpdate != it.disableAutoUpdate ||
-            intervalHours != (it.updateIntervalHours ?: 0) || content != it.content
+            intervalHours != (it.updateIntervalHours ?: 0) || content != it.content ||
+            networkOptions != originalNetworkOptions
     } ?: false
 }

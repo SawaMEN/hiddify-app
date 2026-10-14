@@ -38,7 +38,7 @@ internal fun NativeAddProfileSheet(
     canCancelImport: Boolean,
     onCancelImport: () -> Unit,
     onDismiss: () -> Unit,
-    onImport: (String, String?, Int?, Boolean) -> Unit,
+    onImport: (String, String?, Int?, Boolean, com.hiddify.hiddify.nativeprofile.NativeSubscriptionRequestOptions?) -> Unit,
     onImportFree: (com.hiddify.hiddify.nativeprofile.NativeFreeProfile, String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -51,6 +51,8 @@ internal fun NativeAddProfileSheet(
         restore = { it },
     )) { mutableStateOf("") }
     var name by rememberSaveable { mutableStateOf("") }
+    // Provider credentials stay in memory, outside saved-instance state.
+    var networkOptions by remember { mutableStateOf(com.hiddify.hiddify.nativeprofile.NativeProfileNetworkOptions()) }
     var interval by rememberSaveable { mutableFloatStateOf(0f) }
     var disableAutoUpdate by rememberSaveable { mutableStateOf(false) }
     var fileBusy by remember { mutableStateOf(false) }
@@ -66,7 +68,7 @@ internal fun NativeAddProfileSheet(
         if (text.isBlank()) importError = context.getString(R.string.native_profile_file_empty)
         else {
             importError = null
-            onImport(text, null, null, false)
+            onImport(text, null, null, false, null)
         }
     }
 
@@ -196,10 +198,15 @@ internal fun NativeAddProfileSheet(
                             valueRange = 0f..96f, steps = 95)
                     }
                 }
+                NativeProfileNetworkSettings(networkOptions, remote = true, json = false, enabled = enabled,
+                    onChange = { networkOptions = it }, showTls = false)
                 importError?.let { Text(it, Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error) }
                 Button(onClick = {
                     validate = true
-                    if (name.isNotBlank() && validUrl) onImport(raw.trim(), name.trim(), interval.toInt(), disableAutoUpdate)
+                    if (name.isNotBlank() && validUrl && runCatching { networkOptions.request.validated() }.isSuccess) {
+                        val request = networkOptions.request.takeUnless { it == com.hiddify.hiddify.nativeprofile.NativeSubscriptionRequestOptions() }
+                        onImport(raw.trim(), name.trim(), interval.toInt(), disableAutoUpdate, request)
+                    }
                 }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) {
                     Text(stringResource(R.string.native_profile_add))
                 }

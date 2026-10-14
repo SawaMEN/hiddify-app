@@ -1121,6 +1121,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         disableAutoUpdate: Boolean,
         updateIntervalHours: Int?,
         content: String,
+        networkOptions: com.hiddify.hiddify.nativeprofile.NativeProfileNetworkOptions,
     ) {
         val editor = profileEditor.value ?: return
         if (profileEditorBusy.value) return
@@ -1137,6 +1138,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                                 disableAutoUpdate = disableAutoUpdate,
                                 updateIntervalHours = updateIntervalHours,
                                 expectedLastUpdate = editor.profile.lastUpdate,
+                                networkOptions = networkOptions,
                             )
                             profileRepository.synchronizeActiveProfile()
                             profileRepository.loadEditor(editor.profile.id) to profileRepository.listProfiles()
@@ -1254,6 +1256,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         name: String?,
         intervalHours: Int?,
         disableAutoUpdate: Boolean,
+        requestOptions: com.hiddify.hiddify.nativeprofile.NativeSubscriptionRequestOptions? = null,
     ) {
         val cancellation = NativeProfileImportCancellation()
         runProfileOperation(IMPORT_BUSY_ID, requireDisconnected = true, importCancellation = cancellation,
@@ -1264,6 +1267,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 name = name,
                 updateIntervalHours = intervalHours,
                 disableAutoUpdate = disableAutoUpdate,
+                requestOptions = requestOptions,
             )
             confirmProfileImport(prepared, cancellation)
             profileRepository.commitPrepared(prepared, cancellation)

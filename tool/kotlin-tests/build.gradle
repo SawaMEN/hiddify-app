@@ -58,6 +58,8 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeprofile/NativeOperaProfilesRepository.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeWarpProfilesRepository.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileOverrides.kt'
+            include 'com/hiddify/hiddify/nativeprofile/NativeSubscriptionRequestOptions.kt'
+            include 'com/hiddify/hiddify/nativeprofile/NativeProfileTlsOptions.kt'
             include 'com/hiddify/hiddify/nativediagnostics/NativeDiagnosticModels.kt'
             include 'com/hiddify/hiddify/nativerouting/NativePerAppBackup.kt'
             include 'com/hiddify/hiddify/privacy/NativeTrafficFilters.kt'
@@ -91,6 +93,7 @@ dependencies {
     implementation 'com.google.zxing:core:3.5.4'
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0'
     testImplementation 'junit:junit:4.13.2'
+    testImplementation 'com.squareup.okhttp3:mockwebserver:4.12.0'
 }
 
 test {

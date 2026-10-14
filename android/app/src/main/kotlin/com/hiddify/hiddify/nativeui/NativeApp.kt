@@ -239,9 +239,9 @@ fun NativeApp(
     onDeleteProfile: (NativeProfile) -> Unit,
     onRefreshProfile: (NativeProfile) -> Unit,
     onOpenProfileEditor: (NativeProfile) -> Unit,
-    onSaveProfileEditor: (String, Boolean, Int?, String) -> Unit,
+    onSaveProfileEditor: (String, Boolean, Int?, String, com.hiddify.hiddify.nativeprofile.NativeProfileNetworkOptions) -> Unit,
     onCancelProfileImport: () -> Unit,
-    onImportProfile: (String, String?, Int?, Boolean) -> Unit,
+    onImportProfile: (String, String?, Int?, Boolean, com.hiddify.hiddify.nativeprofile.NativeSubscriptionRequestOptions?) -> Unit,
     onImportFreeProfile: (com.hiddify.hiddify.nativeprofile.NativeFreeProfile, String) -> Unit,
     onCopyProfileConfig: (NativeProfile) -> Unit,
     onExportProfileConfig: (NativeProfile) -> Unit,
@@ -586,6 +586,10 @@ fun NativeApp(
                                     canSave = status != Status.Starting && status != Status.Stopping && !reconnectBusy && !wifiSharingBusy && !chainBusy && !inboundBusy && !dnsBusy && !generalOptionsBusy && !tunnelBusy && !privacySetupBusy && !proxyPrivacyBusy,
                                     loadFailed = tlsLoadFailed, onRetry = onReloadTlsOptions,
                                     onBack = { goBack() }, onSave = onSaveTlsOption,
+                                    onOpenProfile = profiles.firstOrNull { it.active }?.let { profile -> {
+                                        onOpenProfileEditor(profile)
+                                        openPage(PAGE_PROFILE_DETAILS)
+                                    } },
                                 )
 
                                 PAGE_DNS -> NativeDnsOptionsScreen(
@@ -807,8 +811,8 @@ fun NativeApp(
                 onCancelImport = onCancelProfileImport,
                 onDismiss = { addProfileOpen = false },
                 onImportFree = onImportFreeProfile,
-                onImport = { raw, name, interval, disabled ->
-                    onImportProfile(raw, name, interval, disabled)
+                onImport = { raw, name, interval, disabled, request ->
+                    onImportProfile(raw, name, interval, disabled, request)
                 },
             )
         }
