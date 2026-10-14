@@ -140,7 +140,7 @@ class ServiceNotification(private val service: Service) : BroadcastReceiver() {
         // Notification permission and OEM NotificationManager implementations can fail
         // during a system permission toggle. This must never crash a running VPN.
         val mayPoll = runCatching {
-            !closed && foregroundOwner === this && Settings.dynamicNotification &&
+            !closed && receiverRegistered && foregroundOwner === this && Settings.dynamicNotification &&
                 checkPermission() && Application.powerManager.isInteractive
         }.onFailure { Log.w("notification", "Cannot inspect notification permissions", it) }.getOrDefault(false)
         if (mayPoll) {
@@ -209,7 +209,7 @@ class ServiceNotification(private val service: Service) : BroadcastReceiver() {
 
     fun startListenSystemInfo() {
         val canStart = runCatching {
-            !closed && foregroundOwner === this && Settings.dynamicNotification && checkPermission() &&
+            !closed && receiverRegistered && foregroundOwner === this && Settings.dynamicNotification && checkPermission() &&
                 Application.powerManager.isInteractive && streamingJob?.isActive != true
         }.onFailure { Log.w("notification", "Cannot start traffic notification updates", it) }.getOrDefault(false)
         if (!canStart) return

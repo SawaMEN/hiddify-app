@@ -8,6 +8,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeProfileImportCancellationTest {
+    @Test fun failingNativeCallbackStillMarksTheImportCancelled() {
+        val token = NativeProfileImportCancellation()
+        val error = IllegalStateException("native cancellation failed")
+        token.attachRequest { throw error }
+        assertSame(error, assertThrows(IllegalStateException::class.java) { token.cancel() })
+        assertThrows(CancellationException::class.java) { token.ensureActive() }
+        assertThrows(CancellationException::class.java) { token.beginCommit() }
+        assertFalse(token.cancel())
+    }
+
     @Test fun cancellationBeforeRequestPreventsExecutionAndCommit() {
         val token = NativeProfileImportCancellation()
         assertTrue(token.cancel())

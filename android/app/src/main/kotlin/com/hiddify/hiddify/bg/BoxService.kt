@@ -185,17 +185,26 @@ class BoxService(
     @Volatile private var stopRequested = false
     @Volatile private var nativeStarting = false
     @Volatile private var nativeStartupTimedOut = false
-    @Volatile private var startCancellation: kotlinx.coroutines.Job? = null
+    private val startCancellation = com.hiddify.hiddify.nativeconnection.NativeStartupCancellationTask(serviceScope)
     @Volatile private var profilePreparationCancellation: com.hiddify.hiddify.nativeprofile.NativeProfileImportCancellation? = null
     @Volatile private var rootActive = false
     private var rootMonitor: kotlinx.coroutines.Job? = null
+
+    private suspend fun publishConnectionStatus(value: Status, @androidx.annotation.StringRes text: Int): Boolean =
+        withContext(Dispatchers.Main) {
+            // Stop/revoke runs on Main. Do not queue a postValue that can later overwrite
+            // its Stopping/Stopped state after the user has cancelled the connection.
+            if (destroyed || stopRequested || !Settings.connectionDesired) return@withContext false
+            notification.show(activeProfileName, text)
+            status.value = value
+            true
+        }
 
     private fun handleUnexpectedFailure(error: Exception) {
         Log.e(TAG, "Unexpected VPN service task failure; stopping the connection", error)
         if (destroyed || (coreOwner != null && coreOwner !== this)) return
         stopRequested = true
-        runCatching { profilePreparationCancellation?.cancel() }
-            .onFailure { Log.w(TAG, "Could not cancel profile preparation after service failure", it) }
+        cancelProfilePreparation()
         cancelNativeStartup()
         recoveryJob?.cancel(); recoveryJob = null
         monitorJob?.cancel(); monitorJob = null
@@ -210,7 +219,7 @@ class BoxService(
                     Settings.connectionDesired = false
                     Settings.startedByUser = false
                 }.onFailure { Log.e(TAG, "Could not persist disconnect intent after service failure", it) }
-                startCancellation?.join()
+                startCancellation.join()
                 NativeServiceState.reset()
                 NativeStatsFeed.reset(); com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
                 runCatching { com.hiddify.hiddify.sharing.AutomaticHotspot.stop() }
@@ -233,7 +242,7 @@ class BoxService(
     }
 
     private suspend fun finishCancelledStart(reason: String) {
-        startCancellation?.join()
+        startCancellation.join()
         if (!Settings.connectionDesired) Settings.startedByUser = false
         NativeServiceState.reset()
         NativeStatsFeed.reset(); com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
@@ -263,7 +272,7 @@ class BoxService(
                 previous.monitorJob?.cancel(); previous.monitorJob = null
                 // A concurrent Mobile.stop() issued by the old startup must finish before
                 // a replacement calls Mobile.setup()/start() on the shared Go runtime.
-                previous.startCancellation?.join()
+                previous.startCancellation.join()
                 previous.releaseNative("replacement")
                 withContext(Dispatchers.Main) {
                     previous.unregisterReceiver()
@@ -278,12 +287,10 @@ class BoxService(
             }
             NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.LOADING_CORE)
             initialize()
-            status.postValue(Status.Starting)
             Log.d(TAG, "starting service")
-
-            withContext(Dispatchers.Main) {
-                if (destroyed) return@withContext
-                notification.show(activeProfileName, R.string.status_starting)
+            if (!publishConnectionStatus(Status.Starting, R.string.status_starting)) {
+                finishCancelledStart("cancelled before preparing profile")
+                return
             }
 
             // Temporary Opera credentials must be renewed even when starting from a tile,
@@ -319,9 +326,9 @@ class BoxService(
 
             activeProfileName = Settings.activeProfileName
 
-            withContext(Dispatchers.Main) {
-                if (destroyed) return@withContext
-                notification.show(activeProfileName, R.string.status_starting)
+            if (!publishConnectionStatus(Status.Starting, R.string.status_starting)) {
+                finishCancelledStart("cancelled before selecting native profile")
+                return
             }
 
             if (!Settings.connectionDesired || stopRequested) {
@@ -457,10 +464,9 @@ class BoxService(
             Settings.nativeAppliedQuickSettings = Settings.quickSettingsSignature(service)
             Settings.nativeReconnectRequired = false
             NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.CONNECTED)
-            status.postValue(Status.Started)
-            withContext(Dispatchers.Main) {
-                if (destroyed) return@withContext
-                notification.show(activeProfileName, R.string.status_started)
+            if (!publishConnectionStatus(Status.Started, R.string.status_started)) {
+                finishCancelledStart("cancelled while publishing connected state")
+                return
             }
             notification.start()
             lastGoodProfile = Settings.activeConfigPath
@@ -489,13 +495,12 @@ class BoxService(
 
     suspend fun serviceReload0() {
         lifecycleMutex.withLock {
-            if (destroyed || coreOwner !== this@BoxService) return
+            if (destroyed || stopRequested || !Settings.connectionDesired || coreOwner !== this@BoxService) return
             monitorJob?.cancel(); monitorJob = null
             NativeStatsFeed.reset(); com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
-            status.postValue(Status.Starting)
-            withContext(Dispatchers.Main) {
-                if (destroyed) return@withContext
-                notification.show(activeProfileName, R.string.status_starting)
+            if (!publishConnectionStatus(Status.Starting, R.string.status_starting)) {
+                finishCancelledStart("cancelled before reload")
+                return
             }
 
             DefaultNetworkMonitor.detachCoreListener()
@@ -525,17 +530,18 @@ class BoxService(
     }
 
     private fun cancelNativeStartup() {
-        if (startCancellation?.isActive != true && nativeStarting && coreOwner === this && !rootActive) {
-            startCancellation = serviceScope.launch {
-                com.hiddify.hiddify.nativeconnection.NativeStartupCancellation.cancelWhileStarting(
-                    isStarting = { nativeStarting && coreOwner === this@BoxService },
-                    stopNative = {
-                        runCatching { Mobile.stop() }
-                            .onFailure { Log.w(TAG, "native startup cancellation failed", it) }
-                    },
-                )
-            }
-        }
+        startCancellation.request(
+            isStarting = { nativeStarting && coreOwner === this@BoxService && !rootActive },
+            stopNative = {
+                runCatching { Mobile.stop() }
+                    .onFailure { Log.w(TAG, "native startup cancellation failed", it) }
+            },
+        )
+    }
+
+    private fun cancelProfilePreparation() {
+        runCatching { profilePreparationCancellation?.cancel() }
+            .onFailure { Log.w(TAG, "Could not cancel profile preparation", it) }
     }
 
     private fun stopService(preserveIntent: Boolean = false) {
@@ -543,7 +549,7 @@ class BoxService(
         if (status.value == Status.Stopped && coreOwner !== this) return
 
         stopRequested = true
-        profilePreparationCancellation?.cancel()
+        cancelProfilePreparation()
         recoveryJob?.cancel(); recoveryJob = null
         monitorJob?.cancel(); monitorJob = null
         NativeServiceState.reset()
@@ -553,7 +559,7 @@ class BoxService(
         serviceScope.launch {
             lifecycleMutex.withLock {
                 if (destroyed) return@withLock
-                startCancellation?.join()
+                startCancellation.join()
 
                 // Keep Android network discovery alive until gomobile has actually stopped using it.
                 if (coreOwner !== this@BoxService) {
@@ -614,16 +620,16 @@ class BoxService(
         }
         monitorJob?.cancel(); monitorJob = null
         NativeStatsFeed.reset(); com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
-        startCancellation?.join()
+        startCancellation.join()
         Log.e(TAG, "VPN/core failed ($type): ${message ?: "unknown error"}")
         val recover = recoveryAllowed(type) && recoveryPolicy.nextDelaySeconds(NetworkPrivacySettings.loadConnection(service).adaptiveNetwork) != null
         if (!recover) { Settings.connectionDesired = false; Settings.startedByUser = false }
         val closeError = runCatching { releaseNative("service error") }.exceptionOrNull()
         closeTun("service error")
         if (recover && closeError == null && Settings.connectionDesired && !stopRequested) {
-            withContext(Dispatchers.Main) {
-                status.value = Status.Starting
-                notification.show(activeProfileName, R.string.status_starting)
+            if (!publishConnectionStatus(Status.Starting, R.string.status_starting)) {
+                finishCancelledStart("cancelled before recovery")
+                return
             }
             scheduleServiceRecovery()
             return
@@ -660,7 +666,10 @@ class BoxService(
                     lifecycleMutex.withLock {
                         if (!recoveryAllowed(Alert.StartService) || coreOwner != null || !isActive) return@withLock
                         recoveryPolicy.recordAttempt()
-                        withContext(Dispatchers.Main) { status.value = Status.Starting }
+                        if (!publishConnectionStatus(Status.Starting, R.string.status_starting)) {
+                            finishCancelledStart("cancelled before recovery start")
+                            return@withLock
+                        }
                         startService()
                     }
                     if (coreOwner === this@BoxService && status.value == Status.Started) break
@@ -676,13 +685,15 @@ class BoxService(
     }
 
     private fun startConnectionMonitor() {
+        if (destroyed || stopRequested || !Settings.connectionDesired) return
         monitorJob?.cancel()
         monitorJob = serviceScope.launch {
             val repository = NativeHealthRepository()
             var coreFailures = 0
             var policy = NativeHealthProbePolicy(false)
             delay(3000)
-            while (isActive && !destroyed && coreOwner === this@BoxService && status.value == Status.Started) {
+            while (isActive && !destroyed && !stopRequested && Settings.connectionDesired &&
+                coreOwner === this@BoxService && status.value == Status.Started) {
                 try {
                 if (android.os.SystemClock.elapsedRealtime() - connectedAt >= 60_000) recoveryPolicy.reset()
                 val options = NetworkPrivacySettings.loadConnection(service)
@@ -810,7 +821,6 @@ class BoxService(
         if (status.value != Status.Stopped) return if (Settings.connectionDesired) Service.START_STICKY else Service.START_NOT_STICKY
         failureBoundary.reset()
         stopRequested = false
-        startCancellation = null
         status.value = Status.Starting
         try {
             // Android's foreground deadline starts before IO/setup, not after it.
@@ -888,7 +898,7 @@ class BoxService(
     fun onDestroy() {
         if (destroyed) return
         stopRequested = true
-        profilePreparationCancellation?.cancel()
+        cancelProfilePreparation()
         cancelNativeStartup()
         destroyed = true
         recoveryJob?.cancel(); recoveryJob = null
@@ -902,7 +912,7 @@ class BoxService(
         serviceScope.launch {
             try {
                 lifecycleMutex.withLock {
-                    startCancellation?.join()
+                    startCancellation.join()
                     if (coreOwner === this@BoxService && !Settings.connectionDesired) {
                         runCatching { com.hiddify.hiddify.sharing.AutomaticHotspot.stop() }
                     }

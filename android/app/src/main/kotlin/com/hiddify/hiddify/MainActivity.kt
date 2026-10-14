@@ -526,7 +526,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onRefreshProfile = ::refreshRemoteProfile,
                 onOpenProfileEditor = ::openProfileEditor,
                 onSaveProfileEditor = ::saveProfileEditor,
-                onCancelProfileImport = { profileImportCancellation?.cancel() },
+                onCancelProfileImport = ::cancelProfileImport,
                 onImportProfile = ::importProfile,
                 onImportFreeProfile = ::importFreeProfile,
                 onCopyProfileConfig = ::copyProfileConfig,
@@ -2322,8 +2322,13 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    private fun cancelProfileImport() {
+        runCatching { profileImportCancellation?.cancel() }
+            .onFailure { Log.w(TAG, "Native profile cancellation failed", it) }
+    }
+
     override fun onDestroy() {
-        profileImportCancellation?.cancel()
+        cancelProfileImport()
         AutomaticHotspot.removeObserver(hotspotObserver)
         hotspotPermission?.cancel()
         super.onDestroy()

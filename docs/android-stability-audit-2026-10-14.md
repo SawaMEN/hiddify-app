@@ -107,3 +107,37 @@ cause of a particular device's intermittent crash without its matching logs.
 Additional references:
 - https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-coroutine-exception-handler/
 - https://developer.android.com/reference/android/app/ActivityManager#setProcessStateSummary(byte[])
+
+## Follow-up: simultaneous stop, deadline and network recovery
+
+The initial PR #74 revision passed configured CI JVM tests, analysis and the ARM64
+Android build. Its separate Go race job failed **before tests ran**, at release
+metadata lookup with `HTTP Error 403: rate limit exceeded`. The source-checkout
+step now supplies the existing read-only GitHub token to the release lookup.
+No tests are disabled or downgraded.
+
+- User disconnect, the startup deadline, destruction and service failure could
+  race the check/assignment of `startCancellation`, creating multiple native stop
+  loops while cleanup joined only the last recorded job. A synchronized task owner
+  now assigns one lazy cancellation job before dispatching it and treats both new
+  and active jobs as pending. All cleanup/replacement paths join that same job;
+  completed jobs can be replaced for a subsequent startup.
+- Start/reload/recovery no longer queue `LiveData.postValue(Starting/Started)`.
+  Main-thread publication checks current stop/destruction/connection intent before
+  updating the notification and status, so a queued connected event cannot undo a
+  user disconnect. Health monitoring is not started after stop intent is set.
+- Native profile cancellation callbacks can throw after the token is marked
+  cancelled. Service stop/destruction and UI import cancellation/destruction now
+  contain those callback exceptions, so Android main-thread lifecycle cleanup
+  continues and the cancelled import still cannot commit.
+- If optional screen-receiver registration fails, traffic-notification polling
+  stays disabled. The static foreground notification remains, without a sampler
+  that cannot observe screen-off events.
+
+Validation: **374 JVM tests passed**, including 64 simultaneous cancellation
+requests, waiting for blocking native stop completion, subsequent-start reuse and
+failed native profile-cancel callbacks. All **24 Python release-tool tests**,
+project/resource checks and whitespace checks passed. The JVM run uses the same
+cached compiler/dependency fallback documented above. Updated Android build and
+Go race results are checked separately in CI; device stress testing is still
+unavailable here.
