@@ -77,4 +77,33 @@ class NativeJsonDocumentTest {
         }
         assertEquals(1, Json.at(root, "/a").asInt)
     }
+
+    @Test fun streamingSearchMatchesReferenceTraversalAndResultLimit() {
+        val root = com.google.gson.JsonArray().apply {
+            repeat(3000) { index -> add(Json.parse("""{"a/~key":"Hit $index","items":[null,true,$index,{"nested":"miss"}]}""")) }
+        }
+        fun reference(query: String): List<String> {
+            val result = mutableListOf<String>()
+            fun visit(value: com.google.gson.JsonElement, path: String) {
+                val children = when {
+                    value.isJsonObject -> value.asJsonObject.entrySet().map { it.key to it.value }
+                    value.isJsonArray -> value.asJsonArray.mapIndexed { index, child -> index.toString() to child }
+                    else -> emptyList()
+                }
+                for ((key, child) in children) {
+                    if (result.size >= 1000) return
+                    val next = Json.child(path, key)
+                    val text = if (child.isJsonPrimitive) child.asString else if (child.isJsonNull) "null" else ""
+                    if (key.contains(query, true) || text.contains(query, true)) result += next
+                    visit(child, next)
+                }
+            }
+            visit(root, "")
+            return result
+        }
+        for (query in listOf("Hit", "a/~", "null", "true", "12", "nested", "missing", "items")) {
+            assertEquals(query, reference(query), Json.search(root, query))
+        }
+        assertEquals(1000, Json.search(root, "Hit").size)
+    }
 }

@@ -42,4 +42,34 @@ class NativeOutboundPresentationTest {
         assertEquals(listOf("a", "b", "new"),
             com.hiddify.hiddify.nativecore.keepNativeOutboundOrder(items, listOf("removed", "a", "b")).map { it.tag })
     }
+
+    @Test fun usageMatchesExactSumsAcrossSignedBoundaryAndNegativeCounters() {
+        val random = java.util.Random(17)
+        val items = (0..500).map { index -> proxy("p$index", upload = random.nextLong(), download = random.nextLong()) } +
+            listOf(proxy("max", upload = Long.MAX_VALUE, download = Long.MAX_VALUE),
+                proxy("signed", upload = Long.MAX_VALUE, download = 1), proxy("zero", upload = -1, download = -1))
+        val expected = items.sortedByDescending {
+            java.math.BigInteger.valueOf(it.upload.coerceAtLeast(0)) + java.math.BigInteger.valueOf(it.download.coerceAtLeast(0))
+        }
+        assertEquals(expected, presentNativeOutbounds(items, "", NativeOutboundSort.USAGE))
+    }
+
+    @Test fun scrollingMatchesStableSortIncludingDuplicatesAndRemovedRows() {
+        val random = java.util.Random(18)
+        repeat(100) {
+            val items = (0..100).map { proxy("p${random.nextInt(30)}", delay = it) }
+            val order = (0..50).map { "p${random.nextInt(40)}" }
+            val positions = order.withIndex().associate { it.value to it.index }
+            assertEquals(items.sortedBy { positions[it.tag] ?: Int.MAX_VALUE },
+                com.hiddify.hiddify.nativecore.keepNativeOutboundOrder(items, order))
+        }
+    }
+
+    @Test fun duplicateTagsUseTheirOwnTrafficCounters() {
+        val first = proxy("same", download = 1)
+        val second = proxy("same", download = 100)
+        val middle = proxy("other", download = 50)
+        assertEquals(listOf(second, middle, first),
+            presentNativeOutbounds(listOf(first, second, middle), "", NativeOutboundSort.USAGE))
+    }
 }

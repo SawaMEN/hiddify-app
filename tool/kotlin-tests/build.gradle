@@ -22,6 +22,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileFileReplacement.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileFileRemoval.kt'
             include 'com/hiddify/hiddify/nativelog/NativeLogPresentation.kt'
+            include 'com/hiddify/hiddify/nativelog/NativeRecentLogLines.kt'
             include 'com/hiddify/hiddify/nativelog/NativeLogFiles.kt'
             include 'com/hiddify/hiddify/nativelog/NativeCrashRecorder.kt'
             include 'com/hiddify/hiddify/nativelog/NativeProcessExitReason.kt'
@@ -72,6 +73,8 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileTlsOptions.kt'
             include 'com/hiddify/hiddify/nativediagnostics/NativeDiagnosticModels.kt'
             include 'com/hiddify/hiddify/nativerouting/NativePerAppBackup.kt'
+            include 'com/hiddify/hiddify/nativerouting/NativeTimedSnapshotCache.kt'
+            include 'com/hiddify/hiddify/performance/NativeRuntimeBenchmark.kt'
             include 'com/hiddify/hiddify/privacy/NativeTrafficFilters.kt'
             include 'com/hiddify/hiddify/privacy/BinaryXml.kt'
             include 'com/hiddify/hiddify/privacy/RootAccess.kt'
@@ -130,4 +133,12 @@ tasks.register('freeAudit', JavaExec) {
     dependsOn classes
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'com.hiddify.hiddify.nativeprofile.NativeFreeLiveAuditKt'
+}
+
+// Informational JVM comparison against the previous hot paths; no Android timing claims.
+tasks.register('runtimeBench', JavaExec) {
+    dependsOn classes
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.hiddify.hiddify.performance.NativeRuntimeBenchmark'
+    maxHeapSize = '768m'
 }
