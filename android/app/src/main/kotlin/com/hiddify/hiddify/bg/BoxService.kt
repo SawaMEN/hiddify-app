@@ -365,7 +365,7 @@ class BoxService(
                             finishCancelledStart("cancelled before native start")
                             return
                         }
-                        Mobile.start(selectedConfigPath, "")
+                        startWithWarpEndpointRetry(selectedConfigPath)
                         if (nativeStartupTimedOut) error("VPN core connection timed out during startup (90 seconds); check Psiphon bootstrap/network logs")
                         // Mobile.start builds a StartRequest with disable_memory_limit=false,
                         // overriding the flag applied before setup. Restore the requested policy.
@@ -688,6 +688,49 @@ class BoxService(
                     throw firstError
                 }
             }
+        }
+    }
+
+    /** Probe through the core before accepting a built-in WARP endpoint. Stop between attempts,
+     * keeping setup/RPC alive; no attempt falls back to the physical network for its probe. */
+    private suspend fun startWithWarpEndpointRetry(configPath: String) {
+        val repository = com.hiddify.hiddify.nativeprofile.NativeProfileRepository(service)
+        val profile = repository.activeProfile()?.takeIf { !it.isRemote }
+        val editor = profile?.let { repository.loadEditor(it.id) }
+        val candidates = editor?.let {
+            com.hiddify.hiddify.nativeprofile.NativeWarpEndpoints.candidates(it.content, it.name)
+        }.orEmpty()
+        if (candidates.isEmpty()) {
+            Mobile.start(configPath, "")
+            return
+        }
+        val temporary = File.createTempFile("warp-start-", ".json", File(Settings.tempDir))
+        try {
+            val selected = com.hiddify.hiddify.nativeconnection.NativeWarpStartupPolicy.select(
+                candidates = candidates,
+                checkDesired = {
+                    if (nativeStartupTimedOut) error(service.getString(R.string.native_warp_no_traffic))
+                    if (stopRequested || destroyed || !Settings.connectionDesired)
+                        throw CancellationException("WARP startup cancelled")
+                },
+                start = { content ->
+                    temporary.writeText(content)
+                    Mobile.start(temporary.path, "")
+                    Libbox.setMemoryLimit(!Settings.disableMemoryLimit)
+                    if (service is VPNService && fileDescriptor == null)
+                        error("Android VPN interface was not created by the core (missing TUN inbound)")
+                },
+                probe = { NativeHealthRepository().probeStartingCore() },
+                stop = {
+                    Mobile.stop()
+                    DefaultNetworkMonitor.detachCoreListener()
+                    closeTun("WARP endpoint retry")
+                },
+            ) ?: error(service.getString(R.string.native_warp_no_traffic))
+            if (selected > 0) repository.saveEditedProfile(profile!!.id, candidates[selected], editor!!.name,
+                editor.disableAutoUpdate, editor.updateIntervalHours, expectedLastUpdate = profile.lastUpdate)
+        } finally {
+            temporary.delete()
         }
     }
 

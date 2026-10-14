@@ -710,4 +710,5 @@
     <string name="native_profile_tls_invalid">Проверьте SNI, ALPN, задержку и диапазон версий TLS.</string>
     <string name="native_profile_tls_open">Параметры TLS активного профиля</string>
     <string name="native_tls_legacy_help">Старые переключатели TLS сохранены для совместимости. Рабочая TCP-фрагментация и фрагментация записей TLS, SNI и отпечаток настраиваются для профиля выше. Смена регистра SNI и padding зависят от выбранного ядра и транспорта.</string>
+    <string name="native_warp_no_traffic">WARP не передаёт трафик через проверенные UDP-адреса. Попробуйте другую сеть или VPN с другим транспортом.</string>
 </resources>

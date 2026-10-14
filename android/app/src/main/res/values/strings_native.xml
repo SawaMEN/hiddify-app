@@ -710,4 +710,5 @@
     <string name="native_profile_tls_invalid">Check SNI, ALPN, delay and the TLS version range.</string>
     <string name="native_profile_tls_open">TLS settings of the active profile</string>
     <string name="native_tls_legacy_help">Legacy TLS switches are retained for compatibility. Actual TCP/TLS record fragmentation, SNI and fingerprint are configured per profile above. Mixed SNI case and padding depend on the selected engine and transport.</string>
+    <string name="native_warp_no_traffic">WARP did not pass traffic through any tested UDP endpoint. Try another network or a VPN with a different transport.</string>
 </resources>

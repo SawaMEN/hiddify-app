@@ -1236,7 +1236,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     replaceFeatures = true, neededFeatures = profile.neededFeatures, cancellation = cancellation)
                 else -> {
                     try {
-                        com.hiddify.hiddify.nativeprofile.NativeWarpProfilesRepository().generate(cancellation, mode) { content ->
+                        com.hiddify.hiddify.nativeprofile.NativeWarpProfilesRepository().generate(cancellation, mode, allowBackup = profile.allowWarpBackup) { content ->
                             profileRepository.prepareInput(content, name = title, cancellation = cancellation)
                         }
                     } catch (error: com.hiddify.hiddify.nativeprofile.NativeWarpGenerationException) {

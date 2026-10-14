@@ -10,6 +10,7 @@ data class NativeFreeProfile(
     val tagsEn: List<String>, val tagsRu: List<String>?, val consentEn: String, val consentRu: String?,
     val neededFeatures: Set<String>?,
     val warpMode: NativeWarpMode? = null,
+    val allowWarpBackup: Boolean = false,
 ) {
     fun title(russian: Boolean) = if (russian) titleRu ?: titleEn else titleEn
     fun tags(russian: Boolean) = if (russian) tagsRu ?: tagsEn else tagsEn
