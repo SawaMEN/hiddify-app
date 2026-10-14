@@ -13,6 +13,8 @@ import java.io.StringReader
 
 /** JSON-pointer based edits retain numeric precision, nulls, array order and escaped keys. */
 object NativeJsonDocument {
+    private const val MAX_VALUES = 100_000
+    private const val MAX_SEARCH_RESULTS = 1_000
     private val pretty = GsonBuilder().setPrettyPrinting().serializeNulls().disableHtmlEscaping().create()
 
     fun parse(text: String): JsonElement {
@@ -35,28 +37,36 @@ object NativeJsonDocument {
         require(text.isNotBlank()) { "Configuration is empty" }
         JsonReader(StringReader(text)).use { reader ->
             reader.strictness = Strictness.STRICT
-            val result = readValue(reader)
+            var values = 0
+            val result = readValue(reader) {
+                require(++values <= MAX_VALUES) { "JSON exceeds 100000 values" }
+            }
             require(reader.peek() == JsonToken.END_DOCUMENT) { "Unexpected content after JSON" }
             return result
         }
     }
 
-    private fun readValue(reader: JsonReader): JsonElement = when (reader.peek()) {
-        JsonToken.BEGIN_OBJECT -> JsonObject().apply {
-            reader.beginObject()
-            while (reader.hasNext()) {
-                val name = reader.nextName()
-                require(!has(name)) { "Duplicate JSON key: $name" }
-                add(name, readValue(reader))
+    private fun readValue(reader: JsonReader, countValue: () -> Unit): JsonElement {
+        // A few MiB of tiny array elements can otherwise allocate millions of objects.
+        // Count before allocation; an OutOfMemoryError cannot be handled as an import error.
+        countValue()
+        return when (reader.peek()) {
+            JsonToken.BEGIN_OBJECT -> JsonObject().apply {
+                reader.beginObject()
+                while (reader.hasNext()) {
+                    val name = reader.nextName()
+                    require(!has(name)) { "Duplicate JSON key: $name" }
+                    add(name, readValue(reader, countValue))
+                }
+                reader.endObject()
             }
-            reader.endObject()
+            JsonToken.BEGIN_ARRAY -> JsonArray().apply {
+                reader.beginArray()
+                while (reader.hasNext()) add(readValue(reader, countValue))
+                reader.endArray()
+            }
+            else -> JsonParser.parseReader(reader)
         }
-        JsonToken.BEGIN_ARRAY -> JsonArray().apply {
-            reader.beginArray()
-            while (reader.hasNext()) add(readValue(reader))
-            reader.endArray()
-        }
-        else -> JsonParser.parseReader(reader)
     }
 
     private fun validatePointer(path: String) {
@@ -152,12 +162,14 @@ object NativeJsonDocument {
         if (query.isBlank()) return emptyList()
         val result = mutableListOf<String>()
         fun visit(value: JsonElement, path: String) {
+            if (result.size >= MAX_SEARCH_RESULTS) return
             val children = when {
                 value.isJsonObject -> value.asJsonObject.entrySet().map { it.key to it.value }
                 value.isJsonArray -> value.asJsonArray.mapIndexed { index, child -> index.toString() to child }
                 else -> emptyList()
             }
             for ((key, child) in children) {
+                if (result.size >= MAX_SEARCH_RESULTS) return
                 val next = NativeJsonDocument.child(path, key)
                 val text = if (child.isJsonPrimitive) child.asJsonPrimitive.asString else if (child.isJsonNull) "null" else ""
                 if (key.contains(query, ignoreCase = true) || text.contains(query, ignoreCase = true)) result += next

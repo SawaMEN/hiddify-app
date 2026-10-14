@@ -152,16 +152,22 @@ class ServiceNotification(private val service: Service) : BroadcastReceiver() {
 
     private fun registerReceiver() {
         if (receiverRegistered) return
-        ContextCompat.registerReceiver(
-            service,
-            this,
-            IntentFilter().apply {
-                addAction(Intent.ACTION_SCREEN_ON)
-                addAction(Intent.ACTION_SCREEN_OFF)
-            },
-            ContextCompat.RECEIVER_NOT_EXPORTED,
-        )
-        receiverRegistered = true
+        try {
+            ContextCompat.registerReceiver(
+                service,
+                this,
+                IntentFilter().apply {
+                    addAction(Intent.ACTION_SCREEN_ON)
+                    addAction(Intent.ACTION_SCREEN_OFF)
+                },
+                ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+            receiverRegistered = true
+        } catch (error: Exception) {
+            // Screen updates are optional; the already-posted foreground notification
+            // must keep the tunnel alive even if an OEM rejects receiver registration.
+            Log.w("notification", "Screen notification updates unavailable", error)
+        }
     }
 
     private fun updateStatus(status: com.hiddify.hiddify.nativecore.NativeSystemStats) {
@@ -189,7 +195,8 @@ class ServiceNotification(private val service: Service) : BroadcastReceiver() {
         closed = true
         stopListenSystemInfo()
         val ownsNotification = foregroundOwner === this
-        ServiceCompat.stopForeground(service, ServiceCompat.STOP_FOREGROUND_REMOVE)
+        runCatching { ServiceCompat.stopForeground(service, ServiceCompat.STOP_FOREGROUND_REMOVE) }
+            .onFailure { Log.w("notification", "Unable to remove foreground notification", it) }
         if (ownsNotification) foregroundOwner = null
         if (receiverRegistered) {
             runCatching { service.unregisterReceiver(this) }

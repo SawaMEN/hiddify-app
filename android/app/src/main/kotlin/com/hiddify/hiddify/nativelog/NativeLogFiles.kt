@@ -7,6 +7,17 @@ import java.io.RandomAccessFile
 
 /** A writer may truncate or rotate a log while this bounded snapshot is being read. */
 internal object NativeLogFiles {
+    /** Include system exit evidence even when an older JVM crash log also exists. */
+    fun exportAppSnapshot(files: List<File>, destination: File, maxBytes: Long) {
+        destination.bufferedWriter().use { output ->
+            for (file in files.distinctBy { it.absolutePath }) {
+                if (!file.isFile || file.length() == 0L) continue
+                output.append("=== ").append(file.name).append(" ===\n")
+                output.append(readTail(file, maxBytes)).append('\n')
+            }
+        }
+    }
+
     fun readTail(file: File, maxBytes: Long): String {
         require(maxBytes in 1..Int.MAX_VALUE.toLong())
         RandomAccessFile(file, "r").use { input ->

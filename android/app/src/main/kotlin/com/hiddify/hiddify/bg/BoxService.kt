@@ -454,11 +454,10 @@ class BoxService(
     private fun serviceUpdateIdleMode() {
         serviceScope.launch {
             lifecycleMutex.withLock {
-                if (!destroyed && coreOwner === this@BoxService && !rootActive &&
-                    !Application.powerManager.isDeviceIdleMode) {
-                    runCatching { Mobile.wake() }
-                        .onFailure { Log.w(TAG, "failed to wake mobile core", it) }
-                }
+                runCatching {
+                    if (!destroyed && coreOwner === this@BoxService && !rootActive &&
+                        !Application.powerManager.isDeviceIdleMode) Mobile.wake()
+                }.onFailure { Log.w(TAG, "failed to inspect idle state or wake mobile core", it) }
             }
         }
     }

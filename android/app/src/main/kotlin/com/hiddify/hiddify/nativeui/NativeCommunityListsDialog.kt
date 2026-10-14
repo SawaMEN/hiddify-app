@@ -56,10 +56,10 @@ private fun NativeCommunityListsDialog(source: NativeCommunitySource, active: Bo
     enabled: Boolean, onDismiss: () -> Unit, onSave: (NativeCommunitySelection) -> Unit) {
     val context = LocalContext.current
     val repository = remember { NativeCommunityRepository(context) }
-    var query by rememberSaveable { mutableStateOf("") }
+    var query by rememberSaveable(stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
     var all by rememberSaveable { mutableStateOf(active && NativeCommunityLists.selected(sites).isEmpty()) }
-    var selected by rememberSaveable { mutableStateOf(if (active) NativeCommunityLists.selected(sites).toList() else emptyList()) }
-    var expanded by rememberSaveable { mutableStateOf(emptyList<String>()) }
+    var selected by rememberSaveable(stateSaver = NativeStringListDraftSaver) { mutableStateOf(if (active) NativeCommunityLists.selected(sites).toList() else emptyList()) }
+    var expanded by rememberSaveable(stateSaver = NativeStringListDraftSaver) { mutableStateOf(emptyList<String>()) }
     var searchCollapsed by remember(query) { mutableStateOf(emptyList<String>()) }
     var catalogue by remember { mutableStateOf<NativeCommunityCatalogue?>(null) }
     var loading by remember { mutableStateOf(true) }

@@ -65,7 +65,7 @@ class NativeLogRepository(private val context: Context) {
         )
     }
 
-    /** Copy the selected original log for a FileProvider grant; never share private source paths. */
+    /** Export logs for a FileProvider grant; never share private source paths. */
     fun export(app: Boolean): File {
         val working = workingDir()
         val candidates = if (app) listOf(File(context.filesDir, "app.log"), File(working, "app.log"),
@@ -82,7 +82,8 @@ class NativeLogRepository(private val context: Context) {
         // A later share must not overwrite a file still being read by another app.
         val destination = File.createTempFile(if (app) "app-" else "box-", ".log", directory)
         try {
-            source.copyTo(destination, overwrite = true)
+            if (app) NativeLogFiles.exportAppSnapshot(candidates, destination, MAX_SOURCE_BYTES)
+            else source.copyTo(destination, overwrite = true)
             return destination
         } catch (error: Exception) {
             destination.delete()

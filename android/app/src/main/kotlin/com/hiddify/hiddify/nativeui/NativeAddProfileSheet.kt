@@ -13,7 +13,6 @@ import androidx.compose.material3.*
 import com.hiddify.hiddify.nativeui.NativeButton as Button
 import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,11 +45,8 @@ internal fun NativeAddProfileSheet(
     var freeEnabled by rememberSaveable { mutableStateOf(false) }
     var manual by rememberSaveable { mutableStateOf(false) }
     // File contents can exceed the saved-instance Binder budget. Keep only small drafts there.
-    var raw by rememberSaveable(stateSaver = Saver<String, String>(
-        save = { it.takeIf { text -> text.toByteArray(Charsets.UTF_8).size <= 64 * 1024 } ?: "" },
-        restore = { it },
-    )) { mutableStateOf("") }
-    var name by rememberSaveable { mutableStateOf("") }
+    var raw by rememberSaveable(stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
+    var name by rememberSaveable(stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
     // Provider credentials stay in memory, outside saved-instance state.
     var networkOptions by remember { mutableStateOf(com.hiddify.hiddify.nativeprofile.NativeProfileNetworkOptions()) }
     var interval by rememberSaveable { mutableFloatStateOf(0f) }
@@ -99,10 +95,23 @@ internal fun NativeAddProfileSheet(
         }
     }
     fun paste() {
-        val clip = context.getSystemService(ClipboardManager::class.java)?.primaryClip
-        val text = if (clip != null && clip.itemCount > 0) clip.getItemAt(0).coerceToText(context)?.toString() else null
-        if (text.isNullOrBlank()) importError = context.getString(R.string.native_profile_clipboard_empty)
-        else importSource(text.trim())
+        try {
+            val clip = context.getSystemService(ClipboardManager::class.java)?.primaryClip
+            val text = if (clip != null && clip.itemCount > 0) clip.getItemAt(0).coerceToText(context)?.toString() else null
+            if (text.isNullOrBlank()) importError = context.getString(R.string.native_profile_clipboard_empty)
+            else importSource(text.trim())
+        } catch (error: Exception) {
+            importError = context.getString(R.string.native_profile_file_read_failed,
+                error.message ?: error.javaClass.simpleName)
+        }
+    }
+    fun chooseFile() {
+        try {
+            filePicker.launch(arrayOf("text/*", "application/json", "application/octet-stream", "image/*"))
+        } catch (error: Exception) {
+            importError = context.getString(R.string.native_profile_file_read_failed,
+                error.message ?: error.javaClass.simpleName)
+        }
     }
     val uri = runCatching { Uri.parse(raw.trim()) }.getOrNull()
     val validUrl = uri != null && (uri.scheme.equals("http", true) || uri.scheme.equals("https", true)) &&
@@ -138,7 +147,7 @@ internal fun NativeAddProfileSheet(
                         AddSourceTile(R.string.native_add_clipboard, R.drawable.native_clipboard, tileSize,
                             Modifier.weight(1f), ::paste)
                         AddSourceTile(R.string.native_add_file, R.drawable.native_file, tileSize,
-                            Modifier.weight(1f), { filePicker.launch(arrayOf("text/*", "application/json", "application/octet-stream", "image/*")) })
+                            Modifier.weight(1f), ::chooseFile)
                         AddSourceTile(R.string.native_add_scan, R.drawable.native_qr, tileSize,
                             Modifier.weight(1f), { scannerOpen = true })
                         AddSourceTile(R.string.native_add_manual, R.drawable.native_add, tileSize,

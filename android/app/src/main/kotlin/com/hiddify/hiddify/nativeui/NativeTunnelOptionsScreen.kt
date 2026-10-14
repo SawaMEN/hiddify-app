@@ -47,7 +47,7 @@ internal fun NativeTunnelOptionsScreen(options: NativeTunnelOptions?, busy: Bool
     var mode by rememberSaveable(options) { mutableStateOf(options.ipv6Mode) }
     var mtu by rememberSaveable(options) { mutableStateOf(options.mtu.toString()) }
     var editor by rememberSaveable(options) { mutableStateOf("") }
-    var input by rememberSaveable(options) { mutableStateOf("") }
+    var input by rememberSaveable(options, stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
     val draft = NativeTunnelOptions(mode, mtu.toIntOrNull() ?: 0)
     val valid = runCatching { draft.validated() }.isSuccess
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),

@@ -36,7 +36,7 @@ internal fun NativeInboundOptionsScreen(
     onServiceMode: (Boolean) -> Unit, onResolveLanSharing: suspend () -> NativeWifiSharingDetails,
 ) {
     var editor by rememberSaveable { mutableStateOf("") }
-    var input by rememberSaveable { mutableStateOf("") }
+    var input by rememberSaveable(stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
     val enabled = !busy && canSave
     fun edit(key: String, value: String = "") { input = value; editor = key }
     fun save(value: NativeInboundOptions) { if (enabled) { onSave(value); editor = "" } }
