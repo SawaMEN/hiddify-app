@@ -7,6 +7,8 @@ import com.hiddify.hiddify.nativecore.keepNativeOutboundOrder
 import com.hiddify.hiddify.nativecore.presentNativeOutbounds
 import com.hiddify.hiddify.nativepreferences.NativeOutboundSort
 import com.hiddify.hiddify.nativeprofile.NativeJsonDocument
+import com.hiddify.hiddify.nativelog.NativeLogTailCache
+import com.hiddify.hiddify.nativelog.NativeRecentLogLines
 import java.lang.management.ManagementFactory
 import java.math.BigInteger
 import java.util.Locale
@@ -28,6 +30,21 @@ object NativeRuntimeBenchmark {
         compare("traffic-sort/5000", { oldUsage(items) }, { presentNativeOutbounds(items, "", NativeOutboundSort.USAGE) })
         compare("json-hit/50000", { oldSearch(json, "value") }, { NativeJsonDocument.search(json, "value") })
         compare("json-miss/50000", { oldSearch(json, "absent") }, { NativeJsonDocument.search(json, "absent") })
+        val directory = java.nio.file.Files.createTempDirectory("native-log-bench").toFile()
+        try {
+            val files = (0 until 9).map { index -> java.io.File(directory, "source$index.log").apply {
+                writeText((0 until 5000).joinToString("\n") { "INFO $it: example diagnostic message" })
+            } }
+            val cache = NativeLogTailCache { 0 }
+            compare("unchanged-logs/9x5000", {
+                files.flatMap { file -> cache.read(file, 256 * 1024L).lineSequence()
+                    .filter { it.isNotBlank() }.map { "[${file.name}] $it" }.toList() }.takeLast(500)
+            }, {
+                NativeRecentLogLines(500).apply {
+                    files.forEach { appendPresented(cache.readLines(it, 256 * 1024L, 500)) }
+                }.snapshot()
+            })
+        } finally { directory.deleteRecursively() }
     }
 
     private fun compare(name: String, before: () -> Any, after: () -> Any) {

@@ -35,6 +35,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeui/NativeSavedDraftBudget.kt'
             include 'com/hiddify/hiddify/nativediagnostics/NativeDiagnosticEndpoint.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileImportCancellation.kt'
+            include 'com/hiddify/hiddify/nativeprofile/NativeProfileRefresh.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileValidation.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeImportSummary.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeSubscriptionMetadata.kt'

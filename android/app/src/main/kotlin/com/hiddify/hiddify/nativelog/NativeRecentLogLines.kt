@@ -17,5 +17,14 @@ internal class NativeRecentLogLines(private val limit: Int) {
         return hasLines
     }
 
+    /** Each source contributes at most the final display window, so older rows can be skipped. */
+    fun appendPresented(sourceLines: List<String>) {
+        for (index in (sourceLines.size - limit).coerceAtLeast(0) until sourceLines.size) {
+            val line = sourceLines[index]
+            if (lines.size == limit) lines.removeFirst()
+            lines.addLast(line)
+        }
+    }
+
     fun snapshot(): List<String> = lines.toList()
 }

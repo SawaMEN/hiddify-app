@@ -47,10 +47,13 @@ class NativeLogRepository(private val context: Context) {
         val sources = ArrayList<String>()
         for (file in candidateFiles()) {
             if (!file.isFile || file.length() <= 0L) continue
-            val text = try { tailCache.read(file, MAX_SOURCE_BYTES) }
+            val fileLines = try { tailCache.readLines(file, MAX_SOURCE_BYTES, MAX_LINES) }
             catch (_: IOException) { continue }
             catch (_: SecurityException) { continue }
-            if (lines.append(file.name, text)) sources += file.absolutePath
+            if (fileLines.isNotEmpty()) {
+                sources += file.absolutePath
+                lines.appendPresented(fileLines)
+            }
         }
         return NativeLogSnapshot(
             lines = lines.snapshot(),

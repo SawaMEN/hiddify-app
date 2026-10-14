@@ -37,6 +37,8 @@ import com.hiddify.hiddify.nativeprofile.NativeProfileTransfer
 import com.hiddify.hiddify.nativeprofile.NativeImportSummary
 import com.hiddify.hiddify.nativeprofile.NativePreparedProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileImportCancellation
+import com.hiddify.hiddify.nativeprofile.runNativeProfileRefresh
+import com.hiddify.hiddify.nativeprofile.refreshNativeProfileBatch
 import com.hiddify.hiddify.nativeprofile.NativeProfileRepository
 import com.hiddify.hiddify.nativelog.NativeLogRepository
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
@@ -390,7 +392,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
         refreshWifiSharingDetails()
-        refreshProfiles(syncActive = true)
         refreshPerApp()
 
         setContent {
@@ -612,7 +613,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshSettingsSnapshot()
         refreshCoreOptions()
         refreshChainOptions()
-        refreshProfiles()
+        // onStart owns initial synchronization; onCreate must not queue a read cancelled here.
+        refreshProfiles(syncActive = true)
         refreshPerApp()
         if (serviceStatus.value == Status.Started) refreshOutbounds(showError = false)
         startProfileUpdateLoop()
@@ -1168,6 +1170,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 while (isActive) {
                     try {
                         updateDueProfiles()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
                     } catch (error: Exception) {
                         Log.w(TAG, "automatic profile update cycle failed", error)
                     }
@@ -1182,18 +1186,23 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             withContext(Dispatchers.IO) {
                 profileOperationMutex.withLock {
                     val due = profileRepository.dueRemoteProfileIds()
-                    for (id in due) {
-                        runCatching { profileRepository.refreshRemote(id) }
-                            .onFailure { Log.w(TAG, "automatic profile update failed for $id", it) }
+                    if (due.isEmpty()) return@withLock null
+                    val updated = refreshNativeProfileBatch(due, { refreshRemoteCancellable(it) }) { id, error ->
+                        Log.w(TAG, "automatic profile update failed for $id", error)
                     }
+                    if (updated == 0) return@withLock null
                     profileRepository.synchronizeActiveProfile()
                     profileRepository.listProfiles()
                 }
-            }
+            } ?: return
         profiles.value = loaded
         refreshProfileSnapshot()
         coreChangesSaved()
     }
+
+    private suspend fun refreshRemoteCancellable(id: String): NativeProfile = runNativeProfileRefresh(
+        onCancellationFailure = { Log.w(TAG, "Native subscription cancellation failed", it) },
+    ) { cancellation -> profileRepository.refreshRemote(id, cancellation) }
 
     private fun selectProfile(profile: NativeProfile) {
         runProfileOperation(profile.id, requireDisconnected = true,
@@ -1211,7 +1220,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun refreshRemoteProfile(profile: NativeProfile) {
         if (!profile.isRemote) return
         runProfileOperation(profile.id, requireDisconnected = false) {
-            profileRepository.refreshRemote(profile.id)
+            refreshRemoteCancellable(profile.id)
         }
     }
 
@@ -1220,8 +1229,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         if (remoteIds.isEmpty()) return
         runProfileOperation("update-all", requireDisconnected = false) {
             val failures = mutableListOf<String>()
-            for (id in remoteIds) {
-                runCatching { profileRepository.refreshRemote(id) }.onFailure { failures += it.message ?: it.javaClass.simpleName }
+            refreshNativeProfileBatch(remoteIds, { refreshRemoteCancellable(it) }) { _, error ->
+                failures += error.message ?: error.javaClass.simpleName
             }
             // Keep successful updates even if another subscription failed, and publish that snapshot.
             if (failures.isNotEmpty()) throw IllegalStateException(failures.distinct().joinToString("\n"))
@@ -1314,6 +1323,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             return
         }
 
+        // Foreground mutations take priority over a background subscription batch.
+        // Cancellation joins HTTP/JNI cleanup before the operation mutex becomes available.
+        profileUpdateJob?.cancel()
+        profileUpdateJob = null
         busyProfileId.value = operationId
         profileImportCancellation = importCancellation
         lifecycleScope.launch {
@@ -1368,6 +1381,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             } finally {
                 profileImportCancellation = null
                 busyProfileId.value = null
+                if (nativeForeground) startProfileUpdateLoop()
             }
         }
     }

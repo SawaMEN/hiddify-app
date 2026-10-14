@@ -35,4 +35,39 @@ class NativeLogTailCacheTest {
             assertEquals("raw\n", cache.read(file, 100))
         } finally { file.delete() }
     }
+
+    @Test fun allNineSourcesRemainCachedAcrossPassesAndCacheStaysBounded() {
+        val files = (0 until 17).map { File.createTempFile("tail-test", ".log").apply { writeText("line\n") } }
+        try {
+            val cache = NativeLogTailCache { 100 }
+            val first = files.take(9).map { cache.read(it, 100) }
+            repeat(3) { files.take(9).forEachIndexed { index, file -> assertSame(first[index], cache.read(file, 100)) } }
+            files.drop(9).forEach { cache.read(it, 100) }
+            assertNotSame(first[0], cache.read(files[0], 100))
+        } finally { files.forEach { it.delete() } }
+    }
+
+    @Test fun displayLinesReuseUnchangedTailsAndInvalidateOnLimitsWritesExpiryAndClear() {
+        val file = File.createTempFile("tail-test", ".log")
+        try {
+            var now = 100L
+            val cache = NativeLogTailCache { now }
+            file.writeText("one\n \ntwo\nthree\n")
+            val first = cache.readLines(file, 100, 2)
+            assertEquals(listOf("[${file.name}] two", "[${file.name}] three"), first)
+            assertSame(first, cache.readLines(file, 100, 2))
+            assertEquals(listOf("[${file.name}] three"), cache.readLines(file, 100, 1))
+            file.appendText("four\n")
+            val appended = cache.readLines(file, 100, 2)
+            assertEquals(listOf("[${file.name}] three", "[${file.name}] four"), appended)
+            assertEquals(listOf("[${file.name}] two", "[${file.name}] three"), first)
+            now += 10_000
+            assertNotSame(appended, cache.readLines(file, 100, 2))
+            val expired = cache.readLines(file, 100, 2)
+            cache.clear()
+            assertNotSame(expired, cache.readLines(file, 100, 2))
+            file.writeText(" \n\t")
+            assertTrue(cache.readLines(file, 100, 2).isEmpty())
+        } finally { file.delete() }
+    }
 }

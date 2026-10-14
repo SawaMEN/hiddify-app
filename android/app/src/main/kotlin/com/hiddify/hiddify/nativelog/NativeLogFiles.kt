@@ -57,7 +57,10 @@ internal object NativeLogFiles {
 
 /** Metadata avoids repeatedly reading unchanged files; expiry also catches equal-size rotations. */
 internal class NativeLogTailCache(private val clock: () -> Long = { System.nanoTime() / 1_000_000 }) {
-    private data class Entry(val size: Long, val modified: Long, val readAt: Long, val maxBytes: Long, val text: String)
+    private data class Entry(
+        val size: Long, val modified: Long, val readAt: Long, val maxBytes: Long, val text: String,
+        val displayLimit: Int = 0, val displayLines: List<String>? = null,
+    )
     private val entries = linkedMapOf<String, Entry>()
     @Synchronized fun read(file: File, maxBytes: Long): String {
         val key = file.absolutePath
@@ -68,9 +71,22 @@ internal class NativeLogTailCache(private val clock: () -> Long = { System.nanoT
         if (cached != null && cached.size == size && cached.modified == modified && cached.maxBytes == maxBytes &&
             now - cached.readAt in 0..9999) return cached.text
         val text = NativeLogFiles.readTail(file, maxBytes)
-        if (entries.size >= 8 && key !in entries) entries.remove(entries.keys.first())
+        // Nine sources are possible; eight entries cause complete eviction on every pass.
+        if (entries.size >= 16 && key !in entries) entries.remove(entries.keys.first())
         entries[key] = Entry(size, modified, now, maxBytes, text)
         return text
     }
+    /** Reuse parsed display lines while the byte-tail metadata/expiry remain valid. */
+    @Synchronized fun readLines(file: File, maxBytes: Long, maxLines: Int): List<String> {
+        require(maxLines > 0)
+        val text = read(file, maxBytes)
+        val key = file.absolutePath
+        val entry = requireNotNull(entries[key])
+        if (entry.displayLimit == maxLines) entry.displayLines?.let { return it }
+        val lines = NativeRecentLogLines(maxLines).apply { append(file.name, text) }.snapshot()
+        entries[key] = entry.copy(displayLimit = maxLines, displayLines = lines)
+        return lines
+    }
+
     @Synchronized fun clear() { entries.clear() }
 }

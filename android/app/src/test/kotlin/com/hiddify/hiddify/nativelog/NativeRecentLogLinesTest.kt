@@ -21,5 +21,11 @@ class NativeRecentLogLinesTest {
         val lines = NativeRecentLogLines(500)
         sources.forEach { (name, text) -> assertTrue(lines.append(name, text)) }
         assertEquals(expected, lines.snapshot())
+        val cachedLines = NativeRecentLogLines(500)
+        sources.forEach { (name, text) ->
+            val source = NativeRecentLogLines(500).apply { append(name, text) }.snapshot()
+            cachedLines.appendPresented(source)
+        }
+        assertEquals(expected, cachedLines.snapshot())
     }
 }
