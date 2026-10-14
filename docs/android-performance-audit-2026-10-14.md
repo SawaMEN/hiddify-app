@@ -13,7 +13,7 @@ Base: `a6b2489d0a8fa7fc3cc9dd5b78430204db503b8e` (main).
 
 - Subscription refresh: connect coroutine cancellation to the existing per-operation HTTP/native-validation token. A separate IO worker allows the cancellation waiter to cancel blocking calls immediately; structured completion waits for worker cleanup before releasing the profile mutex. Cancellation is never collected as an ordinary subscription failure and does not start subsequent batch items. Transactions already past `beginCommit` still finish atomically.
 - Foreground profile mutations cancel the automatic batch before acquiring the operation mutex, then resume automatic updates when finished in the foreground. This prevents a manual selection/import/deletion from waiting behind an entire slow background batch.
-- Empty or completely unsuccessful auto-update batches skip additional profile-list reloads and reconnect-signature work. Initial active-profile synchronization belongs to `onStart`; an `onCreate` snapshot no longer starts just to be cancelled by `onStart`.
+- Empty auto-update batches skip additional profile-list reloads and reconnect-signature work. Attempted batches still resynchronize and reload even after failures, since a post-commit settings/file error can follow a successful DB write. Initial active-profile synchronization belongs to `onStart`; an `onCreate` snapshot no longer starts just to be cancelled by `onStart`.
 - Repository instances share the subscription HTTP connection pool and dispatcher instead of creating a new base client for each settings/profile access. Header overrides and nested target validation remain scoped to individual requests/repositories.
 
 ## Reproducible microbenchmark

@@ -1187,10 +1187,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 profileOperationMutex.withLock {
                     val due = profileRepository.dueRemoteProfileIds()
                     if (due.isEmpty()) return@withLock null
-                    val updated = refreshNativeProfileBatch(due, { refreshRemoteCancellable(it) }) { id, error ->
+                    refreshNativeProfileBatch(due, { refreshRemoteCancellable(it) }) { id, error ->
                         Log.w(TAG, "automatic profile update failed for $id", error)
                     }
-                    if (updated == 0) return@withLock null
+                    // Reload after attempted updates: a failure can occur after a committed DB write.
                     profileRepository.synchronizeActiveProfile()
                     profileRepository.listProfiles()
                 }
