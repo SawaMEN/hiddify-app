@@ -93,3 +93,35 @@ fall back to direct Internet traffic if the tunnel fails.
 - Resource/project checks and whitespace checks passed. Existing Python tools
   and CI also run their normal checks; APK completion is not required to
   distinguish configuration validation from on-device connectivity.
+
+## Registration and startup recovery (October 14)
+
+Direct registration retries network failures using IPv4 DNS-over-HTTPS and a
+no-SNI connection to the fixed Cloudflare API. The platform trust manager and
+OkHttp hostname verification are retained; Opera's bootstrap certificate
+exception is never used. Both registration attempts send the same public key.
+DNS, timeouts, certificate failures, TLS handshake failures and resets are
+reported as separate sanitized categories.
+
+The direct entries now offer an optional, initially disabled backup-registration
+checkbox. It names the three generators and their private-key exposure. If
+approved, failed direct registration can use those sources without changing the
+requested WireGuard/AWG protocol. Legacy repair does not grant this permission.
+
+In normal Android VPN mode, the small local built-in WARP configurations are
+checked before publishing Connected. HTTPS probes use the core's selected
+outbound, not the physical network. Failed traffic probes stop the old core
+instance and close its TUN before starting the next IP/port with the same keys
+and obfuscation. Up to five distinct consumer WireGuard endpoints are tried;
+MASQUE ingress is excluded. Each probe round has a six-second limit and startup
+retains the existing 90-second watchdog. A successful alternate endpoint is
+saved with the existing profile identity and user options. If none passes,
+startup fails with an explicit UDP reachability message. Cancellation never
+accepts a probe result or starts the next endpoint.
+
+Recognition is limited to catalog-named local profiles with a single built-in
+endpoint and no other root configuration. General subscriptions, renamed/custom
+profiles, root mode and service-only startup retain their existing lifecycle.
+The startup policy tests simulate traffic and cancellation; they are not a
+claim that a particular ISP passes WARP. Android device connectivity still
+requires checking the updated APK on that network.

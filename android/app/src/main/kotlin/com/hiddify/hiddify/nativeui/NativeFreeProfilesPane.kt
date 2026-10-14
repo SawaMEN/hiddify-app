@@ -37,6 +37,7 @@ internal fun NativeFreeProfilesPane(onImport: (NativeFreeProfile, String) -> Uni
     var loading by remember { mutableStateOf(true) }
     var failed by remember { mutableStateOf(false) }
     var retry by remember { mutableIntStateOf(0) }
+    var allowWarpBackup by rememberSaveable { mutableStateOf(false) }
     var consentUrl by rememberSaveable { mutableStateOf<String?>(null) }
     LaunchedEffect(retry) {
         loading = true; failed = false
@@ -53,7 +54,7 @@ internal fun NativeFreeProfilesPane(onImport: (NativeFreeProfile, String) -> Uni
             }
             else -> LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(available) { profile ->
-                    Surface(onClick = { consentUrl = profile.url }, shape = MaterialTheme.shapes.medium,
+                    Surface(onClick = { allowWarpBackup = false; consentUrl = profile.url }, shape = MaterialTheme.shapes.medium,
                         color = MaterialTheme.colorScheme.surfaceContainerHighest, modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp)) {
                         Column(Modifier.padding(10.dp)) {
                             Row(Modifier.fillMaxWidth()) {
@@ -85,7 +86,7 @@ internal fun NativeFreeProfilesPane(onImport: (NativeFreeProfile, String) -> Uni
         val color = MaterialTheme.colorScheme.onSurface.toArgb()
         val linkColor = MaterialTheme.colorScheme.primary.toArgb()
         AlertDialog(onDismissRequest = { consentUrl = null }, title = { Text(profile.title(russian)) }, text = {
-            Box(Modifier.heightIn(max = 360.dp).verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+            Column(Modifier.heightIn(max = 360.dp).verticalScroll(androidx.compose.foundation.rememberScrollState())) {
                 if (NativeOperaProfiles.region(profile.url) != null) {
                     NativeOperaNoticeContent(russian)
                 } else AndroidView(factory = { TextView(it).apply {
@@ -96,8 +97,15 @@ internal fun NativeFreeProfilesPane(onImport: (NativeFreeProfile, String) -> Uni
                     it.setTextColor(color); it.setLinkTextColor(linkColor)
                     it.text = Html.fromHtml(consentHtml(profile.consent(russian)), Html.FROM_HTML_MODE_COMPACT)
                 })
+                if (profile.warpMode != null && profile.warpMode != com.hiddify.hiddify.nativeprofile.NativeWarpMode.GENERATED_AWG) {
+                    Row {
+                        Checkbox(checked = allowWarpBackup, onCheckedChange = { allowWarpBackup = it })
+                        Text(if (russian) "Если Cloudflare недоступен, использовать резервные генераторы: warp-config-generator-theta.vercel.app, dulcet-fox-556b08.netlify.app, santa-atmo.ru. Они могут знать приватный ключ."
+                            else "If Cloudflare is unavailable, use backup generators: warp-config-generator-theta.vercel.app, dulcet-fox-556b08.netlify.app, santa-atmo.ru. They can know the private key.", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
             }
-        }, confirmButton = { NativeTextButton(onClick = { consentUrl = null; onImport(profile, profile.title(russian)) }) {
+        }, confirmButton = { NativeTextButton(onClick = { consentUrl = null; onImport(profile.copy(allowWarpBackup = allowWarpBackup), profile.title(russian)) }) {
             Text(stringResource(R.string.native_free_continue))
         } }, dismissButton = { NativeTextButton(onClick = { consentUrl = null }) { Text(stringResource(android.R.string.cancel)) } })
     }

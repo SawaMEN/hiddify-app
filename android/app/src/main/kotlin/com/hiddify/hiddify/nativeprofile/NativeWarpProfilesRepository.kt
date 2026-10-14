@@ -19,7 +19,8 @@ internal class NativeWarpProfilesRepository(
     private val registrationUrl: String = "https://api.cloudflareclient.com/v0i1909051800/reg",
 ) {
     fun <T> generate(cancellation: NativeProfileImportCancellation, mode: NativeWarpMode = NativeWarpMode.GENERATED_AWG,
-        prepare: (String) -> T): T {
+        allowBackup: Boolean = false, prepare: (String) -> T): T {
+        val failures = mutableListOf<String>()
         if (mode != NativeWarpMode.GENERATED_AWG) {
             val key = ByteArray(32).also { X25519.generatePrivateKey(SecureRandom(), it) }
             val publicKey = ByteArray(32).also { X25519.generatePublicKey(key, 0, it, 0) }
@@ -33,17 +34,25 @@ internal class NativeWarpProfilesRepository(
                 .header("User-Agent", "okhttp/3.12.1").header("Accept", "application/json")
                 .post(body.toString().toRequestBody(json)).build()
             try {
-                val response = download(request, cancellation)
+                val response = try { download(request, cancellation) }
+                catch (error: java.io.IOException) {
+                    cancellation.ensureActive()
+                    // Retry the same local account key over verified IPv4/no-SNI TLS.
+                    // Certificate errors are final, and non-Cloudflare/custom test URLs are untouched.
+                    if (request.url.host != NativeWarpApiTransport.HOST ||
+                        error is javax.net.ssl.SSLPeerUnverifiedException) throw error
+                    download(request, cancellation, NativeWarpApiTransport.fallback(http))
+                }
                 cancellation.ensureActive()
                 val account = NativeWarpAccount.parse(response, Base64.getEncoder().encodeToString(key))
                 return prepare(account.content(mode))
             } catch (error: CancellationException) { throw error }
               catch (error: Exception) {
                 cancellation.ensureActive()
-                throw NativeWarpGenerationException("Cloudflare: " + reason(error))
+                failures += "Cloudflare: " + reason(error)
+                if (!allowBackup) throw NativeWarpGenerationException(failures.joinToString("; "))
             } finally { key.fill(0); publicKey.fill(0) }
         }
-        val failures = mutableListOf<String>()
         for (request in requests) {
             cancellation.ensureActive()
             try {
@@ -60,9 +69,9 @@ internal class NativeWarpProfilesRepository(
         throw NativeWarpGenerationException(failures.joinToString("; "))
     }
 
-    private fun download(request: Request, cancellation: NativeProfileImportCancellation): String {
+    private fun download(request: Request, cancellation: NativeProfileImportCancellation, client: OkHttpClient = http): String {
         cancellation.ensureActive()
-        val call = http.newCall(request)
+        val call = client.newCall(request)
         cancellation.attachRequest(call::cancel)
         return try {
             call.execute().use { response ->
@@ -77,6 +86,10 @@ internal class NativeWarpProfilesRepository(
         is GeneratorHttpException -> "HTTP ${error.code}"
         is java.net.SocketTimeoutException -> "timeout"
         is java.net.UnknownHostException -> "DNS"
+        is javax.net.ssl.SSLPeerUnverifiedException -> "TLS certificate"
+        is javax.net.ssl.SSLHandshakeException -> "TLS handshake"
+        is java.net.ConnectException -> "connection refused or blocked"
+        is java.net.SocketException -> "connection reset or blocked"
         is java.io.IOException -> "network"
         else -> "invalid configuration"
     }

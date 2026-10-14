@@ -68,6 +68,24 @@ class NativeWarpRegistrationTest {
         assertEquals(1, calls)
     }
 
+    @Test fun approvedBackupPreservesRequestedProtocolAndSkipsInvalidSource() {
+        for (mode in listOf(NativeWarpMode.STANDARD, NativeWarpMode.AWG)) {
+            val hosts = mutableListOf<String>()
+            val http = OkHttpClient.Builder().addInterceptor { chain ->
+                val host = chain.request().url.host; hosts += host
+                Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1)
+                    .code(if (host == "direct.example.com") 403 else 200).message("fixture")
+                    .body((if (host == "good.example.com") profile() else "invalid-secret").toResponseBody()).build()
+            }.build()
+            val requests = listOf("bad", "good").map { Request.Builder().url("https://$it.example.com").build() }
+            val result = NativeWarpProfilesRepository(http, requests, "https://direct.example.com/reg")
+                .generate(NativeProfileImportCancellation(), mode, allowBackup = true) { endpoint(it) }
+            assertEquals(if (mode == NativeWarpMode.STANDARD) "wireguard" else "awg", result.get("type").asString)
+            assertEquals(listOf("direct.example.com", "bad.example.com", "good.example.com"), hosts)
+            assertEquals(key, result.get("private_key").asString)
+        }
+    }
+
     @Test fun cancellationBeforeRegistrationMakesNoHttpRequest() {
         val cancellation = NativeProfileImportCancellation(); cancellation.cancel()
         var calls = 0
