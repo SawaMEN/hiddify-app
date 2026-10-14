@@ -1,6 +1,7 @@
 """Opt-in live engine audit. Never print configurations, process output or credentials."""
 import copy
 import json
+import os
 import socket
 import subprocess
 import sys
@@ -11,6 +12,8 @@ from pathlib import Path
 core, directory = sys.argv[1], Path(sys.argv[2])
 target_ip = socket.gethostbyname('www.gstatic.com')
 for entry in json.loads((directory / 'manifest.json').read_text()):
+    if os.getenv('FREE_AUDIT_WARP_ONLY') == '1' and not entry['warp']:
+        continue
     path = directory / (entry['id'] + '.json')
     label = entry['label']
     checked = subprocess.run([core, 'check', '-c', str(path)], capture_output=True, timeout=30)
@@ -71,9 +74,10 @@ for entry in json.loads((directory / 'manifest.json').read_text()):
                 if process.poll() is None:
                     result = subprocess.run(['curl', '--silent', '--output', '/dev/null', '--write-out', '%{http_code}',
                               '--max-time', '8', '--noproxy', '', '--socks5', '127.0.0.1:18991',
-                              '--resolve', f'www.gstatic.com:443:{target_ip}', 'https://www.gstatic.com/generate_204'],
+                              '--resolve', f'www.gstatic.com:443:{target_ip}',
+                              'https://1.1.1.1/cdn-cgi/trace' if entry['warp'] else 'https://www.gstatic.com/generate_204'],
                               capture_output=True, timeout=10)
-                    success = result.returncode == 0 and result.stdout == b'204'
+                    success = result.returncode == 0 and result.stdout == (b'200' if entry['warp'] else b'204')
                 reason = ''
                 if process.poll() is not None:
                     errors.seek(0)
@@ -88,7 +92,7 @@ for entry in json.loads((directory / 'manifest.json').read_text()):
                     reason = ' / startup ' + next((category for category, terms in categories.items()
                               if any(term in diagnostic for term in terms)), 'failed')
                 print(f"TRAFFIC {label} node {index+1}, candidate {attempt+1}: {'OK' if success else 'FAILED'}{reason}", flush=True)
-                if success:
+                if success and not (entry['warp'] and os.getenv('FREE_AUDIT_ALL_WARP_PEERS') == '1'):
                     break
             finally:
                 process.terminate()

@@ -33,11 +33,7 @@ internal fun NativeTlsOptionsScreen(
     var range by rememberSaveable(stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
     val enabled = !busy && canSave
     val dependentEnabled = enabled && options?.fragment == true
-    fun fieldEnabled(field: NativeTlsOptionField) = when (field) {
-        NativeTlsOptionField.FRAGMENT_SIZE, NativeTlsOptionField.FRAGMENT_SLEEP -> dependentEnabled
-        NativeTlsOptionField.PADDING_SIZE -> enabled && options?.padding == true
-        else -> enabled
-    }
+    fun fieldEnabled(field: NativeTlsOptionField) = enabled && options?.let(field::enabled) == true
     fun format(value: String) = runCatching { NativeTlsOptions.normalizeRange(value, allowEmpty = true) }.getOrDefault(value)
     fun edit(field: NativeTlsOptionField) {
         if (options == null || !fieldEnabled(field)) return
@@ -69,9 +65,9 @@ internal fun NativeTlsOptionsScreen(
             NativePreferenceTile(R.string.native_core_tls_fragment_sleep, R.drawable.native_tls_snooze,
                 format(options.fragmentSleep).ifEmpty { notSet }, dependentEnabled) { edit(NativeTlsOptionField.FRAGMENT_SLEEP) }
             NativePreferenceTile(R.string.native_core_tls_mixed_sni, R.drawable.native_tls_text_fields,
-                null, enabled, options.mixedSniCase) { save(NativeTlsOptionField.MIXED_SNI_CASE, (!options.mixedSniCase).toString()) }
+                null, dependentEnabled, options.mixedSniCase) { save(NativeTlsOptionField.MIXED_SNI_CASE, (!options.mixedSniCase).toString()) }
             NativePreferenceTile(R.string.native_core_tls_padding, R.drawable.native_tls_expand,
-                null, enabled, options.padding) { save(NativeTlsOptionField.PADDING, (!options.padding).toString()) }
+                null, dependentEnabled, options.padding) { save(NativeTlsOptionField.PADDING, (!options.padding).toString()) }
             NativePreferenceTile(R.string.native_core_tls_padding_size, R.drawable.native_tls_straighten,
                 format(options.paddingSize), fieldEnabled(NativeTlsOptionField.PADDING_SIZE)) { edit(NativeTlsOptionField.PADDING_SIZE) }
         }

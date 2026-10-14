@@ -19,7 +19,7 @@ class NativeWarpEndpointsTest {
     @Test fun retriesPreserveCredentialsAndObfuscationAndTryOriginalFirst() {
         val original = content()
         val variants = NativeWarpEndpoints.candidates(original, "WARP + AmneziaWG")
-        assertEquals(5, variants.size)
+        assertEquals(6, variants.size)
         assertEquals(NativeJsonDocument.parse(original), NativeJsonDocument.parse(variants.first()))
         val originalNode = NativeJsonDocument.parse(original).asJsonObject.getAsJsonArray("endpoints")[0].asJsonObject
         val peers = mutableSetOf<String>()
@@ -33,7 +33,17 @@ class NativeWarpEndpointsTest {
             assertEquals(key, peer.get("public_key").asString)
             assertFalse(peer.get("address").asString.startsWith("162.159.197."))
         }
-        assertEquals(5, peers.size)
+        assertEquals(6, peers.size)
+    }
+
+    @Test fun savedAlternateRangeRemainsEligibleForRecovery() {
+        for (host in listOf("188.114.96.1", "188.114.97.1")) {
+            val raw = content().replace("162.159.195.1", host)
+            val choices = NativeWarpEndpoints.candidates(raw, "WARP + AmneziaWG")
+            assertTrue(choices.isNotEmpty())
+            assertEquals(NativeJsonDocument.parse(raw), NativeJsonDocument.parse(choices.first()))
+            assertTrue(choices.size <= 6)
+        }
     }
 
     @Test fun doesNotRewriteGeneralOrCustomizedConfigurations() {

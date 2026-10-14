@@ -31,7 +31,7 @@ internal fun NativeOutboundsSheet(
 ) {
     val height = (LocalConfiguration.current.screenHeightDp * .85f).dp
     ModalBottomSheet(onDismissRequest = onDismiss, sheetMaxWidth = 900.dp,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), sheetGesturesEnabled = false) {
         Box(Modifier.fillMaxWidth().height(height)) {
             NativeOutboundsScreen(connected = connected, sort = sort, onChangeSort = onChangeSort,
                 busyTag = busyTag, smartSelection = smartSelection, smartSelectionBusy = smartSelectionBusy,

@@ -159,6 +159,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val activeOutbound = mutableStateOf<com.hiddify.hiddify.nativecore.NativeOutbound?>(null)
     private val outboundOperationRevision = mutableStateOf(0)
     private val outboundBusyTag = mutableStateOf<String?>(null)
+    private var outboundRequestJob: Job? = null
+    private var outboundRequestGeneration = 0L
     private val systemStats = mutableStateOf(NativeSystemStats())
     private val wifiSharingDetails = mutableStateOf(NativeWifiSharingDetails())
     private val wifiSharingBusy = mutableStateOf(false)
@@ -672,6 +674,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         activeOutboundRefreshJob?.cancel()
         activeOutboundRefreshJob = null
         activeOutbound.value = null
+        cancelOutboundRequest()
         connection.disconnect()
         super.onStop()
     }
@@ -841,29 +844,45 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    private fun cancelOutboundRequest() {
+        outboundRequestGeneration++
+        outboundRequestJob?.cancel()
+        outboundRequestJob = null
+        outboundBusyTag.value = null
+    }
+
+    private fun isCurrentOutboundRequest(generation: Long, session: Long, profile: String): Boolean =
+        generation == outboundRequestGeneration && nativeForeground && serviceStatus.value == Status.Started &&
+            session == pingSession && profile == Settings.activeConfigPath
+
     private fun refreshOutbounds(showError: Boolean) {
         if (serviceStatus.value != Status.Started) {
             outboundGroups.value = emptyList()
-            outboundBusyTag.value = null
+            cancelOutboundRequest()
             return
         }
-        if (outboundBusyTag.value != null) return
+        if (!nativeForeground || outboundBusyTag.value != null) return
 
+        val generation = ++outboundRequestGeneration
+        val session = pingSession
+        val profile = Settings.activeConfigPath
         outboundBusyTag.value = "__refresh__"
-        lifecycleScope.launch {
+        outboundRequestJob = lifecycleScope.launch {
             try {
-                outboundGroups.value =
-                    withContext(Dispatchers.IO) {
-                        outboundsRepository.load()
-                    }
+                val loaded = withContext(Dispatchers.IO) { outboundsRepository.load() }
+                if (isCurrentOutboundRequest(generation, session, profile)) outboundGroups.value = loaded
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
-                if (showError) {
-                    errorMessage.value = error.message ?: error.javaClass.simpleName
-                } else {
-                    Log.w(TAG, "failed to refresh native outbounds", error)
+                if (isCurrentOutboundRequest(generation, session, profile)) {
+                    if (showError) errorMessage.value = error.message ?: error.javaClass.simpleName
+                    else Log.w(TAG, "failed to refresh native outbounds", error)
                 }
             } finally {
-                outboundBusyTag.value = null
+                if (generation == outboundRequestGeneration) {
+                    outboundBusyTag.value = null
+                    outboundRequestJob = null
+                }
             }
         }
     }
@@ -885,33 +904,41 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun runOutboundOperation(
         busyTag: String,
-        operation: () -> Unit,
+        operation: suspend () -> Unit,
     ) {
         if (serviceStatus.value != Status.Started) {
             errorMessage.value = getString(R.string.native_outbounds_disconnected)
             outboundGroups.value = emptyList()
             return
         }
-        if (outboundBusyTag.value != null) return
+        if (!nativeForeground || outboundBusyTag.value != null) return
 
+        val generation = ++outboundRequestGeneration
+        val session = pingSession
+        val profile = Settings.activeConfigPath
         outboundBusyTag.value = busyTag
-        lifecycleScope.launch {
+        outboundRequestJob = lifecycleScope.launch {
             try {
-                val refreshed =
-                    withContext(Dispatchers.IO) {
-                        operation()
-                        outboundsRepository.load()
-                    }
+                val refreshed = withContext(Dispatchers.IO) {
+                    operation()
+                    outboundsRepository.load()
+                }
+                if (!isCurrentOutboundRequest(generation, session, profile)) return@launch
                 outboundGroups.value = refreshed
                 val active = withContext(Dispatchers.IO) { outboundsRepository.loadActive() }
-                if (nativeForeground && serviceStatus.value == Status.Started) activeOutbound.value = active
-            } catch (error: CancellationException) {
-                throw error
+                if (isCurrentOutboundRequest(generation, session, profile)) activeOutbound.value = active
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
-                errorMessage.value = error.message ?: error.javaClass.simpleName
+                if (isCurrentOutboundRequest(generation, session, profile)) {
+                    errorMessage.value = error.message ?: error.javaClass.simpleName
+                }
             } finally {
-                outboundOperationRevision.value++
-                outboundBusyTag.value = null
+                if (generation == outboundRequestGeneration) {
+                    outboundOperationRevision.value++
+                    outboundBusyTag.value = null
+                    outboundRequestJob = null
+                }
             }
         }
     }
@@ -942,9 +969,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             while (isActive && nativeForeground) {
                 if (serviceStatus.value == Status.Started) {
                     val profile = Settings.activeConfigPath
+                    val session = pingSession
                     try {
                         val active = withContext(Dispatchers.IO) { outboundsRepository.loadActive() }
-                        if (nativeForeground && serviceStatus.value == Status.Started && profile == Settings.activeConfigPath) {
+                        if (nativeForeground && serviceStatus.value == Status.Started && profile == Settings.activeConfigPath && session == pingSession) {
                             activeOutbound.value = active
                             if (active != null && outboundBusyTag.value == null &&
                                 !com.hiddify.hiddify.nativecore.NativeSpeedTestRepository.running &&
@@ -2108,10 +2136,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 tlsOptions.value = BoxService.withNativeLifecycle {
                     check(serviceStatus.value != Status.Starting && serviceStatus.value != Status.Stopping &&
                         !nativeStartPending && !pendingStartAfterVpnPermission)
-                    // Match the page dependency against fresh state, rather than a stale switch snapshot.
-                    check(field == com.hiddify.hiddify.nativecore.NativeTlsOptionField.FRAGMENT ||
-                        withContext(Dispatchers.IO) { tlsRepository.load().fragment })
-                    withContext(Dispatchers.IO) { tlsRepository.saveField(field, input) }
+                    val current = withContext(Dispatchers.IO) { tlsRepository.load() }
+                    // A stale click on a disabled dependent setting is ignored and refreshes the UI.
+                    if (!field.enabled(current)) current
+                    else withContext(Dispatchers.IO) { tlsRepository.saveField(field, input) }
                 }
                 coreChangesSaved()
             } catch (error: CancellationException) {
@@ -2826,6 +2854,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             if (serviceStatus.value != status) resetTrafficStats()
             if (status == Status.Started && serviceStatus.value != status) pingSession++
             serviceStatus.value = status
+            if (status != Status.Started) cancelOutboundRequest()
             if (startResult == false) {
                 homeConnectionFailed.value = true
                 if (errorMessage.value == null) errorMessage.value = getString(R.string.native_connection_service_unavailable)

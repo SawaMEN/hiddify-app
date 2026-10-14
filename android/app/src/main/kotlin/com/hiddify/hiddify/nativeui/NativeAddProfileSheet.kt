@@ -123,6 +123,7 @@ internal fun NativeAddProfileSheet(
             skipPartiallyExpanded = true,
             confirmValueChange = { it != SheetValue.Hidden || canDismiss },
         ),
+        sheetGesturesEnabled = false,
         sheetMaxWidth = 456.dp,
         dragHandle = null,
     ) {

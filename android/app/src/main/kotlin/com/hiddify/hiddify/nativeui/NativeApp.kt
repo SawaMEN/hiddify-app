@@ -104,6 +104,7 @@ private const val PAGE_INBOUND = "inbound"
 private const val PAGE_PER_APP = "per_app"
 private const val PAGE_PER_APP_BACKUP = "per_app_backup"
 private const val PAGE_PROFILE_DETAILS = "profile_details"
+private const val PAGE_PROFILE_NETWORK = "profile_network"
 private const val PAGE_LOGS = "logs"
 private const val PAGE_CORE_OPTIONS = "core_options"
 private const val PAGE_WIFI_GUIDE = "wifi_guide"
@@ -344,7 +345,7 @@ fun NativeApp(
     LaunchedEffect(profileEditorSavedRevision) {
         if (profileEditorSavedRevision != observedEditorSavedRevision) {
             observedEditorSavedRevision = profileEditorSavedRevision
-            if (page == PAGE_PROFILE_DETAILS) goBack()
+            if (page in setOf(PAGE_PROFILE_DETAILS, PAGE_PROFILE_NETWORK)) goBack()
         }
     }
     LaunchedEffect(profileSelectionRevision) {
@@ -456,9 +457,9 @@ fun NativeApp(
                                         onSort = { byName, ascending -> profileSortByName = byName; profileSortAscending = ascending },
                                     )
 
-                                PAGE_PROFILE_DETAILS ->
+                                PAGE_PROFILE_DETAILS, PAGE_PROFILE_NETWORK ->
                                     NativeProfileDetailsScreen(
-                                        editor = profileEditor,
+                                        editor = profileEditor, networkOnly = page == PAGE_PROFILE_NETWORK,
                                         session = editorSession, loadFailed = profileEditorLoadFailed, onRetry = onRetryProfileEditor,
                                         busy = profileEditorBusy,
                                         onBack = { goBack() },
@@ -594,7 +595,7 @@ fun NativeApp(
                                     onBack = { goBack() }, onSave = onSaveTlsOption,
                                     onOpenProfile = profiles.firstOrNull { it.active }?.let { profile -> {
                                         onOpenProfileEditor(profile)
-                                        openPage(PAGE_PROFILE_DETAILS)
+                                        openPage(PAGE_PROFILE_NETWORK)
                                     } },
                                 )
 
@@ -864,7 +865,7 @@ fun NativeApp(
 /** Padding belongs to the displayed screen, never to the incoming navigation target. */
 @Composable
 private fun NativePageFrame(page: String, navigationBarHeight: androidx.compose.ui.unit.Dp, content: @Composable () -> Unit) {
-    val edgeToEdge = page in setOf(PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS,
+    val edgeToEdge = page in setOf(PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_PROFILE_NETWORK,
         PAGE_SETTINGS, PAGE_ABOUT, PAGE_LOGS, PAGE_DIAGNOSTICS, PAGE_PROTECTION,
         PAGE_TRAFFIC_FILTERS, PAGE_WIFI_GUIDE, PAGE_PER_APP, PAGE_DNS, PAGE_TLS,
         PAGE_INBOUND, PAGE_GENERAL_OPTIONS)
@@ -872,7 +873,7 @@ private fun NativePageFrame(page: String, navigationBarHeight: androidx.compose.
         .padding(top = if (edgeToEdge) 0.dp else 8.dp,
             bottom = if (page in setOf(PAGE_HOME, PAGE_SETTINGS, PAGE_PRIVACY)) navigationBarHeight else 0.dp),
         contentAlignment = Alignment.TopCenter) {
-        Box((if (page in setOf(PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_PRIVACY, PAGE_SETTINGS)) Modifier
+        Box((if (page in setOf(PAGE_HOME, PAGE_PROFILES, PAGE_PROFILE_DETAILS, PAGE_PROFILE_NETWORK, PAGE_PRIVACY, PAGE_SETTINGS)) Modifier
             else Modifier.widthIn(max = 680.dp)).fillMaxSize()
             .padding(horizontal = if (edgeToEdge) 0.dp else if (page == PAGE_PRIVACY) 16.dp else 20.dp)) { content() }
     }

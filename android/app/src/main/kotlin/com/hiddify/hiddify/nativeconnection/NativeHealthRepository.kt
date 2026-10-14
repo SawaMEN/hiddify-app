@@ -37,9 +37,9 @@ class NativeHealthRepository {
     }
 
     /** Startup already has a core instance, but intentionally has not published Started yet. */
-    suspend fun probeStartingCore(): Boolean = withTimeoutOrNull(6_000) {
-        for (url in listOf("https://www.gstatic.com/generate_204", "https://www.cloudflare.com/cdn-cgi/trace")) {
-            if (probeOne(url, 3)) return@withTimeoutOrNull true
+    suspend fun probeStartingCore(): Boolean = withTimeoutOrNull(NativeWarpProbePolicy.BUDGET_MS) {
+        for (target in NativeWarpProbePolicy.targets) {
+            if (probeOne(target.url, target.seconds)) return@withTimeoutOrNull true
         }
         false
     } ?: false

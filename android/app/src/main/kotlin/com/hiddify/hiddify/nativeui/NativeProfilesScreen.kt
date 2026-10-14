@@ -34,7 +34,8 @@ internal fun NativeProfilesSheet(
         if (!loading && !loadFailed && profiles.isEmpty()) onDismiss()
     }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetMaxWidth = 456.dp,
-        dragHandle = null) {
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetGesturesEnabled = false, dragHandle = null) {
         NativeProfilesScreen(profiles, busyProfileId, onDismiss, {}, onSelect, onDelete, onRefresh,
             onEdit, onCopyConfig, onExportConfig, loading, loadFailed, onRetry, onUpdateAll,
             sortByName, ascending, onSort, isSheet = true)
