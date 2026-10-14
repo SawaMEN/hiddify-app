@@ -16,7 +16,6 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
-import okhttp3.Request
 import okhttp3.Response
 import org.json.JSONObject
 
@@ -303,6 +302,7 @@ class NativeProfileRepository(private val context: Context) {
                 }
             }
         }
+        File(configDirectory(), "$id.runtime.json").delete()
         syncSettings(nextActive)
         com.hiddify.hiddify.nativecore.NativeChainRepository().replaceDeletedProfile(id)
     }
@@ -319,6 +319,8 @@ class NativeProfileRepository(private val context: Context) {
         val file = profileFile(id)
         check(file.isFile) { "Profile configuration file not found" }
         val content = file.inputStream().use(NativeProfileTransfer::readText)
+        // Reject malformed local overrides on the IO path, before loading the Compose draft.
+        NativeProfileNetworkOptions.fromOverride(profile.userOverride)
         return NativeProfileEditor(
             profile = profile,
             content = content,
@@ -339,6 +341,7 @@ class NativeProfileRepository(private val context: Context) {
         disableAutoUpdate: Boolean,
         updateIntervalHours: Int?,
         expectedLastUpdate: String? = null,
+        networkOptions: NativeProfileNetworkOptions? = null,
     ): NativeProfile {
         val existing = openDatabase().use { db -> getById(db, id) ?: error("Profile not found") }
         check(expectedLastUpdate == null || existing.lastUpdate == expectedLastUpdate) {
@@ -366,7 +369,7 @@ class NativeProfileRepository(private val context: Context) {
                 name = cleanName,
                 updateIntervalHours = updateIntervalHours,
                 disableAutoUpdate = disableAutoUpdate,
-            )
+            ).let { if (networkOptions == null) it else networkOptions.mergeOverride(it) }
 
         val subscription = parseSubscriptionInfo(storedHeaders["subscription-userinfo"])
         val intervalSeconds =
@@ -411,6 +414,7 @@ class NativeProfileRepository(private val context: Context) {
         updateIntervalHours: Int? = null,
         disableAutoUpdate: Boolean = false,
         cancellation: NativeProfileImportCancellation? = null,
+        requestOptions: NativeSubscriptionRequestOptions? = null,
     ): NativePreparedProfile {
         cancellation?.ensureActive()
         val input = rawInput.trim()
@@ -424,6 +428,7 @@ class NativeProfileRepository(private val context: Context) {
                 updateIntervalHours = updateIntervalHours,
                 disableAutoUpdate = disableAutoUpdate,
                 cancellation = cancellation,
+                requestOptions = requestOptions,
             )
         } else {
             prepareLocal(input, name, cancellation)
@@ -455,6 +460,7 @@ class NativeProfileRepository(private val context: Context) {
         replaceFeatures: Boolean = false,
         neededFeatures: Set<String>? = null,
         cancellation: NativeProfileImportCancellation? = null,
+        requestOptions: NativeSubscriptionRequestOptions? = null,
     ): NativePreparedProfile {
         cancellation?.ensureActive()
         require(isHttpUrl(url) || NativeOperaProfiles.region(url) != null) { "Unsupported subscription source" }
@@ -466,12 +472,15 @@ class NativeProfileRepository(private val context: Context) {
             }
         val id = existing?.id ?: UUID.randomUUID().toString()
         val active = existing?.active ?: true
-        val response = download(url, nested = false, cancellation = cancellation)
+        val previousOverride = existingOverride ?: existing?.userOverride
+        val savedNetworkOptions = NativeProfileNetworkOptions.fromOverride(previousOverride)
+        val networkOptions = if (requestOptions == null) savedNetworkOptions else savedNetworkOptions.copy(request = requestOptions.validated())
+        val response = download(url, nested = false, cancellation = cancellation, options = networkOptions.request)
         val expanded = expandNestedSubscriptions(response.body, cancellation)
         val mergedHeaders = mergeHeaders(response.headers, expanded)
         val override =
             buildUserOverride(
-                previous = existingOverride ?: existing?.userOverride,
+                previous = if (requestOptions == null) previousOverride else networkOptions.mergeOverride(previousOverride),
                 name = requestedName,
                 updateIntervalHours = updateIntervalHours,
                 disableAutoUpdate = disableAutoUpdate,
@@ -574,7 +583,8 @@ class NativeProfileRepository(private val context: Context) {
             vpnMode = Settings.serviceMode == com.hiddify.hiddify.constant.ServiceMode.VPN,
             ipv4Only = Settings.privacyDisableIpv6,
         )
-        com.hiddify.hiddify.nativecore.NativeProfileValidator.validate(content, effective, cancellation)
+        val runtimeContent = NativeProfileNetworkOptions.fromOverride(profile.userOverride).tls.apply(content)
+        com.hiddify.hiddify.nativecore.NativeProfileValidator.validate(runtimeContent, effective, cancellation)
     }
 
     internal fun commitPrepared(
@@ -624,6 +634,7 @@ class NativeProfileRepository(private val context: Context) {
         url: String,
         nested: Boolean,
         cancellation: NativeProfileImportCancellation? = null,
+        options: NativeSubscriptionRequestOptions = NativeSubscriptionRequestOptions(),
     ): DownloadResult {
         cancellation?.ensureActive()
         NativeOperaProfiles.region(url)?.let { region ->
@@ -631,14 +642,8 @@ class NativeProfileRepository(private val context: Context) {
             return DownloadResult(NativeOperaProfilesRepository().generate(region, cancellation),
                 mapOf("profile-update-interval" to "1"))
         }
-        val request =
-            Request.Builder()
-                .url(url)
-                .header("User-Agent", "VetrOFF-Android")
-                .header("Accept", "*/*")
-                .get()
-                .build()
-        val client = if (nested) nestedHttp else http
+        val request = options.request(url)
+        val client = options.client(if (nested) nestedHttp else http, request)
         val call = client.newCall(request)
         cancellation?.attachRequest(call::cancel)
         try {
@@ -956,7 +961,7 @@ class NativeProfileRepository(private val context: Context) {
 
     /** Snapshot under the same lock as refresh/delete so a chain cannot read a partial replacement. */
     fun chainProfileContent(id: String): String = synchronized(mutationLock) {
-        openDatabase().use { db -> requireNotNull(getById(db, id)) { "Chain profile was deleted" } }
+        val profile = openDatabase().use { db -> requireNotNull(getById(db, id)) { "Chain profile was deleted" } }
         val file = profileFile(id)
         require(file.isFile && file.length() in 1..(8L * 1024 * 1024)) { "Chain profile file is missing or too large" }
         file.inputStream().use { input ->
@@ -970,7 +975,7 @@ class NativeProfileRepository(private val context: Context) {
             }
             val bytes = output.toByteArray()
             require(bytes.size <= 8 * 1024 * 1024) { "Chain profile exceeds 8 MiB" }
-            bytes.toString(Charsets.UTF_8)
+            NativeProfileNetworkOptions.fromOverride(profile.userOverride).tls.apply(bytes.toString(Charsets.UTF_8))
         }
     }
 
@@ -997,7 +1002,20 @@ class NativeProfileRepository(private val context: Context) {
             Settings.activeProfileName = ""
             return
         }
-        Settings.activeConfigPath = profileFile(profile.id).path
+        val source = profileFile(profile.id)
+        val tls = NativeProfileNetworkOptions.fromOverride(profile.userOverride).tls
+        Settings.activeConfigPath = if (tls.enabled) {
+            val content = source.inputStream().use(NativeProfileTransfer::readText)
+            val runtime = File(configDirectory(), "${profile.id}.runtime.json")
+            val transformed = tls.apply(content)
+            if (!runtime.isFile || runtime.inputStream().use(NativeProfileTransfer::readText) != transformed) {
+                NativeProfileFileReplacement.replace(runtime, transformed) { Unit }
+            }
+            runtime.path
+        } else {
+            File(configDirectory(), "${profile.id}.runtime.json").delete()
+            source.path
+        }
         Settings.activeProfileName = profile.name
     }
 

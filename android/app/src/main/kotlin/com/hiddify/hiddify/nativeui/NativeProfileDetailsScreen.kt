@@ -35,7 +35,7 @@ fun NativeProfileDetailsScreen(
     loadFailed: Boolean,
     onRetry: () -> Unit,
     onBack: () -> Unit,
-    onSave: (name: String, disableAutoUpdate: Boolean, updateIntervalHours: Int?, content: String) -> Unit,
+    onSave: (name: String, disableAutoUpdate: Boolean, updateIntervalHours: Int?, content: String, networkOptions: com.hiddify.hiddify.nativeprofile.NativeProfileNetworkOptions) -> Unit,
 ) {
     LaunchedEffect(editor) { editor?.let(session::load) }
     var jsonValid by remember(editor?.profile?.id, editor?.profile?.lastUpdate) { mutableStateOf(editor?.isJson != true) }
@@ -47,10 +47,10 @@ fun NativeProfileDetailsScreen(
                 Icon(painterResource(R.drawable.native_back_arrow), stringResource(R.string.native_back))
             }
             Text(stringResource(R.string.native_profile_details), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-            NativeTextButton(enabled = ready && !busy && session.changed && jsonValid && session.content.isNotBlank(), onClick = {
+            NativeTextButton(enabled = ready && !busy && session.changed && jsonValid && session.content.isNotBlank() && runCatching { session.networkOptions.validated() }.isSuccess, onClick = {
                 validateName = true
                 if (session.name.isNotBlank()) onSave(session.name.trim(), session.disableAutoUpdate,
-                    session.intervalHours.takeIf { it > 0 }, session.content)
+                    session.intervalHours.takeIf { it > 0 }, session.content, session.networkOptions)
             }) {
                 Icon(painterResource(R.drawable.native_check), null, Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.native_profile_save))
@@ -107,6 +107,8 @@ fun NativeProfileDetailsScreen(
                     supportingContent = { Text(editorDate(profile.lastUpdate)) },
                     leadingContent = { Icon(painterResource(R.drawable.native_history), null) },
                     colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent))
+                val requestIsHttp = profile.isRemote && profile.url?.let { it.startsWith("https://", true) || it.startsWith("http://", true) } == true
+                NativeProfileNetworkSettings(session.networkOptions, requestIsHttp, editor.isJson, !busy) { session.networkOptions = it }
                 if (profile.isRemote && profile.upload != null && profile.download != null && profile.total != null) {
                     HorizontalDivider(Modifier.padding(horizontal = 16.dp))
                     Column(Modifier.padding(horizontal = 18.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
