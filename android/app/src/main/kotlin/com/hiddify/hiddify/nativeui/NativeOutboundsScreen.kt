@@ -70,7 +70,7 @@ internal fun NativeOutboundsScreen(
             }
         }
     }
-    var query by rememberSaveable { mutableStateOf("") }
+    var query by rememberSaveable(stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
     var sortOpen by remember { mutableStateOf(false) }
     var detailsTag by rememberSaveable { mutableStateOf<String?>(null) }
     val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()

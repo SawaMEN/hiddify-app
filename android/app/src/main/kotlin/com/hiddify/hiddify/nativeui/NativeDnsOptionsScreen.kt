@@ -41,7 +41,7 @@ internal fun NativeDnsOptionsScreen(
     onRetry: () -> Unit, onBack: () -> Unit, onSave: (NativeDnsOptionField, String) -> Unit,
 ) {
     var editor by rememberSaveable { mutableStateOf<NativeDnsOptionField?>(null) }
-    var address by rememberSaveable { mutableStateOf("") }
+    var address by rememberSaveable(stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
     val enabled = !busy && canSave
     fun edit(field: NativeDnsOptionField) {
         if (options == null) return

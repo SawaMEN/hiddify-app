@@ -634,8 +634,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
         refreshVpnProtection()
         if (serviceStatus.value == Status.Started) {
-            maybeRequestNotificationPermission()
-            maybePromptBatteryOptimization()
+            runCatching { maybeRequestNotificationPermission() }
+                .onFailure { Log.w(TAG, "Notification permission prompt unavailable on resume", it) }
+            runCatching { maybePromptBatteryOptimization() }
+                .onFailure { Log.w(TAG, "Background permission prompt unavailable on resume", it) }
         }
         restartHealthMonitor()
         startSmartSelectionLoop()

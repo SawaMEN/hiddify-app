@@ -34,6 +34,7 @@ class Application : Application() {
                     entries.forEach { entry ->
                         // Record system evidence without config, IP addresses or crash trace secrets.
                         result.put(org.json.JSONObject().put("time", entry.timestamp).put("reason", entry.reason)
+                            .put("reasonName", com.hiddify.hiddify.nativelog.NativeProcessExitReason.name(entry.reason))
                             .put("status", entry.status).put("pssKiB", entry.pss).put("rssKiB", entry.rss))
                     }
                     // Core paths may still be "./" before the first VPN start.

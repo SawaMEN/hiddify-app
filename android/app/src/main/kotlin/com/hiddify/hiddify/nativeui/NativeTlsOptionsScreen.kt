@@ -30,7 +30,7 @@ internal fun NativeTlsOptionsScreen(
     onOpenProfile: (() -> Unit)? = null,
 ) {
     var editor by rememberSaveable { mutableStateOf<NativeTlsOptionField?>(null) }
-    var range by rememberSaveable { mutableStateOf("") }
+    var range by rememberSaveable(stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
     val enabled = !busy && canSave
     val dependentEnabled = enabled && options?.fragment == true
     fun fieldEnabled(field: NativeTlsOptionField) = when (field) {

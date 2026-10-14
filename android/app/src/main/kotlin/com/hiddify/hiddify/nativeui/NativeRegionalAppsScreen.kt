@@ -41,7 +41,7 @@ fun NativeRegionalAppsScreen(
     onSave: (Set<String>) -> Unit,
     onReset: () -> Unit,
 ) {
-    var search by rememberSaveable(kind) { mutableStateOf("") }
+    var search by rememberSaveable(kind, stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
     // Only package names enter saved state, never PackageManager objects or icons.
     var draft by rememberSaveable(kind) { mutableStateOf<List<String>?>(null) }
     LaunchedEffect(kind) { if (snapshot == null && !busy) onReload() }

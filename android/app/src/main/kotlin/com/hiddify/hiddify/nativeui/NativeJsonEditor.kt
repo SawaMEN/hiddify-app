@@ -66,7 +66,7 @@ internal fun NativeJsonEditor(
     var root by remember { mutableStateOf<JsonElement?>(null) }
     var textMode by rememberSaveable { mutableStateOf(false) }
     var expanded by remember { mutableStateOf(setOf("", "/outbounds", "/endpoints")) }
-    var query by rememberSaveable { mutableStateOf("") }
+    var query by rememberSaveable(stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
     var matches by remember { mutableStateOf(emptyList<String>()) }
     var matchIndex by remember { mutableIntStateOf(0) }
     var parsing by remember { mutableStateOf(true) }
@@ -80,8 +80,15 @@ internal fun NativeJsonEditor(
     val listState = rememberLazyListState()
 
     LaunchedEffect(Unit) {
-        templates = withContext(Dispatchers.IO) {
-            context.assets.open("profile_editor_templates.json").bufferedReader().use { Json.parse(it.readText()).asJsonObject }
+        try {
+            templates = withContext(Dispatchers.IO) {
+                context.assets.open("profile_editor_templates.json").use {
+                    Json.parse(com.hiddify.hiddify.nativeprofile.NativeProfileTransfer.readText(it)).asJsonObject
+                }
+            }
+        } catch (cancelled: CancellationException) { throw cancelled }
+        catch (failure: Exception) {
+            android.util.Log.w("NativeJsonEditor", "Optional editor templates unavailable", failure)
         }
     }
     LaunchedEffect(content) {

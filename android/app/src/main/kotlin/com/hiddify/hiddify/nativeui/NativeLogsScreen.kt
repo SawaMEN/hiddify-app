@@ -32,7 +32,7 @@ fun NativeLogsScreen(
         pollingChanged(!paused)
         onDispose { pollingChanged(false) }
     }
-    var query by rememberSaveable { mutableStateOf("") }
+    var query by rememberSaveable(stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
     var level by rememberSaveable { mutableStateOf<String?>(null) }
     var sharingOpen by remember { mutableStateOf(false) }
     var levelsOpen by remember { mutableStateOf(false) }

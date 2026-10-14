@@ -40,7 +40,7 @@ internal fun NativeGeneralOptionsScreen(
     onBack: () -> Unit, onSave: (NativeGeneralOptionField, String) -> Unit,
 ) {
     var editor by rememberSaveable { mutableStateOf<NativeGeneralOptionField?>(null) }
-    var text by rememberSaveable { mutableStateOf("") }
+    var text by rememberSaveable(stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
     var minutes by rememberSaveable { mutableStateOf(10f) }
     val enabled = !busy && canSave
     fun save(field: NativeGeneralOptionField, input: String) {

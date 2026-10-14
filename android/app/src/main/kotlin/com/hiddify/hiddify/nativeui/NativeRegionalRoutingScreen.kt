@@ -43,8 +43,8 @@ fun NativeRegionalRoutingScreen(
     var network by rememberSaveable(options.russianNetworkBypass) { mutableStateOf(options.russianNetworkBypass) }
     var apps by rememberSaveable(options.russianAppsBypass) { mutableStateOf(options.russianAppsBypass) }
     var restricted by rememberSaveable(options.restrictedServicesProxy) { mutableStateOf(options.restrictedServicesProxy) }
-    var direct by rememberSaveable(options.directDomains) { mutableStateOf(options.directDomains) }
-    var proxy by rememberSaveable(options.proxyDomains) { mutableStateOf(options.proxyDomains) }
+    var direct by rememberSaveable(options.directDomains, stateSaver = NativeStringDraftSaver) { mutableStateOf(options.directDomains) }
+    var proxy by rememberSaveable(options.proxyDomains, stateSaver = NativeStringDraftSaver) { mutableStateOf(options.proxyDomains) }
     val draft = NativeRegionalOptions(NativeRegionalMode.fromValue(mode), network, apps, restricted, direct, proxy)
     val valid = runCatching { draft.validated() }.isSuccess
 

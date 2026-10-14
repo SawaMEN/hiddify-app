@@ -39,7 +39,7 @@ fun NativePerAppScreen(snapshot: NativePerAppSnapshot, canChange: Boolean, busy:
     onClear: () -> Unit, onRetry: () -> Unit, pendingImport: NativePerAppBackup?,
     onImportClipboard: () -> Unit, onImportFile: () -> Unit, onExportClipboard: () -> Unit,
     onExportFile: () -> Unit, onConfirmImport: () -> Unit, onDismissImport: () -> Unit) {
-    var search by rememberSaveable { mutableStateOf("") }
+    var search by rememberSaveable(stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
     var searching by rememberSaveable { mutableStateOf(false) }
     var hideSystem by rememberSaveable { mutableStateOf(false) }
     var menu by remember { mutableStateOf<String?>(null) }
