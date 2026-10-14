@@ -16,10 +16,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeout
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
 
 object LocalResolver : LocalDNSTransport {
     private const val TAG = "LocalResolver"
@@ -55,29 +52,19 @@ object LocalResolver : LocalDNSTransport {
         }
     }
 
-    private suspend fun <T : Any> query(start: (CancellationSignal, DnsResolver.Callback<T>) -> Unit): Pair<T, Int> =
-        suspendCancellableCoroutine { continuation ->
-            val signal = CancellationSignal()
-            val finished = AtomicBoolean(false)
-            continuation.invokeOnCancellation {
-                finished.set(true)
-                signal.cancel()
-            }
-            val callback = object : DnsResolver.Callback<T> {
-                override fun onAnswer(answer: T, rcode: Int) {
-                    if (finished.compareAndSet(false, true)) continuation.resume(answer to rcode)
-                }
-                override fun onError(error: DnsResolver.DnsException) {
-                    if (finished.compareAndSet(false, true)) continuation.resumeWithException(error)
-                }
-            }
-            try {
-                if (continuation.isActive) start(signal, callback)
-            } catch (e: Exception) {
-                signal.cancel()
-                if (finished.compareAndSet(false, true)) continuation.resumeWithException(e)
-            }
-        }
+    private suspend fun <T : Any> query(start: (CancellationSignal, DnsResolver.Callback<T>) -> Unit): Pair<T, Int> {
+        val signal = CancellationSignal()
+        return NativeDnsQuery.await(
+            cancel = signal::cancel,
+            reportCancellationFailure = { Log.w(TAG, "Android DNS signal cancellation failed", it) },
+            start = { success, failure ->
+                start(signal, object : DnsResolver.Callback<T> {
+                    override fun onAnswer(answer: T, rcode: Int) = success(answer to rcode)
+                    override fun onError(error: DnsResolver.DnsException) = failure(error)
+                })
+            },
+        )
+    }
 
     override fun exchange(ctx: ExchangeContext, message: ByteArray) = resolve(ctx) {
         val network = DefaultNetworkMonitor.require()

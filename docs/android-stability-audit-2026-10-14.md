@@ -141,3 +141,36 @@ project/resource checks and whitespace checks passed. The JVM run uses the same
 cached compiler/dependency fallback documented above. Updated Android build and
 Go race results are checked separately in CI; device stress testing is still
 unavailable here.
+
+## Follow-up: DNS cancellation and rendered QR images
+
+The preceding PR #74 revision (`1cfc3c95`) passed CI including its Android ARM64
+build and the separate native Go race tests. The authenticated source lookup
+also passed; its earlier 403 occurred before test execution.
+
+- Android DNS signal cancellation previously ran unguarded inside a coroutine
+  cancellation handler. An OEM/platform cleanup exception can be delivered as an
+  uncaught completion-handler failure rather than the normal DNS error path. The
+  extracted production DNS callback bridge now reports cancellation failures,
+  issues cancellation once, and allows only one terminal answer/error. On a
+  synchronous query-start failure it claims completion before signal cleanup, so
+  a reentrant cleanup callback cannot overwrite the original exception.
+- Removed immediate `Bitmap.recycle()` from Wi-Fi/LAN QR Compose disposal.
+  The rendering system may still reference the image during closing animations;
+  collection now follows the lifetime of the last rendering reference. This is
+  consistent with the existing profile-share QR dialog. Import-only bitmaps that
+  never enter the UI are still released after decoding.
+- Optional Wi-Fi QR encoding errors no longer escape their UI coroutine. SSID
+  and password text remain available when encoding fails.
+
+Validation: **381 JVM tests passed**. The seven new DNS regressions cover duplicate
+and late callbacks, cancellation-cleanup exceptions, failing error reporting,
+reentrant cancellation callbacks and preservation of the first failure. Project,
+resource and whitespace checks passed. The usual cached JVM dependency fallback
+still applies; the latest Android build and device reproduction require separate
+verification. No claim is made that these risks explain a particular phone's
+observed exit without its crash/exit evidence.
+
+References for these lifecycle constraints:
+- https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-cancellable-continuation/invoke-on-cancellation.html
+- https://developer.android.com/reference/android/graphics/Bitmap#recycle()

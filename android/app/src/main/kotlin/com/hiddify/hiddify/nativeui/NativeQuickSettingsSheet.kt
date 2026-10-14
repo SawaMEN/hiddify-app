@@ -273,7 +273,7 @@ internal fun LanQrDialog(link: String, onDismiss: () -> Unit) {
         bitmap = withContext(Dispatchers.Default) { runCatching { NativeQrImages.create("#profile-title: LAN only\n$link#LAN only") }.getOrNull() }
         failed = bitmap == null
     }
-    DisposableEffect(bitmap) { val owned = bitmap; onDispose { owned?.recycle() } }
+    // Do not recycle a bitmap that Compose may still render while the dialog closes.
     AlertDialog(onDismissRequest = onDismiss, title = { Text(stringResource(R.string.native_quick_qr)) }, text = {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             bitmap?.let { Image(it.asImageBitmap(), stringResource(R.string.native_quick_qr), Modifier.size(192.dp)) }
