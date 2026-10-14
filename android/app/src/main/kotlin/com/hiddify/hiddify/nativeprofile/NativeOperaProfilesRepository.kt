@@ -12,7 +12,7 @@ import java.util.concurrent.TimeUnit
 internal class NativeOperaProfilesRepository(private val transport: Interceptor? = null, private val russian: Boolean = false,
     private val bootstrapDns: Dns? = null,
     private val onDiagnostic: ((String, String) -> Unit)? = null) {
-    fun generate(region: String = "ALL", cancellation: NativeProfileImportCancellation? = null, previousContent: String? = null): String {
+    fun generate(region: String = "ALL", cancellation: NativeProfileImportCancellation? = null): String {
         require(region == "ALL" || region in NativeOperaProfiles.regions)
         cancellation?.ensureActive()
         val storedCookies = mutableListOf<Cookie>()
@@ -38,7 +38,7 @@ internal class NativeOperaProfilesRepository(private val transport: Interceptor?
                     response.request.newBuilder().header("Authorization", it).build()
                 }
             }.apply { transport?.let { addInterceptor(it) } }.build()
-        fun rpc(endpoint: String, params: Map<String, String>): JsonObject {
+        fun rpc(endpoint: String, params: Map<String, String>, requestLimitMillis: Long = 10000): JsonObject {
             cancellation?.ensureActive()
             stage = endpoint
             val remaining = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime())
@@ -49,7 +49,7 @@ internal class NativeOperaProfilesRepository(private val transport: Interceptor?
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 OPR/114.0.0.0")
                 .header("Accept", "application/json").post(body).build()
             val call = http.newCall(request)
-            call.timeout().timeout(minOf(remaining, 10000), TimeUnit.MILLISECONDS)
+            call.timeout().timeout(minOf(remaining, requestLimitMillis), TimeUnit.MILLISECONDS)
             cancellation?.attachRequest(call::cancel)
             try {
                 return call.execute().use { response ->
@@ -83,14 +83,19 @@ internal class NativeOperaProfilesRepository(private val transport: Interceptor?
             val login = OperaDigest.hash("SHA-1", device.get("device_id").asString).uppercase(Locale.ROOT)
             val password = device.get("device_password").asString
             val discoveries = linkedMapOf<String, com.google.gson.JsonArray>()
-            for (code in NativeOperaProfiles.regions.keys) {
+            var lastDiscoveryFailure: NativeOperaUnavailableException? = null
+            for ((index, code) in NativeOperaProfiles.regions.keys.withIndex()) {
+                // A stalled region must leave time for discovery of the remaining regions.
+                val remainingMillis = TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime())
+                val regionBudget = remainingMillis / (NativeOperaProfiles.regions.size - index)
+                val requestLimit = minOf(4000L, maxOf(1L, (regionBudget - 300) / 2))
                 cancellation?.ensureActive()
                 var servers: com.google.gson.JsonArray? = null
                 var failure: Exception? = null
                 for (attempt in 0..1) {
                     cancellation?.ensureActive()
                     try {
-                        val discovery = rpc("discover", mapOf("serial_no" to login, "requested_geo" to "\"$code\",,"))
+                        val discovery = rpc("discover", mapOf("serial_no" to login, "requested_geo" to "\"$code\",,"), requestLimit)
                         val candidates = discovery.getAsJsonArray("ips")
                         require(candidates.size() > 0)
                         // Validate before caching/persisting any endpoint or exposing it in the server list.
@@ -109,12 +114,16 @@ internal class NativeOperaProfilesRepository(private val transport: Interceptor?
                         }
                     }
                 }
-                val cached = if (servers == null) NativeOperaProfiles.cachedServers(previousContent, code) else null
-                discoveries[code] = servers ?: cached?.takeIf { it.size() > 0 } ?: run {
+                if (servers != null) discoveries[code] = servers
+                else {
                     val failed = failure as? NativeOperaUnavailableException
-                    throw NativeOperaUnavailableException("discover-$code", failed?.reason ?: operaFailureReason(failure), failed?.status, russian)
+                    lastDiscoveryFailure = NativeOperaUnavailableException("discover-$code",
+                        failed?.reason ?: operaFailureReason(failure), failed?.status, russian)
+                    onDiagnostic?.invoke(code, "skipped")
                 }
             }
+            if (discoveries.isEmpty()) throw lastDiscoveryFailure
+                ?: NativeOperaUnavailableException("discover", "response", russian = russian)
             cancellation?.ensureActive()
             if (onDiagnostic != null) {
                 try {

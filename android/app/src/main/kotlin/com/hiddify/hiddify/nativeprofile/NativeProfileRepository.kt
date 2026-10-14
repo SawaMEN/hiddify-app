@@ -488,11 +488,7 @@ class NativeProfileRepository(private val context: Context) {
         val previousOverride = existingOverride ?: existing?.userOverride
         val savedNetworkOptions = NativeProfileNetworkOptions.fromOverride(previousOverride)
         val networkOptions = if (requestOptions == null) savedNetworkOptions else savedNetworkOptions.copy(request = requestOptions.validated())
-        val cachedOperaContent = if (NativeOperaProfiles.region(url) != null && existing != null) {
-            runCatching { profileFile(existing.id).inputStream().use { NativeProfileTransfer.readText(it) } }.getOrNull()
-        } else null
-        val response = download(url, nested = false, cancellation = cancellation, options = networkOptions.request,
-            cachedOperaContent = cachedOperaContent)
+        val response = download(url, nested = false, cancellation = cancellation, options = networkOptions.request)
         val expanded = expandNestedSubscriptions(response.body, cancellation)
         val mergedHeaders = mergeHeaders(response.headers, expanded)
         val override =
@@ -652,12 +648,11 @@ class NativeProfileRepository(private val context: Context) {
         nested: Boolean,
         cancellation: NativeProfileImportCancellation? = null,
         options: NativeSubscriptionRequestOptions = NativeSubscriptionRequestOptions(),
-        cachedOperaContent: String? = null,
     ): DownloadResult {
         cancellation?.ensureActive()
         NativeOperaProfiles.region(url)?.let { region ->
             check(!nested) { "Built-in sources cannot be nested" }
-            return DownloadResult(NativeOperaProfilesRepository(russian = context.resources.configuration.locales[0].language == "ru").generate(region, cancellation, previousContent = cachedOperaContent),
+            return DownloadResult(NativeOperaProfilesRepository(russian = context.resources.configuration.locales[0].language == "ru").generate(region, cancellation),
                 mapOf("profile-update-interval" to "1"))
         }
         val request = options.request(url)

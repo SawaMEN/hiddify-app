@@ -101,7 +101,7 @@ internal class NativeWarpProfilesRepository(
             .followRedirects(false).followSslRedirects(false).build()
         private val json = "application/json; charset=utf-8".toMediaType()
         // Verified live endpoints; the historical Routerich URLs return errors or HTML now.
-        private val defaultRequests = listOf(
+        internal val defaultRequests = listOf(
             "https://warp-config-generator-theta.vercel.app/api/warp",
             "https://dulcet-fox-556b08.netlify.app/api/warp",
         ).map { url ->

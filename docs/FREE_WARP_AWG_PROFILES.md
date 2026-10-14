@@ -125,3 +125,27 @@ profiles, root mode and service-only startup retain their existing lifecycle.
 The startup policy tests simulate traffic and cancellation; they are not a
 claim that a particular ISP passes WARP. Android device connectivity still
 requires checking the updated APK on that network.
+
+## Live engine audit (October 14, 2026)
+
+The opt-in `Free profile live audit` workflow obtains material with production
+Kotlin code and checks traffic through the shipped stable Linux engine. Private
+keys and proxy tokens stay in a private temporary directory, deleted at the end;
+configuration bodies, core process output and credentials are not logged or
+uploaded as artifacts.
+
+The first complete WARP/Opera run verified HTTPS traffic for all eight
+WireGuard/AWG configurations (direct Cloudflare and each of the three backup
+sources) and every one of the ten Opera endpoints. Two WARP attempts needed an
+alternate UDP port. The audit now obtains those alternatives directly from
+`NativeWarpEndpoints`, the same policy used during Android VPN startup.
+
+Community subscriptions require parsing share links into JSON and building DNS
+and dependency settings before startup. The audit covers retrieval, conversion
+and a bounded traffic sample of three nodes for these feeds; it does not claim
+that hundreds of independently operated public nodes all work. Results are
+network- and time-dependent and do not certify a user's Android TUN or ISP.
+
+The current stable app release v1.0.1 predates the WARP registration and startup
+fixes in main. Main's development APK includes them; an older installed APK can
+still use the obsolete generators or lazy registration templates.

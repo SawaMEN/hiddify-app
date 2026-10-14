@@ -31,31 +31,8 @@ object NativeOperaProfiles {
         .joinToString("\n\n") { (title, text) -> "• **$title.** $text" }
 
     val profiles = listOf(NativeFreeProfile(emptyList(), "Opera Proxy", "Opera Proxy", SOURCE,
-        listOf("3 regions", "TCP only"), listOf("3 региона", "Только TCP"),
+        listOf("Available regions", "TCP only"), listOf("Доступные регионы", "Только TCP"),
         consent(false), consent(true), emptySet()))
-
-    /** Reuse only real IP endpoints from the previous profile, never guessed certificate hostnames. */
-    internal fun cachedServers(content: String?, region: String): JsonArray {
-        require(region in regions)
-        val result = JsonArray()
-        val outbounds = runCatching { content?.let { NativeJsonDocument.parse(it).asJsonObject.getAsJsonArray("outbounds") } }.getOrNull()
-        outbounds?.forEach { value ->
-            runCatching {
-                val outbound = value.asJsonObject
-                val tls = outbound.getAsJsonObject("tls")
-                val host = outbound.get("server").asString
-                val port = outbound.get("server_port").asInt
-                if (outbound.get("type").asString == "http" && isPublicLiteral(host) && port in 1..65535 &&
-                    tls.get("enabled").asBoolean && tls.get("insecure")?.asBoolean != true &&
-                    tls.get("server_name").asString == "${region.lowercase(Locale.ROOT)}0.sec-tunnel.com") {
-                    result.add(JsonObject().apply {
-                        addProperty("ip", host); add("ports", JsonArray().apply { add(port) })
-                    })
-                }
-            }
-        }
-        return result
-    }
 
     internal fun content(region: String, login: String, password: String, servers: JsonArray): String =
         content(mapOf(region to servers), login, password)

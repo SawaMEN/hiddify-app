@@ -106,11 +106,6 @@ class NativeOperaProfilesTest {
         assertNull(failure.cause)
     }
 
-    private fun previousProfile(): String = NativeOperaProfiles.content(
-        NativeOperaProfiles.regions.keys.associateWith {
-            JsonParser.parseString("""[{"ip":"77.111.244.26","ports":[443]}]""").asJsonArray
-        }, "old-device", "old-password")
-
     private fun unavailableDiscovery() = Interceptor { chain ->
         val request = chain.request()
         val text = when (request.url.encodedPath) {
@@ -121,22 +116,40 @@ class NativeOperaProfilesTest {
         Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK").body(text.toResponseBody()).build()
     }
 
-    @Test fun discoveryFailureReusesRealCachedIpsWithFreshCredentials() {
-        val result = JsonParser.parseString(NativeOperaProfilesRepository(unavailableDiscovery())
-            .generate(previousContent = previousProfile())).asJsonObject.getAsJsonArray("outbounds")
-        assertEquals(3, result.size())
-        assertTrue(result.all { it.asJsonObject.get("server").asString == "77.111.244.26" })
-        assertTrue(result.all { it.asJsonObject.get("password").asString == "temporary" })
-        assertTrue(result.all { it.asJsonObject.get("username").asString != "old-device" })
-    }
-
     @Test fun initialDiscoveryFailureCannotPublishInventedHostnames() {
         val failure = assertThrows(NativeOperaUnavailableException::class.java) {
             NativeOperaProfilesRepository(unavailableDiscovery()).generate()
         }
-        assertEquals("discover-EU", failure.stage)
+        assertEquals("discover-AM", failure.stage)
         assertEquals(801, failure.status)
-        assertTrue(failure.message!!.contains("Europe"))
+        assertTrue(failure.message!!.contains("Americas"))
+    }
+
+    @Test fun unavailableRegionsAreSkippedAndOtherRegionsRemainUsable() {
+        for (unavailable in listOf(setOf("AS"), setOf("EU", "AS"), setOf("AS", "AM"))) {
+            val attempts = mutableMapOf<String, Int>()
+            val repository = NativeOperaProfilesRepository(Interceptor { chain ->
+                val request = chain.request()
+                val text = when (request.url.encodedPath) {
+                    "/v4/register_subscriber" -> """{"return_code":{"0":"OK"},"data":null}"""
+                    "/v4/register_device" -> """{"return_code":{"0":"OK"},"data":{"device_id":"device","device_password":"temporary"}}"""
+                    else -> {
+                        assertTrue(chain.call().timeout().timeoutNanos() in 1..java.util.concurrent.TimeUnit.SECONDS.toNanos(4))
+                        val code = (request.body as okhttp3.FormBody).value(1).substringAfter('"').substringBefore('"')
+                        attempts[code] = attempts.getOrDefault(code, 0) + 1
+                        if (code in unavailable) """{"return_code":{"801":"unavailable"},"data":null}"""
+                        else """{"return_code":{"0":"OK"},"data":{"ips":[{"ip":"77.111.244.26","ports":[443]}]}}"""
+                    }
+                }
+                Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK").body(text.toResponseBody()).build()
+            })
+            val root = JsonParser.parseString(repository.generate()).asJsonObject
+            val expected = NativeOperaProfiles.regions.keys - unavailable
+            assertEquals(expected.size, root.getAsJsonArray("outbounds").size())
+            expected.forEach { assertEquals(1, attempts[it]) }
+            unavailable.forEach { assertEquals(2, attempts[it]) }
+            assertTrue(root.getAsJsonArray("outbounds").all { it.asJsonObject.get("server").asString == "77.111.244.26" })
+        }
     }
 
     @Test fun transientAsiaFailureIsRetriedWithoutDroppingItsServers() {
@@ -159,17 +172,6 @@ class NativeOperaProfilesTest {
         assertEquals(2, asiaAttempts)
         assertEquals(3, result.size())
         assertTrue(result.any { it.asJsonObject.get("tag").asString.contains("Asia") })
-    }
-
-    @Test fun cacheRejectsOldDnsAliasesPrivateIpsAndDisabledCertificateChecks() {
-        val root = JsonParser.parseString(previousProfile()).asJsonObject
-        val nodes = root.getAsJsonArray("outbounds")
-        nodes[0].asJsonObject.addProperty("server", "eu0.sec-tunnel.com")
-        nodes[1].asJsonObject.addProperty("server", "127.0.0.1")
-        nodes[2].asJsonObject.getAsJsonObject("tls").addProperty("insecure", true)
-        NativeOperaProfiles.regions.keys.forEach {
-            assertEquals(0, NativeOperaProfiles.cachedServers(root.toString(), it).size())
-        }
     }
 
     @Test fun httpsPortIsPreferredWhenApiListsMultiplePorts() {
