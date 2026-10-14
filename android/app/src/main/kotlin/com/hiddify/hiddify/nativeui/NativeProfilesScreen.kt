@@ -33,9 +33,7 @@ internal fun NativeProfilesSheet(
     LaunchedEffect(profiles, loading, loadFailed) {
         if (!loading && !loadFailed && profiles.isEmpty()) onDismiss()
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetMaxWidth = 456.dp,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        sheetGesturesEnabled = false, dragHandle = null) {
+    NativeModalSheet(onDismissRequest = onDismiss, sheetMaxWidth = 456.dp) {
         NativeProfilesScreen(profiles, busyProfileId, onDismiss, {}, onSelect, onDelete, onRefresh,
             onEdit, onCopyConfig, onExportConfig, loading, loadFailed, onRetry, onUpdateAll,
             sortByName, ascending, onSort, isSheet = true)
@@ -99,8 +97,8 @@ fun NativeProfilesScreen(
     }
     if (isSheet) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            // Keep the expanded list bounded; the Material sheet supplies the drag/partial state.
-            Column(Modifier.fillMaxWidth().height(maxHeight * .85f)) {
+            // Fill the fixed modal viewport; only the profile list scrolls.
+            Column(Modifier.fillMaxSize()) {
                 ProfileBody(Modifier.weight(1f).fillMaxWidth())
                 FlowRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {

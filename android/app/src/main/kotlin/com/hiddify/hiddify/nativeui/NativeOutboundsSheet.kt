@@ -2,7 +2,7 @@ package com.hiddify.hiddify.nativeui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -29,10 +29,8 @@ internal fun NativeOutboundsSheet(
     operationError: String?,
     onDismissOperationError: () -> Unit,
 ) {
-    val height = (LocalConfiguration.current.screenHeightDp * .85f).dp
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetMaxWidth = 900.dp,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), sheetGesturesEnabled = false) {
-        Box(Modifier.fillMaxWidth().height(height)) {
+    NativeModalSheet(onDismissRequest = onDismiss, sheetMaxWidth = 900.dp) {
+        Box(Modifier.fillMaxSize()) {
             NativeOutboundsScreen(connected = connected, sort = sort, onChangeSort = onChangeSort,
                 busyTag = busyTag, smartSelection = smartSelection, smartSelectionBusy = smartSelectionBusy,
                 adaptiveNetwork = adaptiveNetwork, onChangeSmartSelection = onChangeSmartSelection,

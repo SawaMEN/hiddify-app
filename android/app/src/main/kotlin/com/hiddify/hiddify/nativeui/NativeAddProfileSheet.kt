@@ -117,15 +117,10 @@ internal fun NativeAddProfileSheet(
     val validUrl = uri != null && (uri.scheme.equals("http", true) || uri.scheme.equals("https", true)) &&
         !uri.host.isNullOrBlank() && (uri.port == -1 || uri.port in 1..65535) && raw.none(Char::isWhitespace)
 
-    ModalBottomSheet(
-        onDismissRequest = { if (enabled) onDismiss() },
-        sheetState = rememberModalBottomSheetState(
-            skipPartiallyExpanded = true,
-            confirmValueChange = { it != SheetValue.Hidden || canDismiss },
-        ),
-        sheetGesturesEnabled = false,
+    NativeModalSheet(
+        onDismissRequest = onDismiss,
+        canDismiss = canDismiss,
         sheetMaxWidth = 456.dp,
-        dragHandle = null,
     ) {
         Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState())) {
             if (busy || fileBusy) {
