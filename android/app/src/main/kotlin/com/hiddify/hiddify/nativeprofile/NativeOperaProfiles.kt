@@ -34,10 +34,27 @@ object NativeOperaProfiles {
         listOf("3 regions", "TCP only"), listOf("3 региона", "Только TCP"),
         consent(false), consent(true), emptySet()))
 
-    /** Known region hostnames can be used when SurfEasy discovery is unavailable (e.g. API 801). */
-    internal fun fallback(region: String) = JsonArray().apply {
+    /** Reuse only real IP endpoints from the previous profile, never guessed certificate hostnames. */
+    internal fun cachedServers(content: String?, region: String): JsonArray {
         require(region in regions)
-        add(JsonObject().apply { addProperty("ip", "${region.lowercase(Locale.ROOT)}0.sec-tunnel.com") })
+        val result = JsonArray()
+        val outbounds = runCatching { content?.let { NativeJsonDocument.parse(it).asJsonObject.getAsJsonArray("outbounds") } }.getOrNull()
+        outbounds?.forEach { value ->
+            runCatching {
+                val outbound = value.asJsonObject
+                val tls = outbound.getAsJsonObject("tls")
+                val host = outbound.get("server").asString
+                val port = outbound.get("server_port").asInt
+                if (outbound.get("type").asString == "http" && isPublicLiteral(host) && port in 1..65535 &&
+                    tls.get("enabled").asBoolean && tls.get("insecure")?.asBoolean != true &&
+                    tls.get("server_name").asString == "${region.lowercase(Locale.ROOT)}0.sec-tunnel.com") {
+                    result.add(JsonObject().apply {
+                        addProperty("ip", host); add("ports", JsonArray().apply { add(port) })
+                    })
+                }
+            }
+        }
+        return result
     }
 
     internal fun content(region: String, login: String, password: String, servers: JsonArray): String =
@@ -53,9 +70,10 @@ object NativeOperaProfiles {
             servers.take(16).forEach { item ->
                 val server = item.asJsonObject
                 val host = server.get("ip").asString
-                require(host == certificateName || isPublicLiteral(host)) { "Invalid Opera server address" }
+                require(isPublicLiteral(host)) { "Invalid Opera server address" }
                 val ports = server.getAsJsonArray("ports")
-                val port = if (ports == null || ports.size() == 0) 443 else ports[0].asInt
+                val port = if (ports == null || ports.size() == 0) 443
+                    else ports.firstOrNull { it.asInt == 443 }?.asInt ?: ports[0].asInt
                 require(port in 1..65535)
                 if (unique.add("$host:$port")) outbounds.add(JsonObject().apply {
                     addProperty("type", "http"); addProperty("tag", "Opera · ${regions.getValue(region)} · ${unique.size}")

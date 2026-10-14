@@ -292,6 +292,12 @@ fun NativeApp(
     onLogVisibilityChange: (Boolean) -> Unit = {},
 ) {
     var profilesSheetOpen by rememberSaveable { mutableStateOf(false) }
+    var pendingOperaSelectionId by rememberSaveable { mutableStateOf<String?>(null) }
+    fun selectProfileWithNotice(profile: NativeProfile) {
+        if (com.hiddify.hiddify.nativeprofile.NativeOperaProfiles.region(profile.url) != null) {
+            pendingOperaSelectionId = profile.id
+        } else onSelectProfile(profile)
+    }
     var profileSortByName by rememberSaveable { mutableStateOf(false) }
     var profileSortAscending by rememberSaveable { mutableStateOf(false) }
     var addProfileOpen by rememberSaveable { mutableStateOf(false) }
@@ -435,7 +441,7 @@ fun NativeApp(
                                         busyProfileId = busyProfileId,
                                         onBack = { goBack() },
                                         onAdd = { addProfileOpen = true },
-                                        onSelect = onSelectProfile,
+                                        onSelect = ::selectProfileWithNotice,
                                         onDelete = onDeleteProfile,
                                         onRefresh = onRefreshProfile,
                                         onEdit = { profile ->
@@ -800,9 +806,16 @@ fun NativeApp(
                 sortByName = profileSortByName, ascending = profileSortAscending,
                 onSort = { byName, ascending -> profileSortByName = byName; profileSortAscending = ascending },
                 onDismiss = { profilesSheetOpen = false }, onRetry = onRetryProfiles, onUpdateAll = onUpdateAllProfiles,
-                onSelect = onSelectProfile, onDelete = onDeleteProfile, onRefresh = onRefreshProfile,
+                onSelect = ::selectProfileWithNotice, onDelete = onDeleteProfile, onRefresh = onRefreshProfile,
                 onEdit = { profile -> profilesSheetOpen = false; onOpenProfileEditor(profile); openPage(PAGE_PROFILE_DETAILS) },
                 onCopyConfig = onCopyProfileConfig, onExportConfig = onExportProfileConfig)
+        }
+        profiles.firstOrNull { it.id == pendingOperaSelectionId }?.let { profile ->
+            NativeOperaNoticeDialog(
+                onDismiss = { pendingOperaSelectionId = null },
+                onContinue = { pendingOperaSelectionId = null; onSelectProfile(profile) },
+                enabled = busyProfileId == null,
+            )
         }
         if (addProfileOpen) {
             NativeAddProfileSheet(

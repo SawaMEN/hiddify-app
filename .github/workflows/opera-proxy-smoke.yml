@@ -3,7 +3,7 @@ name: Opera Proxy smoke check
 on:
   workflow_dispatch:
   push:
-    branches: [fix/opera-proxy]
+    branches: ['fix/opera-*']
     paths:
       - 'android/app/src/main/kotlin/com/hiddify/hiddify/nativeprofile/NativeOpera*.kt'
       - 'android/app/src/test/kotlin/com/hiddify/hiddify/nativeprofile/NativeOpera*.kt'
@@ -26,5 +26,5 @@ jobs:
       - uses: gradle/actions/setup-gradle@v6.4.0
       - name: Test TLS, authorization, catalog and profile regressions
         run: ./android/gradlew -p tool/kotlin-tests test --console=plain
-      - name: Verify real Opera registration and authenticated TCP tunnels
+      - name: Verify real Opera registration and HTTP/HTTPS traffic through every endpoint
         run: ./android/gradlew -p tool/kotlin-tests operaSmoke --console=plain

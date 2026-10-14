@@ -10,12 +10,13 @@ import java.util.concurrent.TimeUnit
 
 /** The registration flow follows routerich/opera-proxy. No remote scripts or shared credentials. */
 internal class NativeOperaProfilesRepository(private val transport: Interceptor? = null, private val russian: Boolean = false,
-    private val bootstrapDns: Dns? = null) {
-    fun generate(region: String = "ALL", cancellation: NativeProfileImportCancellation? = null): String {
+    private val bootstrapDns: Dns? = null,
+    private val onDiagnostic: ((String, String) -> Unit)? = null) {
+    fun generate(region: String = "ALL", cancellation: NativeProfileImportCancellation? = null, previousContent: String? = null): String {
         require(region == "ALL" || region in NativeOperaProfiles.regions)
         cancellation?.ensureActive()
         val storedCookies = mutableListOf<Cookie>()
-        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30)
         var stage = "register_subscriber"
         val http = NativeOperaApiTransport.builder().apply { bootstrapDns?.let { dns(it) } }
             .cookieJar(object : CookieJar {
@@ -84,34 +85,64 @@ internal class NativeOperaProfilesRepository(private val transport: Interceptor?
             val discoveries = linkedMapOf<String, com.google.gson.JsonArray>()
             for (code in NativeOperaProfiles.regions.keys) {
                 cancellation?.ensureActive()
-                discoveries[code] = try {
-                    val discovery = rpc("discover", mapOf("serial_no" to login, "requested_geo" to "\"$code\",,"))
-                    discovery.getAsJsonArray("ips").also { require(it.size() > 0) }
-                } catch (error: CancellationException) { throw error }
-                catch (_: Exception) {
+                var servers: com.google.gson.JsonArray? = null
+                var failure: Exception? = null
+                for (attempt in 0..1) {
                     cancellation?.ensureActive()
-                    // Registration succeeded: discovery 801/timeouts need not invalidate credentials.
-                    // Use a known Opera region hostname, whose certificate the VPN core verifies.
-                    NativeOperaProfiles.fallback(code)
+                    try {
+                        val discovery = rpc("discover", mapOf("serial_no" to login, "requested_geo" to "\"$code\",,"))
+                        val candidates = discovery.getAsJsonArray("ips")
+                        require(candidates.size() > 0)
+                        // Validate before caching/persisting any endpoint or exposing it in the server list.
+                        NativeOperaProfiles.content(code, login, password, candidates)
+                        servers = candidates
+                        break
+                    } catch (error: CancellationException) { throw error }
+                    catch (error: Exception) {
+                        cancellation?.ensureActive()
+                        failure = error
+                        onDiagnostic?.invoke(code, if (error is NativeOperaUnavailableException)
+                            "${error.reason} ${error.status ?: ""}" else error.javaClass.simpleName)
+                        if (attempt == 0 && System.nanoTime() < deadline) {
+                            Thread.sleep(300)
+                            cancellation?.ensureActive()
+                        }
+                    }
+                }
+                val cached = if (servers == null) NativeOperaProfiles.cachedServers(previousContent, code) else null
+                discoveries[code] = servers ?: cached?.takeIf { it.size() > 0 } ?: run {
+                    val failed = failure as? NativeOperaUnavailableException
+                    throw NativeOperaUnavailableException("discover-$code", failed?.reason ?: operaFailureReason(failure), failed?.status, russian)
                 }
             }
             cancellation?.ensureActive()
+            if (onDiagnostic != null) {
+                try {
+                    val geos = rpc("geo_list", mapOf("device_id" to login)).getAsJsonArray("geos")
+                    val codes = geos.map { it.asJsonObject.get("country_code").asString }
+                        .filter { it.matches(Regex("[A-Z]{2,3}")) }
+                    onDiagnostic.invoke("available geos", codes.joinToString(","))
+                } catch (error: CancellationException) { throw error }
+                catch (error: Exception) { onDiagnostic.invoke("available geos", error.javaClass.simpleName) }
+            }
             return NativeOperaProfiles.content(discoveries, login, password)
         } catch (error: CancellationException) { throw error }
         catch (error: Exception) {
             cancellation?.ensureActive()
             if (error is NativeOperaUnavailableException) throw error
-            val reason = when (error) {
-                is java.net.UnknownHostException -> "dns"
-                is java.net.SocketTimeoutException, is java.io.InterruptedIOException -> "timeout"
-                is javax.net.ssl.SSLException -> "tls"
-                is java.io.IOException -> "network"
-                else -> "response"
-            }
+            val reason = operaFailureReason(error)
             // No response text, tokens, request headers or chained exceptions enter logs/UI.
             throw NativeOperaUnavailableException(stage, reason, russian = russian)
         } finally { http.connectionPool.evictAll() }
     }
+}
+
+private fun operaFailureReason(error: Exception?): String = when (error) {
+    is java.net.UnknownHostException -> "dns"
+    is java.net.SocketTimeoutException, is java.io.InterruptedIOException -> "timeout"
+    is javax.net.ssl.SSLException -> "tls"
+    is java.io.IOException -> "network"
+    else -> "response"
 }
 
 internal class NativeOperaUnavailableException(
@@ -122,7 +153,15 @@ private fun operaFailureMessage(stage: String, reason: String, status: Int?, rus
     val step = when (stage) {
         "register_subscriber" -> if (russian) "регистрация" else "registration"
         "register_device" -> if (russian) "получение доступа" else "device access"
-        else -> if (russian) "получение серверов" else "server discovery"
+        else -> {
+            val region = when (stage.substringAfter("discover-", "")) {
+                "EU" -> if (russian) "Европа" else "Europe"
+                "AS" -> if (russian) "Азия" else "Asia"
+                "AM" -> if (russian) "Америка" else "Americas"
+                else -> ""
+            }
+            (if (russian) "получение серверов" else "server discovery") + if (region.isEmpty()) "" else " ($region)"
+        }
     }
     val detail = when (reason) {
         "http" -> "HTTP $status"
