@@ -711,4 +711,17 @@
     <string name="native_profile_tls_open">TLS settings of the active profile</string>
     <string name="native_tls_legacy_help">Legacy TLS switches are retained for compatibility. Actual TCP/TLS record fragmentation, SNI and fingerprint are configured per profile above. Mixed SNI case and padding depend on the selected engine and transport.</string>
     <string name="native_warp_no_traffic">WARP did not pass traffic through any tested UDP endpoint. Try another network or a VPN with a different transport.</string>
+    <string name="native_tls_auto_profile">Automatic</string>
+    <string name="native_request_auto_help">The app sends its User-Agent automatically. Select another client only if your subscription provider requires it.</string>
+    <string name="native_request_client">Subscription client</string>
+    <string name="native_request_browser">Web browser</string>
+    <string name="native_request_custom">Custom settings</string>
+    <string name="native_network_advanced">Additional settings</string>
+    <string name="native_tls_auto_help">Automatic keeps SNI, ALPN and certificate settings from your profile. Presets change only the selected TLS trick.</string>
+    <string name="native_tls_no_servers">No compatible TLS servers were found in this profile. WARP and AWG use UDP and do not need these TLS settings.</string>
+    <string name="native_tls_preset">TLS mode</string>
+    <string name="native_tls_preset_browser">Browser fingerprint (Chrome)</string>
+    <string name="native_tls_preset_fragment">Gentle TCP fragmentation</string>
+    <string name="native_tls_all_servers">All compatible servers</string>
+    <string name="native_tls_detected_sni">SNI from profile: %1$s</string>
 </resources>

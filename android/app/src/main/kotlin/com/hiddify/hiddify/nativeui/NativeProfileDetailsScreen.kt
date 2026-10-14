@@ -30,6 +30,7 @@ import java.util.Locale
 @Composable
 fun NativeProfileDetailsScreen(
     editor: NativeProfileEditor?,
+    networkOnly: Boolean = false,
     session: NativeProfileEditorSession,
     busy: Boolean,
     loadFailed: Boolean,
@@ -38,7 +39,7 @@ fun NativeProfileDetailsScreen(
     onSave: (name: String, disableAutoUpdate: Boolean, updateIntervalHours: Int?, content: String, networkOptions: com.hiddify.hiddify.nativeprofile.NativeProfileNetworkOptions) -> Unit,
 ) {
     LaunchedEffect(editor) { editor?.let(session::load) }
-    var jsonValid by remember(editor?.profile?.id, editor?.profile?.lastUpdate) { mutableStateOf(editor?.isJson != true) }
+    var jsonValid by remember(editor?.profile?.id, editor?.profile?.lastUpdate) { mutableStateOf(networkOnly || editor?.isJson != true) }
     var validateName by remember { mutableStateOf(false) }
     val ready = editor != null && session.identity == "${editor.profile.id}:${editor.profile.lastUpdate}"
     Column(Modifier.fillMaxSize()) {
@@ -46,7 +47,7 @@ fun NativeProfileDetailsScreen(
             IconButton(onClick = onBack, enabled = !busy) {
                 Icon(painterResource(R.drawable.native_back_arrow), stringResource(R.string.native_back))
             }
-            Text(stringResource(R.string.native_profile_details), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(if (networkOnly) R.string.native_profile_tls_open else R.string.native_profile_details), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
             NativeTextButton(enabled = ready && !busy && session.changed && jsonValid && session.content.isNotBlank() && runCatching { session.networkOptions.validated() }.isSuccess, onClick = {
                 validateName = true
                 if (session.name.isNotBlank()) onSave(session.name.trim(), session.disableAutoUpdate,
@@ -66,7 +67,12 @@ fun NativeProfileDetailsScreen(
             }
         } else if (editor != null) {
             val profile = editor.profile
-            Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).imePadding()) {
+            if (networkOnly) Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).imePadding()) {
+                Text(session.name, Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
+                val requestIsHttp = profile.isRemote && profile.url?.let { it.startsWith("https://", true) || it.startsWith("http://", true) } == true
+                NativeProfileNetworkSettings(session.networkOptions, requestIsHttp, editor.isJson, !busy, content = session.content) { session.networkOptions = it }
+                Spacer(Modifier.height(24.dp))
+            } else Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).imePadding()) {
                 OutlinedTextField(session.name, { session.name = it }, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     enabled = !busy, singleLine = true, label = { Text(stringResource(R.string.native_profile_name)) },
                     isError = validateName && session.name.isBlank(), supportingText = if (validateName && session.name.isBlank()) {
@@ -108,7 +114,7 @@ fun NativeProfileDetailsScreen(
                     leadingContent = { Icon(painterResource(R.drawable.native_history), null) },
                     colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent))
                 val requestIsHttp = profile.isRemote && profile.url?.let { it.startsWith("https://", true) || it.startsWith("http://", true) } == true
-                NativeProfileNetworkSettings(session.networkOptions, requestIsHttp, editor.isJson, !busy) { session.networkOptions = it }
+                NativeProfileNetworkSettings(session.networkOptions, requestIsHttp, editor.isJson, !busy, content = session.content) { session.networkOptions = it }
                 if (profile.isRemote && profile.upload != null && profile.download != null && profile.total != null) {
                     HorizontalDivider(Modifier.padding(horizontal = 16.dp))
                     Column(Modifier.padding(horizontal = 18.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {

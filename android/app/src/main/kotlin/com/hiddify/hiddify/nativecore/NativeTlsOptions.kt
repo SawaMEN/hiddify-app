@@ -35,6 +35,10 @@ enum class NativeTlsOptionField(val coreKey: String, val legacyKey: String) {
     PADDING("enable-padding", "enable-tls-padding"),
     PADDING_SIZE("padding-size", "tls-padding-size");
 
+    /** One dependency rule shared by the page and the fresh-state save boundary. */
+    fun enabled(options: NativeTlsOptions): Boolean = this == FRAGMENT ||
+        options.fragment && (this != PADDING_SIZE || options.padding)
+
     fun value(options: NativeTlsOptions): Any = when (this) {
         FRAGMENT -> options.fragment
         FRAGMENT_SIZE -> options.fragmentSize

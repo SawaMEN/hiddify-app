@@ -51,6 +51,7 @@ fun main() {
             for (mode in modes) save("${request.url.host} $mode", account.content(mode), true)
         }
     }
+    if (System.getenv("FREE_AUDIT_WARP_ONLY") != "1") {
     attempt("Opera") { save("Opera", NativeOperaProfilesRepository().generate()) }
     attempt("Free catalog") {
         http.newCall(Request.Builder().url(NativeFreeProfiles.FEED_URL).build()).execute().use { response ->
@@ -63,6 +64,7 @@ fun main() {
                 }
             }
         }
+    }
     }
     Files.writeString(directory.resolve("manifest.json"), manifest.toString())
 }

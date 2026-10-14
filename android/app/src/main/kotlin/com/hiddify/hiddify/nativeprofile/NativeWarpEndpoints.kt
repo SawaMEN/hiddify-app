@@ -16,11 +16,11 @@ internal object NativeWarpEndpoints {
         if (peers.size() != 1) return emptyList()
         val peer = peers[0].asJsonObject
         val host = peer.get("address").asString
-        if (!Regex("162\\.159\\.(192|195)\\.[0-9]{1,3}").matches(host)) return emptyList()
+        if (!Regex("(?:162\\.159\\.(192|195)|188\\.114\\.(96|97))\\.[0-9]{1,3}").matches(host)) return emptyList()
         val original = host to peer.get("port").asInt
         // Consumer WireGuard ingress only. MASQUE ingress cannot accept these credentials.
         val addresses = listOf(original, host to 2408, host to 4500,
-            "162.159.192.1" to 500, "162.159.195.1" to 1701).distinct()
+            "188.114.96.1" to 2408, "188.114.97.1" to 2408, "162.159.192.1" to 500).distinct()
         addresses.map { (address, port) ->
             val copy = root.deepCopy()
             val target = copy.getAsJsonArray("endpoints")[0].asJsonObject.getAsJsonArray("peers")[0].asJsonObject

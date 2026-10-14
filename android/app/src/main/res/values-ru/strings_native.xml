@@ -711,4 +711,17 @@
     <string name="native_profile_tls_open">Параметры TLS активного профиля</string>
     <string name="native_tls_legacy_help">Старые переключатели TLS сохранены для совместимости. Рабочая TCP-фрагментация и фрагментация записей TLS, SNI и отпечаток настраиваются для профиля выше. Смена регистра SNI и padding зависят от выбранного ядра и транспорта.</string>
     <string name="native_warp_no_traffic">WARP не передаёт трафик через проверенные UDP-адреса. Попробуйте другую сеть или VPN с другим транспортом.</string>
+    <string name="native_tls_auto_profile">Автоматически</string>
+    <string name="native_request_auto_help">Приложение само отправляет User-Agent. Выберите другой клиент, только если этого требует провайдер подписки.</string>
+    <string name="native_request_client">Клиент подписки</string>
+    <string name="native_request_browser">Браузер</string>
+    <string name="native_request_custom">Свои настройки</string>
+    <string name="native_network_advanced">Дополнительные настройки</string>
+    <string name="native_tls_auto_help">Автоматический режим сохраняет SNI, ALPN и проверку сертификата из профиля. Готовые варианты меняют только выбранный приём TLS.</string>
+    <string name="native_tls_no_servers">В профиле не найдены подходящие TLS-серверы. WARP и AWG работают через UDP: эти настройки TLS им не нужны.</string>
+    <string name="native_tls_preset">Режим TLS</string>
+    <string name="native_tls_preset_browser">Как браузер Chrome</string>
+    <string name="native_tls_preset_fragment">Мягкая фрагментация TCP</string>
+    <string name="native_tls_all_servers">Все подходящие серверы</string>
+    <string name="native_tls_detected_sni">SNI из профиля: %1$s</string>
 </resources>

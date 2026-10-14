@@ -2094,10 +2094,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 tlsOptions.value = BoxService.withNativeLifecycle {
                     check(serviceStatus.value != Status.Starting && serviceStatus.value != Status.Stopping &&
                         !nativeStartPending && !pendingStartAfterVpnPermission)
-                    // Match the page dependency against fresh state, rather than a stale switch snapshot.
-                    check(field == com.hiddify.hiddify.nativecore.NativeTlsOptionField.FRAGMENT ||
-                        withContext(Dispatchers.IO) { tlsRepository.load().fragment })
-                    withContext(Dispatchers.IO) { tlsRepository.saveField(field, input) }
+                    val current = withContext(Dispatchers.IO) { tlsRepository.load() }
+                    // A stale click on a disabled dependent setting is ignored and refreshes the UI.
+                    if (!field.enabled(current)) current
+                    else withContext(Dispatchers.IO) { tlsRepository.saveField(field, input) }
                 }
                 coreChangesSaved()
             } catch (error: CancellationException) {

@@ -5,6 +5,16 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 
 class NativeTlsOptionsTest {
+    @Test fun dependenciesMatchSwitchesAndPaddingState() {
+        for (fragment in listOf(false, true)) for (padding in listOf(false, true)) {
+            val options = NativeTlsOptions(fragment = fragment, padding = padding)
+            NativeTlsOptionField.entries.forEach { field ->
+                assertEquals(field == NativeTlsOptionField.FRAGMENT || fragment &&
+                    (field != NativeTlsOptionField.PADDING_SIZE || padding), field.enabled(options))
+            }
+        }
+    }
+
     @Test fun switchEditsPreserveImportedRangesAndOtherSwitches() {
         val imported = NativeTlsOptions(true, "", "legacy-range", true, false, "0001-0010")
         assertEquals(imported.copy(fragment = false), NativeTlsOptionField.FRAGMENT.applyTo(imported, "false"))
