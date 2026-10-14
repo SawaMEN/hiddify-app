@@ -6,6 +6,24 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeCrashRecorderTest {
+    @Test fun recordsHandledServiceFailureSeparatelyWithoutSecretsOrTermination() {
+        val directory = Files.createTempDirectory("service-failure-recorder").toFile()
+        try {
+            val crash = File(directory, "app.log").apply { writeText("previous fatal crash") }
+            val serviceFailure = File(directory, "service-failure.log")
+            NativeCrashRecorder.recordServiceFailure(serviceFailure,
+                IllegalStateException("private-profile", SecurityException("private-token")))
+            val report = serviceFailure.readText()
+            assertTrue(report.startsWith("Handled VPN service failure at "))
+            assertTrue(report.contains("java.lang.SecurityException"))
+            assertFalse(report.contains("private-profile"))
+            assertFalse(report.contains("private-token"))
+            assertEquals("previous fatal crash", crash.readText())
+            // A failed diagnostic write must not interrupt cleanup.
+            NativeCrashRecorder.recordServiceFailure(directory, IllegalArgumentException())
+        } finally { directory.deleteRecursively() }
+    }
+
     @Test fun recordsCauseWithoutSecretsAndDelegatesOriginalCrash() {
         val directory = Files.createTempDirectory("crash-recorder").toFile()
         try {

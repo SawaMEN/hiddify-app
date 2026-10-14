@@ -63,3 +63,47 @@ older recorded exit is not evidence of the latest incident.
 References:
 - https://developer.android.com/develop/ui/compose/state-saving
 - https://developer.android.com/reference/android/app/ApplicationExitInfo
+
+## Follow-up: connecting and connected sessions
+
+The first PR's CI tests, analysis, native race regressions and Android ARM64 build
+completed successfully. The follow-up reviews service-owned coroutine failures,
+native lifecycle replacement, WARP endpoint startup and process-exit evidence.
+
+- `SupervisorJob` isolates child jobs but does not consume uncaught `launch`
+  exceptions. Some service tasks (including asynchronous stop cleanup) did not
+  have an outer exception boundary. Added a service-specific boundary that records
+  an unexpected `Exception` and schedules one orderly disconnect. Cleanup cancels
+  pending preparation/start/recovery, holds the shared native lifecycle mutex,
+  releases the core/TUN/hotspot, updates the UI and stops the Android service.
+  Cancellation remains normal control flow; VM/linkage `Error`s still reach the
+  original Android crash handler. A replacement service's ownership is checked
+  before cleanup to protect a newer session.
+- Service replacement now cancels the old recovery/health tasks and joins its
+  startup-cancellation task before closing and setting up the shared Go runtime.
+  This prevents an old asynchronous `Mobile.stop()` from overlapping the next
+  owner's setup/start.
+- WARP candidates now start from inline config content. Previously a temporary
+  file path was passed to `Mobile.start()` and deleted after a successful traffic
+  probe. The core persists its start request for later restart/hot reload, so that
+  persisted path could reference an already deleted file.
+- On Android 11+, record allowlisted VPN phases in `setProcessStateSummary()` and
+  include the validated phase in historical exit exports. The system can preserve
+  this evidence when a native fault or signal prevents the JVM handler from
+  running. Optional diagnostic API failures do not interrupt a connection. No
+  config contents, error messages, addresses, tokens or other private state are
+  included in the summary.
+- Handled service errors have a separate bounded, redacted `service-failure.log`,
+  displayed/exported alongside fatal JVM logs and system exit records.
+
+Follow-up local validation: **370 JVM tests passed**, including concurrent service
+failures, cancellation, fatal-error delegation, restarting a bound service,
+redacted handled-error logs and process-phase payload validation. Production JVM
+sources compiled with the same cached Kotlin/dependency fallback described above;
+project/resource and whitespace checks passed. The follow-up Android build and
+device stress tests still need separate verification. Neither round proves the
+cause of a particular device's intermittent crash without its matching logs.
+
+Additional references:
+- https://kotlinlang.org/api/kotlinx.coroutines/kotlinx-coroutines-core/kotlinx.coroutines/-coroutine-exception-handler/
+- https://developer.android.com/reference/android/app/ActivityManager#setProcessStateSummary(byte[])

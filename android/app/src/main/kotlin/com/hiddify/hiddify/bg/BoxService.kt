@@ -23,6 +23,7 @@ import com.hiddify.hiddify.Settings
 import com.hiddify.hiddify.constant.Action
 import com.hiddify.hiddify.constant.Alert
 import com.hiddify.hiddify.constant.Status
+import com.hiddify.hiddify.nativelog.NativeVpnProcessPhase
 import java.io.File
 import android.net.VpnService
 import com.hiddify.hiddify.nativeconnection.NativeHealthProbePolicy
@@ -130,7 +131,14 @@ class BoxService(
 
     @Volatile var fileDescriptor: ParcelFileDescriptor? = null
 
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val failureBoundary = com.hiddify.hiddify.nativeconnection.NativeServiceFailureBoundary(
+        onFailure = ::handleUnexpectedFailure,
+        onFatal = { error ->
+            Thread.getDefaultUncaughtExceptionHandler()?.uncaughtException(Thread.currentThread(), error)
+                ?: throw error
+        },
+    )
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO + failureBoundary)
     @Volatile private var destroyed = false
     private val status = MutableLiveData(Status.Stopped)
     private val binder = ServiceBinder(status)
@@ -182,6 +190,48 @@ class BoxService(
     @Volatile private var rootActive = false
     private var rootMonitor: kotlinx.coroutines.Job? = null
 
+    private fun handleUnexpectedFailure(error: Exception) {
+        Log.e(TAG, "Unexpected VPN service task failure; stopping the connection", error)
+        if (destroyed || (coreOwner != null && coreOwner !== this)) return
+        stopRequested = true
+        runCatching { profilePreparationCancellation?.cancel() }
+            .onFailure { Log.w(TAG, "Could not cancel profile preparation after service failure", it) }
+        cancelNativeStartup()
+        recoveryJob?.cancel(); recoveryJob = null
+        monitorJob?.cancel(); monitorJob = null
+        serviceScope.launch {
+            com.hiddify.hiddify.nativelog.NativeCrashRecorder.recordServiceFailure(
+                File(service.filesDir, "service-failure.log"), error,
+            )
+            lifecycleMutex.withLock {
+                // An old service's failure must never stop its replacement's core.
+                if (destroyed || (coreOwner != null && coreOwner !== this@BoxService)) return@withLock
+                runCatching {
+                    Settings.connectionDesired = false
+                    Settings.startedByUser = false
+                }.onFailure { Log.e(TAG, "Could not persist disconnect intent after service failure", it) }
+                startCancellation?.join()
+                NativeServiceState.reset()
+                NativeStatsFeed.reset(); com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
+                runCatching { com.hiddify.hiddify.sharing.AutomaticHotspot.stop() }
+                    .onFailure { Log.w(TAG, "Hotspot cleanup after service failure failed", it) }
+                runCatching { releaseNative("unexpected task failure") }
+                    .onFailure { Log.e(TAG, "Native cleanup after service failure failed", it) }
+                closeTun("unexpected task failure")
+                withContext(Dispatchers.Main) {
+                    if (destroyed) return@withContext
+                    unregisterReceiver()
+                    notification.close()
+                    status.value = Status.Stopped
+                    binder.broadcast { it.onServiceAlert(Alert.StartService.ordinal,
+                        error.message ?: error.javaClass.simpleName) }
+                    runCatching { service.stopSelf() }
+                        .onFailure { Log.e(TAG, "Android service stop after task failure failed", it) }
+                }
+            }
+        }
+    }
+
     private suspend fun finishCancelledStart(reason: String) {
         startCancellation?.join()
         if (!Settings.connectionDesired) Settings.startedByUser = false
@@ -209,6 +259,11 @@ class BoxService(
             if (destroyed) return
             coreOwner?.takeIf { it !== this }?.let { previous ->
                 previous.stopRequested = true
+                previous.recoveryJob?.cancel(); previous.recoveryJob = null
+                previous.monitorJob?.cancel(); previous.monitorJob = null
+                // A concurrent Mobile.stop() issued by the old startup must finish before
+                // a replacement calls Mobile.setup()/start() on the shared Go runtime.
+                previous.startCancellation?.join()
                 previous.releaseNative("replacement")
                 withContext(Dispatchers.Main) {
                     previous.unregisterReceiver()
@@ -221,6 +276,7 @@ class BoxService(
                 finishCancelledStart("cancelled before setup")
                 return
             }
+            NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.LOADING_CORE)
             initialize()
             status.postValue(Status.Starting)
             Log.d(TAG, "starting service")
@@ -232,6 +288,7 @@ class BoxService(
 
             // Temporary Opera credentials must be renewed even when starting from a tile,
             // always-on VPN or after a long period with the Activity closed.
+            NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.PREPARING_PROFILE)
             withContext(Dispatchers.IO) {
                 val repository = com.hiddify.hiddify.nativeprofile.NativeProfileRepository(service)
                 repository.activeProfile()?.let { profile ->
@@ -275,6 +332,7 @@ class BoxService(
             DefaultNetworkMonitor.start()
             if (Settings.privacyUseRoot) {
                 rootActive = true
+                NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STARTING_CORE)
                 com.hiddify.hiddify.privacy.RootCore.start(service)
                 if (!Settings.connectionDesired || stopRequested) {
                     finishCancelledStart("cancelled during root setup")
@@ -294,6 +352,7 @@ class BoxService(
                 Libbox.setMemoryLimit(!Settings.disableMemoryLimit)
 
                 try {
+                    NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.SETTING_UP_CORE)
                     Mobile.setup(
                         SetupOptions().also {
                             val memoryClass = (service.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager).memoryClass
@@ -323,6 +382,7 @@ class BoxService(
                     return
                 }
                 try {
+                    NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.APPLYING_SETTINGS)
                     NativeCoreControl.applyStoredSettings(service)
                 } catch (error: Exception) {
                     stopAndAlert(Alert.CreateService, "Unable to apply core settings: ${error.message ?: error.javaClass.simpleName}")
@@ -343,6 +403,7 @@ class BoxService(
                     // It must be issued concurrently: waiting for our mutex first cannot abort Start().
                     nativeStarting = true
                     nativeStartupTimedOut = false
+                    NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STARTING_CORE)
                     // Mobile.start() is a blocking JNI call. A separate IO coroutine can
                     // cancel Go's startup context even when Psiphon bootstrap stalls.
                     val startupWatchdog = serviceScope.launch {
@@ -395,6 +456,7 @@ class BoxService(
             }
             Settings.nativeAppliedQuickSettings = Settings.quickSettingsSignature(service)
             Settings.nativeReconnectRequired = false
+            NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.CONNECTED)
             status.postValue(Status.Started)
             withContext(Dispatchers.Main) {
                 if (destroyed) return@withContext
@@ -672,6 +734,7 @@ class BoxService(
     }
 
     private suspend fun closeCore() {
+        NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STOPPING_CORE)
         rootMonitor?.cancel(); rootMonitor = null
         if (rootActive) {
             com.hiddify.hiddify.privacy.RootCore.stop()
@@ -688,6 +751,7 @@ class BoxService(
                 }
             }
         }
+        NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STOPPED)
     }
 
     /** Probe through the core before accepting a built-in WARP endpoint. Stop between attempts,
@@ -703,34 +767,35 @@ class BoxService(
             Mobile.start(configPath, "")
             return
         }
-        val temporary = File.createTempFile("warp-start-", ".json", File(Settings.tempDir))
-        try {
-            val selected = com.hiddify.hiddify.nativeconnection.NativeWarpStartupPolicy.select(
-                candidates = candidates,
-                checkDesired = {
-                    if (nativeStartupTimedOut) error(service.getString(R.string.native_warp_no_traffic))
-                    if (stopRequested || destroyed || !Settings.connectionDesired)
-                        throw CancellationException("WARP startup cancelled")
-                },
-                start = { content ->
-                    temporary.writeText(content)
-                    Mobile.start(temporary.path, "")
-                    Libbox.setMemoryLimit(!Settings.disableMemoryLimit)
-                    if (service is VPNService && fileDescriptor == null)
-                        error("Android VPN interface was not created by the core (missing TUN inbound)")
-                },
-                probe = { NativeHealthRepository().probeStartingCore() },
-                stop = {
-                    Mobile.stop()
-                    DefaultNetworkMonitor.detachCoreListener()
-                    closeTun("WARP endpoint retry")
-                },
-            ) ?: error(service.getString(R.string.native_warp_no_traffic))
-            if (selected > 0) repository.saveEditedProfile(profile!!.id, candidates[selected], editor!!.name,
-                editor.disableAutoUpdate, editor.updateIntervalHours, expectedLastUpdate = profile.lastUpdate)
-        } finally {
-            temporary.delete()
-        }
+        val selected = com.hiddify.hiddify.nativeconnection.NativeWarpStartupPolicy.select(
+            candidates = candidates,
+            checkDesired = {
+                if (nativeStartupTimedOut) error(service.getString(R.string.native_warp_no_traffic))
+                if (stopRequested || destroyed || !Settings.connectionDesired)
+                    throw CancellationException("WARP startup cancelled")
+            },
+            start = { content ->
+                // The core persists its StartRequest for restart/hot reload. A deleted
+                // temporary path leaves an established WARP session unable to restart.
+                NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STARTING_CORE)
+                Mobile.start("", content)
+                Libbox.setMemoryLimit(!Settings.disableMemoryLimit)
+                if (service is VPNService && fileDescriptor == null)
+                    error("Android VPN interface was not created by the core (missing TUN inbound)")
+            },
+            probe = {
+                NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.PROBING_WARP)
+                NativeHealthRepository().probeStartingCore()
+            },
+            stop = {
+                NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STOPPING_CORE)
+                Mobile.stop()
+                DefaultNetworkMonitor.detachCoreListener()
+                closeTun("WARP endpoint retry")
+            },
+        ) ?: error(service.getString(R.string.native_warp_no_traffic))
+        if (selected > 0) repository.saveEditedProfile(profile!!.id, candidates[selected], editor!!.name,
+            editor.disableAutoUpdate, editor.updateIntervalHours, expectedLastUpdate = profile.lastUpdate)
     }
 
     private fun closeTun(reason: String) {
@@ -743,6 +808,7 @@ class BoxService(
     internal fun onStartCommand(): Int {
         if (destroyed) return Service.START_NOT_STICKY
         if (status.value != Status.Stopped) return if (Settings.connectionDesired) Service.START_STICKY else Service.START_NOT_STICKY
+        failureBoundary.reset()
         stopRequested = false
         startCancellation = null
         status.value = Status.Starting
