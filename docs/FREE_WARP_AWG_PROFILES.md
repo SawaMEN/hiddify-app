@@ -142,10 +142,19 @@ alternate UDP port. The audit now obtains those alternatives directly from
 
 Community subscriptions require parsing share links into JSON and building DNS
 and dependency settings before startup. The audit covers retrieval, conversion
-and a bounded traffic sample of three nodes for these feeds; it does not claim
+and a traffic sample of three individual nodes for large feeds, or all nodes
+for feeds of at most sixteen entries; it does not claim
 that hundreds of independently operated public nodes all work. Results are
 network- and time-dependent and do not certify a user's Android TUN or ISP.
 
 The current stable app release v1.0.1 predates the WARP registration and startup
 fixes in main. Main's development APK includes them; an older installed APK can
 still use the obsolete generators or lazy registration templates.
+
+Final runner results: Cloudflare and all three backup generators passed in both
+modes (8/8 configurations); Opera passed all 10 discovered servers. Patterniha
+passed 1/3 sampled individual nodes and Anonymous passed 2/3. Mahsa passed 0/8
+and Warp & Psiphon passed 0/5. Retrieval, parsing and full configuration building
+succeeded for all four feeds; failed traffic results remain failures and are not
+reported as successful connectivity just because the audit workflow completes.
+These public-feed results do not diagnose an Android user's specific error.
