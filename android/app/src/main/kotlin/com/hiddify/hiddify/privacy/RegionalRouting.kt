@@ -29,14 +29,14 @@ object RegionalRouting {
         NativeRegionalServices.catalogue(catalogue(context).toString())
 
     fun policy(context: Context, @Suppress("UNUSED_PARAMETER") legacyRegion: String = "other", options: NativeRegionalOptions? = null, packages: NativeRegionalPackageValues? = null, servicesStored: String? = null, fullTunnel: Boolean = Settings.privacyFullTunnel, handbookRouting: Boolean = Settings.handbookRouting): Map<String, Any> {
-        val selected = options ?: NativeRegionalOptions(
+        val selected = (options ?: NativeRegionalOptions(
             mode = NativeRegionalMode.fromValue(Settings.privacyRoutingMode),
             russianNetworkBypass = Settings.privacyRussianNetworkBypass,
             russianAppsBypass = Settings.privacyRussianAppsBypass,
             restrictedServicesProxy = Settings.privacyRestrictedServicesProxy,
             directDomains = Settings.privacyDirectDomains,
             proxyDomains = Settings.privacyProxyDomains,
-        )
+        )).let { it.withMode(it.mode) }
         val mode = selected.effectiveMode(fullTunnel, handbookRouting).value
         val networkBypass = selected.networkBypassEnabled(fullTunnel, handbookRouting)
         val catalogue = catalogue(context)
@@ -97,7 +97,7 @@ object RegionalRouting {
         val builtInDirectDomains = if (networkBypass) {
             (vpnAwareDomains + compatibilityDomains).distinct()
         } else emptyList()
-        val directDomains = if (mode == NativeRegionalMode.SELECTED_PROXY.value) emptyList()
+        val directDomains = if (mode == NativeRegionalMode.SELECTED_PROXY.value && !networkBypass) emptyList()
             else merged(builtInDirectDomains, selected.directDomains, true)
         val proxyDomains = if (selected.restrictedServicesProxy) {
             merged(if (services.isNotEmpty()) NativeRegionalServices.domains(services, selectedServices)

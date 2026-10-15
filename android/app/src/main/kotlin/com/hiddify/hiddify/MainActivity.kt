@@ -465,7 +465,11 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onResetRegionalApps = ::resetRegionalApps,
                 regionalOptions = regionalOptions.value,
                 regionalBusy = regionalBusy.value,
-                onSaveRegionalOptions = ::saveRegionalOptions,
+                onSaveRegionalOptions = { options, community -> saveRegionalOptions(options, community) },
+                onRussianNetworkBypassChanged = { enabled ->
+                    saveRegionalOptions(regionalOptions.value.copy(russianNetworkBypass = enabled),
+                        Settings.handbookRouting, selectRouting = false)
+                },
                 trafficFilters = trafficFilters.value,
                 trafficFiltersBusy = trafficFiltersBusy.value,
                 onSaveTrafficFilters = ::saveTrafficFilters,
@@ -1987,12 +1991,12 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
-    private fun saveRegionalOptions(value: NativeRegionalOptions) {
+    private fun saveRegionalOptions(value: NativeRegionalOptions, useCommunityLists: Boolean, selectRouting: Boolean = true) {
         if (regionalBusy.value) return
         regionalBusy.value = true
         lifecycleScope.launch {
             try {
-                regionalOptions.value = withContext(Dispatchers.IO) { regionalOperationMutex.withLock { regionalRepository.save(value) } }
+                regionalOptions.value = withContext(Dispatchers.IO) { regionalOperationMutex.withLock { regionalRepository.save(value, useCommunityLists = useCommunityLists, selectRouting = selectRouting) } }
                 refreshSettingsSnapshot()
                 refreshPerApp()
                 refreshPrivacySetupState()

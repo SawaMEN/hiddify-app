@@ -180,7 +180,8 @@ fun NativeApp(
     onResetRegionalApps: (NativeRegionalAppKind) -> Unit,
     regionalOptions: NativeRegionalOptions,
     regionalBusy: Boolean,
-    onSaveRegionalOptions: (NativeRegionalOptions) -> Unit,
+    onSaveRegionalOptions: (NativeRegionalOptions, Boolean) -> Unit,
+    onRussianNetworkBypassChanged: (Boolean) -> Unit,
     trafficFilters: NativeTrafficFilters,
     trafficFiltersBusy: Boolean,
     onSaveTrafficFilters: (NativeTrafficFilters) -> Unit,
@@ -644,9 +645,14 @@ fun NativeApp(
                                     proxy = proxyPrivacy,
                                     canChangeRoot = status == Status.Stopped && !wifiSharingBusy,
                                     onSaveRegional = onSaveRegionalOptions,
+                                    onRussianNetworkBypassChanged = onRussianNetworkBypassChanged,
                                     onSaveConnection = onSaveConnectionOptions,
                                     onSaveProxy = onSaveProxyPrivacy,
-                                    onOpenApps = { kind -> onOpenRegionalApps(kind); openPage(PAGE_REGIONAL_APPS) },
+                                    onOpenApps = { kind ->
+                                        regionalAppKind = kind.name
+                                        onOpenRegionalApps(kind)
+                                        openPage(PAGE_REGIONAL_APPS)
+                                    },
                                     onFullTunnel = onFullTunnelChanged,
                                     onRoot = onRootModeChanged,
                                     onEncryptedDns = onEncryptedDnsChanged,

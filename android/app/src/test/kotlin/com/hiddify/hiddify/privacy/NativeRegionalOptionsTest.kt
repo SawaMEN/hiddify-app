@@ -84,7 +84,7 @@ class NativeRegionalOptionsTest {
     @Test fun switchingModeSetsConsistentDefaultsAndRetainsCustomDomainDrafts() {
         val original = NativeRegionalOptions(directDomains = "direct.example", proxyDomains = "proxy.example")
         val selective = original.withMode(NativeRegionalMode.SELECTED_PROXY)
-        assertFalse(selective.russianNetworkBypass)
+        assertTrue(selective.russianNetworkBypass)
         assertFalse(selective.russianAppsBypass)
         assertTrue(selective.restrictedServicesProxy)
         assertEquals("proxy.example", selective.proxyDomains)
@@ -93,24 +93,43 @@ class NativeRegionalOptionsTest {
         assertFalse(bypass.withMode(NativeRegionalMode.OFF).restrictedServicesProxy)
     }
 
-    @Test fun russianNetworkRulesCannotOverrideSelectiveOrDisabledRouting() {
+    @Test fun russianNetworkExceptionHasPriorityInEveryRoutingMode() {
         for (mode in NativeRegionalMode.entries) {
-            val options = NativeRegionalOptions(mode = mode, russianNetworkBypass = true)
-            assertEquals(mode == NativeRegionalMode.RUSSIAN_BYPASS, options.networkBypassEnabled(false, false))
-            assertFalse(options.networkBypassEnabled(true, false))
-            assertFalse(options.networkBypassEnabled(false, true))
+            for (full in listOf(false, true)) for (community in listOf(false, true)) {
+                val options = NativeRegionalOptions(mode = mode, russianNetworkBypass = true)
+                assertTrue(options.networkBypassEnabled(full, community))
+                assertFalse(options.copy(russianNetworkBypass = false).networkBypassEnabled(full, community))
+            }
+        }
+    }
+
+    @Test fun changingAppModePreservesIndependentNetworkSwitchAndDomains() {
+        for (enabled in listOf(false, true)) for (mode in NativeRegionalMode.entries) {
+            val options = NativeRegionalOptions(russianNetworkBypass = enabled, directDomains = "example.ru")
+            val changed = options.withMode(mode)
+            assertEquals(enabled, changed.russianNetworkBypass)
+            assertEquals("example.ru", changed.directDomains)
         }
     }
 
     @Test fun explicitDeviceModesDisableFullConfigRulesButKeepProfileAndTransportSettings() {
         val json = """{"execute-config-as-is":true,"enable-full-config":true,"mtu":1400,"tls-tricks":{"enable-fragment":true}}"""
-        for (mode in listOf(NativeRegionalMode.RUSSIAN_BYPASS, NativeRegionalMode.SELECTED_PROXY)) {
+        for (mode in NativeRegionalMode.entries) {
             val root = com.google.gson.JsonParser.parseString(NativeRegionalOptions(mode = mode).managedCoreOptions(json)).asJsonObject
             assertFalse(root["execute-config-as-is"].asBoolean)
             assertFalse(root["enable-full-config"].asBoolean)
             assertEquals(1400, root["mtu"].asInt)
             assertTrue(root["tls-tricks"].asJsonObject["enable-fragment"].asBoolean)
         }
-        assertEquals(json, NativeRegionalOptions(mode = NativeRegionalMode.OFF).managedCoreOptions(json))
+        assertEquals(json, NativeRegionalOptions(mode = NativeRegionalMode.OFF, russianNetworkBypass = false).managedCoreOptions(json))
     }
+    @Test fun communityModeDisablesFullProfileRulesWithNetworkExceptionOff() {
+        val original = """{"execute-config-as-is":true,"enable-full-config":true,"mtu":1400}"""
+        val options = NativeRegionalOptions(mode = NativeRegionalMode.OFF, russianNetworkBypass = false)
+        val root = com.google.gson.JsonParser.parseString(options.managedCoreOptions(original, true)).asJsonObject
+        assertFalse(root["execute-config-as-is"].asBoolean)
+        assertFalse(root["enable-full-config"].asBoolean)
+        assertEquals(1400, root["mtu"].asInt)
+    }
+
 }

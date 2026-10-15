@@ -35,16 +35,17 @@ fun NativeRegionalRoutingScreen(
     fullTunnel: Boolean,
     handbookRouting: Boolean,
     onBack: () -> Unit,
-    onSave: (NativeRegionalOptions) -> Unit,
+    onSave: (NativeRegionalOptions, Boolean) -> Unit,
     onOpenApps: (NativeRegionalAppKind) -> Unit,
 ) {
-    var mode by rememberSaveable(options.mode) { mutableStateOf(options.mode.value) }
+    var mode by rememberSaveable(options.mode, handbookRouting) { mutableStateOf(if (handbookRouting) NativeRegionalMode.OFF.value else options.mode.value) }
     var network by rememberSaveable(options.russianNetworkBypass) { mutableStateOf(options.russianNetworkBypass) }
     var apps by rememberSaveable(options.russianAppsBypass) { mutableStateOf(options.russianAppsBypass) }
     var restricted by rememberSaveable(options.restrictedServicesProxy) { mutableStateOf(options.restrictedServicesProxy) }
     var direct by rememberSaveable(options.directDomains, stateSaver = NativeStringDraftSaver) { mutableStateOf(options.directDomains) }
     var proxy by rememberSaveable(options.proxyDomains, stateSaver = NativeStringDraftSaver) { mutableStateOf(options.proxyDomains) }
     val draft = NativeRegionalOptions(NativeRegionalMode.fromValue(mode), network, apps, restricted, direct, proxy)
+    val changed = draft != options || handbookRouting != (draft.mode == NativeRegionalMode.OFF)
     val valid = runCatching { draft.validated() }.isSuccess
 
     Column(modifier = Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
@@ -60,26 +61,22 @@ fun NativeRegionalRoutingScreen(
                 }
             }
         }
-        NativeRoutingModeChoices(NativeRegionalMode.fromValue(mode), !busy) { choice ->
+        RegionalSwitch(R.string.native_regional_network, R.string.native_regional_network_summary,
+            network, !busy) { network = it }
+        NativeRoutingModeChoices(NativeRegionalMode.fromValue(mode), !busy, mode == NativeRegionalMode.OFF.value) { choice ->
             val selected = draft.withMode(choice)
             mode = selected.mode.value
             network = selected.russianNetworkBypass
             apps = selected.russianAppsBypass
             restricted = selected.restrictedServicesProxy
         }
-        RegionalSwitch(R.string.native_regional_network, R.string.native_regional_network_summary,
-            network, !busy && mode == NativeRegionalMode.RUSSIAN_BYPASS.value) { network = it }
-        RegionalSwitch(R.string.native_regional_apps, R.string.native_regional_apps_summary,
-            apps, !busy) { apps = it }
-        RegionalSwitch(R.string.native_regional_restricted, R.string.native_regional_restricted_summary,
-            restricted, !busy) { restricted = it }
-        if (draft != options) {
+        if (changed) {
             Text(stringResource(R.string.native_regional_apps_save_first), style = MaterialTheme.typography.bodySmall)
         }
-        NativeTextButton(enabled = !busy && draft == options, onClick = { onOpenApps(NativeRegionalAppKind.DIRECT) }) {
+        NativeTextButton(enabled = !busy && !changed, onClick = { onOpenApps(NativeRegionalAppKind.DIRECT) }) {
             Text(stringResource(R.string.native_regional_apps_direct_title))
         }
-        NativeTextButton(enabled = !busy && draft == options, onClick = { onOpenApps(NativeRegionalAppKind.PROXY) }) {
+        NativeTextButton(enabled = !busy && !changed, onClick = { onOpenApps(NativeRegionalAppKind.PROXY) }) {
             Text(stringResource(R.string.native_regional_apps_proxy_title))
         }
         OutlinedTextField(value = direct, onValueChange = { if (it.length <= 8192) direct = it },
@@ -92,7 +89,7 @@ fun NativeRegionalRoutingScreen(
             supportingText = { Text(stringResource(R.string.native_regional_domains_hint)) })
         if (!valid) Text(stringResource(R.string.native_regional_invalid), color = MaterialTheme.colorScheme.error)
         if (busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        Button(enabled = !busy && valid && draft != options, onClick = { onSave(draft) },
+        Button(enabled = !busy && valid && changed, onClick = { onSave(draft, draft.mode == NativeRegionalMode.OFF) },
             modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.native_regional_save)) }
     }
 }

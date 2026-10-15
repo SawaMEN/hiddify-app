@@ -18,7 +18,8 @@ import com.hiddify.hiddify.R
 import com.hiddify.hiddify.privacy.NativeRegionalMode
 
 @Composable
-internal fun NativeRoutingModeChoices(mode: NativeRegionalMode, enabled: Boolean, onChange: (NativeRegionalMode) -> Unit) {
+internal fun NativeRoutingModeChoices(mode: NativeRegionalMode, enabled: Boolean, handbookRouting: Boolean = false, onChange: (NativeRegionalMode) -> Unit) {
+    val selectedMode = if (handbookRouting) NativeRegionalMode.OFF else mode.takeUnless { it == NativeRegionalMode.OFF }
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(stringResource(R.string.native_regional_mode), Modifier.padding(horizontal = 16.dp),
             style = MaterialTheme.typography.titleMedium)
@@ -26,17 +27,17 @@ internal fun NativeRoutingModeChoices(mode: NativeRegionalMode, enabled: Boolean
             val title = when (choice) {
                 NativeRegionalMode.RUSSIAN_BYPASS -> R.string.native_regional_bypass
                 NativeRegionalMode.SELECTED_PROXY -> R.string.native_regional_selected
-                NativeRegionalMode.OFF -> R.string.native_regional_off
+                NativeRegionalMode.OFF -> R.string.native_privacy_handbook
             }
             val description = when (choice) {
                 NativeRegionalMode.RUSSIAN_BYPASS -> R.string.native_routing_bypass_description
                 NativeRegionalMode.SELECTED_PROXY -> R.string.native_regional_selected_summary
-                NativeRegionalMode.OFF -> R.string.native_routing_off_description
+                NativeRegionalMode.OFF -> R.string.native_privacy_handbook_summary
             }
-            Row(Modifier.fillMaxWidth().selectable(mode == choice, enabled = enabled, role = Role.RadioButton,
+            Row(Modifier.fillMaxWidth().selectable(selectedMode == choice, enabled = enabled, role = Role.RadioButton,
                 onClick = { onChange(choice) }).padding(horizontal = 12.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                RadioButton(mode == choice, onClick = null, enabled = enabled)
+                RadioButton(selectedMode == choice, onClick = null, enabled = enabled)
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Text(stringResource(title), style = MaterialTheme.typography.bodyLarge)
                     Text(stringResource(description), style = MaterialTheme.typography.bodySmall,
