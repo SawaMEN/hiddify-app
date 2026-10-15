@@ -1946,6 +1946,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 regionalApps.value = withContext(Dispatchers.IO) {
                     regionalOperationMutex.withLock { regionalRepository.applicationSnapshot(kind) }
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
@@ -1954,27 +1956,29 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
-    private fun saveRegionalApps(kind: NativeRegionalAppKind, selected: Set<String>) {
-        changeRegionalApps(kind, selected)
+    private fun saveRegionalApps(kind: NativeRegionalAppKind, choices: com.hiddify.hiddify.privacy.NativeRegionalAppChoices) {
+        changeRegionalApps(kind, choices)
     }
 
     private fun resetRegionalApps(kind: NativeRegionalAppKind) {
-        changeRegionalApps(kind, null)
+        changeRegionalApps(kind, com.hiddify.hiddify.privacy.NativeRegionalAppChoices(reset = true))
     }
 
-    private fun changeRegionalApps(kind: NativeRegionalAppKind, selected: Set<String>?) {
+    private fun changeRegionalApps(kind: NativeRegionalAppKind, choices: com.hiddify.hiddify.privacy.NativeRegionalAppChoices) {
         if (regionalBusy.value || regionalApps.value?.kind != kind) return
         regionalBusy.value = true
         lifecycleScope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    regionalOperationMutex.withLock { regionalRepository.saveApplications(kind, selected) }
+                    regionalOperationMutex.withLock { regionalRepository.saveApplications(kind, choices) }
                 }
                 regionalApps.value = result
                 regionalAppsRevision.value += 1
                 regionalOptions.value = regionalRepository.load()
                 coreChangesSaved()
                 Toast.makeText(this@MainActivity, R.string.native_regional_apps_saved, Toast.LENGTH_SHORT).show()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
@@ -1989,9 +1993,13 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         lifecycleScope.launch {
             try {
                 regionalOptions.value = withContext(Dispatchers.IO) { regionalOperationMutex.withLock { regionalRepository.save(value) } }
+                refreshSettingsSnapshot()
+                refreshPerApp()
                 refreshPrivacySetupState()
                 coreChangesSaved()
                 Toast.makeText(this@MainActivity, R.string.native_regional_saved, Toast.LENGTH_SHORT).show()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {

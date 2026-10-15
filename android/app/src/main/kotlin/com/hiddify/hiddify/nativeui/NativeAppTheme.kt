@@ -113,7 +113,8 @@ fun NativeAppTheme(mode: NativeThemeMode, accent: com.hiddify.hiddify.nativepref
             extraLarge = RoundedCornerShape(32.dp),
         ),
         content = {
-            CompositionLocalProvider(LocalNativeMotionEnabled provides nativeMotionEnabled()) {
+            CompositionLocalProvider(LocalNativeMotionEnabled provides nativeMotionEnabled(),
+                androidx.compose.foundation.LocalOverscrollFactory provides null) {
                 content()
             }
         },

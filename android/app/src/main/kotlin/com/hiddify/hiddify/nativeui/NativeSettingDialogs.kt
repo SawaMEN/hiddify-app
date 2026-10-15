@@ -1,6 +1,8 @@
 package com.hiddify.hiddify.nativeui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
@@ -68,8 +70,8 @@ internal fun NativeSettingPickerDialog(
     onSelect: (String) -> Unit, onReset: () -> Unit, onDismiss: () -> Unit,
 ) {
     AlertDialog(onDismissRequest = onDismiss, title = { Text(title) }, text = {
-        Column(Modifier.verticalScroll(rememberScrollState())) {
-            choices.forEach { (value, label) ->
+        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 420.dp)) {
+            items(choices) { (value, label) ->
                 Row(Modifier.fillMaxWidth().selectable(selected == value, enabled, Role.RadioButton) { onSelect(value) }
                     .heightIn(min = 56.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     RadioButton(selected == value, onClick = null, enabled = enabled)

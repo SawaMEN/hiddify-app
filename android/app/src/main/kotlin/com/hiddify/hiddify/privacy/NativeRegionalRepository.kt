@@ -11,6 +11,9 @@ data class NativeRegionalAppSnapshot(
     val selected: Set<String>,
     val manual: Boolean,
     val missing: Set<String>,
+    val services: List<NativeRegionalService> = emptyList(),
+    val selectedServices: Set<String> = emptySet(),
+    val servicesManual: Boolean = false,
 )
 
 class NativeRegionalRepository(private val context: Context) {
@@ -26,7 +29,9 @@ class NativeRegionalRepository(private val context: Context) {
     /** Validate the merged catalogue before committing any preference. Call on IO. */
     fun save(value: NativeRegionalOptions): NativeRegionalOptions {
         val valid = value.validated()
-        RegionalRouting.policy(context, options = valid)
+        RegionalRouting.policy(context, options = valid,
+            fullTunnel = if (valid.mode != NativeRegionalMode.OFF) false else Settings.privacyFullTunnel,
+            handbookRouting = if (valid.mode != NativeRegionalMode.OFF) false else Settings.handbookRouting)
         val editor = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE).edit()
             .putString("flutter.privacy-routing-mode", valid.mode.value)
             .putBoolean("flutter.privacy-russian-network-bypass", valid.russianNetworkBypass)
@@ -34,6 +39,14 @@ class NativeRegionalRepository(private val context: Context) {
             .putBoolean("flutter.privacy-restricted-services-proxy", valid.restrictedServicesProxy)
             .putString("flutter.privacy-direct-domains", valid.directDomains)
             .putString("flutter.privacy-proxy-domains", valid.proxyDomains)
+        if (valid.mode != NativeRegionalMode.OFF) {
+            // A mode choice must apply, rather than remain masked by other routing engines.
+            editor.putBoolean("flutter.privacy-full-tunnel", false)
+                .putBoolean("flutter.handbook-routing", false)
+                .putString("flutter.per_app_proxy_mode", "off")
+                .putBoolean("flutter.execute-config-as-is", false)
+                .putString("config_options_json", valid.managedCoreOptions(Settings.configOptions))
+        }
         check(editor.commit()) { "Could not save regional routing" }
         return load()
     }
@@ -52,22 +65,30 @@ class NativeRegionalRepository(private val context: Context) {
         val apps = (installed + missing.map { NativeInstalledApp(it, it, false) })
             .sortedWith(compareByDescending<NativeInstalledApp> { it.packageName in selected }
                 .thenBy(String.CASE_INSENSITIVE_ORDER) { it.label }.thenBy { it.packageName })
-        return NativeRegionalAppSnapshot(kind, apps, selected, selection.manual, missing)
+        val services = if (kind == NativeRegionalAppKind.PROXY) RegionalRouting.serviceCatalogue(context) else emptyList()
+        val selectedServices = if (kind == NativeRegionalAppKind.PROXY)
+            NativeRegionalServices.selection(Settings.privacyProxyServices, services) else emptySet()
+        val rows = services + (selectedServices - services.map { it.id }.toSet()).map {
+            NativeRegionalService(it, it, emptyList(), emptyList())
+        }
+        return NativeRegionalAppSnapshot(kind, apps, selected, selection.manual, missing,
+            rows, selectedServices, Settings.privacyProxyServices.startsWith(NativeRegionalPackages.MANUAL_PREFIX))
     }
 
-    /** null restores automatic suggestions; an empty set explicitly selects no applications. */
-    fun saveApplications(kind: NativeRegionalAppKind, selected: Set<String>?): NativeRegionalAppSnapshot {
+    /** Null choices leave that list unchanged; reset restores suggestions, empty sets select nothing. */
+    fun saveApplications(kind: NativeRegionalAppKind, choices: NativeRegionalAppChoices): NativeRegionalAppSnapshot {
+        val selected = choices.packages
         require(selected == null || context.packageName !in selected) { "The VPN client cannot route itself" }
         val current = NativeRegionalPackageValues(Settings.privacyDirectPackages, Settings.privacyProxyPackages)
-        val next = if (selected == null) NativeRegionalPackages.reset(current, kind)
-            else NativeRegionalPackages.replace(current, kind, selected)
-        val options = load().copy(mode = NativeRegionalMode.RUSSIAN_BYPASS)
-        RegionalRouting.policy(context, options = options, packages = next)
-        check(context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE).edit()
-            .putString("flutter.privacy-routing-mode", options.mode.value)
-            .putString("flutter.privacy-direct-packages", next.direct)
-            .putString("flutter.privacy-proxy-packages", next.proxy)
-            .commit()) { "Could not save regional applications" }
+        val changes = NativeRegionalServices.changes(current, Settings.privacyProxyServices, kind, choices)
+        val next = NativeRegionalPackageValues(changes.getValue("flutter.privacy-direct-packages"),
+            changes.getValue("flutter.privacy-proxy-packages"))
+        val services = changes["flutter.privacy-proxy-services"] ?: Settings.privacyProxyServices
+        val options = load() // Editing choices must never silently switch the routing mode.
+        RegionalRouting.policy(context, options = options, packages = next, servicesStored = services)
+        val editor = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE).edit()
+        changes.forEach { (key, value) -> editor.putString(key, value) }
+        check(editor.commit()) { "Could not save regional applications" }
         return applicationSnapshot(kind)
     }
 }

@@ -55,6 +55,25 @@ data class NativeRegionalOptions(
         return copy(directDomains = domains(directDomains), proxyDomains = domains(proxyDomains))
     }
 
+    fun withMode(value: NativeRegionalMode): NativeRegionalOptions = copy(
+        mode = value,
+        russianNetworkBypass = value == NativeRegionalMode.RUSSIAN_BYPASS,
+        russianAppsBypass = value == NativeRegionalMode.RUSSIAN_BYPASS,
+        restrictedServicesProxy = value != NativeRegionalMode.OFF,
+    )
+
+    fun managedCoreOptions(json: String): String {
+        if (mode == NativeRegionalMode.OFF) return json
+        val root = com.hiddify.hiddify.nativeprofile.NativeJsonDocument.parse(json.ifBlank { "{}" }).asJsonObject.deepCopy()
+        // Imported route/DNS rules must not override the explicitly selected device mode.
+        root.addProperty("execute-config-as-is", false)
+        root.addProperty("enable-full-config", false)
+        return root.toString()
+    }
+
+    fun networkBypassEnabled(fullTunnel: Boolean, handbookRouting: Boolean): Boolean =
+        russianNetworkBypass && effectiveMode(fullTunnel, handbookRouting) == NativeRegionalMode.RUSSIAN_BYPASS
+
     fun effectiveMode(fullTunnel: Boolean, handbookRouting: Boolean): NativeRegionalMode =
         if (fullTunnel || handbookRouting) NativeRegionalMode.OFF else mode
 }

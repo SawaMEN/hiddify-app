@@ -1,6 +1,5 @@
 package com.hiddify.hiddify.nativeui
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -9,8 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
-import com.hiddify.hiddify.nativeprofile.NativeProfileNetworkOptions
-import com.hiddify.hiddify.nativeprofile.NativeProfileTlsOptions
+import com.hiddify.hiddify.nativeprofile.*
 
 @Composable
 internal fun NativeProfileNetworkSettings(
@@ -18,122 +16,111 @@ internal fun NativeProfileNetworkSettings(
     showTls: Boolean = true, content: String = "",
     onChange: (NativeProfileNetworkOptions) -> Unit,
 ) {
-    var requestExpanded by rememberSaveable { mutableStateOf(false) }
-    var tlsExpanded by rememberSaveable { mutableStateOf(false) }
-    var customAgent by rememberSaveable { mutableStateOf(false) }
-    val targets = remember(content) { com.hiddify.hiddify.nativeprofile.NativeProfileTlsTargets.inspect(content) }
-    val matchingTargets = targets.filter { options.tls.targetTag.isEmpty() || it.tag == options.tls.targetTag }
-    val tlsEnabled = enabled && targets.isNotEmpty()
-    val fingerprintEnabled = tlsEnabled && matchingTargets.any { it.fingerprint }
-    val fragmentEnabled = tlsEnabled && matchingTargets.any { it.fragment }
+    var advanced by rememberSaveable { mutableStateOf(false) }
+    val targets = remember(content) { NativeProfileTlsTargets.inspect(content) }
     val tls = options.tls
+    val matching = targets.filter { tls.targetTag.isEmpty() || it.tag == tls.targetTag }
+    val tlsEnabled = enabled && targets.isNotEmpty()
+    val fingerprints = tlsEnabled && matching.any { it.fingerprint }
+    val fragment = tlsEnabled && matching.any { it.fragment }
+    val tcpOnly = tlsEnabled && matching.isNotEmpty() && matching.all { it.fragment }
+    val automatic = stringResource(R.string.native_tls_auto_profile)
+    val saved = stringResource(R.string.native_network_saved)
+    fun retained(choices: List<Pair<String, String>>, current: String) =
+        if (choices.any { it.first == current }) choices else choices + (current to saved)
+    fun updateTls(value: NativeProfileTlsOptions) = onChange(options.copy(tls = value))
+
     if (remote) {
-        Text(stringResource(R.string.native_subscription_request), Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
-        Text(stringResource(R.string.native_request_auto_help), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall)
-        val agents = listOf("" to stringResource(R.string.native_tls_auto_profile),
-            "VetrOFF-Android" to "VetrOFF", "Hiddify" to "Hiddify", "Mozilla/5.0" to stringResource(R.string.native_request_browser),
-            "custom" to stringResource(R.string.native_request_custom))
-        val agentChoice = if (customAgent || agents.none { it.first == options.request.userAgent }) "custom" else options.request.userAgent
-        ProfileTlsChoice(R.string.native_request_client, agentChoice, agents, enabled) { choice ->
-            customAgent = choice == "custom"
-            if (customAgent) requestExpanded = true
-            else onChange(options.copy(request = options.request.copy(userAgent = choice)))
+        NetworkHeading(R.string.native_subscription_request, R.string.native_request_auto_help)
+        val agents = NativeProfileNetworkPresets.clients.map { it.agent to if (it.agent.isEmpty()) automatic else it.title }
+        NetworkChoice(R.string.native_request_client, options.request.userAgent, retained(agents, options.request.userAgent), enabled) {
+            onChange(options.copy(request = options.request.copy(userAgent = it)))
         }
-        NativeTextButton(enabled = enabled, onClick = { requestExpanded = !requestExpanded }) {
-            Text(stringResource(R.string.native_network_advanced))
+    }
+    if (showTls) {
+        NetworkHeading(R.string.native_profile_tls, if (targets.isEmpty()) R.string.native_tls_no_servers else R.string.native_tls_auto_help)
+        val tags = listOf("" to stringResource(R.string.native_tls_all_servers)) + targets.filter { it.tag.isNotEmpty() }.map { it.tag to it.tag }
+        NetworkChoice(R.string.native_profile_tls_tag, tls.targetTag, retained(tags, tls.targetTag), tlsEnabled) {
+            updateTls(NativeProfileNetworkPresets.withTarget(tls, it, targets))
         }
-        AnimatedVisibility(requestExpanded) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(R.string.native_subscription_request_help), style = MaterialTheme.typography.bodySmall)
-                if (customAgent) OutlinedTextField(options.request.userAgent, { if (it.length <= 1024) onChange(options.copy(request = options.request.copy(userAgent = it))) },
-                    Modifier.fillMaxWidth(), enabled = enabled, singleLine = true,
-                    label = { Text("User-Agent") }, placeholder = { Text("VetrOFF-Android") })
-                OutlinedTextField(options.request.headers, { if (it.length <= 16384) onChange(options.copy(request = options.request.copy(headers = it))) },
-                    Modifier.fillMaxWidth(), enabled = enabled, minLines = 3, maxLines = 8,
-                    label = { Text(stringResource(R.string.native_subscription_headers)) },
-                    placeholder = { Text("x-device-os: Android\nx-app-version: 4.0\nAuthorization: Bearer …") })
-                if (runCatching { options.request.validated() }.isFailure) Text(stringResource(R.string.native_subscription_headers_invalid),
-                    color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-                NativeTextButton(enabled = enabled, onClick = { onChange(options.copy(request = com.hiddify.hiddify.nativeprofile.NativeSubscriptionRequestOptions())) }) {
-                    Text(stringResource(R.string.native_quick_reset))
-                }
+        val browserChoices = listOf("" to automatic) + NativeProfileNetworkPresets.browserNames.map { it.key to it.value } +
+            listOf("random" to stringResource(R.string.native_tls_random_browser), "randomized" to stringResource(R.string.native_tls_random_hello)) +
+            if (json && tcpOnly) listOf("off" to stringResource(R.string.native_tls_native)) else emptyList()
+        NetworkChoice(R.string.native_profile_tls_fingerprint, tls.fingerprint, retained(browserChoices, tls.fingerprint), fingerprints) {
+            updateTls(tls.copy(fingerprint = it))
+        }
+        val modes = listOf("" to automatic, "off" to stringResource(R.string.native_profile_tls_fragment_off)) +
+            if (fragment) listOf("tcp" to stringResource(R.string.native_profile_tls_fragment_tcp)) +
+                if (json) listOf("record" to stringResource(R.string.native_profile_tls_fragment_record), "both" to stringResource(R.string.native_profile_tls_fragment_both)) else emptyList()
+            else emptyList()
+        NetworkChoice(R.string.native_profile_tls_fragment, tls.fragmentMode, retained(modes, tls.fragmentMode), fingerprints) {
+            updateTls(tls.copy(fragmentMode = it, fallbackDelayMs = if (it in listOf("tcp", "record", "both")) tls.fallbackDelayMs else ""))
+        }
+    }
+    NativeTextButton(enabled = enabled, onClick = { advanced = !advanced }, modifier = Modifier.padding(horizontal = 16.dp)) {
+        Text(stringResource(if (advanced) R.string.native_network_hide else R.string.native_network_advanced))
+    }
+    if (advanced) {
+        if (remote) {
+            val headers = remember(options.request) { options.request.parsedHeaders() }
+            val accepts = listOf("" to automatic, "application/json" to "JSON", "text/plain" to stringResource(R.string.native_network_plain))
+                .filter { runCatching { NativeProfileNetworkPresets.withAccept(options.request, it.first) }.isSuccess }
+            val metadata = runCatching { NativeProfileNetworkPresets.withMetadata(options.request,
+                headers["x-device-os"] != "Android", com.hiddify.hiddify.BuildConfig.VERSION_NAME) }.getOrNull()
+            NetworkChoice(R.string.native_network_format, headers["accept"].orEmpty(), retained(accepts, headers["accept"].orEmpty()), enabled) {
+                onChange(options.copy(request = NativeProfileNetworkPresets.withAccept(options.request, it)))
             }
-        }
-        HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-    }
-    if (!showTls) return
-    Text(stringResource(R.string.native_profile_tls), Modifier.padding(16.dp), style = MaterialTheme.typography.titleMedium)
-    Text(stringResource(if (targets.isEmpty()) R.string.native_tls_no_servers else R.string.native_tls_auto_help),
-        Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall)
-    val presets = listOf("auto" to stringResource(R.string.native_tls_auto_profile)) +
-        (if (fingerprintEnabled) listOf("browser" to stringResource(R.string.native_tls_preset_browser)) else emptyList()) +
-        (if (fragmentEnabled) listOf("fragment" to stringResource(R.string.native_tls_preset_fragment)) else emptyList()) +
-        listOf("custom" to stringResource(R.string.native_request_custom))
-    val preset = when (tls) {
-        NativeProfileTlsOptions() -> "auto"
-        NativeProfileTlsOptions(fingerprint = "chrome") -> "browser"
-        NativeProfileTlsOptions(fragmentMode = "tcp") -> "fragment"
-        else -> "custom"
-    }
-    if (preset == "custom") Text(stringResource(R.string.native_profile_tls_custom), Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall)
-    ProfileTlsChoice(R.string.native_tls_preset, preset, presets, tlsEnabled) {
-        if (it == "custom") tlsExpanded = true
-        else onChange(options.copy(tls = when (it) {
-            "browser" -> NativeProfileTlsOptions(fingerprint = "chrome")
-            "fragment" -> NativeProfileTlsOptions(fragmentMode = "tcp")
-            else -> NativeProfileTlsOptions()
-        }))
-    }
-    NativeTextButton(enabled = enabled, onClick = { tlsExpanded = !tlsExpanded }) {
-        Text(stringResource(R.string.native_network_advanced))
-    }
-    AnimatedVisibility(tlsExpanded) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.native_profile_tls_help), style = MaterialTheme.typography.bodySmall)
-            val tags = listOf("" to stringResource(R.string.native_tls_all_servers)) + targets.filter { it.tag.isNotEmpty() }.map { it.tag to it.tag }
-            ProfileTlsChoice(R.string.native_profile_tls_tag, tls.targetTag, tags, tlsEnabled) { onChange(options.copy(tls = tls.copy(targetTag = it))) }
-            val names = matchingTargets.map { it.serverName }.filter { it.isNotEmpty() }.distinct()
-            if (names.isNotEmpty()) Text(stringResource(R.string.native_tls_detected_sni, names.take(3).joinToString(", ")), style = MaterialTheme.typography.bodySmall)
-            TlsTextField(R.string.native_profile_tls_sni, tls.serverName, tlsEnabled) { onChange(options.copy(tls = tls.copy(serverName = it))) }
-            ProfileTlsChoice(R.string.native_profile_tls_fingerprint, tls.fingerprint,
-                NativeProfileTlsOptions.fingerprints.map { it to if (it.isEmpty()) stringResource(R.string.native_profile_tls_inherit) else it }, fingerprintEnabled) {
-                onChange(options.copy(tls = tls.copy(fingerprint = it)))
+            NativePreferenceTile(R.string.native_network_metadata, R.drawable.native_tls_text_fields,
+                stringResource(R.string.native_network_metadata_help), enabled && metadata != null, headers["x-device-os"] == "Android") {
+                metadata?.let { onChange(options.copy(request = it)) }
             }
-            TlsTextField(R.string.native_profile_tls_alpn, tls.alpn, tlsEnabled) { onChange(options.copy(tls = tls.copy(alpn = it))) }
-            val modes = listOf("" to R.string.native_profile_tls_inherit, "off" to R.string.native_profile_tls_fragment_off,
-                "tcp" to R.string.native_profile_tls_fragment_tcp, "record" to R.string.native_profile_tls_fragment_record, "both" to R.string.native_profile_tls_fragment_both)
-                .filter { json || it.first !in listOf("record", "both") }
-            ProfileTlsChoice(R.string.native_profile_tls_fragment, tls.fragmentMode,
-                modes.map { (value, label) -> value to stringResource(label) }, fragmentEnabled) { onChange(options.copy(tls = tls.copy(fragmentMode = it))) }
+            val preserved = headers.keys - setOf("accept", "x-device-os", "x-app-version")
+            if (preserved.isNotEmpty()) Text(stringResource(R.string.native_network_headers_kept, preserved.size),
+                Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall)
+        }
+        if (showTls) {
+            val names = matching.map { it.serverName }.filter { it.isNotEmpty() }.distinct()
+            val sni = listOf("" to automatic) + if (tcpOnly && names.size == 1) names.map { it to it } else emptyList()
+            NetworkChoice(R.string.native_profile_tls_sni, tls.serverName, retained(sni, tls.serverName), tlsEnabled) { updateTls(tls.copy(serverName = it)) }
+            Text(if (names.isEmpty()) stringResource(R.string.native_network_sni_auto) else stringResource(R.string.native_tls_detected_sni, names.take(3).joinToString(", ")),
+                Modifier.padding(horizontal = 16.dp), style = MaterialTheme.typography.bodySmall)
+            if (json) NetworkChoice(R.string.native_network_sni_mode, tls.sniMode,
+                listOf("" to automatic, "on" to stringResource(R.string.native_network_sni_on), "off" to stringResource(R.string.native_network_sni_off)), tcpOnly) { updateTls(tls.copy(sniMode = it)) }
+            val alpn = listOf("" to automatic, "h2,http/1.1" to stringResource(R.string.native_network_h2_prefer), "http/1.1" to "HTTP/1.1", "h2" to "HTTP/2")
+            NetworkChoice(R.string.native_profile_tls_alpn, tls.alpn, retained(alpn, tls.alpn), tcpOnly) { updateTls(tls.copy(alpn = it)) }
             if (json) {
-                TlsTextField(R.string.native_profile_tls_delay, tls.fallbackDelayMs, fragmentEnabled && tls.fragmentMode in listOf("tcp", "record", "both")) { onChange(options.copy(tls = tls.copy(fallbackDelayMs = it))) }
-                val versions = NativeProfileTlsOptions.versions.map { it to if (it.isEmpty()) stringResource(R.string.native_profile_tls_inherit) else "TLS $it" }
-                ProfileTlsChoice(R.string.native_profile_tls_min_version, tls.minVersion, versions, tlsEnabled) { onChange(options.copy(tls = tls.copy(minVersion = it))) }
-                ProfileTlsChoice(R.string.native_profile_tls_max_version, tls.maxVersion, versions, tlsEnabled) { onChange(options.copy(tls = tls.copy(maxVersion = it))) }
-            } else Text(stringResource(R.string.native_profile_tls_json_help), style = MaterialTheme.typography.bodySmall)
-            Text(stringResource(R.string.native_profile_tls_spoof_help), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (runCatching { tls.validated() }.isFailure) Text(stringResource(R.string.native_profile_tls_invalid), color = MaterialTheme.colorScheme.error)
-            NativeTextButton(enabled = enabled, onClick = { onChange(options.copy(tls = NativeProfileTlsOptions())) }) {
-                Text(stringResource(R.string.native_quick_reset))
+                val versions = listOf("" to automatic, "modern" to "TLS 1.2–1.3", "1.3" to "TLS 1.3", "1.2" to "TLS 1.2")
+                val version = when {
+                    tls.minVersion.isEmpty() && tls.maxVersion.isEmpty() -> ""
+                    tls.minVersion == "1.2" && tls.maxVersion.isEmpty() -> "modern"
+                    tls.minVersion == tls.maxVersion -> tls.minVersion
+                    else -> "saved"
+                }
+                NetworkChoice(R.string.native_network_tls_version, version, retained(versions, version), tcpOnly) {
+                    if (it != "saved") updateTls(tls.copy(minVersion = if (it == "modern") "1.2" else it, maxVersion = if (it == "modern") "" else it))
+                }
+                val delays = NativeProfileNetworkPresets.delays.map { it to if (it.isEmpty()) automatic else stringResource(R.string.native_network_ms, it) }
+                NetworkChoice(R.string.native_profile_tls_delay, tls.fallbackDelayMs, retained(delays, tls.fallbackDelayMs), fragment && tls.fragmentMode in listOf("tcp", "record", "both")) { updateTls(tls.copy(fallbackDelayMs = it)) }
             }
+            Text(stringResource(R.string.native_network_compatibility), Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall)
         }
     }
-    HorizontalDivider(Modifier.padding(horizontal = 16.dp))
-}
-
-@Composable
-private fun TlsTextField(label: Int, value: String, enabled: Boolean, onChange: (String) -> Unit) {
-    OutlinedTextField(value, { if (it.length <= 1024) onChange(it) }, Modifier.fillMaxWidth(), enabled = enabled,
-        singleLine = true, label = { Text(stringResource(label)) })
-}
-
-@Composable
-private fun ProfileTlsChoice(label: Int, selected: String, choices: List<Pair<String, String>>, enabled: Boolean, onChange: (String) -> Unit) {
-    var open by rememberSaveable { mutableStateOf(false) }
-    NativeTextButton(onClick = { open = true }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
-        Text(stringResource(label), Modifier.weight(1f))
-        Text(choices.firstOrNull { it.first == selected }?.second ?: selected)
+    NativeTextButton(enabled = enabled, onClick = { onChange(NativeProfileNetworkPresets.automatic(options)) }, modifier = Modifier.padding(16.dp)) {
+        Text(stringResource(R.string.native_network_reset))
     }
+}
+
+@Composable
+private fun NetworkHeading(title: Int, help: Int) {
+    Text(stringResource(title), Modifier.padding(start = 16.dp, top = 20.dp, end = 16.dp, bottom = 8.dp), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(help), Modifier.padding(horizontal = 16.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+@Composable
+private fun NetworkChoice(label: Int, selected: String, choices: List<Pair<String, String>>, enabled: Boolean, onChange: (String) -> Unit) {
+    var open by rememberSaveable { mutableStateOf(false) }
+    NativePreferenceTile(label, R.drawable.native_tls_text_fields, choices.firstOrNull { it.first == selected }?.second.orEmpty(), enabled) { open = true }
     if (open) NativeSettingPickerDialog(stringResource(label), selected, choices, enabled,
-        onSelect = { onChange(it); open = false }, onReset = { onChange(""); open = false }, onDismiss = { open = false })
+        onSelect = { if (it != selected) onChange(it); open = false }, onReset = { onChange(""); open = false }, onDismiss = { open = false })
 }

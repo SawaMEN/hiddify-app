@@ -6,6 +6,8 @@ on:
       - 'android/app/src/main/kotlin/**'
       - 'android/app/src/test/kotlin/**'
       - 'tool/kotlin-tests/**'
+      - 'tool/core-tests/**'
+      - 'android/app/src/main/assets/region_routing.json'
       - '.github/workflows/native-kotlin-tests.yml'
       - 'tool/download_core_modules.py'
       - 'tool/checkout_stable_core_source.py'
@@ -16,6 +18,8 @@ on:
       - 'android/app/src/main/kotlin/**'
       - 'android/app/src/test/kotlin/**'
       - 'tool/kotlin-tests/**'
+      - 'tool/core-tests/**'
+      - 'android/app/src/main/assets/region_routing.json'
       - '.github/workflows/native-kotlin-tests.yml'
       - 'tool/download_core_modules.py'
       - 'tool/checkout_stable_core_source.py'
@@ -42,6 +46,8 @@ jobs:
             hiddify-core/hiddify-sing-box/go.sum
       - name: Download released core modules with network retries
         run: python3 tool/download_core_modules.py
+      - name: Install Android routing contract regression tests
+        run: cp tool/core-tests/android_routing_contract_test.go hiddify-core/v2/config/android_client_routing_contract_test.go
       - name: Test core route composition and profile validation without APK
         working-directory: hiddify-core
         run: go test -race -ldflags=-checklinkname=0 -tags with_quic,with_utls,with_gvisor,with_wireguard,with_clash_api ./v2/config ./v2/hcore ./platform/mobile

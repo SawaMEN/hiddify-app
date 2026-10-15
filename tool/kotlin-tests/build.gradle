@@ -74,6 +74,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeprofile/NativeSubscriptionRequestOptions.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileTlsOptions.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileTlsTargets.kt'
+            include 'com/hiddify/hiddify/nativeprofile/NativeProfileNetworkPresets.kt'
             include 'com/hiddify/hiddify/nativediagnostics/NativeDiagnosticModels.kt'
             include 'com/hiddify/hiddify/nativerouting/NativePerAppBackup.kt'
             include 'com/hiddify/hiddify/nativerouting/NativeTimedSnapshotCache.kt'
@@ -85,6 +86,7 @@ sourceSets {
             include 'com/hiddify/hiddify/privacy/NativeCommunityLists.kt'
             include 'com/hiddify/hiddify/privacy/NativeRegionalOptions.kt'
             include 'com/hiddify/hiddify/privacy/NativeRegionalPackages.kt'
+            include 'com/hiddify/hiddify/privacy/NativeRegionalServices.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeConnectionPolicy.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeWarpStartupPolicy.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeWarpProbePolicy.kt'
@@ -118,6 +120,7 @@ dependencies {
 }
 
 test {
+    inputs.file('../../android/app/src/main/assets/region_routing.json')
     useJUnit()
     testLogging {
         events 'failed', 'skipped'

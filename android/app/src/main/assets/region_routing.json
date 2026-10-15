@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "updated": "2026-10-05",
   "catalogueNotes": "VPN-aware packages follow the RKS Global 16 April 2026 repeat analysis, which found VPN detection in all 30 sampled apps. First-party domains are routing targets associated with those apps and do not imply that every hostname performs VPN detection.",
   "ruVpnAwarePackages": [
@@ -151,5 +151,199 @@
     "youtube.com",
     "youtubei.googleapis.com",
     "ytimg.com"
+  ],
+  "proxyServices": [
+    {
+      "id": "youtube",
+      "name": "YouTube",
+      "packages": [
+        "com.google.android.youtube",
+        "com.google.android.apps.youtube.music"
+      ],
+      "domains": [
+        "googlevideo.com",
+        "youtu.be",
+        "youtube-nocookie.com",
+        "youtube.com",
+        "youtubei.googleapis.com",
+        "ytimg.com"
+      ]
+    },
+    {
+      "id": "telegram",
+      "name": "Telegram",
+      "packages": [
+        "org.telegram.messenger",
+        "org.telegram.messenger.web"
+      ],
+      "domains": [
+        "t.me",
+        "telegra.ph",
+        "telegram.me",
+        "telegram.org"
+      ]
+    },
+    {
+      "id": "whatsapp",
+      "name": "WhatsApp",
+      "packages": [
+        "com.whatsapp",
+        "com.whatsapp.w4b"
+      ],
+      "domains": [
+        "wa.me",
+        "whatsapp.com",
+        "whatsapp.net"
+      ]
+    },
+    {
+      "id": "instagram",
+      "name": "Instagram",
+      "packages": [
+        "com.instagram.android",
+        "com.instagram.lite"
+      ],
+      "domains": [
+        "instagram.com",
+        "cdninstagram.com"
+      ]
+    },
+    {
+      "id": "facebook",
+      "name": "Facebook / Messenger",
+      "packages": [
+        "com.facebook.katana",
+        "com.facebook.lite",
+        "com.facebook.orca"
+      ],
+      "domains": [
+        "facebook.com",
+        "facebook.net",
+        "fb.com",
+        "fbcdn.net",
+        "fbsbx.com",
+        "messenger.com"
+      ]
+    },
+    {
+      "id": "threads",
+      "name": "Threads",
+      "packages": [
+        "com.instagram.barcelona"
+      ],
+      "domains": [
+        "threads.net"
+      ]
+    },
+    {
+      "id": "discord",
+      "name": "Discord",
+      "packages": [
+        "com.discord"
+      ],
+      "domains": [
+        "discord.com",
+        "discord.gg",
+        "discord.media",
+        "discordapp.com",
+        "discordapp.net",
+        "discordcdn.com"
+      ]
+    },
+    {
+      "id": "x",
+      "name": "X / Twitter",
+      "packages": [
+        "com.twitter.android"
+      ],
+      "domains": [
+        "t.co",
+        "twimg.com",
+        "twitter.com",
+        "x.com"
+      ]
+    },
+    {
+      "id": "chatgpt",
+      "name": "ChatGPT / OpenAI",
+      "packages": [
+        "com.openai.chatgpt"
+      ],
+      "domains": [
+        "chatgpt.com",
+        "oaiusercontent.com",
+        "oaistatic.com",
+        "openai.com"
+      ]
+    },
+    {
+      "id": "signal",
+      "name": "Signal",
+      "packages": [
+        "org.thoughtcrime.securesms"
+      ],
+      "domains": [
+        "signal.art",
+        "signal.group",
+        "signal.org"
+      ]
+    },
+    {
+      "id": "viber",
+      "name": "Viber",
+      "packages": [
+        "com.viber.voip"
+      ],
+      "domains": [
+        "viber.com",
+        "viber.me"
+      ]
+    },
+    {
+      "id": "linkedin",
+      "name": "LinkedIn",
+      "packages": [
+        "com.linkedin.android"
+      ],
+      "domains": [
+        "licdn.com",
+        "linkedin.com",
+        "lnkd.in"
+      ]
+    },
+    {
+      "id": "snapchat",
+      "name": "Snapchat",
+      "packages": [
+        "com.snapchat.android"
+      ],
+      "domains": [
+        "sc-cdn.net",
+        "snap.com",
+        "snapchat.com"
+      ]
+    },
+    {
+      "id": "roblox",
+      "name": "Roblox",
+      "packages": [
+        "com.roblox.client"
+      ],
+      "domains": [
+        "rbxcdn.com",
+        "roblox.com"
+      ]
+    },
+    {
+      "id": "tor",
+      "name": "Tor Browser",
+      "packages": [
+        "org.torproject.torbrowser",
+        "org.torproject.torbrowser_alpha"
+      ],
+      "domains": [
+        "torproject.org"
+      ]
+    }
   ]
 }

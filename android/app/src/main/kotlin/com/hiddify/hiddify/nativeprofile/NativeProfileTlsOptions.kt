@@ -19,16 +19,17 @@ data class NativeProfileTlsOptions(
     val minVersion: String = "",
     val maxVersion: String = "",
     val targetTag: String = "",
+    val sniMode: String = "",
 ) {
     val enabled: Boolean get() = serverName.isNotBlank() || fingerprint.isNotBlank() || alpn.isNotBlank() ||
-        fragmentMode.isNotBlank() || fallbackDelayMs.isNotBlank() || minVersion.isNotBlank() || maxVersion.isNotBlank()
+        fragmentMode.isNotBlank() || fallbackDelayMs.isNotBlank() || minVersion.isNotBlank() || maxVersion.isNotBlank() || sniMode.isNotBlank()
 
     fun validated(): NativeProfileTlsOptions {
         val sni = serverName.trim().let { if (it.isEmpty()) it else IDN.toASCII(it) }
         require(sni.isEmpty() || (sni.length <= 253 && sni.split('.').all {
             it.length in 1..63 && it.matches(Regex("[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?"))
         })) { "Invalid TLS server name" }
-        require(fingerprint in fingerprints && fragmentMode in fragmentModes) { "Invalid TLS choice" }
+        require(fingerprint in fingerprints && fragmentMode in fragmentModes && sniMode in listOf("", "on", "off")) { "Invalid TLS choice" }
         val protocols = alpn.split(',').map(String::trim).filter(String::isNotEmpty)
         require(protocols.size <= 16 && protocols.all { it.length in 1..255 && it.all { c -> c.code in 33..126 && c != ',' } }) { "Invalid ALPN list" }
         require(fallbackDelayMs.isEmpty() || fallbackDelayMs.toIntOrNull()?.let { it in 1..10000 } == true) { "TLS delay must be 1–10000 ms" }
@@ -40,7 +41,7 @@ data class NativeProfileTlsOptions(
     fun toJson() = JsonObject().apply {
         addProperty("server-name", serverName); addProperty("fingerprint", fingerprint); addProperty("alpn", alpn)
         addProperty("fragment-mode", fragmentMode); addProperty("fallback-delay-ms", fallbackDelayMs)
-        addProperty("min-version", minVersion); addProperty("max-version", maxVersion); addProperty("target-tag", targetTag)
+        addProperty("min-version", minVersion); addProperty("max-version", maxVersion); addProperty("target-tag", targetTag); addProperty("sni-mode", sniMode)
     }
 
     fun apply(content: String): String {
@@ -61,9 +62,11 @@ data class NativeProfileTlsOptions(
             fun text(key: String, item: String) { if (item.isNotEmpty()) { tls.addProperty(key, item); applied = true } }
             text("server_name", value.serverName)
             if (value.serverName.isNotEmpty()) tls.addProperty("disable_sni", false)
-            if (value.fingerprint.isNotEmpty() && type in tcpTypes) {
+            if (tcp && value.sniMode.isNotEmpty()) { tls.addProperty("disable_sni", value.sniMode == "off"); applied = true }
+            if (value.fingerprint.isNotEmpty() && type in tcpTypes && !(reality && value.fingerprint == "off")) {
                 val utls = tls.get("utls")?.takeIf { it.isJsonObject }?.asJsonObject ?: JsonObject()
-                utls.addProperty("enabled", true); utls.addProperty("fingerprint", value.fingerprint)
+                utls.addProperty("enabled", value.fingerprint != "off")
+                if (value.fingerprint == "off") utls.remove("fingerprint") else utls.addProperty("fingerprint", value.fingerprint)
                 tls.add("utls", utls); applied = true
             }
             if (value.alpn.isNotEmpty()) {
@@ -89,8 +92,8 @@ data class NativeProfileTlsOptions(
         val output = if (decoded.trimStart().startsWith('{') || decoded.trimStart().startsWith('[')) {
             NativeJsonDocument.parse(decoded).also(::walk).toString()
         } else {
-            require(value.fallbackDelayMs.isEmpty() && value.minVersion.isEmpty() && value.maxVersion.isEmpty() && value.fragmentMode !in listOf("record", "both")) {
-                "TLS record fragmentation, delay and version limits require a sing-box JSON profile / Нужен профиль JSON sing-box"
+            require(value.sniMode.isEmpty() && value.fingerprint != "off" && value.fallbackDelayMs.isEmpty() && value.minVersion.isEmpty() && value.maxVersion.isEmpty() && value.fragmentMode !in listOf("record", "both")) {
+                "These advanced TLS settings require a sing-box JSON profile / Нужен профиль JSON sing-box"
             }
             decoded.lines().joinToString("\n") { original ->
                 val line = original.trim()
@@ -142,7 +145,7 @@ data class NativeProfileTlsOptions(
     }
 
     companion object {
-        val fingerprints = listOf("", "chrome", "firefox", "edge", "safari", "ios", "android", "360", "qq", "random", "randomized")
+        val fingerprints = listOf("", "off", "chrome", "firefox", "edge", "safari", "ios", "android", "360", "qq", "random", "randomized")
         val fragmentModes = listOf("", "off", "tcp", "record", "both")
         val versions = listOf("", "1.2", "1.3")
         private val tcpTypes = setOf("vless", "vmess", "trojan", "http", "socks", "anytls", "shadowtls")
@@ -152,7 +155,7 @@ data class NativeProfileTlsOptions(
         fun fromJson(obj: JsonObject?): NativeProfileTlsOptions {
             fun text(key: String) = obj?.get(key)?.asString.orEmpty()
             return NativeProfileTlsOptions(text("server-name"), text("fingerprint"), text("alpn"), text("fragment-mode"),
-                text("fallback-delay-ms"), text("min-version"), text("max-version"), text("target-tag"))
+                text("fallback-delay-ms"), text("min-version"), text("max-version"), text("target-tag"), text("sni-mode"))
         }
     }
 }

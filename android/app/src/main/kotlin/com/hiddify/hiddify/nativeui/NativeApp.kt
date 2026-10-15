@@ -176,7 +176,7 @@ fun NativeApp(
     regionalApps: NativeRegionalAppSnapshot?,
     regionalAppsRevision: Int,
     onOpenRegionalApps: (NativeRegionalAppKind) -> Unit,
-    onSaveRegionalApps: (NativeRegionalAppKind, Set<String>) -> Unit,
+    onSaveRegionalApps: (NativeRegionalAppKind, com.hiddify.hiddify.privacy.NativeRegionalAppChoices) -> Unit,
     onResetRegionalApps: (NativeRegionalAppKind) -> Unit,
     regionalOptions: NativeRegionalOptions,
     regionalBusy: Boolean,

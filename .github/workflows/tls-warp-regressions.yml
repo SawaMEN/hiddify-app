@@ -2,7 +2,7 @@ name: TLS UI and WARP recovery regressions
 on:
   workflow_dispatch:
   push:
-    branches: ['fix/tls-sheets-warp']
+    branches: ['fix/tls-sheets-warp', 'fix/profile-presets-scroll']
 permissions:
   contents: read
 jobs:
@@ -41,6 +41,7 @@ jobs:
       - name: Test TLS dependencies, profile capabilities and WARP recovery
         run: ./android/gradlew -p tool/kotlin-tests test --console=plain
       - name: Verify all recovery peers with real WARP and AWG traffic
+        if: github.ref_name == 'fix/tls-sheets-warp'
         env:
           FREE_AUDIT_DIR: ${{ runner.temp }}/warp-audit
           FREE_AUDIT_WARP_ONLY: '1'
