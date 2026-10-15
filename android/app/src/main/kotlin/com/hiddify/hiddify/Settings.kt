@@ -60,7 +60,7 @@ object Settings {
     val privacyUseRootRequested get() = getBoolean("flutter.privacy-use-root", false)
 
     fun setPrivacyUseRoot(enabled: Boolean) {
-        preferences.edit().putBoolean("flutter.privacy-use-root", enabled).apply()
+        savePrivacyPreferences(com.hiddify.hiddify.nativeprivacy.NativePrivacyControls.rootPreferences(enabled))
         VpnServiceVisibility.sync(Application.application, enabled && serviceMode == ServiceMode.VPN)
     }
 
@@ -69,7 +69,17 @@ object Settings {
     }
 
     fun setPrivacyFullTunnel(enabled: Boolean) {
-        preferences.edit().putBoolean("flutter.privacy-full-tunnel", enabled).apply()
+        savePrivacyPreferences(com.hiddify.hiddify.nativeprivacy.NativePrivacyControls.fullTunnelPreferences(enabled))
+    }
+
+    private fun savePrivacyPreferences(values: Map<String, Any>) {
+        val editor = preferences.edit()
+        values.forEach { (key, value) -> when (value) {
+            is Boolean -> editor.putBoolean(key, value)
+            is String -> editor.putString(key, value)
+            else -> error("Unsupported privacy preference")
+        } }
+        check(editor.commit()) { "Could not save privacy settings" }
     }
 
     fun setPrivacyEncryptedDns(enabled: Boolean) {

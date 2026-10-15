@@ -100,6 +100,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeconnection/NativeServerRanker.kt'
             include 'com/hiddify/hiddify/nativeprivacy/NativePrivacySetup.kt'
             include 'com/hiddify/hiddify/nativeprivacy/NativePrivacySummary.kt'
+            include 'com/hiddify/hiddify/nativeprivacy/NativePrivacyControls.kt'
             include 'com/hiddify/hiddify/sharing/HotspotInterfaceSelection.kt'
             include 'com/hiddify/hiddify/sharing/HotspotRootRules.kt'
             include 'com/hiddify/hiddify/sharing/HotspotWifiQr.kt'

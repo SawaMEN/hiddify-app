@@ -54,6 +54,7 @@ data class NativeSettingsState(
     val dynamicNotification: Boolean,
     val debugMode: Boolean,
     val disableMemoryLimit: Boolean,
+    val wifiSharingRequested: Boolean = wifiSharing,
 )
 
 enum class NativeSettingsCategory(val title: Int) {

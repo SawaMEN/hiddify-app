@@ -719,4 +719,10 @@
     <string name="native_privacy_services_loading">Выбранные сервисы через VPN. Нажмите, чтобы изменить выбор.</string>
     <string name="native_privacy_community_configured">Применяются выбранные списки сообщества. Управление списками — в настройках маршрутизации ниже.</string>
     <string name="native_privacy_nothing_configured">Дополнительные функции не включены. Настройте нужные параметры ниже или примените автонастройку.</string>
+    <string name="native_privacy_android_vpn_only">Действует при обычном VPN-подключении через Android. В режиме root или прокси выбранное значение сохраняется.</string>
+    <string name="native_privacy_enable_vpn">Включить режим VPN</string>
+    <string name="native_privacy_local_proxy_exception">Для раздачи VPN или доступа из локальной сети нужен локальный прокси. Скрытие снова начнёт действовать после их отключения.</string>
+    <string name="native_privacy_proxy_ports_needed">В режиме прокси локальные порты нужны для подключения. Ограничение будет применено после включения VPN.</string>
+    <string name="native_privacy_pending_changes">Настройки сохранены, но текущее подключение использует прежние параметры. Переподключите VPN для применения.</string>
+    <string name="native_privacy_proxy_mode_notice">Сейчас выбран режим прокси. Маршрутизация приложений и параметры VPN-сети Android в нём не действуют. Для переключения режима отключите текущее подключение.</string>
 </resources>

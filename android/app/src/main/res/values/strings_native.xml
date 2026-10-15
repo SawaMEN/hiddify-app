@@ -719,4 +719,10 @@
     <string name="native_privacy_services_loading">Selected services use the VPN. Tap to edit your selection.</string>
     <string name="native_privacy_community_configured">Selected community lists are applied. Manage the lists in routing settings below.</string>
     <string name="native_privacy_nothing_configured">No additional features are enabled. Choose settings below or use automatic setup.</string>
+    <string name="native_privacy_android_vpn_only">Applies to a regular Android VPN connection. The saved value is retained in root or proxy mode.</string>
+    <string name="native_privacy_enable_vpn">Enable VPN mode</string>
+    <string name="native_privacy_local_proxy_exception">VPN sharing or LAN access requires the local proxy. Hiding it resumes after these features are disabled.</string>
+    <string name="native_privacy_proxy_ports_needed">Proxy mode needs local listeners. This restriction applies after enabling VPN mode.</string>
+    <string name="native_privacy_pending_changes">Settings are saved, but the current connection still uses the previous values. Reconnect to apply them.</string>
+    <string name="native_privacy_proxy_mode_notice">Proxy mode is selected. App routing and Android VPN network settings do not apply in this mode. Disconnect the current connection before switching modes.</string>
 </resources>

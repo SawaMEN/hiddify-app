@@ -50,6 +50,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativeconnection.NativeConnectionOptions
+import com.hiddify.hiddify.nativeprivacy.NativePrivacyControls
 import com.hiddify.hiddify.nativeprivacy.NativePrivacyFeature
 import com.hiddify.hiddify.nativeprivacy.NativePrivacySummary
 import com.hiddify.hiddify.privacy.NativeProxyPrivacy
@@ -86,11 +87,10 @@ internal fun NativePrivacyOverviewScreen(
     onRoot: (Boolean) -> Unit,
     onEncryptedDns: (Boolean) -> Unit,
     onPublicDns: (Boolean) -> Unit,
-    onHandbook: (Boolean) -> Unit,
-    onHandbookProxy: (Boolean) -> Unit,
-    onHandbookDirect: (Boolean) -> Unit,
-    onHandbookProxySites: (String) -> Unit,
-    onHandbookDirectSites: (String) -> Unit,
+    allowLan: Boolean = false,
+    requiresReconnect: Boolean = false,
+    onApplySaved: (() -> Unit)? = null,
+    onEnableVpn: () -> Unit = {},
     onSaveCommunitySelection: (Boolean, Boolean, String) -> Unit = { _, _, _ -> },
 ) {
     val context = LocalContext.current
@@ -110,9 +110,12 @@ internal fun NativePrivacyOverviewScreen(
     val directCount = (policy?.get("privacy-direct-packages") as? List<*>)?.size
     val proxyCount = (policy?.get("privacy-proxy-packages") as? List<*>)?.size
     val serviceCount = (policy?.get("privacy-selected-services") as? List<*>)?.size
+    val vpnMode = settings.serviceMode == com.hiddify.hiddify.constant.ServiceMode.VPN
+    val rootMode = vpnMode && settings.rootRequested
+    val androidVpn = vpnMode && !rootMode
     val features = NativePrivacySummary.features(regional, settings.fullTunnel, settings.handbookRouting,
         settings.encryptedDns, settings.publicDns, proxy, connection.adaptiveNetwork,
-        connection.maskedProtocolsOnly, settings.rootRequested, settings.wifiSharing)
+        connection.maskedProtocolsOnly, rootMode, settings.wifiSharingRequested, vpnMode, allowLan, settings.handbookProxy || settings.handbookDirect)
     val scheme = MaterialTheme.colorScheme
     Column(Modifier.fillMaxSize()) {
         // AppBar is outside ListView in Dart and stays visible while the content scrolls.
@@ -158,6 +161,18 @@ internal fun NativePrivacyOverviewScreen(
             }
             if (!canApply && !busy) Text(stringResource(R.string.native_privacy_setup_disconnect),
                 Modifier.padding(top = 8.dp), style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
+            if (!vpnMode) {
+                Text(stringResource(R.string.native_privacy_proxy_mode_notice), Modifier.padding(vertical = 12.dp),
+                    style = MaterialTheme.typography.bodyMedium)
+                NativeOutlinedButton(onEnableVpn, Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    enabled = canChangeRoot && !busy) { Text(stringResource(R.string.native_privacy_enable_vpn)) }
+            }
+            if (requiresReconnect) {
+                Text(stringResource(R.string.native_privacy_pending_changes), Modifier.padding(vertical = 12.dp),
+                    style = MaterialTheme.typography.bodyMedium, color = scheme.primary)
+                if (onApplySaved != null) NativeButton(onApplySaved, Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                    enabled = !busy) { Text(stringResource(R.string.native_quick_reconnect)) }
+            }
             Spacer(Modifier.height(24.dp))
             Text(stringResource(R.string.native_privacy_what), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(10.dp))
@@ -187,14 +202,14 @@ internal fun NativePrivacyOverviewScreen(
                     R.drawable.privacy_language, regional.russianNetworkBypass, !busy) {
                     onRussianNetworkBypassChanged(it)
                 }
-                NativeRoutingModeChoices(regional.mode, !busy, settings.handbookRouting) { mode ->
+                NativeRoutingModeChoices(regional.mode, !busy, settings.handbookRouting, settings.fullTunnel && vpnMode) { mode ->
                     onSaveRegional(regional.withMode(mode), mode == com.hiddify.hiddify.privacy.NativeRegionalMode.OFF)
                 }
                 if (settings.fullTunnel) {
                     Text(stringResource(R.string.native_routing_override_notice), Modifier.padding(16.dp))
                 }
                 if (settings.handbookRouting) {
-                    NativeCommunityPreferences(settings, !busy, onSaveCommunitySelection)
+                    NativeCommunityPreferences(settings, !busy && !settings.fullTunnel, onSaveCommunitySelection)
                     Text(stringResource(R.string.native_privacy_handbook_note), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
                 }
             }
@@ -206,30 +221,36 @@ internal fun NativePrivacyOverviewScreen(
                 PrivacySwitch(R.string.native_privacy_full, R.string.native_privacy_full_summary, R.drawable.privacy_security,
                     settings.fullTunnel, !busy, onFullTunnel)
                 PrivacySwitch(R.string.native_privacy_root, when {
+                    !canChangeRoot -> R.string.native_profile_disconnect_required
                     root == null -> R.string.native_privacy_root_checking
                     root?.get("detected") != true -> R.string.native_privacy_root_missing
                     root?.get("helper") != true -> R.string.native_privacy_root_helper_missing
                     else -> R.string.native_privacy_root_summary
                 }, R.drawable.privacy_admin, settings.rootRequested,
-                    !busy && canChangeRoot && root?.get("detected") == true && root?.get("helper") == true, onRoot)
+                    NativePrivacyControls.canToggleRoot(busy, canChangeRoot, settings.rootRequested,
+                        root?.get("detected") == true, root?.get("helper") == true), onRoot)
             }
             Spacer(Modifier.height(10.dp))
             PrivacyCategory(R.string.native_privacy_dns, R.string.native_privacy_dns_summary, R.drawable.privacy_dns,
                 "dns" in expandedCategories, { onToggleCategory("dns") }) {
                 PrivacySwitch(R.string.native_privacy_encrypted, R.string.native_privacy_encrypted_summary,
                     R.drawable.privacy_dns, settings.encryptedDns, !busy, onEncryptedDns)
-                PrivacySwitch(R.string.native_privacy_public, R.string.native_privacy_public_summary,
-                    R.drawable.privacy_public, settings.publicDns, !busy, onPublicDns)
+                PrivacySwitch(R.string.native_privacy_public, if (androidVpn) R.string.native_privacy_public_summary else R.string.native_privacy_android_vpn_only,
+                    R.drawable.privacy_public, settings.publicDns, !busy && androidVpn, onPublicDns)
             }
             Spacer(Modifier.height(10.dp))
             PrivacyCategory(R.string.native_privacy_interfaces, R.string.native_privacy_interfaces_summary, R.drawable.privacy_ethernet,
                 "interfaces" in expandedCategories, { onToggleCategory("interfaces") }) {
-                PrivacySwitch(R.string.native_proxy_hide_local, R.string.native_proxy_hide_local_summary, R.drawable.privacy_wifi_off,
-                    proxy.hideLocalProxy, !busy) { onSaveProxy(proxy.copy(hideLocalProxy = it)) }
+                PrivacySwitch(R.string.native_proxy_hide_local, when {
+                    !vpnMode -> R.string.native_privacy_proxy_ports_needed
+                    proxy.hideLocalProxy && !rootMode && (settings.wifiSharingRequested || allowLan) -> R.string.native_privacy_local_proxy_exception
+                    else -> R.string.native_proxy_hide_local_summary
+                }, R.drawable.privacy_wifi_off,
+                    proxy.hideLocalProxy, !busy && vpnMode) { onSaveProxy(proxy.copy(hideLocalProxy = it)) }
                 PrivacySwitch(R.string.native_proxy_hide_clash, R.string.native_proxy_hide_clash_summary, R.drawable.privacy_api,
                     proxy.hideClashApi, !busy) { onSaveProxy(proxy.copy(hideClashApi = it)) }
-                PrivacySwitch(R.string.native_privacy_system_proxy, R.string.native_privacy_system_proxy_summary, R.drawable.privacy_http,
-                    proxy.disableSystemProxy, !busy) { onSaveProxy(proxy.copy(disableSystemProxy = it)) }
+                PrivacySwitch(R.string.native_privacy_system_proxy, if (androidVpn) R.string.native_privacy_system_proxy_summary else R.string.native_privacy_android_vpn_only, R.drawable.privacy_http,
+                    proxy.disableSystemProxy, !busy && androidVpn) { onSaveProxy(proxy.copy(disableSystemProxy = it)) }
             }
             Spacer(Modifier.height(26.dp))
             Text(stringResource(R.string.native_privacy_limits), Modifier.padding(horizontal = 4.dp),
@@ -374,8 +395,6 @@ private fun PrivacyOverviewPreview() {
                     connection = NativeConnectionOptions(), proxy = NativeProxyPrivacy(),
                     onSaveRegional = { _, _ -> }, onRussianNetworkBypassChanged = {}, onSaveConnection = {}, onSaveProxy = {}, onOpenApps = {},
                     onFullTunnel = {}, onRoot = {}, onEncryptedDns = {}, onPublicDns = {},
-                    onHandbook = {}, onHandbookProxy = {}, onHandbookDirect = {},
-                    onHandbookProxySites = {}, onHandbookDirectSites = {},
                 )
             }
         }

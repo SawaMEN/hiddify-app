@@ -35,17 +35,19 @@ fun NativeRegionalRoutingScreen(
     fullTunnel: Boolean,
     handbookRouting: Boolean,
     onBack: () -> Unit,
-    onSave: (NativeRegionalOptions, Boolean) -> Unit,
+    onSave: (NativeRegionalOptions, Boolean, Boolean) -> Unit,
     onOpenApps: (NativeRegionalAppKind) -> Unit,
 ) {
-    var mode by rememberSaveable(options.mode, handbookRouting) { mutableStateOf(if (handbookRouting) NativeRegionalMode.OFF.value else options.mode.value) }
+    var mode by rememberSaveable(options.mode, handbookRouting) { mutableStateOf(options.mode.value) }
+    var community by rememberSaveable(options.mode, handbookRouting) { mutableStateOf(handbookRouting) }
+    var routingSelected by rememberSaveable(options.mode, handbookRouting, fullTunnel) { mutableStateOf(false) }
     var network by rememberSaveable(options.russianNetworkBypass) { mutableStateOf(options.russianNetworkBypass) }
     var apps by rememberSaveable(options.russianAppsBypass) { mutableStateOf(options.russianAppsBypass) }
     var restricted by rememberSaveable(options.restrictedServicesProxy) { mutableStateOf(options.restrictedServicesProxy) }
     var direct by rememberSaveable(options.directDomains, stateSaver = NativeStringDraftSaver) { mutableStateOf(options.directDomains) }
     var proxy by rememberSaveable(options.proxyDomains, stateSaver = NativeStringDraftSaver) { mutableStateOf(options.proxyDomains) }
     val draft = NativeRegionalOptions(NativeRegionalMode.fromValue(mode), network, apps, restricted, direct, proxy)
-    val changed = draft != options || handbookRouting != (draft.mode == NativeRegionalMode.OFF)
+    val changed = draft != options || community != handbookRouting || (routingSelected && fullTunnel)
     val valid = runCatching { draft.validated() }.isSuccess
 
     Column(modifier = Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp),
@@ -63,8 +65,10 @@ fun NativeRegionalRoutingScreen(
         }
         RegionalSwitch(R.string.native_regional_network, R.string.native_regional_network_summary,
             network, !busy) { network = it }
-        NativeRoutingModeChoices(NativeRegionalMode.fromValue(mode), !busy, mode == NativeRegionalMode.OFF.value) { choice ->
+        NativeRoutingModeChoices(NativeRegionalMode.fromValue(mode), !busy, community, fullTunnel && !routingSelected) { choice ->
             val selected = draft.withMode(choice)
+            community = choice == NativeRegionalMode.OFF
+            routingSelected = true
             mode = selected.mode.value
             network = selected.russianNetworkBypass
             apps = selected.russianAppsBypass
@@ -89,7 +93,7 @@ fun NativeRegionalRoutingScreen(
             supportingText = { Text(stringResource(R.string.native_regional_domains_hint)) })
         if (!valid) Text(stringResource(R.string.native_regional_invalid), color = MaterialTheme.colorScheme.error)
         if (busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-        Button(enabled = !busy && valid && changed, onClick = { onSave(draft, draft.mode == NativeRegionalMode.OFF) },
+        Button(enabled = !busy && valid && changed, onClick = { onSave(draft, community, routingSelected) },
             modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.native_regional_save)) }
     }
 }

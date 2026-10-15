@@ -11,9 +11,9 @@ class NativePrivacySummaryTest {
         network: Boolean = false, full: Boolean = false, community: Boolean = false,
         encrypted: Boolean = false, publicDns: Boolean = false,
         proxy: NativeProxyPrivacy = NativeProxyPrivacy(false, false, false),
-        adaptive: Boolean = false, masked: Boolean = false, root: Boolean = false, sharing: Boolean = false) =
+        adaptive: Boolean = false, masked: Boolean = false, root: Boolean = false, sharing: Boolean = false, vpn: Boolean = true, lan: Boolean = false, communityEnabled: Boolean = true) =
         NativePrivacySummary.features(NativeRegionalOptions(mode = mode, russianNetworkBypass = network),
-            full, community, encrypted, publicDns, proxy, adaptive, masked, root, sharing)
+            full, community, encrypted, publicDns, proxy, adaptive, masked, root, sharing, vpn, lan, communityEnabled)
 
     @Test fun appAndServiceRowsAreMutuallyExclusiveAndFollowTheSelectedMode() {
         assertEquals(listOf(NativePrivacyFeature.RUSSIAN_APPS), summary())
@@ -42,8 +42,7 @@ class NativePrivacySummaryTest {
     @Test fun summaryReflectsIndividualDnsProxyAndConnectionSettings() {
         val enabled = summary(NativeRegionalMode.OFF, encrypted = true, publicDns = true,
             proxy = NativeProxyPrivacy(), adaptive = true, masked = true, root = true, sharing = true)
-        assertEquals(setOf(NativePrivacyFeature.ENCRYPTED_DNS, NativePrivacyFeature.PUBLIC_DNS,
-            NativePrivacyFeature.HIDDEN_SYSTEM_PROXY, NativePrivacyFeature.HIDDEN_LOCAL_PROXY,
+        assertEquals(setOf(NativePrivacyFeature.ENCRYPTED_DNS, NativePrivacyFeature.HIDDEN_LOCAL_PROXY,
             NativePrivacyFeature.HIDDEN_API, NativePrivacyFeature.ADAPTIVE_NETWORK,
             NativePrivacyFeature.MASKED_PROTOCOLS, NativePrivacyFeature.ROOT, NativePrivacyFeature.WIFI_SHARING), enabled.toSet())
         assertEquals(enabled.size, enabled.distinct().size)
@@ -68,6 +67,34 @@ class NativePrivacySummaryTest {
         val applied = original + NativePrivacySetup.configure(original)
         assertEquals(listOf(NativePrivacyFeature.BLOCKED_SERVICES, NativePrivacyFeature.ENCRYPTED_DNS), rows(applied))
         assertEquals(rows(original), rows(applied + NativePrivacySetup.restore(applied)))
+    }
+
+    @Test fun lanAccessTemporarilyOverridesLocalProxyHidingWithoutChangingSavedChoice() {
+        val proxy = NativeProxyPrivacy()
+        assertFalse(NativePrivacyFeature.HIDDEN_LOCAL_PROXY in summary(proxy = proxy, lan = true))
+        assertTrue(NativePrivacyFeature.HIDDEN_LOCAL_PROXY in summary(proxy = proxy, lan = true, root = true))
+        assertTrue(proxy.hideLocalProxy)
+    }
+
+    @Test fun proxyOnlyModeDoesNotClaimAndroidVpnOrRootFeaturesAreEffective() {
+        val features = summary(full = true, encrypted = true, publicDns = true, proxy = NativeProxyPrivacy(),
+            root = true, sharing = true, vpn = false)
+        assertEquals(listOf(NativePrivacyFeature.ENCRYPTED_DNS, NativePrivacyFeature.HIDDEN_API), features)
+        assertEquals(listOf(NativePrivacyFeature.COMMUNITY_LISTS), summary(community = true, vpn = false))
+    }
+
+    @Test fun rootModeDoesNotClaimAndroidVpnNetworkMetadataIsInUse() {
+        val features = summary(NativeRegionalMode.OFF, root = true, publicDns = true, proxy = NativeProxyPrivacy())
+        assertFalse(NativePrivacyFeature.PUBLIC_DNS in features)
+        assertFalse(NativePrivacyFeature.HIDDEN_SYSTEM_PROXY in features)
+        assertTrue(NativePrivacyFeature.ROOT in features)
+        val android = summary(NativeRegionalMode.OFF, publicDns = true, proxy = NativeProxyPrivacy())
+        assertTrue(NativePrivacyFeature.PUBLIC_DNS in android)
+        assertTrue(NativePrivacyFeature.HIDDEN_SYSTEM_PROXY in android)
+    }
+
+    @Test fun emptyCommunitySelectionDoesNotClaimListsOrBuiltInAppsAreApplied() {
+        assertTrue(summary(community = true, communityEnabled = false).isEmpty())
     }
 
 }

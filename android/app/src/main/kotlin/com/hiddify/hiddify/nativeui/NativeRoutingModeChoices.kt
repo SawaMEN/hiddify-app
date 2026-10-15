@@ -18,8 +18,8 @@ import com.hiddify.hiddify.R
 import com.hiddify.hiddify.privacy.NativeRegionalMode
 
 @Composable
-internal fun NativeRoutingModeChoices(mode: NativeRegionalMode, enabled: Boolean, handbookRouting: Boolean = false, onChange: (NativeRegionalMode) -> Unit) {
-    val selectedMode = if (handbookRouting) NativeRegionalMode.OFF else mode.takeUnless { it == NativeRegionalMode.OFF }
+internal fun NativeRoutingModeChoices(mode: NativeRegionalMode, enabled: Boolean, handbookRouting: Boolean = false, fullTunnel: Boolean = false, onChange: (NativeRegionalMode) -> Unit) {
+    val selectedMode = com.hiddify.hiddify.nativeprivacy.NativePrivacyControls.selectedRoutingMode(mode, handbookRouting, fullTunnel)
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(stringResource(R.string.native_regional_mode), Modifier.padding(horizontal = 16.dp),
             style = MaterialTheme.typography.titleMedium)

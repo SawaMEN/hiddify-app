@@ -435,6 +435,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 proxyPrivacyBusy = proxyPrivacyBusy.value,
                 onSaveProxyPrivacy = ::saveProxyPrivacy,
                 privacySetupBusy = privacySetupBusy.value,
+                privacyStartPending = nativeStartPending || pendingStartAfterVpnPermission,
                 privacyConfigured = privacyConfigured.value,
                 privacyCanRestore = privacyCanRestore.value,
                 onConfigurePrivacy = { applyPrivacySetup(false) },
@@ -465,7 +466,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onResetRegionalApps = ::resetRegionalApps,
                 regionalOptions = regionalOptions.value,
                 regionalBusy = regionalBusy.value,
-                onSaveRegionalOptions = { options, community -> saveRegionalOptions(options, community) },
+                onSaveRegionalOptions = { options, community, selectRouting -> saveRegionalOptions(options, community, selectRouting) },
                 onRussianNetworkBypassChanged = { enabled ->
                     saveRegionalOptions(regionalOptions.value.copy(russianNetworkBypass = enabled),
                         Settings.handbookRouting, selectRouting = false)
@@ -567,7 +568,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onOpenPrivacy = { openExternalUrl(NativeUpdateRepository.PRIVACY_URL) },
                 onCopyAppInfo = ::copyAppInfo,
                 onProxyOnlyChanged = { proxyOnly ->
-                    if (serviceStatus.value != Status.Stopped) {
+                    if (privacyChangesBlocked() || serviceStatus.value != Status.Stopped || BoxService.hasActiveCore() || BoxService.isRunning()) {
                         errorMessage.value = getString(R.string.native_settings_disconnect_required)
                     } else {
                         updateSettings {
@@ -576,29 +577,23 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                         connection.reconnect()
                     }
                 },
-                onRootModeChanged = { value ->
-                    if (serviceStatus.value != Status.Stopped) {
-                        errorMessage.value = getString(R.string.native_profile_disconnect_required)
-                    } else {
-                        updateSettings { Settings.setPrivacyUseRoot(value) }
-                        connection.reconnect()
-                    }
-                },
+                onRootModeChanged = ::changePrivacyRoot,
                 onWifiSharingChanged = ::changeWifiSharing,
-                onFullTunnelChanged = { value -> updateSettings { Settings.setPrivacyFullTunnel(value) } },
-                onEncryptedDnsChanged = { value -> updateSettings { Settings.setPrivacyEncryptedDns(value) } },
-                onPublicDnsChanged = { value -> updateSettings { Settings.setPrivacyPublicDns(value) } },
-                onDisableSystemProxyChanged = { value -> updateSettings { Settings.setPrivacyDisableSystemProxy(value) } },
-                onHandbookRoutingChanged = { value ->
-                    if (serviceStatus.value != Status.Starting && serviceStatus.value != Status.Stopping && !reconnectBusy.value) {
-                        updateSettings { Settings.setHandbookRouting(value) }
-                        coreChangesSaved()
-                    }
+                onFullTunnelChanged = ::changePrivacyFullTunnel,
+                onEncryptedDnsChanged = { value -> updatePrivacySetting { Settings.setPrivacyEncryptedDns(value) } },
+                onPublicDnsChanged = { value -> updatePrivacySetting { Settings.setPrivacyPublicDns(value) } },
+                onDisableSystemProxyChanged = { value -> updatePrivacySetting { Settings.setPrivacyDisableSystemProxy(value) } },
+                onHandbookRoutingChanged = { enabled ->
+                    val current = regionalOptions.value
+                    val mode = if (enabled) com.hiddify.hiddify.privacy.NativeRegionalMode.OFF
+                        else current.mode.takeUnless { it == com.hiddify.hiddify.privacy.NativeRegionalMode.OFF }
+                            ?: com.hiddify.hiddify.privacy.NativeRegionalMode.RUSSIAN_BYPASS
+                    saveRegionalOptions(current.withMode(mode), enabled)
                 },
-                onHandbookProxyChanged = { value -> updateSettings { Settings.setHandbookProxy(value) } },
-                onHandbookDirectChanged = { value -> updateSettings { Settings.setHandbookDirect(value) } },
-                onHandbookProxySitesChanged = { value -> updateSettings { Settings.setHandbookProxySites(value) } },
-                onHandbookDirectSitesChanged = { value -> updateSettings { Settings.setHandbookDirectSites(value) } },
+                onHandbookProxyChanged = { value -> updatePrivacySetting { Settings.setHandbookProxy(value) } },
+                onHandbookDirectChanged = { value -> updatePrivacySetting { Settings.setHandbookDirect(value) } },
+                onHandbookProxySitesChanged = { value -> updatePrivacySetting { Settings.setHandbookProxySites(value) } },
+                onHandbookDirectSitesChanged = { value -> updatePrivacySetting { Settings.setHandbookDirectSites(value) } },
                 onSaveCommunitySelection = ::saveCommunitySelection,
                 onDynamicNotificationChanged = { value ->
                     updateSettings { Settings.dynamicNotification = value }
@@ -1556,6 +1551,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             serviceMode = Settings.serviceMode,
             rootRequested = Settings.privacyUseRootRequested,
             wifiSharing = AutomaticHotspot.snapshot()["active"] == true,
+            wifiSharingRequested = Settings.wifiVpnSharing,
             fullTunnel = Settings.privacyFullTunnel,
             encryptedDns = Settings.privacyEncryptedDns,
             publicDns = Settings.privacyPublicDns,
@@ -1599,7 +1595,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun saveProxyPrivacy(options: com.hiddify.hiddify.privacy.NativeProxyPrivacy) {
-        if (proxyPrivacyBusy.value || privacySetupBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value || inboundBusy.value) return
+        if (privacyChangesBlocked()) return
         proxyPrivacyBusy.value = true
         proxyPrivacySnapshotJob?.cancel()
         lifecycleScope.launch {
@@ -1637,7 +1633,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun applyPrivacySetup(restore: Boolean) {
-        if (privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value || regionalBusy.value || connectionOptionsBusy.value || wifiSharingBusy.value) return
+        if (privacyChangesBlocked()) return
         if (serviceStatus.value != Status.Stopped || pendingStartAfterVpnPermission || nativeStartPending) {
             errorMessage.value = getString(R.string.native_privacy_setup_disconnect)
             return
@@ -1658,7 +1654,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                         }
                     }
                 }
+                if (!Settings.wifiVpnSharing && AutomaticHotspot.snapshot()["active"] == true) AutomaticHotspot.stop()
+                connection.reconnect()
                 refreshImportedSettingsSnapshots()
+                refreshPerApp()
                 regionalApps.value = null
                 regionalAppsRevision.value += 1
                 Toast.makeText(this@MainActivity,
@@ -1901,7 +1900,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun saveConnectionOptions(options: NativeConnectionOptions) {
-        if (connectionOptionsBusy.value) return
+        if (privacyChangesBlocked()) return
         val corePolicyChanged = connectionOptions.value.corePolicy() != options.corePolicy()
         connectionOptionsBusy.value = true
         lifecycleScope.launch {
@@ -1969,7 +1968,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun changeRegionalApps(kind: NativeRegionalAppKind, choices: com.hiddify.hiddify.privacy.NativeRegionalAppChoices) {
-        if (regionalBusy.value || regionalApps.value?.kind != kind) return
+        if (privacyChangesBlocked() || regionalApps.value?.kind != kind) return
         regionalBusy.value = true
         lifecycleScope.launch {
             try {
@@ -1992,7 +1991,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun saveRegionalOptions(value: NativeRegionalOptions, useCommunityLists: Boolean, selectRouting: Boolean = true) {
-        if (regionalBusy.value) return
+        if (privacyChangesBlocked()) return
         regionalBusy.value = true
         lifecycleScope.launch {
             try {
@@ -2234,11 +2233,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun saveCommunitySelection(proxy: Boolean, enabled: Boolean, sites: String) {
-        if (reconnectBusy.value || privacySetupBusy.value || regionalBusy.value ||
-            serviceStatus.value == Status.Starting || serviceStatus.value == Status.Stopping ||
-            nativeStartPending || pendingStartAfterVpnPermission) return
+        if (privacyChangesBlocked()) return
         updateSettings { Settings.setCommunitySelection(proxy, enabled, sites) }
-        coreChangesSaved()
     }
 
     private fun saveQuickServiceMode(proxyOnly: Boolean) {
@@ -2643,6 +2639,44 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    private fun privacyChangesBlocked(): Boolean = !com.hiddify.hiddify.nativeprivacy.NativePrivacyControls.canEdit(
+        transitioning = serviceStatus.value == Status.Starting || serviceStatus.value == Status.Stopping,
+        saving = privacySetupBusy.value || regionalBusy.value || connectionOptionsBusy.value ||
+            proxyPrivacyBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value ||
+            generalOptionsBusy.value || tunnelBusy.value || chainBusy.value || wifiSharingBusy.value || trafficFiltersBusy.value,
+        reconnecting = reconnectBusy.value,
+        recovering = recoveryAttempt.value > 0,
+        startPending = nativeStartPending || pendingStartAfterVpnPermission,
+    )
+
+    private inline fun updatePrivacySetting(action: () -> Unit) {
+        if (privacyChangesBlocked()) return
+        updateSettings(action)
+    }
+
+    private fun changePrivacyFullTunnel(enabled: Boolean) {
+        if (privacyChangesBlocked()) return
+        updateSettings { Settings.setPrivacyFullTunnel(enabled) }
+        if (serviceStatus.value == Status.Stopped) connection.reconnect()
+    }
+
+    private fun changePrivacyRoot(enabled: Boolean) {
+        if (privacyChangesBlocked()) return
+        if (serviceStatus.value != Status.Stopped || BoxService.hasActiveCore() || BoxService.isRunning()) {
+            errorMessage.value = getString(R.string.native_profile_disconnect_required)
+            return
+        }
+        updateSettings {
+            if (enabled) {
+                val available = com.hiddify.hiddify.privacy.RootCore.detect(applicationContext)
+                check(available["detected"] == true) { getString(R.string.native_privacy_root_missing) }
+                check(available["helper"] == true) { getString(R.string.native_privacy_root_helper_missing) }
+            }
+            Settings.setPrivacyUseRoot(enabled)
+        }
+        connection.reconnect()
+    }
+
     private inline fun updateSettings(action: () -> Unit) {
         try {
             action()
@@ -2705,7 +2739,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun requestStart() {
-        if (privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value ||
+        if (regionalBusy.value || connectionOptionsBusy.value || trafficFiltersBusy.value || privacySetupBusy.value || proxyPrivacyBusy.value || inboundBusy.value || dnsBusy.value || tlsBusy.value || generalOptionsBusy.value || tunnelBusy.value ||
             chainBusy.value || busyProfileId.value != null || profileEditorBusy.value || nativeStartPending ||
             pendingStartAfterVpnPermission || serviceStatus.value != Status.Stopped || BoxService.hasActiveCore()) return
         clearRecoveryIndicator()

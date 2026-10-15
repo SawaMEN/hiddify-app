@@ -23,22 +23,25 @@ object NativePrivacySummary {
         maskedProtocolsOnly: Boolean,
         root: Boolean,
         wifiSharing: Boolean,
+        vpnMode: Boolean = true,
+        allowLan: Boolean = false,
+        communityListsEnabled: Boolean = true,
     ): List<NativePrivacyFeature> = buildList {
         if (regional.russianNetworkBypass) add(NativePrivacyFeature.RUSSIAN_NETWORK)
         when {
-            fullTunnel -> add(NativePrivacyFeature.FULL_TUNNEL)
-            communityRouting -> add(NativePrivacyFeature.COMMUNITY_LISTS)
-            regional.mode == NativeRegionalMode.RUSSIAN_BYPASS -> add(NativePrivacyFeature.RUSSIAN_APPS)
-            regional.mode == NativeRegionalMode.SELECTED_PROXY -> add(NativePrivacyFeature.BLOCKED_SERVICES)
+            fullTunnel && vpnMode -> add(NativePrivacyFeature.FULL_TUNNEL)
+            communityRouting -> if (communityListsEnabled) add(NativePrivacyFeature.COMMUNITY_LISTS)
+            vpnMode && regional.mode == NativeRegionalMode.RUSSIAN_BYPASS -> add(NativePrivacyFeature.RUSSIAN_APPS)
+            vpnMode && regional.mode == NativeRegionalMode.SELECTED_PROXY -> add(NativePrivacyFeature.BLOCKED_SERVICES)
         }
         if (encryptedDns) add(NativePrivacyFeature.ENCRYPTED_DNS)
-        if (publicDns) add(NativePrivacyFeature.PUBLIC_DNS)
-        if (proxy.disableSystemProxy) add(NativePrivacyFeature.HIDDEN_SYSTEM_PROXY)
-        if (proxy.effectiveHideLocalProxy(wifiSharing, root)) add(NativePrivacyFeature.HIDDEN_LOCAL_PROXY)
+        if (publicDns && vpnMode && !root) add(NativePrivacyFeature.PUBLIC_DNS)
+        if (proxy.disableSystemProxy && vpnMode && !root) add(NativePrivacyFeature.HIDDEN_SYSTEM_PROXY)
+        if (vpnMode && proxy.effectiveHideLocalProxy(wifiSharing || allowLan, root)) add(NativePrivacyFeature.HIDDEN_LOCAL_PROXY)
         if (proxy.hideClashApi) add(NativePrivacyFeature.HIDDEN_API)
         if (adaptiveNetwork) add(NativePrivacyFeature.ADAPTIVE_NETWORK)
         if (maskedProtocolsOnly) add(NativePrivacyFeature.MASKED_PROTOCOLS)
-        if (root) add(NativePrivacyFeature.ROOT)
-        if (wifiSharing) add(NativePrivacyFeature.WIFI_SHARING)
+        if (root && vpnMode) add(NativePrivacyFeature.ROOT)
+        if (wifiSharing && vpnMode) add(NativePrivacyFeature.WIFI_SHARING)
     }
 }
