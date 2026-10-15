@@ -724,4 +724,6 @@
     <string name="native_privacy_proxy_mode_notice">Proxy mode is selected. App routing and Android VPN network settings do not apply in this mode. Disconnect the current connection before switching modes.</string>
     <string name="native_profile_updated">Subscription “%1$s” updated</string>
     <string name="native_profiles_updated">Subscriptions updated: %1$d</string>
+    <string name="native_routing_edit_direct">Configure Russian apps, domains and IPs</string>
+    <string name="native_routing_edit_proxy">Configure blocked services</string>
 </resources>

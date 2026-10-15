@@ -54,7 +54,8 @@ fun NativeRegionalRoutingScreen(
                 }
             }
         }
-        NativeRoutingModeChoices(NativeRegionalMode.fromValue(mode), !busy, community, fullTunnel && !routingSelected) { choice ->
+        NativeRoutingModeChoices(NativeRegionalMode.fromValue(mode), !busy, community, fullTunnel && !routingSelected,
+            onOpenApps = onOpenApps, canOpenApps = !busy && !changed) { choice ->
             val selected = draft.withMode(choice)
             community = choice == NativeRegionalMode.OFF
             routingSelected = true
@@ -62,12 +63,6 @@ fun NativeRegionalRoutingScreen(
         }
         if (changed) {
             Text(stringResource(R.string.native_regional_apps_save_first), style = MaterialTheme.typography.bodySmall)
-        }
-        NativeTextButton(enabled = !busy && !changed, onClick = { onOpenApps(NativeRegionalAppKind.DIRECT) }) {
-            Text(stringResource(R.string.native_regional_apps_direct_title))
-        }
-        NativeTextButton(enabled = !busy && !changed, onClick = { onOpenApps(NativeRegionalAppKind.PROXY) }) {
-            Text(stringResource(R.string.native_regional_apps_proxy_title))
         }
         if (!valid) Text(stringResource(R.string.native_regional_invalid), color = MaterialTheme.colorScheme.error)
         if (busy) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())

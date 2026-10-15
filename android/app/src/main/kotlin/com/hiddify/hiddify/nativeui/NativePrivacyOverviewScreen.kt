@@ -199,14 +199,9 @@ internal fun NativePrivacyOverviewScreen(
                 style = MaterialTheme.typography.titleMedium)
             PrivacyCategory(R.string.native_privacy_routing, R.string.native_privacy_routing_summary, R.drawable.privacy_route_outline,
                 "routing" in expandedCategories, { onToggleCategory("routing") }) {
-                NativeRoutingModeChoices(regional.mode, !busy, settings.handbookRouting, settings.fullTunnel && vpnMode) { mode ->
+                NativeRoutingModeChoices(regional.mode, !busy, settings.handbookRouting, settings.fullTunnel && vpnMode,
+                    onOpenApps = onOpenApps) { mode ->
                     onSaveRegional(regional.withMode(mode), mode == com.hiddify.hiddify.privacy.NativeRegionalMode.OFF)
-                }
-                NativeTextButton(enabled = !busy, onClick = { onOpenApps(NativeRegionalAppKind.DIRECT) }) {
-                    Text(stringResource(R.string.native_regional_apps_direct_title))
-                }
-                NativeTextButton(enabled = !busy, onClick = { onOpenApps(NativeRegionalAppKind.PROXY) }) {
-                    Text(stringResource(R.string.native_regional_apps_proxy_title))
                 }
                 if (settings.fullTunnel) {
                     Text(stringResource(R.string.native_routing_override_notice), Modifier.padding(16.dp))
