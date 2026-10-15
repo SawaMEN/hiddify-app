@@ -165,6 +165,10 @@ jobs:
             hiddify-core/go.sum
             hiddify-core/hiddify-sing-box/go.sum
 
+      - name: Install Android routing contract for the bundled stable core
+        if: ${{ inputs.run-tests }}
+        run: cp tool/core-tests/android_routing_contract_test.go hiddify-core/v2/config/android_client_routing_contract_test.go
+
       - name: Check core privacy and adaptive connection policies
         if: ${{ inputs.run-tests }}
         working-directory: hiddify-core
