@@ -5,7 +5,7 @@ object NativeLogPresentation {
     private val ansi = Regex("\u001B\\[[0-?]*[ -/]*[@-~]")
     private val header = Regex("^(?:\\[[^]]+]\\s*)*(?:(?:[+-]\\d{4}\\s+)?(\\d{4}-\\d{2}-\\d{2}[ T]\\d{2}:\\d{2}:\\d{2}(?:[.,]\\d+)?(?:Z|[+-]\\d{2}:?\\d{2})?)\\s+)?(TRACE|DEBUG|INFO|WARN|WARNING|ERROR|FATAL|PANIC)\\b\\s*:?\\s*", RegexOption.IGNORE_CASE)
     private val ordered = listOf("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "PANIC")
-    val levels = ordered.take(4)
+    val levels = ordered
     data class Entry(val message: String, val level: String?, val time: String?)
     fun clean(line: String) = line.replace(ansi, "").replace("\r", "")
     fun entry(line: String): Entry {

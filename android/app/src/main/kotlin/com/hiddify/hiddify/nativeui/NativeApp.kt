@@ -80,6 +80,8 @@ import com.hiddify.hiddify.privacy.NativeRegionalAppSnapshot
 import com.hiddify.hiddify.privacy.NativeRegionalOptions
 import com.hiddify.hiddify.privacy.NativeTrafficFilters
 import com.hiddify.hiddify.R
+import com.hiddify.hiddify.nativeconnection.NativeConnectionPresentation
+import com.hiddify.hiddify.nativeconnection.NativeConnectionTone
 import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
 import com.hiddify.hiddify.nativecore.NativeChainOptions
@@ -927,7 +929,7 @@ private fun HomeScreen(
         confirmButton = { NativeTextButton(onClick = { noProfileNotice = false; onAddProfile() }) { Text(stringResource(android.R.string.ok)) } },
     )
     val homeAccent by animateColorAsState(
-        connectionAccent(status, recoveryAttempt > 0, reconnectBusy, connectionFailed),
+        connectionAccent(status, recoveryAttempt > 0, reconnectBusy, connectionFailed, requiresReconnect),
         animationSpec = tween(if (LocalNativeMotionEnabled.current) 300 else 0), label = "homeGlowColor",
     )
     Column(Modifier.fillMaxSize().drawWithCache {
@@ -1084,11 +1086,12 @@ private fun TrafficMetric(label: Int, rate: Long, total: Long, stats: NativeSyst
 }
 
 @Composable
-private fun connectionAccent(status: Status, recovering: Boolean, reconnectBusy: Boolean, failed: Boolean): Color = when {
-    status == Status.Starting || status == Status.Stopping || reconnectBusy || recovering -> Color(0xFFF2B84B)
-    failed && status == Status.Stopped -> Color(0xFFD32F2F)
-    status == Status.Started -> Color(0xFF4CAF50)
-    else -> MaterialTheme.colorScheme.primaryContainer
+private fun connectionAccent(status: Status, recovering: Boolean, reconnectBusy: Boolean, failed: Boolean,
+    requiresReconnect: Boolean): Color = when (NativeConnectionPresentation.tone(status, recovering, reconnectBusy, failed, requiresReconnect)) {
+    NativeConnectionTone.PENDING -> Color(0xFFF2B84B)
+    NativeConnectionTone.FAILED -> Color(0xFFD32F2F)
+    NativeConnectionTone.CONNECTED -> Color(0xFF4CAF50)
+    NativeConnectionTone.DISCONNECTED -> MaterialTheme.colorScheme.primaryContainer
 }
 
 @Composable
@@ -1102,14 +1105,15 @@ private fun ConnectionCard(
     failed: Boolean = false,
 ) {
     val transitioning = status == Status.Starting || status == Status.Stopping || reconnectBusy || recovering
-    val showError = failed && status == Status.Stopped && !transitioning
-    val label = stringResource(if (reconnectBusy || recovering) R.string.native_status_starting else if (status == Status.Started && requiresReconnect) R.string.native_quick_reconnect else if (showError) R.string.native_status_failed else when (status) {
+    val tone = NativeConnectionPresentation.tone(status, recovering, reconnectBusy, failed, requiresReconnect)
+    val showError = tone == NativeConnectionTone.FAILED
+    val label = stringResource(if (reconnectBusy || recovering) R.string.native_status_starting else if (showError) R.string.native_status_failed else if (status == Status.Started && (requiresReconnect || failed)) R.string.native_quick_reconnect else when (status) {
         Status.Stopped -> R.string.native_status_stopped
         Status.Starting -> R.string.native_status_starting
         Status.Started -> R.string.native_status_started
         Status.Stopping -> R.string.native_status_stopping
     })
-    val actionLabel = stringResource(if (reconnectBusy) R.string.native_connecting else if (recovering) R.string.native_recovery_cancel else if (status == Status.Started && requiresReconnect) R.string.native_quick_reconnect else when (status) {
+    val actionLabel = stringResource(if (reconnectBusy) R.string.native_connecting else if (recovering) R.string.native_recovery_cancel else if (status == Status.Started && (requiresReconnect || failed)) R.string.native_quick_reconnect else when (status) {
         Status.Stopped -> R.string.native_connect
         Status.Starting -> R.string.native_connecting
         Status.Started -> R.string.native_disconnect
@@ -1119,10 +1123,10 @@ private fun ConnectionCard(
     val enabled = !reconnectBusy && (recovering || status != Status.Stopping)
     val view = LocalView.current
     val animationDuration = if (LocalNativeMotionEnabled.current) 300 else 0
-    val stateColor by animateColorAsState(connectionAccent(status, recovering, reconnectBusy, failed),
+    val stateColor by animateColorAsState(connectionAccent(status, recovering, reconnectBusy, failed, requiresReconnect),
         animationSpec = tween(animationDuration), label = "connectionColor")
     val contentColor by animateColorAsState(when {
-        transitioning -> Color(0xFF302100)
+        tone == NativeConnectionTone.PENDING -> Color(0xFF302100)
         showError -> Color.White
         status == Status.Started -> Color(0xFF002105)
         else -> scheme.onPrimaryContainer

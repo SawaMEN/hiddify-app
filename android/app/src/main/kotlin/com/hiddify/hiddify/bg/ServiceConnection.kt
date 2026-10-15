@@ -100,6 +100,8 @@ class ServiceConnection(
 
     override fun onBindingDied(name: ComponentName?) {
         clearService()
+        // A dead binding must clear a cached Started state before Android binds again.
+        callback.onServiceStatusChanged(Status.Stopped.ordinal)
         if (bindingRequested) reconnect()
         Log.d(TAG, "service dead")
     }

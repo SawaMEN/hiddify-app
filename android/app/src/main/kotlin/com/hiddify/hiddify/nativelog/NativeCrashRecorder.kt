@@ -23,7 +23,7 @@ internal class NativeCrashRecorder(
                 // Exception messages and thread names may contain URLs, credentials or profile data.
                 // Retain only types and bounded stack frames, including the underlying cause.
                 val report = buildString {
-                    append(title).append(" at ").append(Instant.now()).append('\n')
+                    append(Instant.now()).append(" ERROR ").append(title).append('\n')
                     var cause: Throwable? = error
                     val seen = java.util.IdentityHashMap<Throwable, Boolean>()
                     repeat(8) {

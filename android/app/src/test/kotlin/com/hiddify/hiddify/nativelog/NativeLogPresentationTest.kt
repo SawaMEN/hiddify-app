@@ -24,7 +24,13 @@ class NativeLogPresentationTest {
         assertEquals("INFO", entry.level)
         assertEquals("2026-10-08 12:30:05", entry.time)
         assertEquals("connected", entry.message)
-        assertEquals(listOf("TRACE", "DEBUG", "INFO", "WARN"), NativeLogPresentation.levels)
+        assertEquals(listOf("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL", "PANIC"), NativeLogPresentation.levels)
+    }
+    @Test fun errorFilterIncludesFatalFailuresAndExcludesLowerSeverities() {
+        val lines = listOf("INFO connected", "WARN retry", "ERROR disconnected", "FATAL crashed", "PANIC stopped")
+        assertTrue("ERROR" in NativeLogPresentation.levels)
+        assertEquals(lines.drop(2), NativeLogPresentation.visible(lines, "", "ERROR"))
+        assertEquals(lines.takeLast(1), NativeLogPresentation.visible(lines, "", "PANIC"))
     }
     @Test fun westernTimezoneOffsetsKeepTimestampAndSeverity() {
         val entry = NativeLogPresentation.entry("[box.log] -0500 2026-10-08 12:00:00 WARN retry")

@@ -2728,7 +2728,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 requestStart()
             }
             Status.Started -> {
-                if (requiresReconnect.value) { reconnectWithSavedSettings(); return }
+                if (requiresReconnect.value || homeConnectionFailed.value) { reconnectWithSavedSettings(); return }
                 if (BoxService.vpnProtection()["alwaysOn"] == true) { openVpnSettings(); return }
                 connectionHaptic(stopping = true)
                 requestStop()
@@ -2897,6 +2897,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             // A queued Starting/Started callback must never undo a user's stop intent.
             if (!Settings.connectionDesired && serviceStatus.value == Status.Stopping &&
                 (status == Status.Starting || status == Status.Started)) return@runOnUiThread
+            if (com.hiddify.hiddify.nativeconnection.NativeConnectionPresentation.unexpectedStop(
+                    serviceStatus.value, status, Settings.connectionDesired)) homeConnectionFailed.value = true
             if (serviceStatus.value != status) resetTrafficStats()
             if (status == Status.Started && serviceStatus.value != status) pingSession++
             serviceStatus.value = status

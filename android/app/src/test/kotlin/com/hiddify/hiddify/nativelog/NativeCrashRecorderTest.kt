@@ -14,7 +14,8 @@ class NativeCrashRecorderTest {
             NativeCrashRecorder.recordServiceFailure(serviceFailure,
                 IllegalStateException("private-profile", SecurityException("private-token")))
             val report = serviceFailure.readText()
-            assertTrue(report.startsWith("Handled VPN service failure at "))
+            assertEquals("ERROR", NativeLogPresentation.entry(report.lineSequence().first()).level)
+            assertTrue(report.contains("Handled VPN service failure"))
             assertTrue(report.contains("java.lang.SecurityException"))
             assertFalse(report.contains("private-profile"))
             assertFalse(report.contains("private-token"))
@@ -41,6 +42,7 @@ class NativeCrashRecorderTest {
             assertTrue(report.contains("java.lang.IllegalStateException"))
             assertTrue(report.contains("java.lang.SecurityException"))
             assertTrue(report.contains("NativeCrashRecorderTest"))
+            assertEquals("ERROR", NativeLogPresentation.entry(report.lineSequence().first()).level)
             assertFalse(report.contains("secret-profile"))
             assertFalse(report.contains("secret-token"))
             assertEquals(1, calls)

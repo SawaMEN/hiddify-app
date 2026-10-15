@@ -88,6 +88,7 @@ sourceSets {
             include 'com/hiddify/hiddify/privacy/NativeRegionalPackages.kt'
             include 'com/hiddify/hiddify/privacy/NativeRegionalServices.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeConnectionPolicy.kt'
+            include 'com/hiddify/hiddify/nativeconnection/NativeConnectionPresentation.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeWarpStartupPolicy.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeWarpProbePolicy.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeBackgroundPermissionPolicy.kt'
