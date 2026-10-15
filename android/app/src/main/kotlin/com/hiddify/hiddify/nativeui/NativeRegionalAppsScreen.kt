@@ -66,8 +66,9 @@ fun NativeRegionalAppsScreen(
             .filter { it in installedPackages }.toSet() + legacyExtras
         else snapshot?.selected.orEmpty()
     val query = search.trim()
+    val serviceQuery = serviceSearch.trim()
     val servicesMatchingSearch = services.filter { service ->
-        val term = serviceSearch.trim()
+        val term = serviceQuery
         service.name.contains(term, ignoreCase = true) ||
             service.id.contains(term, ignoreCase = true) ||
             service.domains.any { it.contains(term, ignoreCase = true) }
@@ -105,15 +106,17 @@ fun NativeRegionalAppsScreen(
             if (busy) item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
             if (kind == NativeRegionalAppKind.PROXY) {
                 item {
-                    Text(stringResource(R.string.native_blocked_services_title),
-                        style = MaterialTheme.typography.titleMedium)
-                    Text(stringResource(R.string.native_blocked_domains_count,
-                        selectedServiceDomains.size, allServiceDomains.size),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedTextField(value = serviceSearch, onValueChange = { serviceSearch = it.take(256) },
-                        modifier = Modifier.fillMaxWidth(), singleLine = true,
-                        label = { Text(stringResource(R.string.native_blocked_domains_search)) })
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(stringResource(R.string.native_blocked_services_title),
+                            style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.native_blocked_domains_count,
+                            selectedServiceDomains.size, allServiceDomains.size),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        OutlinedTextField(value = serviceSearch, onValueChange = { serviceSearch = it.take(256) },
+                            modifier = Modifier.fillMaxWidth(), singleLine = true,
+                            label = { Text(stringResource(R.string.native_blocked_domains_search)) })
+                    }
                 }
                 items(servicesMatchingSearch, key = { "service:${it.id}" }) { service ->
                     val checked = service.id in serviceIds
@@ -136,36 +139,40 @@ fun NativeRegionalAppsScreen(
                 }
             } else {
                 item {
-                    Text(stringResource(R.string.native_regional_apps_direct_hint),
-                        style = MaterialTheme.typography.bodySmall)
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.native_privacy_direct_network),
-                                style = MaterialTheme.typography.titleMedium)
-                            Text(stringResource(R.string.native_privacy_direct_network_summary),
-                                style = MaterialTheme.typography.bodySmall)
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(stringResource(R.string.native_regional_apps_direct_hint),
+                            style = MaterialTheme.typography.bodySmall)
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(R.string.native_privacy_direct_network),
+                                    style = MaterialTheme.typography.titleMedium)
+                                Text(stringResource(R.string.native_privacy_direct_network_summary),
+                                    style = MaterialTheme.typography.bodySmall)
+                            }
+                            Switch(network, enabled = canChange, onCheckedChange = { networkDraft = it })
                         }
-                        Switch(network, enabled = canChange, onCheckedChange = { networkDraft = it })
+                        OutlinedTextField(value = domains,
+                            onValueChange = { if (it.length <= 8192) domainsDraft = it },
+                            enabled = canChange, modifier = Modifier.fillMaxWidth(), minLines = 2,
+                            label = { Text(stringResource(R.string.native_regional_direct_domains)) },
+                            supportingText = { Text(stringResource(R.string.native_regional_domains_hint)) }, isError = !valid)
                     }
-                    OutlinedTextField(value = domains,
-                        onValueChange = { if (it.length <= 8192) domainsDraft = it },
-                        enabled = canChange, modifier = Modifier.fillMaxWidth(), minLines = 2,
-                        label = { Text(stringResource(R.string.native_regional_direct_domains)) },
-                        supportingText = { Text(stringResource(R.string.native_regional_domains_hint)) }, isError = !valid)
                 }
             }
             item {
-                Text(stringResource(if (kind == NativeRegionalAppKind.PROXY)
-                    R.string.native_blocked_apps_title else R.string.native_regional_apps_direct_title),
-                    style = MaterialTheme.typography.titleMedium)
-                Text(stringResource(R.string.native_blocked_apps_count,
-                    selected.size, loadedApps.size + additionalMissing.size),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(value = search, onValueChange = { search = it.take(256) },
-                    singleLine = true, modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(R.string.native_per_app_search)) })
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(if (kind == NativeRegionalAppKind.PROXY)
+                        R.string.native_blocked_apps_title else R.string.native_regional_apps_direct_title),
+                        style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.native_blocked_apps_count,
+                        selected.size, loadedApps.size + additionalMissing.size),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(value = search, onValueChange = { search = it.take(256) },
+                        singleLine = true, modifier = Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.native_per_app_search)) })
+                }
             }
             if (!busy && snapshot == null) {
                 item { NativeTextButton(onClick = onReload) { Text(stringResource(R.string.native_profiles_retry)) } }
@@ -190,6 +197,13 @@ fun NativeRegionalAppsScreen(
                         }
                     }
                     Checkbox(checked = checked, enabled = enabled, onCheckedChange = { toggle() })
+                }
+            }
+            if (snapshot != null && (snapshot.manual || snapshot.servicesManual)) {
+                item {
+                    NativeTextButton(enabled = canChange, onClick = onReset) {
+                        Text(stringResource(R.string.native_regional_apps_reset))
+                    }
                 }
             }
         }
