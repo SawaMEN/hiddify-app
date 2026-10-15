@@ -75,7 +75,8 @@ internal fun NativePrivacyOverviewScreen(
     regionalRevision: Int,
     connection: NativeConnectionOptions,
     proxy: NativeProxyPrivacy,
-    onSaveRegional: (NativeRegionalOptions) -> Unit,
+    onSaveRegional: (NativeRegionalOptions, Boolean) -> Unit,
+    onRussianNetworkBypassChanged: (Boolean) -> Unit,
     onSaveConnection: (NativeConnectionOptions) -> Unit,
     onSaveProxy: (NativeProxyPrivacy) -> Unit,
     onOpenApps: (NativeRegionalAppKind) -> Unit,
@@ -179,7 +180,7 @@ internal fun NativePrivacyOverviewScreen(
                     else stringResource(R.string.native_privacy_services_off), if (!busy) ({ onOpenApps(NativeRegionalAppKind.PROXY) }) else null)
                 PrivacyFeatureDivider()
                 PrivacyFeature(R.drawable.privacy_language, R.string.native_privacy_network,
-                    stringResource(if (regionalEnabled && regional.russianNetworkBypass && regional.mode == com.hiddify.hiddify.privacy.NativeRegionalMode.RUSSIAN_BYPASS) R.string.native_privacy_network_on else R.string.native_privacy_network_off))
+                    stringResource(if (regional.russianNetworkBypass) R.string.native_privacy_network_on else R.string.native_privacy_network_off))
                 PrivacyFeatureDivider()
                 PrivacyFeature(R.drawable.privacy_dns, R.string.native_privacy_signals, stringResource(R.string.native_privacy_signals_summary))
             }
@@ -196,27 +197,19 @@ internal fun NativePrivacyOverviewScreen(
                 style = MaterialTheme.typography.titleMedium)
             PrivacyCategory(R.string.native_privacy_routing, R.string.native_privacy_routing_summary, R.drawable.privacy_route_outline,
                 "routing" in expandedCategories, { onToggleCategory("routing") }) {
-                NativeRoutingModeChoices(regional.mode, !busy) { onSaveRegional(regional.withMode(it)) }
-                if (settings.fullTunnel || settings.handbookRouting) {
+                PrivacySwitch(R.string.native_privacy_direct_network, R.string.native_privacy_direct_network_summary,
+                    R.drawable.privacy_language, regional.russianNetworkBypass, !busy) {
+                    onRussianNetworkBypassChanged(it)
+                }
+                NativeRoutingModeChoices(regional.mode, !busy, settings.handbookRouting) { mode ->
+                    onSaveRegional(regional.withMode(mode), mode == com.hiddify.hiddify.privacy.NativeRegionalMode.OFF)
+                }
+                if (settings.fullTunnel) {
                     Text(stringResource(R.string.native_routing_override_notice), Modifier.padding(16.dp))
                 }
-                PrivacySwitch(R.string.native_privacy_handbook, R.string.native_privacy_handbook_summary, null,
-                    settings.handbookRouting, !busy, onHandbook)
                 if (settings.handbookRouting) {
                     NativeCommunityPreferences(settings, !busy, onSaveCommunitySelection)
                     Text(stringResource(R.string.native_privacy_handbook_note), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
-                }
-                PrivacySwitch(R.string.native_privacy_direct_network, R.string.native_privacy_direct_network_summary,
-                    R.drawable.privacy_language, regional.russianNetworkBypass && !settings.handbookRouting && regional.mode == com.hiddify.hiddify.privacy.NativeRegionalMode.RUSSIAN_BYPASS, !busy && !settings.handbookRouting && regional.mode == com.hiddify.hiddify.privacy.NativeRegionalMode.RUSSIAN_BYPASS) {
-                    onSaveRegional(regional.copy(russianNetworkBypass = it))
-                }
-                PrivacySwitch(R.string.native_privacy_direct_apps, R.string.native_privacy_direct_apps_summary,
-                    R.drawable.privacy_apps_outline, regional.russianAppsBypass && regionalEnabled, !busy && regionalEnabled) {
-                    onSaveRegional(regional.copy(russianAppsBypass = it))
-                }
-                PrivacySwitch(R.string.native_privacy_proxy_services, R.string.native_privacy_proxy_services_summary,
-                    R.drawable.privacy_route_outline, regional.restrictedServicesProxy && regionalEnabled, !busy && regionalEnabled) {
-                    onSaveRegional(regional.copy(restrictedServicesProxy = it))
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -350,7 +343,7 @@ private fun PrivacyOverviewPreview() {
                         debugMode = false, disableMemoryLimit = false),
                     regional = NativeRegionalOptions(), regionalRevision = 0,
                     connection = NativeConnectionOptions(), proxy = NativeProxyPrivacy(),
-                    onSaveRegional = {}, onSaveConnection = {}, onSaveProxy = {}, onOpenApps = {},
+                    onSaveRegional = { _, _ -> }, onRussianNetworkBypassChanged = {}, onSaveConnection = {}, onSaveProxy = {}, onOpenApps = {},
                     onFullTunnel = {}, onRoot = {}, onEncryptedDns = {}, onPublicDns = {},
                     onHandbook = {}, onHandbookProxy = {}, onHandbookDirect = {},
                     onHandbookProxySites = {}, onHandbookDirectSites = {},

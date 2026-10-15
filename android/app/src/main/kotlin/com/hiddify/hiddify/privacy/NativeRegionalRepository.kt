@@ -24,14 +24,14 @@ class NativeRegionalRepository(private val context: Context) {
         restrictedServicesProxy = Settings.privacyRestrictedServicesProxy,
         directDomains = Settings.privacyDirectDomains,
         proxyDomains = Settings.privacyProxyDomains,
-    )
+    ).let { it.withMode(it.mode) }
 
     /** Validate the merged catalogue before committing any preference. Call on IO. */
-    fun save(value: NativeRegionalOptions): NativeRegionalOptions {
+    fun save(value: NativeRegionalOptions, useCommunityLists: Boolean = false, selectRouting: Boolean = true): NativeRegionalOptions {
         val valid = value.validated()
         RegionalRouting.policy(context, options = valid,
-            fullTunnel = if (valid.mode != NativeRegionalMode.OFF) false else Settings.privacyFullTunnel,
-            handbookRouting = if (valid.mode != NativeRegionalMode.OFF) false else Settings.handbookRouting)
+            fullTunnel = if (selectRouting) false else Settings.privacyFullTunnel,
+            handbookRouting = if (selectRouting) useCommunityLists else Settings.handbookRouting)
         val editor = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE).edit()
             .putString("flutter.privacy-routing-mode", valid.mode.value)
             .putBoolean("flutter.privacy-russian-network-bypass", valid.russianNetworkBypass)
@@ -39,13 +39,15 @@ class NativeRegionalRepository(private val context: Context) {
             .putBoolean("flutter.privacy-restricted-services-proxy", valid.restrictedServicesProxy)
             .putString("flutter.privacy-direct-domains", valid.directDomains)
             .putString("flutter.privacy-proxy-domains", valid.proxyDomains)
-        if (valid.mode != NativeRegionalMode.OFF) {
+        if (selectRouting) {
             // A mode choice must apply, rather than remain masked by other routing engines.
             editor.putBoolean("flutter.privacy-full-tunnel", false)
-                .putBoolean("flutter.handbook-routing", false)
+                .putBoolean("flutter.handbook-routing", useCommunityLists)
                 .putString("flutter.per_app_proxy_mode", "off")
-                .putBoolean("flutter.execute-config-as-is", false)
-                .putString("config_options_json", valid.managedCoreOptions(Settings.configOptions))
+        }
+        if (valid.mode != NativeRegionalMode.OFF || valid.russianNetworkBypass || useCommunityLists) {
+            editor.putBoolean("flutter.execute-config-as-is", false)
+                .putString("config_options_json", valid.managedCoreOptions(Settings.configOptions, useCommunityLists))
         }
         check(editor.commit()) { "Could not save regional routing" }
         return load()
