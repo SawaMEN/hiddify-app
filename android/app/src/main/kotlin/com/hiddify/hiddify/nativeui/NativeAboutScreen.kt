@@ -6,9 +6,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
-import androidx.compose.material3.AlertDialog
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -80,18 +78,14 @@ private fun AboutLink(
     text: String,
     subtext: String? = null,
     onClick: () -> Unit,
-    enabled: Boolean = true,
-    icon: Int = R.drawable.native_about_open,
-    busy: Boolean = false,
 ) {
     ListItem(
         headlineContent = { Text(text) },
         supportingContent = if (subtext != null) { { Text(subtext) } } else null,
         trailingContent = {
-            if (busy) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-            else Icon(painterResource(icon), null, Modifier.size(24.dp))
+            Icon(painterResource(R.drawable.native_about_open), null, Modifier.size(24.dp))
         },
-        modifier = Modifier.fillMaxWidth().clickable(enabled = enabled, onClick = onClick),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface,
             headlineColor = MaterialTheme.colorScheme.onSurface,
             supportingColor = MaterialTheme.colorScheme.onSurfaceVariant,

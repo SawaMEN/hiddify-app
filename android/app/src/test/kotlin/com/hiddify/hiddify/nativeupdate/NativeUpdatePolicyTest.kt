@@ -65,6 +65,24 @@ class NativeUpdatePolicyTest {
             assertEquals(state, state.checkCancelled())
         }
     }
+    @Test fun staleChecksAndDownloadRequestsCannotOverrideActiveWorkOrAChangedChannel() {
+        val r = candidate()
+        val available = NativeAppUpdateState(release = r, phase = NativeUpdatePhase.AVAILABLE)
+        assertTrue(available.canStartDownload(r.identity, false))
+        assertTrue(available.canStartDownload(r.identity, true))
+        assertFalse(available.canStartDownload("stale", false))
+        assertFalse(available.copy(channel = NativeUpdateChannel.DEV).canStartDownload(r.identity, false))
+        assertFalse(available.copy(autoDownload = false).canStartDownload(r.identity, true))
+        assertFalse(available.copy(skipped = true).canStartDownload(r.identity, true))
+        assertTrue(available.copy(skipped = true).canStartDownload(r.identity, false))
+        for (phase in listOf(NativeUpdatePhase.DOWNLOADING, NativeUpdatePhase.VERIFYING, NativeUpdatePhase.READY, NativeUpdatePhase.CHECKING))
+            assertFalse(available.copy(phase = phase).canStartDownload(r.identity, false))
+        val checking = available.copy(phase = NativeUpdatePhase.CHECKING)
+        assertTrue(checking.isCurrentCheck(NativeUpdateChannel.STABLE))
+        assertFalse(checking.isCurrentCheck(NativeUpdateChannel.DEV))
+        assertFalse(available.isCurrentCheck(NativeUpdateChannel.STABLE))
+        assertFalse(checking.copy(phase = NativeUpdatePhase.DOWNLOADING).isCurrentCheck(NativeUpdateChannel.STABLE))
+    }
     @Test fun rollingDevIdentitiesChangeWithoutChangingTheVersionOrTag() {
         val r = NativeUpdatePolicy.releases("[${release("dev-latest", true)}]", NativeUpdateChannel.DEV).single().copy(commit = "b".repeat(40))
         assertTrue(NativeUpdatePolicy.newer(r, r.buildNumber, "c".repeat(40), r.publishedAt - 1000))

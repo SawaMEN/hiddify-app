@@ -89,6 +89,7 @@ sourceSets {
             include 'com/hiddify/hiddify/privacy/NativeProxyPrivacy.kt'
             include 'com/hiddify/hiddify/privacy/NativeCommunityLists.kt'
             include 'com/hiddify/hiddify/privacy/NativeRegionalOptions.kt'
+            include 'com/hiddify/hiddify/privacy/NativeRegionalCatalogue.kt'
             include 'com/hiddify/hiddify/privacy/NativeRegionalPackages.kt'
             include 'com/hiddify/hiddify/privacy/NativeRegionalServices.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeConnectionPolicy.kt'

@@ -27,8 +27,6 @@ object Settings {
     val handbookDirectSites get() = getString("flutter.handbook-direct-sites", "")
     val privacyRoutingMode get() = getString("flutter.privacy-routing-mode", "ru-bypass")
     val privacyRussianNetworkBypass get() = getBoolean("flutter.privacy-russian-network-bypass", true)
-    val privacyRussianAppsBypass get() = getBoolean("flutter.privacy-russian-apps-bypass", true)
-    val privacyRestrictedServicesProxy get() = getBoolean("flutter.privacy-restricted-services-proxy", true)
     val privacyDirectPackages get() = getString("flutter.privacy-direct-packages", "")
     val privacyProxyPackages get() = getString("flutter.privacy-proxy-packages", "")
     val privacyDirectDomains get() = getString("flutter.privacy-direct-domains", "")
@@ -160,8 +158,7 @@ object Settings {
         val referencedProfiles = com.hiddify.hiddify.nativeprofile.NativeProfileRepository(context).listProfiles()
             .filter { it.active || it.id == chain.extraProfileId || it.id == chain.unblockerProfileId }
             .sortedBy { it.id }.map { listOf(it.id, it.lastUpdate, it.populatedHeaders, it.userOverride) }
-        val regional = com.hiddify.hiddify.privacy.RegionalRouting.policy(context,
-            org.json.JSONObject(configOptions.ifBlank { "{}" }).optString("region", "other"))
+        val regional = com.hiddify.hiddify.privacy.RegionalRouting.policy(context)
         return com.google.gson.Gson().toJson(listOf(serviceMode, privacyUseRoot, privacyFullTunnel, privacyEncryptedDns, privacyPublicDns,
             disableMemoryLimit, wifiVpnSharing, privacy, connection, regional, handbookRouting, handbookProxy, handbookDirect, handbookProxySites, handbookDirectSites,
             inbound, tunnel, chain, referencedProfiles, general, dns, tls, perAppProxyMode, (if (perAppProxyEnabled) perAppProxyList else emptyList<String>()).toSortedSet(), com.hiddify.hiddify.privacy.NetworkPrivacySettings.loadFilters(context)))

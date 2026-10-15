@@ -38,11 +38,12 @@ enum class NativeRegionalMode(val value: String) {
 data class NativeRegionalOptions(
     val mode: NativeRegionalMode = NativeRegionalMode.RUSSIAN_BYPASS,
     val russianNetworkBypass: Boolean = true,
-    val russianAppsBypass: Boolean = true,
-    val restrictedServicesProxy: Boolean = true,
     val directDomains: String = "",
     val proxyDomains: String = "",
 ) {
+    val russianAppsBypass: Boolean get() = mode == NativeRegionalMode.RUSSIAN_BYPASS
+    val restrictedServicesProxy: Boolean get() = mode != NativeRegionalMode.OFF
+
     fun validated(): NativeRegionalOptions {
         require(directDomains.length <= 8192 && proxyDomains.length <= 8192) { "Domain list exceeds 8192 characters" }
         fun domains(value: String): String {
@@ -55,11 +56,7 @@ data class NativeRegionalOptions(
         return copy(directDomains = domains(directDomains), proxyDomains = domains(proxyDomains))
     }
 
-    fun withMode(value: NativeRegionalMode): NativeRegionalOptions = copy(
-        mode = value,
-        russianAppsBypass = value == NativeRegionalMode.RUSSIAN_BYPASS,
-        restrictedServicesProxy = value != NativeRegionalMode.OFF,
-    )
+    fun withMode(value: NativeRegionalMode): NativeRegionalOptions = copy(mode = value)
 
     fun managedCoreOptions(json: String, communityRouting: Boolean = false): String {
         if (mode == NativeRegionalMode.OFF && !russianNetworkBypass && !communityRouting) return json
@@ -69,9 +66,6 @@ data class NativeRegionalOptions(
         root.addProperty("enable-full-config", false)
         return root.toString()
     }
-
-    @Suppress("UNUSED_PARAMETER")
-    fun networkBypassEnabled(fullTunnel: Boolean, handbookRouting: Boolean): Boolean = russianNetworkBypass
 
     fun effectiveMode(fullTunnel: Boolean, handbookRouting: Boolean): NativeRegionalMode =
         if (fullTunnel || handbookRouting) NativeRegionalMode.OFF else mode

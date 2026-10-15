@@ -42,16 +42,29 @@ class NativeRegionalServicesTest {
         assertThrows(IllegalArgumentException::class.java) { NativeRegionalServices.encode((0..64).map { "id$it" }.toSet()) }
     }
 
-    @Test fun bundledServiceGroupsCoverExactlyTheLegacyCatalogue() {
+    @Test fun bundledCatalogueHasOneCompleteSourceForServices() {
         val candidates = listOf(File("android/app/src/main/assets/region_routing.json"), File("../../android/app/src/main/assets/region_routing.json"))
         val json = candidates.first { it.isFile }.readText()
         val services = NativeRegionalServices.catalogue(json)
-        val root = com.google.gson.JsonParser.parseString(json).asJsonObject
+        val catalogue = NativeRegionalCatalogue.parse(json)
         val ids = NativeRegionalServices.selection("", services)
-        assertEquals(root.getAsJsonArray("proxyDomains").map { it.asString }.toSet(), NativeRegionalServices.domains(services, ids).toSet())
-        assertEquals(root.getAsJsonArray("proxyPackages").map { it.asString }.toSet(), NativeRegionalServices.packages(services, ids).toSet())
+        assertEquals(50, NativeRegionalServices.domains(services, ids).size)
+        assertEquals(22, NativeRegionalServices.packages(services, ids).size)
+        assertEquals(services, catalogue.services)
+        assertEquals(32, catalogue.directPackages.size)
+        assertEquals(35, catalogue.directDomains.size)
         assertEquals(15, services.size)
         assertTrue(NativeRegionalServices.domains(services, setOf("youtube")).contains("googlevideo.com"))
+    }
+
+    @Test fun bundledCatalogueRejectsMissingListsAndOldSchemasInsteadOfSilentlyRoutingNothing() {
+        val json = """{"version":5,"ruVpnAwarePackages":[],"ruCompatibilityPackages":[],
+            "ruVpnAwareDomains":[],"ruCompatibilityDomains":[],"proxyServices":[
+            {"id":"chat","name":"Chat","packages":["com.example.chat"],"domains":["chat.example"]}]}"""
+        assertEquals(1, NativeRegionalCatalogue.parse(json).services.size)
+        assertThrows(IllegalArgumentException::class.java) { NativeRegionalCatalogue.parse(json.replace("\"version\":5", "\"version\":4")) }
+        assertThrows(IllegalArgumentException::class.java) { NativeRegionalCatalogue.parse(json.replace("ruVpnAwarePackages", "ruPackages")) }
+        assertThrows(IllegalArgumentException::class.java) { NativeRegionalCatalogue.parse(json.replace("chat.example", "https://invalid.example")) }
     }
 
     @Test fun savingServiceChoicesPreservesEveryRoutingModeAndIndependentAppChoices() {

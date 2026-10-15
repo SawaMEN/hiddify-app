@@ -1,6 +1,7 @@
 package com.hiddify.hiddify.privacy
 
 import com.hiddify.hiddify.nativeprofile.NativeJsonDocument
+import com.google.gson.JsonObject
 
 data class NativeRegionalService(val id: String, val name: String, val packages: List<String>, val domains: List<String>)
 data class NativeRegionalAppChoices(val packages: Set<String>? = null, val services: Set<String>? = null, val reset: Boolean = false,
@@ -10,8 +11,9 @@ data class NativeRegionalAppChoices(val packages: Set<String>? = null, val servi
 object NativeRegionalServices {
     private val idPattern = Regex("[a-z][a-z0-9-]{0,63}")
 
-    fun catalogue(json: String): List<NativeRegionalService> {
-        val root = NativeJsonDocument.parse(json).asJsonObject
+    fun catalogue(json: String): List<NativeRegionalService> = catalogue(NativeJsonDocument.parse(json).asJsonObject)
+
+    internal fun catalogue(root: JsonObject): List<NativeRegionalService> {
         val rows = root.getAsJsonArray("proxyServices") ?: return emptyList()
         require(rows.size() <= 64) { "Too many services" }
         return rows.map { row ->

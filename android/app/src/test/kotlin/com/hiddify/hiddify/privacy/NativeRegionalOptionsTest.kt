@@ -93,13 +93,14 @@ class NativeRegionalOptionsTest {
         assertFalse(bypass.withMode(NativeRegionalMode.OFF).restrictedServicesProxy)
     }
 
-    @Test fun russianNetworkExceptionHasPriorityInEveryRoutingMode() {
-        for (mode in NativeRegionalMode.entries) {
-            for (full in listOf(false, true)) for (community in listOf(false, true)) {
-                val options = NativeRegionalOptions(mode = mode, russianNetworkBypass = true)
-                assertTrue(options.networkBypassEnabled(full, community))
-                assertFalse(options.copy(russianNetworkBypass = false).networkBypassEnabled(full, community))
-            }
+    @Test fun modeIsTheOnlySourceOfApplicationRulesAndNetworkStaysIndependent() {
+        for (mode in NativeRegionalMode.entries) for (full in listOf(false, true)) for (community in listOf(false, true)) {
+            val saved = NativeRegionalOptions(mode = mode, russianNetworkBypass = true)
+            val effective = saved.withMode(saved.effectiveMode(full, community))
+            assertTrue(effective.russianNetworkBypass)
+            assertEquals(!full && !community && mode == NativeRegionalMode.RUSSIAN_BYPASS, effective.russianAppsBypass)
+            assertEquals(!full && !community && mode != NativeRegionalMode.OFF, effective.restrictedServicesProxy)
+            assertFalse(effective.copy(russianNetworkBypass = false).russianNetworkBypass)
         }
     }
 

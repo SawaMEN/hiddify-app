@@ -22,11 +22,9 @@ class NativeRegionalRepository(private val context: Context) {
     fun load(): NativeRegionalOptions = NativeRegionalOptions(
         mode = NativeRegionalMode.fromValue(Settings.privacyRoutingMode),
         russianNetworkBypass = Settings.privacyRussianNetworkBypass,
-        russianAppsBypass = Settings.privacyRussianAppsBypass,
-        restrictedServicesProxy = Settings.privacyRestrictedServicesProxy,
         directDomains = Settings.privacyDirectDomains,
         proxyDomains = Settings.privacyProxyDomains,
-    ).let { it.withMode(it.mode) }
+    )
 
     /** Validate the merged catalogue before committing any preference. Call on IO. */
     fun save(value: NativeRegionalOptions, useCommunityLists: Boolean = false, selectRouting: Boolean = true): NativeRegionalOptions {
@@ -37,8 +35,6 @@ class NativeRegionalRepository(private val context: Context) {
         val editor = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE).edit()
             .putString("flutter.privacy-routing-mode", valid.mode.value)
             .putBoolean("flutter.privacy-russian-network-bypass", valid.russianNetworkBypass)
-            .putBoolean("flutter.privacy-russian-apps-bypass", valid.russianAppsBypass)
-            .putBoolean("flutter.privacy-restricted-services-proxy", valid.restrictedServicesProxy)
             .putString("flutter.privacy-direct-domains", valid.directDomains)
             .putString("flutter.privacy-proxy-domains", valid.proxyDomains)
         if (selectRouting) {
@@ -76,7 +72,7 @@ class NativeRegionalRepository(private val context: Context) {
             NativeRegionalService(it, it, emptyList(), emptyList())
         }
         return NativeRegionalAppSnapshot(kind, apps, selected, selection.manual, missing,
-            rows, selectedServices, Settings.privacyProxyServices.startsWith(NativeRegionalPackages.MANUAL_PREFIX),
+            rows, selectedServices, kind == NativeRegionalAppKind.PROXY && Settings.privacyProxyServices.startsWith(NativeRegionalPackages.MANUAL_PREFIX),
             Settings.privacyRussianNetworkBypass,
             if (kind == NativeRegionalAppKind.DIRECT) Settings.privacyDirectDomains else Settings.privacyProxyDomains)
     }

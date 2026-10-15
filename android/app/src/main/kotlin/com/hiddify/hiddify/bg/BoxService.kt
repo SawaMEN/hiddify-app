@@ -399,9 +399,8 @@ class BoxService(
                 Mobile.applyDevicePrivacy(Settings.privacyFullTunnel,
                     Settings.privacyHideLocalProxy,
                     proxyPrivacy.hideClashApi, proxyPrivacy.disableSystemProxy, Settings.privacyEncryptedDns)
-                val stored = org.json.JSONObject(Settings.configOptions.ifBlank { "{}" })
                 val policy = org.json.JSONObject()
-                com.hiddify.hiddify.privacy.RegionalRouting.policy(service, stored.optString("region", "other")).forEach { (key, value) ->
+                com.hiddify.hiddify.privacy.RegionalRouting.policy(service).forEach { (key, value) ->
                     policy.put(key, if (value is List<*>) org.json.JSONArray(value) else value)
                 }
                 Mobile.applyRegionalPrivacy(policy.toString())

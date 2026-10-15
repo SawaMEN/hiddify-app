@@ -214,11 +214,7 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
                 }
 
                 if (!applyPerAppRouting(builder)) {
-                    val configured = org.json.JSONObject(Settings.configOptions.ifBlank { "{}" })
-                    val policy = com.hiddify.hiddify.privacy.RegionalRouting.policy(
-                        this,
-                        configured.optString("region", "other"),
-                    )
+                    val policy = com.hiddify.hiddify.privacy.RegionalRouting.policy(this)
                     if (policy["privacy-routing-mode"] != "off") {
                         @Suppress("UNCHECKED_CAST")
                         (policy["privacy-direct-packages"] as List<String>).forEach { addExcludePackage(builder, it) }

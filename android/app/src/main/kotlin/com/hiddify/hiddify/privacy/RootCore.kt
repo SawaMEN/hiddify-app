@@ -58,8 +58,7 @@ object RootCore {
         val directory = File(context.filesDir, "root-core").apply { mkdirs() }
         File(directory, "tmp").mkdirs()
         val options = JSONObject(com.hiddify.hiddify.nativecore.NativeCoreControl.effectiveOptions(context))
-        val region = options.optString("region", "other")
-        RegionalRouting.policy(context, region).forEach { (key, value) ->
+        RegionalRouting.policy(context).forEach { (key, value) ->
             options.put(key, if (value is List<*>) org.json.JSONArray(value) else value)
         }
         options.put("enable-tun", true).put("privacy-root", true).put("wifi-vpn-sharing", Settings.wifiVpnSharing)

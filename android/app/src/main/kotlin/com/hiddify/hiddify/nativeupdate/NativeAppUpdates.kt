@@ -74,7 +74,7 @@ internal object NativeAppUpdates {
     }
 
     private fun cached(key: String): NativeAppRelease? = runCatching {
-        prefs.getString(key, null)?.let { NativeReleaseStorage.decode(it) }?.takeIf(NativeUpdatePolicy::valid)
+        prefs.getString(key, null)?.let(NativeReleaseStorage::decode)
     }.getOrNull()
 
     fun onForeground() { launchTask {
@@ -95,11 +95,17 @@ internal object NativeAppUpdates {
             if (state.value.channel != channel) return@withLock
             val release = found?.takeIf { NativeUpdatePolicy.newer(it, BuildConfig.VERSION_CODE,
                 BuildConfig.UPDATE_COMMIT, BuildConfig.UPDATE_BUILT_AT) }
-            prefs.edit().putLong(lastKey, System.currentTimeMillis())
-                .putString("latest_${channel.name}", release?.let(NativeReleaseStorage::encode)).apply()
             val skipped = release != null && release.identity == prefs.getString("skip_${channel.name}", null)
-            mutableState.update { it.copy(release = release, skipped = skipped,
-                phase = if (release == null) NativeUpdatePhase.IDLE else NativeUpdatePhase.AVAILABLE, error = null) }
+            val accepted = downloadMutex.withLock {
+                if (!state.value.isCurrentCheck(channel)) false else {
+                    prefs.edit().putLong(lastKey, System.currentTimeMillis())
+                        .putString("latest_${channel.name}", release?.let(NativeReleaseStorage::encode)).apply()
+                    mutableState.update { it.copy(release = release, skipped = skipped,
+                        phase = if (release == null) NativeUpdatePhase.IDLE else NativeUpdatePhase.AVAILABLE, error = null) }
+                    true
+                }
+            }
+            if (!accepted) return@withLock
             if (release != null && !skipped) {
                 notifyRelease(release, ready = false)
                 if (state.value.autoDownload) startDownload(automatic = true)
@@ -109,8 +115,8 @@ internal object NativeAppUpdates {
             throw cancelled
         }
         catch (error: Exception) {
-            if (state.value.channel == channel) mutableState.update { it.copy(phase = NativeUpdatePhase.FAILED,
-                error = error.message ?: error.javaClass.simpleName) }
+            mutableState.update { if (it.isCurrentCheck(channel)) it.copy(phase = NativeUpdatePhase.FAILED,
+                error = error.message ?: error.javaClass.simpleName) else it }
         }
     }
 
@@ -144,8 +150,7 @@ internal object NativeAppUpdates {
     private suspend fun startDownload(automatic: Boolean, expectedIdentity: String? = state.value.release?.identity) = downloadMutex.withLock {
         val current = state.value
         val release = current.release ?: return@withLock
-        if (release.identity != expectedIdentity || current.busy || current.phase == NativeUpdatePhase.READY ||
-            (automatic && (current.skipped || !current.autoDownload))) return@withLock
+        if (!current.canStartDownload(expectedIdentity, automatic)) return@withLock
         try {
             require(NativeUpdatePolicy.valid(release))
             val file = destination(release)
@@ -247,7 +252,8 @@ internal object NativeAppUpdates {
     private fun cancelDownloadLocked() {
         pollJob?.cancel(); pollJob = null
         val id = prefs.getLong("download_id", -1)
-        if (id >= 0) downloads.remove(id)
+        if (id >= 0) runCatching { downloads.remove(id) }
+            .onFailure { android.util.Log.w("AppUpdates", "Could not remove Android download", it) }
         prefs.edit().remove("download_id").remove("download_release").apply()
         mutableState.update { it.copy(phase = if (it.release == null) NativeUpdatePhase.IDLE else NativeUpdatePhase.AVAILABLE,
             downloadedBytes = 0, waiting = false) }

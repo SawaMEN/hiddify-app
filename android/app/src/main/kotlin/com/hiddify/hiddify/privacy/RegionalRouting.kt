@@ -2,64 +2,36 @@ package com.hiddify.hiddify.privacy
 
 import android.content.Context
 import com.hiddify.hiddify.Settings
-import org.json.JSONObject
 
 /** Bundled, offline routing catalogue used by the VPN privacy screen. */
 object RegionalRouting {
-    private fun tokens(text: String, domain: Boolean): List<String> = NativeRoutingTokens.parse(text, domain)
-
-    private fun catalogueTokens(catalogue: JSONObject, keys: List<String>, domain: Boolean): List<String> {
-        val result = keys.flatMap { key ->
-            val array = catalogue.optJSONArray(key) ?: return@flatMap emptyList<String>()
-            tokens(List(array.length()) { array.getString(it) }.joinToString(","), domain)
-        }.distinct()
-        require(result.size <= 256) { "Too many bundled routing entries" }
-        return result
-    }
-
     private fun merged(builtIn: List<String>, extra: String, domain: Boolean): List<String> =
         NativeRoutingTokens.merge(builtIn, extra, domain)
 
-    @Volatile private var cachedCatalogue: JSONObject? = null
-    private fun catalogue(context: Context): JSONObject = cachedCatalogue ?: synchronized(this) {
-        cachedCatalogue ?: JSONObject(context.assets.open("region_routing.json").bufferedReader().use { it.readText() }).also { cachedCatalogue = it }
+    @Volatile private var cachedCatalogue: NativeRegionalCatalogue? = null
+    private fun catalogue(context: Context): NativeRegionalCatalogue = cachedCatalogue ?: synchronized(this) {
+        cachedCatalogue ?: NativeRegionalCatalogue.parse(context.assets.open("region_routing.json").bufferedReader()
+            .use { it.readText() }).also { cachedCatalogue = it }
     }
 
-    fun serviceCatalogue(context: Context): List<NativeRegionalService> =
-        NativeRegionalServices.catalogue(catalogue(context).toString())
+    fun serviceCatalogue(context: Context): List<NativeRegionalService> = catalogue(context).services
 
-    fun policy(context: Context, @Suppress("UNUSED_PARAMETER") legacyRegion: String = "other", options: NativeRegionalOptions? = null, packages: NativeRegionalPackageValues? = null, servicesStored: String? = null, fullTunnel: Boolean = Settings.privacyFullTunnel, handbookRouting: Boolean = Settings.handbookRouting): Map<String, Any> {
-        val selected = (options ?: NativeRegionalOptions(
+    fun policy(context: Context, options: NativeRegionalOptions? = null, packages: NativeRegionalPackageValues? = null, servicesStored: String? = null, fullTunnel: Boolean = Settings.privacyFullTunnel, handbookRouting: Boolean = Settings.handbookRouting): Map<String, Any> {
+        val selected = options ?: NativeRegionalOptions(
             mode = NativeRegionalMode.fromValue(Settings.privacyRoutingMode),
             russianNetworkBypass = Settings.privacyRussianNetworkBypass,
-            russianAppsBypass = Settings.privacyRussianAppsBypass,
-            restrictedServicesProxy = Settings.privacyRestrictedServicesProxy,
             directDomains = Settings.privacyDirectDomains,
             proxyDomains = Settings.privacyProxyDomains,
-        )).let { it.withMode(it.mode) }
-        val mode = selected.effectiveMode(fullTunnel, handbookRouting).value
-        val networkBypass = selected.networkBypassEnabled(fullTunnel, handbookRouting)
+        )
+        val effective = selected.withMode(selected.effectiveMode(fullTunnel, handbookRouting))
+        val mode = effective.mode.value
+        val networkBypass = selected.russianNetworkBypass
         val catalogue = catalogue(context)
-        val version = catalogue.optInt("version", 1)
-
-        val vpnAwarePackages = if (catalogue.has("ruVpnAwarePackages")) {
-            catalogueTokens(catalogue, listOf("ruVpnAwarePackages"), false)
-        } else emptyList()
-        val compatibilityPackages = if (catalogue.has("ruCompatibilityPackages")) {
-            catalogueTokens(catalogue, listOf("ruCompatibilityPackages"), false)
-        } else catalogueTokens(catalogue, listOf("ruPackages"), false)
-        val vpnAwareDomains = if (catalogue.has("ruVpnAwareDomains")) {
-            catalogueTokens(catalogue, listOf("ruVpnAwareDomains"), true)
-        } else emptyList()
-        val compatibilityDomains = if (catalogue.has("ruCompatibilityDomains")) {
-            catalogueTokens(catalogue, listOf("ruCompatibilityDomains"), true)
-        } else catalogueTokens(catalogue, listOf("ruDomains"), true)
-
-        val automaticDirect = (vpnAwarePackages + compatibilityPackages).distinct()
-        val services = NativeRegionalServices.catalogue(catalogue.toString())
+        val version = catalogue.version
+        val automaticDirect = catalogue.directPackages
+        val services = catalogue.services
         val selectedServices = NativeRegionalServices.selection(servicesStored ?: Settings.privacyProxyServices, services)
-        val automaticProxy = if (services.isNotEmpty()) NativeRegionalServices.packages(services, selectedServices)
-            else catalogueTokens(catalogue, listOf("proxyPackages"), false)
+        val automaticProxy = NativeRegionalServices.packages(services, selectedServices)
         val directSelection = NativeRegionalPackages.selection(packages?.direct ?: Settings.privacyDirectPackages, automaticDirect)
         val proxySelection = NativeRegionalPackages.selection(packages?.proxy ?: Settings.privacyProxyPackages, automaticProxy)
 
@@ -81,28 +53,26 @@ object RegionalRouting {
         val configuredDirect = installed(directCandidates)
         val configuredProxy = installed(proxySelection.values)
 
-        val effectiveDirect = if (selected.russianAppsBypass) configuredDirect else emptyList()
+        val effectiveDirect = if (effective.russianAppsBypass) configuredDirect else emptyList()
         val effectiveDirectWithUid = effectiveDirect.mapNotNull { packageName ->
             installedUid(packageName)?.let { uid -> packageName to uid }
         }
         val directUids = effectiveDirectWithUid.map { it.second }.toSet()
         val installedDirect = effectiveDirectWithUid.map { it.first }
 
-        val installedProxy = if (selected.restrictedServicesProxy) {
+        val installedProxy = if (effective.restrictedServicesProxy) {
             configuredProxy.filter { packageName ->
                 installedUid(packageName)?.let { it !in directUids } == true
             }.distinct()
         } else emptyList()
 
         val builtInDirectDomains = if (networkBypass) {
-            (vpnAwareDomains + compatibilityDomains).distinct()
+            catalogue.directDomains
         } else emptyList()
-        val directDomains = if (mode == NativeRegionalMode.SELECTED_PROXY.value && !networkBypass) emptyList()
-            else merged(builtInDirectDomains, selected.directDomains, true)
-        val proxyDomains = if (selected.restrictedServicesProxy) {
-            merged(if (services.isNotEmpty()) NativeRegionalServices.domains(services, selectedServices)
-                else catalogueTokens(catalogue, listOf("proxyDomains"), true), selected.proxyDomains, true)
-        } else emptyList()
+        val directDomains = if (networkBypass || effective.mode == NativeRegionalMode.RUSSIAN_BYPASS)
+            merged(builtInDirectDomains, selected.directDomains, true) else emptyList()
+        val proxyDomains = if (effective.restrictedServicesProxy)
+            merged(NativeRegionalServices.domains(services, selectedServices), selected.proxyDomains, true) else emptyList()
 
         val regionalPolicy = mapOf<String, Any>(
             // Force the generic core region internally. The old user-facing region selector is gone.
@@ -117,9 +87,9 @@ object RegionalRouting {
             "privacy-routing-mode" to mode,
             "privacy-catalogue-version" to version,
             "privacy-russian-network-bypass" to networkBypass,
-            "privacy-russian-apps-bypass" to selected.russianAppsBypass,
-            "privacy-restricted-services-proxy" to selected.restrictedServicesProxy,
-            "privacy-selected-services" to if (selected.restrictedServicesProxy)
+            "privacy-russian-apps-bypass" to effective.russianAppsBypass,
+            "privacy-restricted-services-proxy" to effective.restrictedServicesProxy,
+            "privacy-selected-services" to if (effective.restrictedServicesProxy)
                 services.filter { it.id in selectedServices }.map { it.id } else emptyList<String>(),
             "privacy-direct-packages" to installedDirect,
             "privacy-proxy-packages" to installedProxy,

@@ -16,8 +16,6 @@ object NativePrivacySetup {
         "autoReconnect" to ("auto_reconnect" to true),
         "routingMode" to ("privacy-routing-mode" to "ru-bypass"),
         "russianNetworkBypass" to ("privacy-russian-network-bypass" to true),
-        "russianAppsBypass" to ("privacy-russian-apps-bypass" to true),
-        "restrictedServicesProxy" to ("privacy-restricted-services-proxy" to true),
         "customDirectPackages" to ("privacy-direct-packages" to ""),
         "customProxyPackages" to ("privacy-proxy-packages" to ""),
         "customDirectDomains" to ("privacy-direct-domains" to ""),
@@ -42,7 +40,7 @@ object NativePrivacySetup {
     private val automatic = mapOf<String, Any>(
         "handbookRouting" to false, "serviceMode" to "vpn", "ipv6Mode" to "ipv4_only",
         "mtu" to 1400L, "autoReconnect" to true, "routingMode" to "ru-bypass",
-        "russianNetworkBypass" to true, "russianAppsBypass" to true, "restrictedServicesProxy" to true,
+        "russianNetworkBypass" to true,
         "hideLocalProxy" to true, "hideClashApi" to true, "disableSystemProxy" to true,
         "publicDns" to true, "encryptedDns" to true, "fullTunnel" to false,
         "useRoot" to false, "perAppMode" to "off", "proxyServices" to "",
@@ -55,8 +53,7 @@ object NativePrivacySetup {
 
     // Auto-setup tunes connection/privacy defaults without replacing routing choices.
     private val routingFields = setOf(
-        "handbookRouting", "routingMode", "russianNetworkBypass", "russianAppsBypass",
-        "restrictedServicesProxy", "customDirectPackages", "customProxyPackages",
+        "handbookRouting", "routingMode", "russianNetworkBypass", "customDirectPackages", "customProxyPackages",
         "customDirectDomains", "customProxyDomains", "proxyServices", "fullTunnel",
     )
     private fun recommendations(before: Map<String, Any>): Map<String, Any> =
