@@ -40,6 +40,8 @@ internal object NativeProfileTlsTargets {
                 if (security in setOf("tls", "reality")) result += NativeProfileTlsTarget(uri.rawFragment?.let { URLDecoder.decode(it.replace("+", "%2B"), "UTF-8") }.orEmpty(), query["sni"].orEmpty(), true, security != "reality")
             }
         }
-        result.distinctBy { it.tag }
+        // A tag can occur in several configurations, or several links can have the same
+        // display name. Keep their capabilities: selecting that tag patches all matches.
+        result.distinct()
     }.getOrDefault(emptyList())
 }

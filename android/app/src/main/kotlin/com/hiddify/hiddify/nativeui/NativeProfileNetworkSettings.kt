@@ -39,7 +39,7 @@ internal fun NativeProfileNetworkSettings(
     }
     if (showTls) {
         NetworkHeading(R.string.native_profile_tls, if (targets.isEmpty()) R.string.native_tls_no_servers else R.string.native_tls_auto_help)
-        val tags = listOf("" to stringResource(R.string.native_tls_all_servers)) + targets.filter { it.tag.isNotEmpty() }.map { it.tag to it.tag }
+        val tags = listOf("" to stringResource(R.string.native_tls_all_servers)) + targets.map { it.tag }.filter { it.isNotEmpty() }.distinct().map { it to it }
         NetworkChoice(R.string.native_profile_tls_tag, tls.targetTag, retained(tags, tls.targetTag), tlsEnabled) {
             updateTls(NativeProfileNetworkPresets.withTarget(tls, it, targets))
         }
