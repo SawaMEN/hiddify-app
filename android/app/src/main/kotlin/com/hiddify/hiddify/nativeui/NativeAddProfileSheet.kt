@@ -122,7 +122,7 @@ internal fun NativeAddProfileSheet(
         canDismiss = canDismiss,
         sheetMaxWidth = 456.dp,
     ) {
-        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState())) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
             if (busy || fileBusy) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = 64.dp, vertical = 64.dp),
                     horizontalAlignment = Alignment.CenterHorizontally) {

@@ -1,8 +1,10 @@
 # Stable scrolling and automatic profile settings
 
 The four native bottom menus use `NativeModalSheet`: a bottom-aligned dialog with
-a fixed viewport derived from window bounds, independent of content size and
-scroll position. Body lists own normal scroll/fling gestures; there are no drag
+a content-sized viewport capped at 88% of the available window height. Short
+menus and profile lists wrap their content; long content scrolls within the cap.
+The server screen retains a large viewport for its toolbar and server list.
+Body lists own normal scroll/fling gestures; there are no drag
 anchors or offset-dependent sheet insets. System bars and the keyboard are
 accounted for once. Close, Back and outside-tap dismissal preserve existing
 import cancellation restrictions. Elastic overscroll is disabled; picker dialogs

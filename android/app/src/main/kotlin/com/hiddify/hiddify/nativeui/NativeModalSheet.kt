@@ -15,7 +15,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.hiddify.hiddify.R
 
-/** A stable viewport: no drag anchors, sheet offset or content-dependent window height. */
+/** Content-sized sheet with a bounded viewport and no scroll-driven drag anchors. */
 @Composable
 internal fun NativeModalSheet(
     onDismissRequest: () -> Unit,
@@ -29,7 +29,7 @@ internal fun NativeModalSheet(
         BoxWithConstraints(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
             Box(Modifier.fillMaxSize().clickable(enabled = canDismiss, onClick = onDismissRequest))
             Surface(Modifier.align(Alignment.BottomCenter).widthIn(max = sheetMaxWidth)
-                .fillMaxWidth().height(maxHeight * .88f),
+                .fillMaxWidth().heightIn(max = maxHeight * .88f),
                 shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerLow) {
                 Column {
@@ -39,7 +39,7 @@ internal fun NativeModalSheet(
                             Icon(painterResource(R.drawable.native_close), stringResource(android.R.string.cancel))
                         }
                     }
-                    Column(Modifier.weight(1f).fillMaxWidth(), content = content)
+                    Column(Modifier.weight(1f, fill = false).fillMaxWidth(), content = content)
                 }
             }
         }

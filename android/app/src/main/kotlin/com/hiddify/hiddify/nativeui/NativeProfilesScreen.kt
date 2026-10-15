@@ -96,20 +96,18 @@ fun NativeProfilesScreen(
         }
     }
     if (isSheet) {
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            // Fill the fixed modal viewport; only the profile list scrolls.
-            Column(Modifier.fillMaxSize()) {
-                ProfileBody(Modifier.weight(1f).fillMaxWidth())
-                FlowRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
-                    Button(onClick = { sortOpen = true }) {
-                        Icon(painterResource(R.drawable.native_sort), null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.native_profiles_sort))
-                    }
-                    Button(onClick = onUpdateAll, enabled = !busy && !loading && !loadFailed && profiles.any { it.isRemote }) {
-                        Icon(painterResource(R.drawable.native_profile_update), null, Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.native_profiles_update_all))
-                    }
+        // Short lists wrap their content; long lists scroll above the fixed actions.
+        Column(Modifier.fillMaxWidth()) {
+            ProfileBody(Modifier.weight(1f, fill = false).fillMaxWidth())
+            FlowRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
+                Button(onClick = { sortOpen = true }) {
+                    Icon(painterResource(R.drawable.native_sort), null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.native_profiles_sort))
+                }
+                Button(onClick = onUpdateAll, enabled = !busy && !loading && !loadFailed && profiles.any { it.isRemote }) {
+                    Icon(painterResource(R.drawable.native_profile_update), null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.native_profiles_update_all))
                 }
             }
         }
