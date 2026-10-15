@@ -14,6 +14,8 @@ on:
         type: choice
         options: [prod, dev]
   push:
+    branches:
+      - 'release/v*'
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - 'v[0-9]+.[0-9]+.[0-9]+.*'
@@ -49,6 +51,9 @@ jobs:
             if [ -z "$tag" ]; then
               if [ "$channel" = dev ]; then tag=dev-latest; else tag="v$version"; fi
             fi
+          elif [[ "$GITHUB_REF_NAME" == release/v* ]]; then
+            tag="${GITHUB_REF_NAME#release/}"
+            channel=prod
           else
             tag="v$version"
             channel=prod

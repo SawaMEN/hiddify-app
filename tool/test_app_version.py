@@ -6,9 +6,12 @@ from tempfile import TemporaryDirectory
 
 
 class VersionTests(unittest.TestCase):
-    def test_dev_version_uses_expected_android_code(self):
+    def test_version_file_uses_expected_android_code(self):
         self.assertEqual(version_code_for("1.1.0"), 10100)
-        self.assertEqual(declared_version(), ("1.1.0", "10100"))
+        with TemporaryDirectory() as folder:
+            path = Path(folder) / "version.properties"
+            path.write_text("versionName=1.1.0\nversionCode=10100\n")
+            self.assertEqual(declared_version(path), ("1.1.0", "10100"))
 
     def test_mismatched_android_code_is_rejected(self):
         with TemporaryDirectory() as folder:
