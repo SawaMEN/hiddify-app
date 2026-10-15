@@ -257,24 +257,22 @@
     <string name="native_regional_handbook">Community lists take precedence over automatic regional routing. Saved regional choices are retained.</string>
     <string name="native_regional_mode">Automatic app routing mode</string>
     <string name="native_regional_bypass">Russian services direct, everything else through VPN</string>
-    <string name="native_regional_selected">Only selected services through VPN</string>
-    <string name="native_regional_selected_summary">Selected services, apps and extra domains use the VPN. Other traffic is direct. Russian domains and IPs are matched first.</string>
+    <string name="native_regional_selected">Blocked services through VPN</string>
+    <string name="native_regional_selected_summary">Selected blocked services and applications use the VPN; other traffic goes directly.</string>
     <string name="native_regional_direct_domains">Additional direct domains</string>
-    <string name="native_regional_proxy_domains">Additional proxied domains</string>
+
     <string name="native_regional_domains_hint">Domains only, separated by spaces, commas or newlines; *.example.com also matches subdomains. Up to 8192 characters and 256 entries including bundled rules.</string>
     <string name="native_regional_invalid">Check domain names and list size. URLs, ports and IP literals are not accepted.</string>
     <string name="native_regional_save">Save routing</string>
     <string name="native_regional_saved">Routing saved. Reconnect the VPN to apply it.</string>
     <string name="native_regional_apps_direct_title">Russian applications</string>
-    <string name="native_regional_apps_proxy_title">Restricted services</string>
+    <string name="native_regional_apps_proxy_title">Blocked services through VPN</string>
     <string name="native_regional_apps_direct_hint">Choose apps and domains for direct access here. App choices apply in Russian-app routing mode; the Russian network exception has highest priority in every mode. Saving keeps the selected routing mode.</string>
-    <string name="native_regional_apps_proxy_hint">Choose services for their websites and apps, individual apps, and additional VPN domains here. They apply in the selected-services routing mode. Saving keeps the selected routing mode.</string>
-    <string name="native_regional_apps_save_hint">Changes apply after saving and reconnecting the VPN.</string>
-    <string name="native_regional_apps_manual">Manual selection</string>
-    <string name="native_regional_apps_auto">Bundled automatic selection</string>
-    <string name="native_regional_apps_count">Selected: %1$d / 256</string>
+
+
+
     <string name="native_regional_apps_reset">Reset to bundled automatic selection</string>
-    <string name="native_regional_apps_reload">Reload app list</string>
+
     <string name="native_regional_apps_empty">No matching applications</string>
     <string name="native_regional_apps_missing">Not installed or unavailable; saved choice retained</string>
     <string name="native_regional_apps_saved">Routing choices saved. Reconnect the VPN to apply.</string>
@@ -688,9 +686,13 @@
     <string name="native_tls_detected_sni">SNI from profile: %1$s</string>
     <string name="native_routing_bypass_description">Russian apps go direct. Other traffic and selected blocked services use the VPN.</string>
     <string name="native_routing_override_notice">Choosing a mode disables full tunnel, per-app restrictions and full profile rules. The Russian domains and IPs setting is preserved.</string>
-    <string name="native_blocked_services_title">Services: websites and apps</string>
-    <string name="native_blocked_services_hint">Service domains use the VPN, including in a browser. Apps explicitly bypassing the VPN stay direct. In Russian bypass mode, other traffic also uses the VPN.</string>
-    <string name="native_blocked_apps_title">Apps through VPN</string>
+    <string name="native_blocked_domains_count">Domains selected: %1$d of %2$d</string>
+    <string name="native_blocked_apps_count">Apps selected: %1$d of %2$d</string>
+    <string name="native_blocked_domains_search">Search domains and services</string>
+    <string name="native_blocked_domains_empty">No matching domains</string>
+    <string name="native_blocked_services_title">Blocked domains</string>
+
+    <string name="native_blocked_apps_title">Apps blocked in Russia</string>
     <string name="native_network_saved">Saved profile setting</string>
     <string name="native_network_hide">Hide additional settings</string>
     <string name="native_tls_random_browser">Random browser</string>
