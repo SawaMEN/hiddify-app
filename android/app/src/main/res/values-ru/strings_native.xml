@@ -260,7 +260,7 @@
     <string name="native_regional_selected">Заблокированные сервисы через VPN</string>
     <string name="native_regional_selected_summary">Выбранные заблокированные сервисы и приложения идут через VPN, остальной трафик — напрямую.</string>
     <string name="native_regional_direct_domains">Дополнительные прямые домены</string>
-    <string name="native_regional_proxy_domains">Дополнительные проксируемые домены</string>
+
     <string name="native_regional_domains_hint">Только домены через пробел, запятую или новую строку; *.example.com также охватывает поддомены. До 8192 символов и 256 записей вместе со встроенными правилами.</string>
     <string name="native_regional_invalid">Проверьте домены и размер списка. URL, порты и IP-адреса не принимаются.</string>
     <string name="native_regional_save">Сохранить маршрутизацию</string>
@@ -268,13 +268,11 @@
     <string name="native_regional_apps_direct_title">Российские приложения</string>
     <string name="native_regional_apps_proxy_title">Заблокированные сервисы через VPN</string>
     <string name="native_regional_apps_direct_hint">Здесь настраиваются приложения и домены для прямого доступа. Выбор приложений действует в режиме российских приложений, а исключение российской сети — во всех режимах с высшим приоритетом. Сохранение не меняет режим маршрутизации.</string>
-    <string name="native_regional_apps_proxy_hint">Выберите домены и приложения, которым нужен VPN.</string>
-    <string name="native_regional_apps_save_hint">Изменения применятся после сохранения и переподключения VPN.</string>
-    <string name="native_regional_apps_manual">Ручной выбор</string>
-    <string name="native_regional_apps_auto">Встроенный автовыбор</string>
-    <string name="native_regional_apps_count">Выбрано: %1$d / 256</string>
+
+
+
     <string name="native_regional_apps_reset">Сбросить к встроенному автовыбору</string>
-    <string name="native_regional_apps_reload">Обновить список приложений</string>
+
     <string name="native_regional_apps_empty">Подходящих приложений нет</string>
     <string name="native_regional_apps_missing">Не установлено или недоступно; сохранённый выбор сохраняется</string>
     <string name="native_regional_apps_saved">Настройки маршрутизации сохранены. Переподключите VPN для применения.</string>
@@ -693,7 +691,7 @@
     <string name="native_blocked_domains_search">Поиск доменов и сервисов</string>
     <string name="native_blocked_domains_empty">Домены не найдены</string>
     <string name="native_blocked_services_title">Заблокированные домены</string>
-    <string name="native_blocked_services_hint">Домены сервиса идут через VPN, в том числе в браузере. Приложения из списка прямого обхода остаются вне VPN. В режиме «РФ напрямую» остальной трафик тоже идёт через VPN.</string>
+
     <string name="native_blocked_apps_title">Заблокированные в РФ приложения</string>
     <string name="native_network_saved">Сохранённая настройка</string>
     <string name="native_network_hide">Скрыть дополнительные настройки</string>
