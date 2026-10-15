@@ -255,7 +255,7 @@
     <string name="native_filters_limits">A VPN cannot globally change the User-Agent, operating system, browser, Canvas/WebGL, or other data carried inside HTTPS. This mode does not decrypt HTTPS and does not guarantee complete anonymity.</string>
     <string name="native_regional_title">Regional routing</string>
     <string name="native_regional_summary">Configure regional app rules, Russian domains and IP ranges, and extra domain rules. Turning a category off preserves its saved selections. App exclusions also depend on your VPN per-app settings.</string>
-    <string name="native_regional_full_tunnel">Full tunnel takes priority over direct exceptions. These saved rules apply when full tunnel is disabled.</string>
+    <string name="native_regional_full_tunnel">Full tunnel disables direct app rules. The enabled Russian domains and IPs exception keeps highest priority.</string>
     <string name="native_regional_handbook">Community lists take precedence over automatic regional routing. Saved regional choices are retained.</string>
     <string name="native_regional_mode">Automatic app routing mode</string>
     <string name="native_regional_bypass">Russian services direct, everything else through VPN</string>
@@ -514,7 +514,7 @@
     <string name="native_privacy_handbook_summary">Route using selected community lists. Russian domains and IPs direct takes highest priority.</string>
     <string name="native_privacy_handbook_proxy">Through VPN</string>
     <string name="native_privacy_handbook_direct">Direct connection</string>
-    <string name="native_privacy_handbook_note">Select services in the app. Domains and IP networks are loaded from My Handbook. VPN wins on overlap; full tunnel takes precedence. A first connection requires access to the sources.</string>
+    <string name="native_privacy_handbook_note">Select services in the app. Domains and IP networks are loaded from My Handbook. Russian domains and IPs direct has highest priority. Among other overlapping lists, VPN wins. A first connection requires access to the sources.</string>
     <string name="native_privacy_masked">Masked protocols only</string>
     <string name="native_privacy_masked_summary">TCP: AnyTLS and Naive with verified TLS. VLESS/VMess and unverifiable chains are excluded. Allow UDP below for Hysteria 2 and TUIC. Requires compatible subscription servers; otherwise connection stops. Masking cannot guarantee bypass of DPI or IP/SNI blocks.</string>
     <string name="native_privacy_udp">Allow UDP / QUIC</string>
@@ -522,7 +522,7 @@
     <string name="native_privacy_adaptive">Adapt to unstable internet</string>
     <string name="native_privacy_adaptive_summary">Automatically choose available servers, adapt bandwidth, allow slower replies and recover with backoff. Server selection changes preserve existing streams.</string>
     <string name="native_privacy_full">Full tunnel</string>
-    <string name="native_privacy_full_summary">Routes all user traffic through the VPN and temporarily takes priority over direct Russian bypass rules.</string>
+    <string name="native_privacy_full_summary">Routes user traffic through the VPN. The enabled Russian domains and IPs exception is applied first.</string>
     <string name="native_privacy_root">Connect using root</string>
     <string name="native_privacy_encrypted">Encrypted DNS through VPN</string>
     <string name="native_privacy_encrypted_summary">Uses DoH inside the VPN. Recommended to keep enabled.</string>
@@ -703,7 +703,7 @@
     <string name="native_routing_override_notice">Choosing a mode disables full tunnel, per-app restrictions and full profile rules. The Russian domains and IPs setting is preserved.</string>
     <string name="native_blocked_services_title">Services: websites and apps</string>
     <string name="native_blocked_services_hint">Service domains use the VPN, including in a browser. Apps explicitly bypassing the VPN stay direct. In Russian bypass mode, other traffic also uses the VPN.</string>
-    <string name="native_blocked_apps_title">Apps: all traffic through VPN</string>
+    <string name="native_blocked_apps_title">Apps through VPN</string>
     <string name="native_network_saved">Saved profile setting</string>
     <string name="native_network_hide">Hide additional settings</string>
     <string name="native_tls_random_browser">Random browser</string>

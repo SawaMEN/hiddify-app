@@ -255,7 +255,7 @@
     <string name="native_filters_limits">VPN не может глобально изменить User-Agent, операционную систему, браузер, Canvas/WebGL и другие данные внутри HTTPS. Этот режим не расшифровывает HTTPS и не является гарантией полной анонимности.</string>
     <string name="native_regional_title">Региональная маршрутизация</string>
     <string name="native_regional_summary">Настройте региональные правила приложений, российских доменов/IP и дополнительные домены. Отключение категории сохраняет выбранные приложения. Исключения приложений также зависят от настроек VPN по приложениям.</string>
-    <string name="native_regional_full_tunnel">Полный туннель имеет приоритет над прямыми исключениями. Сохранённые правила применятся после его отключения.</string>
+    <string name="native_regional_full_tunnel">Полный туннель отключает прямые правила приложений. Включённое исключение для российских доменов и IP сохраняет высший приоритет.</string>
     <string name="native_regional_handbook">Списки сообщества имеют приоритет над автоматической региональной маршрутизацией. Региональные настройки сохраняются.</string>
     <string name="native_regional_mode">Режим автоматической маршрутизации приложений</string>
     <string name="native_regional_bypass">Российские сервисы напрямую, остальное через VPN</string>
@@ -514,7 +514,7 @@
     <string name="native_privacy_handbook_summary">Маршрутизация по выбранным спискам сообщества. Российские домены и IP напрямую имеют высший приоритет.</string>
     <string name="native_privacy_handbook_proxy">Через VPN</string>
     <string name="native_privacy_handbook_direct">Напрямую</string>
-    <string name="native_privacy_handbook_note">Выбирайте сервисы прямо в приложении. Домены и IP-сети загружаются из My Handbook. При пересечении VPN имеет приоритет; полный туннель имеет приоритет над списками. Для первого подключения нужен доступ к источникам.</string>
+    <string name="native_privacy_handbook_note">Выбирайте сервисы прямо в приложении. Домены и IP-сети загружаются из My Handbook. Российские домены и IP напрямую имеют высший приоритет. Среди остальных списков при пересечении VPN имеет приоритет. Для первого подключения нужен доступ к источникам.</string>
     <string name="native_privacy_masked">Только протоколы с маскировкой</string>
     <string name="native_privacy_masked_summary">TCP: AnyTLS и Naive с проверкой TLS. VLESS/VMess и непроверяемые цепочки исключаются. Для Hysteria 2 и TUIC разрешите UDP ниже. Нужны совместимые серверы в подписке; без них подключение остановится. Маскировка не гарантирует обход ТСПУ или блокировки IP/SNI.</string>
     <string name="native_privacy_udp">Разрешить UDP / QUIC</string>
@@ -522,7 +522,7 @@
     <string name="native_privacy_adaptive">Адаптация к нестабильному интернету</string>
     <string name="native_privacy_adaptive_summary">Автоматический выбор доступных серверов, адаптивная скорость, больше времени на ответы и восстановление с паузами. Переключение сервера сохраняет текущие потоки.</string>
     <string name="native_privacy_full">Полный туннель</string>
-    <string name="native_privacy_full_summary">Отправляет весь пользовательский трафик через VPN и временно имеет приоритет над прямыми российскими исключениями.</string>
+    <string name="native_privacy_full_summary">Отправляет пользовательский трафик через VPN. Включённое исключение для российских доменов и IP применяется первым.</string>
     <string name="native_privacy_root">Подключение через root</string>
     <string name="native_privacy_encrypted">Зашифрованный DNS через VPN</string>
     <string name="native_privacy_encrypted_summary">Использует DoH внутри VPN. Рекомендуется оставить включённым.</string>
@@ -703,7 +703,7 @@
     <string name="native_routing_override_notice">Выбор режима отключит полный туннель, ограничения приложений и выполнение правил полной конфигурации профиля. Настройка российских доменов и IP сохраняется.</string>
     <string name="native_blocked_services_title">Сервисы: сайты и приложения</string>
     <string name="native_blocked_services_hint">Домены сервиса идут через VPN, в том числе в браузере. Приложения из списка прямого обхода остаются вне VPN. В режиме «РФ напрямую» остальной трафик тоже идёт через VPN.</string>
-    <string name="native_blocked_apps_title">Приложения: весь трафик через VPN</string>
+    <string name="native_blocked_apps_title">Приложения через VPN</string>
     <string name="native_network_saved">Сохранённая настройка</string>
     <string name="native_network_hide">Скрыть дополнительные настройки</string>
     <string name="native_tls_random_browser">Случайный браузер</string>
