@@ -18,6 +18,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.collectAsState
+import com.hiddify.hiddify.nativeupdate.NativeAppUpdates
+import com.hiddify.hiddify.nativeupdate.NativeUpdatePhase
 import androidx.compose.runtime.mutableStateOf
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
@@ -178,9 +181,11 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
     private var wifiDetailsRefreshPending = false
     private val wifiSharingDetailsBusy = mutableStateOf(false)
-    private val updateChecking = mutableStateOf(false)
-    private val updateMessage = mutableStateOf<String?>(null)
-    private val updateUrl = mutableStateOf<String?>(null)
+    private var updateInstallBusy = false
+    private val openUpdatesRequest = mutableStateOf(0)
+    private val installPermissionLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        if (packageManager.canRequestPackageInstalls()) installAppUpdate()
+    }
     private val diagnosticSnapshot = mutableStateOf<NativeDiagnosticSnapshot?>(null)
     private val diagnosticBusy = mutableStateOf(false)
     private val vpnProtection = mutableStateOf(NativeVpnProtection())
@@ -231,7 +236,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val outboundsRepository by lazy { NativeOutboundsRepository() }
     private val wifiSharingRepository by lazy { NativeWifiSharingRepository() }
     private val settingsTransferRepository by lazy { NativeSettingsTransferRepository(this) }
-    private val updateRepository by lazy { NativeUpdateRepository() }
     private val diagnosticsRepository by lazy { NativeDiagnosticsRepository() }
     private val perAppOperationMutex = Mutex()
     private val profileOperationMutex = Mutex()
@@ -507,9 +511,12 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 wifiSharingDetails = wifiSharingDetails.value,
                 wifiSharingDetailsBusy = wifiSharingDetailsBusy.value,
                 wifiSharingBusy = wifiSharingBusy.value,
-                updateChecking = updateChecking.value,
-                updateMessage = updateMessage.value,
-                updateUrl = updateUrl.value,
+                updateState = NativeAppUpdates.state.collectAsState().value,
+                openUpdatesRequest = openUpdatesRequest.value,
+                onUpdateChannel = NativeAppUpdates::selectChannel,
+                onAutoDownload = NativeAppUpdates::setAutoDownload,
+                onCancelUpdate = NativeAppUpdates::cancelDownload,
+                onSkipUpdate = NativeAppUpdates::skipVersion,
                 diagnosticSnapshot = diagnosticSnapshot.value,
                 diagnosticBusy = diagnosticBusy.value,
                 diagnosticReport = diagnosticSnapshot.value?.let {
@@ -556,8 +563,11 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onExportSettingsClipboard = ::exportSettingsToClipboard,
                 onExportSettingsFile = ::exportSettingsToFile,
                 onResetSettings = ::resetCoreSettings,
-                onCheckUpdate = ::checkForUpdate,
-                onOpenUpdate = { updateUrl.value?.let(::openExternalUrl) },
+                onCheckUpdate = NativeAppUpdates::checkNow,
+                onOpenUpdate = {
+                    if (NativeAppUpdates.state.value.phase == NativeUpdatePhase.READY) installAppUpdate()
+                    else NativeAppUpdates.download()
+                },
                 onOpenFork = { openExternalUrl(NativeUpdateRepository.FORK_URL) },
                 onOpenUpstream = { openExternalUrl(NativeUpdateRepository.UPSTREAM_URL) },
                 onOpenTerms = { openExternalUrl(NativeUpdateRepository.TERMS_URL) },
@@ -606,6 +616,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     override fun onStart() {
         super.onStart()
         nativeForeground = true
+        NativeAppUpdates.onForeground()
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
         refreshCoreOptions()
@@ -1474,6 +1485,11 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun handleIncomingIntent(incoming: Intent?) {
         if (incoming == null) return
+        if (incoming.getBooleanExtra(NativeAppUpdates.OPEN_UPDATES, false)) {
+            openUpdatesRequest.value += 1
+            incoming.removeExtra(NativeAppUpdates.OPEN_UPDATES)
+            return
+        }
 
         val textPayload =
             when (incoming.action) {
@@ -2588,46 +2604,25 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         Toast.makeText(this, R.string.native_profile_copied, Toast.LENGTH_SHORT).show()
     }
 
-    private fun checkForUpdate() {
-        if (updateChecking.value) return
-        updateChecking.value = true
-        updateMessage.value = null
-        updateUrl.value = null
-
+    private fun installAppUpdate() {
+        if (updateInstallBusy || NativeAppUpdates.state.value.phase != NativeUpdatePhase.READY) return
+        if (!packageManager.canRequestPackageInstalls()) {
+            runCatching {
+                installPermissionLauncher.launch(Intent(AndroidSettings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                    Uri.parse("package:$packageName")))
+            }.onFailure { errorMessage.value = it.message ?: getString(R.string.native_update_install_unavailable) }
+            return
+        }
+        updateInstallBusy = true
         lifecycleScope.launch {
             try {
-                val release =
-                    withContext(Dispatchers.IO) {
-                        updateRepository.latestCompatible()
-                    }
-                when {
-                    release == null -> {
-                        updateMessage.value = getString(R.string.native_about_update_none)
-                    }
-
-                    updateRepository.isNewer(
-                        release,
-                        BuildConfig.VERSION_NAME,
-                        BuildConfig.VERSION_CODE,
-                    ) -> {
-                        updateMessage.value =
-                            getString(R.string.native_about_update_available, release.version)
-                        updateUrl.value = release.pageUrl
-                    }
-
-                    else -> {
-                        updateMessage.value = getString(R.string.native_about_update_current)
-                    }
-                }
-            } catch (error: Exception) {
-                updateMessage.value =
-                    getString(
-                        R.string.native_about_update_error,
-                        error.message ?: error.javaClass.simpleName,
-                    )
-            } finally {
-                updateChecking.value = false
-            }
+                val file = withContext(Dispatchers.IO) { NativeAppUpdates.installationFile() }
+                val uri = androidx.core.content.FileProvider.getUriForFile(this@MainActivity, "$packageName.privacy.files", file)
+                startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(uri, "application/vnd.android.package-archive")
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION))
+            } catch (cancelled: CancellationException) { throw cancelled }
+              catch (error: Exception) { errorMessage.value = error.message ?: getString(R.string.native_update_install_unavailable) }
+            finally { updateInstallBusy = false }
         }
     }
 

@@ -1,6 +1,8 @@
 """Publish only this fork's stable ARM64 update feed and asset checksums."""
 import argparse
 import hashlib
+import json
+import os
 from pathlib import Path
 import re
 import xml.etree.ElementTree as ET
@@ -18,6 +20,14 @@ def generate(directory, repository, tag, channel):
         with apk.open("rb") as stream:
             sums.append(f"{hashlib.file_digest(stream, 'sha256').hexdigest()}  {apk.name}\n")
     (directory / "SHA256SUMS").write_text("".join(sums))
+    version, build = declared_version()
+    validate_tag(tag, channel, version, build)
+    (directory / "update.json").write_text(json.dumps({
+        "version": version, "buildNumber": int(build), "channel": channel,
+        "commit": os.environ.get("GITHUB_SHA", ""),
+        "assets": [{"name": apk.name, "size": apk.stat().st_size,
+                    "sha256": line.split()[0]} for apk, line in zip(apks, sums)],
+    }, indent=2) + "\n")
     if channel != "prod":
         return
     match = re.fullmatch(r"v?(\d+\.\d+\.\d+)(?:\+(\d+))?(?:\.prod)?", tag)

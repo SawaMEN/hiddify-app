@@ -1,4 +1,7 @@
 import tempfile
+import hashlib
+import json
+from unittest.mock import patch
 import unittest
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -18,6 +21,19 @@ class AppcastTests(unittest.TestCase):
             self.assertEqual(minimum.text, '10.0.0')
             self.assertEqual(enclosure.attrib['length'],'4')
             self.assertTrue((directory/'SHA256SUMS').exists())
+    def test_update_manifest_identifies_rolling_dev_and_binds_apk_checksum(self):
+        with tempfile.TemporaryDirectory() as d, patch.dict('os.environ', {'GITHUB_SHA': 'a' * 40}):
+            directory = Path(d)
+            name = 'vetroff-Android-arm64-v8a-dev.apk'
+            (directory/name).write_bytes(b'apk contents')
+            generate(directory,'SawaMEN/hiddify-app','dev-latest','dev')
+            metadata = json.loads((directory/'update.json').read_text())
+            self.assertEqual(metadata['commit'], 'a' * 40)
+            self.assertEqual(metadata['channel'], 'dev')
+            self.assertEqual(metadata['buildNumber'], int(declared_version()[1]))
+            self.assertEqual(metadata['assets'], [{'name': name, 'size': 12,
+                'sha256': hashlib.sha256(b'apk contents').hexdigest()}])
+
     def test_dev_cannot_publish_stable_feed(self):
         with tempfile.TemporaryDirectory() as d:
             directory=Path(d)

@@ -223,9 +223,12 @@ fun NativeApp(
     wifiSharingDetails: NativeWifiSharingDetails,
     wifiSharingDetailsBusy: Boolean,
     wifiSharingBusy: Boolean,
-    updateChecking: Boolean,
-    updateMessage: String?,
-    updateUrl: String?,
+    updateState: com.hiddify.hiddify.nativeupdate.NativeAppUpdateState,
+    openUpdatesRequest: Int,
+    onUpdateChannel: (com.hiddify.hiddify.nativeupdate.NativeUpdateChannel) -> Unit,
+    onAutoDownload: (Boolean) -> Unit,
+    onCancelUpdate: () -> Unit,
+    onSkipUpdate: () -> Unit,
     diagnosticSnapshot: NativeDiagnosticSnapshot?,
     diagnosticBusy: Boolean,
     diagnosticReport: String,
@@ -339,6 +342,9 @@ fun NativeApp(
         openPage(PAGE_PREFERENCES)
     }
 
+    LaunchedEffect(openUpdatesRequest) {
+        if (openUpdatesRequest > 0) openPage(PAGE_ABOUT)
+    }
     LaunchedEffect(profileImportRevision) {
         if (profileImportRevision != observedImportRevision) {
             observedImportRevision = profileImportRevision
@@ -526,9 +532,11 @@ fun NativeApp(
                                     NativeAboutScreen(
                                         versionName = com.hiddify.hiddify.BuildConfig.VERSION_NAME,
                                         versionCode = com.hiddify.hiddify.BuildConfig.VERSION_CODE,
-                                        updateChecking = updateChecking,
-                                        updateMessage = updateMessage,
-                                        updateUrl = updateUrl,
+                                        updateState = updateState,
+                                        onUpdateChannel = onUpdateChannel,
+                                        onAutoDownload = onAutoDownload,
+                                        onCancelUpdate = onCancelUpdate,
+                                        onSkipUpdate = onSkipUpdate,
                                         onBack = { goBack() },
                                         onCheckUpdate = onCheckUpdate,
                                         onOpenUpdate = onOpenUpdate,
@@ -726,6 +734,8 @@ fun NativeApp(
 
                                 else ->
                                     HomeScreen(
+                                        updateState = updateState,
+                                        onOpenUpdates = { openPage(PAGE_ABOUT) },
                                         status = status,
                                         connectionFailed = connectionFailed,
                                         smartSelected = smartSelected,
@@ -891,6 +901,8 @@ private fun NativePageFrame(page: String, navigationBarHeight: androidx.compose.
 
 @Composable
 private fun HomeScreen(
+    updateState: com.hiddify.hiddify.nativeupdate.NativeAppUpdateState? = null,
+    onOpenUpdates: () -> Unit = {},
     status: Status,
     connectionFailed: Boolean = false,
     smartSelected: Boolean = false,
@@ -958,6 +970,13 @@ private fun HomeScreen(
             }
             FilledTonalIconButton(onClick = onAddProfile, enabled = busyProfileId == null) {
                 Icon(painterResource(R.drawable.home_add), stringResource(R.string.native_profile_add))
+            }
+        }
+        if (updateState?.showBanner == true) {
+            NativeOutlinedButton(onOpenUpdates, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Text(stringResource(if (updateState.phase == com.hiddify.hiddify.nativeupdate.NativeUpdatePhase.READY)
+                    R.string.native_update_ready else R.string.native_about_update_available,
+                    updateState.release?.version.orEmpty()))
             }
         }
         if (!hasProfiles && !hasActiveProfile && !profilesLoading && !profilesLoadFailed) {

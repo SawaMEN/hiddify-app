@@ -20,9 +20,11 @@ import com.hiddify.hiddify.R
 fun NativeAboutScreen(
     versionName: String,
     versionCode: Int,
-    updateChecking: Boolean,
-    updateMessage: String?,
-    updateUrl: String?,
+    updateState: com.hiddify.hiddify.nativeupdate.NativeAppUpdateState,
+    onUpdateChannel: (com.hiddify.hiddify.nativeupdate.NativeUpdateChannel) -> Unit,
+    onAutoDownload: (Boolean) -> Unit,
+    onCancelUpdate: () -> Unit,
+    onSkipUpdate: () -> Unit,
     onBack: () -> Unit,
     onCheckUpdate: () -> Unit,
     onOpenUpdate: () -> Unit,
@@ -33,7 +35,6 @@ fun NativeAboutScreen(
     onCopyAppInfo: () -> Unit,
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    var dismissedUpdate by rememberSaveable { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxSize()) {
         NativePageHeader(stringResource(R.string.native_about_title), onBack) {
             Box {
@@ -63,31 +64,14 @@ fun NativeAboutScreen(
                     Text(stringResource(R.string.native_about_fork_description), style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            AboutLink(stringResource(R.string.native_about_check_update), onClick = {
-                dismissedUpdate = null
-                onCheckUpdate()
-            }, enabled = !updateChecking, icon = R.drawable.native_about_sync, busy = updateChecking)
-            if (updateUrl == null) updateMessage?.let {
-                Text(it, Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            NativeAppUpdateCard(updateState, onCheckUpdate, onOpenUpdate, onCancelUpdate, onSkipUpdate,
+                onUpdateChannel, onAutoDownload)
             HorizontalDivider()
             AboutLink(stringResource(R.string.native_about_source), "SawaMEN/hiddify-app", onOpenFork)
             AboutLink(stringResource(R.string.native_about_upstream), "hiddify/hiddify-app", onOpenUpstream)
             AboutLink(stringResource(R.string.native_about_terms), onClick = onOpenTerms)
             AboutLink(stringResource(R.string.native_about_privacy), onClick = onOpenPrivacy)
         }
-    }
-    if (updateUrl != null && dismissedUpdate != updateUrl) {
-        AlertDialog(onDismissRequest = { dismissedUpdate = updateUrl },
-            title = { Text(stringResource(R.string.native_about_updates)) },
-            text = { Text(updateMessage ?: stringResource(R.string.native_about_open_release)) },
-            confirmButton = { NativeTextButton(onClick = { dismissedUpdate = updateUrl; onOpenUpdate() }) {
-                Text(stringResource(R.string.native_about_open_release))
-            } },
-            dismissButton = { NativeTextButton(onClick = { dismissedUpdate = updateUrl }) {
-                Text(stringResource(android.R.string.cancel))
-            } })
     }
 }
 

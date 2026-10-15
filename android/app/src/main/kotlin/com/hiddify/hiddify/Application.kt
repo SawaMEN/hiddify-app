@@ -18,6 +18,7 @@ class Application : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        com.hiddify.hiddify.nativeupdate.NativeAppUpdates.initialize(this)
         com.hiddify.hiddify.nativerouting.NativeInstalledApps.observePackageChanges(this)
 
         Thread.getDefaultUncaughtExceptionHandler()?.let { previous ->
