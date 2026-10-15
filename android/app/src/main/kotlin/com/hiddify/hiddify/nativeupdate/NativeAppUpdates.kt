@@ -69,7 +69,7 @@ internal object NativeAppUpdates {
             .onFailure { android.util.Log.w("AppUpdates", "Could not schedule update check", it) }
         launchTask {
             if (prefs.getLong("download_id", -1) >= 0) resumeDownload()
-            else checkForUpdates(false)
+            // The Activity checks on every opening; background jobs run their own check.
         }
     }
 
@@ -99,10 +99,14 @@ internal object NativeAppUpdates {
     fun onForeground() {
         if (foregroundCheckJob?.isActive == true) return
         foregroundCheckJob = scope.launch {
+            var checkOnOpen = true
             while (isActive) {
                 try {
                     if (state.value.downloading) syncDownload()
-                    else checkForUpdates(false)
+                    else {
+                        checkForUpdates(force = checkOnOpen)
+                        checkOnOpen = false
+                    }
                 } catch (cancelled: CancellationException) { throw cancelled }
                   catch (error: Exception) { android.util.Log.w("AppUpdates", "Automatic check failed", error) }
                 // The due policy throttles requests; retry after connectivity returns without reopening the app.
