@@ -79,7 +79,6 @@ internal fun NativePrivacyOverviewScreen(
     connection: NativeConnectionOptions,
     proxy: NativeProxyPrivacy,
     onSaveRegional: (NativeRegionalOptions, Boolean) -> Unit,
-    onRussianNetworkBypassChanged: (Boolean) -> Unit,
     onSaveConnection: (NativeConnectionOptions) -> Unit,
     onSaveProxy: (NativeProxyPrivacy) -> Unit,
     onOpenApps: (NativeRegionalAppKind) -> Unit,
@@ -182,6 +181,8 @@ internal fun NativePrivacyOverviewScreen(
                 features.forEachIndexed { index, feature ->
                     if (index > 0) PrivacyFeatureDivider()
                     PrivacyConfiguredFeature(feature, directCount, proxyCount, serviceCount,
+                        regional.russianNetworkBypass, vpnMode && !settings.fullTunnel && !settings.handbookRouting &&
+                            regional.mode == com.hiddify.hiddify.privacy.NativeRegionalMode.RUSSIAN_BYPASS,
                         if (!busy) onOpenApps else null)
                 }
             }
@@ -198,12 +199,14 @@ internal fun NativePrivacyOverviewScreen(
                 style = MaterialTheme.typography.titleMedium)
             PrivacyCategory(R.string.native_privacy_routing, R.string.native_privacy_routing_summary, R.drawable.privacy_route_outline,
                 "routing" in expandedCategories, { onToggleCategory("routing") }) {
-                PrivacySwitch(R.string.native_privacy_direct_network, R.string.native_privacy_direct_network_summary,
-                    R.drawable.privacy_language, regional.russianNetworkBypass, !busy) {
-                    onRussianNetworkBypassChanged(it)
-                }
                 NativeRoutingModeChoices(regional.mode, !busy, settings.handbookRouting, settings.fullTunnel && vpnMode) { mode ->
                     onSaveRegional(regional.withMode(mode), mode == com.hiddify.hiddify.privacy.NativeRegionalMode.OFF)
+                }
+                NativeTextButton(enabled = !busy, onClick = { onOpenApps(NativeRegionalAppKind.DIRECT) }) {
+                    Text(stringResource(R.string.native_regional_apps_direct_title))
+                }
+                NativeTextButton(enabled = !busy, onClick = { onOpenApps(NativeRegionalAppKind.PROXY) }) {
+                    Text(stringResource(R.string.native_regional_apps_proxy_title))
                 }
                 if (settings.fullTunnel) {
                     Text(stringResource(R.string.native_routing_override_notice), Modifier.padding(16.dp))
@@ -261,13 +264,15 @@ internal fun NativePrivacyOverviewScreen(
 
 @Composable
 private fun PrivacyConfiguredFeature(feature: NativePrivacyFeature, directCount: Int?, proxyCount: Int?,
-    serviceCount: Int?, onOpenApps: ((NativeRegionalAppKind) -> Unit)?) {
+    serviceCount: Int?, networkBypass: Boolean, directAppsActive: Boolean, onOpenApps: ((NativeRegionalAppKind) -> Unit)?) {
     val (icon, title, description) = when (feature) {
-        NativePrivacyFeature.RUSSIAN_NETWORK -> Triple(R.drawable.privacy_language, R.string.native_privacy_network,
-            stringResource(R.string.native_privacy_network_on))
         NativePrivacyFeature.RUSSIAN_APPS -> Triple(R.drawable.privacy_apps, R.string.native_privacy_apps,
-            if (directCount == null) stringResource(R.string.native_privacy_apps_loading)
-            else stringResource(R.string.native_privacy_apps_on, directCount))
+            listOfNotNull(
+                if (directAppsActive) {
+                    if (directCount == null) stringResource(R.string.native_privacy_apps_loading)
+                    else stringResource(R.string.native_privacy_apps_on, directCount)
+                } else null,
+            ).joinToString("\n"))
         NativePrivacyFeature.BLOCKED_SERVICES -> Triple(R.drawable.privacy_route, R.string.native_privacy_services,
             if (serviceCount == null || proxyCount == null) stringResource(R.string.native_privacy_services_loading)
             else stringResource(R.string.native_privacy_services_on, serviceCount, proxyCount))
@@ -299,7 +304,12 @@ private fun PrivacyConfiguredFeature(feature: NativePrivacyFeature, directCount:
         NativePrivacyFeature.BLOCKED_SERVICES -> NativeRegionalAppKind.PROXY
         else -> null
     }
-    PrivacyFeature(icon, title, description, if (kind != null && onOpenApps != null) ({ onOpenApps(kind) }) else null)
+    val routingFeature = feature == NativePrivacyFeature.RUSSIAN_APPS || feature == NativePrivacyFeature.BLOCKED_SERVICES ||
+        feature == NativePrivacyFeature.COMMUNITY_LISTS || feature == NativePrivacyFeature.FULL_TUNNEL
+    val summary = if (networkBypass && routingFeature)
+        listOf(description, stringResource(R.string.native_privacy_network_on)).filter { it.isNotEmpty() }.joinToString("\n")
+        else description
+    PrivacyFeature(icon, title, summary, if (kind != null && onOpenApps != null) ({ onOpenApps(kind) }) else null)
 }
 
 @Composable
@@ -393,7 +403,7 @@ private fun PrivacyOverviewPreview() {
                         debugMode = false, disableMemoryLimit = false),
                     regional = NativeRegionalOptions(), regionalRevision = 0,
                     connection = NativeConnectionOptions(), proxy = NativeProxyPrivacy(),
-                    onSaveRegional = { _, _ -> }, onRussianNetworkBypassChanged = {}, onSaveConnection = {}, onSaveProxy = {}, onOpenApps = {},
+                    onSaveRegional = { _, _ -> }, onSaveConnection = {}, onSaveProxy = {}, onOpenApps = {},
                     onFullTunnel = {}, onRoot = {}, onEncryptedDns = {}, onPublicDns = {},
                 )
             }

@@ -3,7 +3,8 @@ package com.hiddify.hiddify.privacy
 import com.hiddify.hiddify.nativeprofile.NativeJsonDocument
 
 data class NativeRegionalService(val id: String, val name: String, val packages: List<String>, val domains: List<String>)
-data class NativeRegionalAppChoices(val packages: Set<String>? = null, val services: Set<String>? = null, val reset: Boolean = false)
+data class NativeRegionalAppChoices(val packages: Set<String>? = null, val services: Set<String>? = null, val reset: Boolean = false,
+    val russianNetworkBypass: Boolean? = null, val domains: String? = null)
 
 /** Offline service choices drive both browser-domain rules and automatic app suggestions. */
 object NativeRegionalServices {
@@ -61,6 +62,17 @@ object NativeRegionalServices {
         if (kind == NativeRegionalAppKind.PROXY) changes["flutter.privacy-proxy-services"] =
             if (choices.reset) "" else choices.services?.let(::encode) ?: currentServices
         return changes
+    }
+
+    /** Domain/network edits are atomic with app choices and do not select a routing mode. */
+    fun options(current: NativeRegionalOptions, kind: NativeRegionalAppKind, choices: NativeRegionalAppChoices): NativeRegionalOptions {
+        require(kind == NativeRegionalAppKind.DIRECT || choices.russianNetworkBypass == null) {
+            "Russian network settings belong to direct routing"
+        }
+        return (if (kind == NativeRegionalAppKind.DIRECT) current.copy(
+            russianNetworkBypass = choices.russianNetworkBypass ?: current.russianNetworkBypass,
+            directDomains = choices.domains ?: current.directDomains,
+        ) else current.copy(proxyDomains = choices.domains ?: current.proxyDomains)).validated()
     }
 
     private fun validate(ids: Set<String>) {

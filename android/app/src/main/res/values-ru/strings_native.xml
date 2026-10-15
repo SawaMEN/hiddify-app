@@ -261,8 +261,6 @@
     <string name="native_regional_bypass">Российские сервисы напрямую, остальное через VPN</string>
     <string name="native_regional_selected">Только выбранные сервисы через VPN</string>
     <string name="native_regional_selected_summary">Выбранные сервисы, приложения и дополнительные домены идут через VPN. Остальной трафик идёт напрямую. Российские домены и IP учитываются первыми.</string>
-    <string name="native_regional_network">Российские домены и IP напрямую</string>
-    <string name="native_regional_network_summary">Высший приоритет: российские домены и IP идут напрямую во всех режимах, включая списки сообщества и полный туннель.</string>
     <string name="native_regional_direct_domains">Дополнительные прямые домены</string>
     <string name="native_regional_proxy_domains">Дополнительные проксируемые домены</string>
     <string name="native_regional_domains_hint">Только домены через пробел, запятую или новую строку; *.example.com также охватывает поддомены. До 8192 символов и 256 записей вместе со встроенными правилами.</string>
@@ -271,8 +269,8 @@
     <string name="native_regional_saved">Маршрутизация сохранена. Переподключите VPN для применения.</string>
     <string name="native_regional_apps_direct_title">Российские приложения</string>
     <string name="native_regional_apps_proxy_title">Заблокированные сервисы</string>
-    <string name="native_regional_apps_direct_hint">Выбранные приложения идут напрямую, вне VPN. Сохранение не меняет выбранный режим маршрутизации.</string>
-    <string name="native_regional_apps_proxy_hint">Выберите сервисы для сайтов и приложений либо отдельные приложения для всего их трафика. Сохранение сохраняет выбранный режим маршрутизации.</string>
+    <string name="native_regional_apps_direct_hint">Здесь настраиваются приложения и домены для прямого доступа. Выбор приложений действует в режиме российских приложений, а исключение российской сети — во всех режимах с высшим приоритетом. Сохранение не меняет режим маршрутизации.</string>
+    <string name="native_regional_apps_proxy_hint">Здесь выбираются сервисы для сайтов и приложений, отдельные приложения и дополнительные домены VPN. Они действуют в режиме выбранных сервисов. Сохранение не меняет режим маршрутизации.</string>
     <string name="native_regional_apps_save_hint">Изменения применятся после сохранения и переподключения VPN.</string>
     <string name="native_regional_apps_manual">Ручной выбор</string>
     <string name="native_regional_apps_auto">Встроенный автовыбор</string>
@@ -281,7 +279,7 @@
     <string name="native_regional_apps_reload">Обновить список приложений</string>
     <string name="native_regional_apps_empty">Подходящих приложений нет</string>
     <string name="native_regional_apps_missing">Не установлено или недоступно; сохранённый выбор сохраняется</string>
-    <string name="native_regional_apps_saved">Маршрутизация приложений сохранена. Переподключите VPN для применения.</string>
+    <string name="native_regional_apps_saved">Настройки маршрутизации сохранены. Переподключите VPN для применения.</string>
     <string name="native_regional_apps_save_first">Сохраните изменения маршрутизации перед выбором приложений.</string>
     <string name="native_wifi_permission_denied">Не предоставлено разрешение для точки Wi-Fi.</string>
     <string name="native_wifi_vpn_failed">Раздача через VPN не запустилась. Проверьте подключение VPN и повторите.</string>
@@ -496,7 +494,6 @@
     <string name="native_privacy_apps_on">%1$d приложений идут напрямую, вне VPN. Нажмите, чтобы изменить список.</string>
     <string name="native_privacy_services">Заблокированные сервисы</string>
     <string name="native_privacy_services_on">%1$d сервисов и %2$d приложений через VPN. Нажмите, чтобы изменить выбор.</string>
-    <string name="native_privacy_network">Российская сеть</string>
     <string name="native_privacy_network_on">.ru, .рф, .su, российские geosite и IP идут напрямую.</string>
     <string name="native_privacy_root_checking">Проверяется наличие root…</string>
     <string name="native_privacy_root_missing">Root на устройстве не обнаружен.</string>
@@ -725,4 +722,6 @@
     <string name="native_privacy_proxy_ports_needed">В режиме прокси локальные порты нужны для подключения. Ограничение будет применено после включения VPN.</string>
     <string name="native_privacy_pending_changes">Настройки сохранены, но текущее подключение использует прежние параметры. Переподключите VPN для применения.</string>
     <string name="native_privacy_proxy_mode_notice">Сейчас выбран режим прокси. Маршрутизация приложений и параметры VPN-сети Android в нём не действуют. Для переключения режима отключите текущее подключение.</string>
+    <string name="native_profile_updated">Подписка «%1$s» обновлена</string>
+    <string name="native_profiles_updated">Обновлено подписок: %1$d</string>
 </resources>

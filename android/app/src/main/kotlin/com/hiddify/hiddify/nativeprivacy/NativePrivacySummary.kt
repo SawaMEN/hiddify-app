@@ -5,7 +5,7 @@ import com.hiddify.hiddify.privacy.NativeRegionalMode
 import com.hiddify.hiddify.privacy.NativeRegionalOptions
 
 enum class NativePrivacyFeature {
-    RUSSIAN_NETWORK, RUSSIAN_APPS, BLOCKED_SERVICES, COMMUNITY_LISTS, FULL_TUNNEL,
+    RUSSIAN_APPS, BLOCKED_SERVICES, COMMUNITY_LISTS, FULL_TUNNEL,
     ENCRYPTED_DNS, PUBLIC_DNS, HIDDEN_SYSTEM_PROXY, HIDDEN_LOCAL_PROXY, HIDDEN_API,
     ADAPTIVE_NETWORK, MASKED_PROTOCOLS, ROOT, WIFI_SHARING,
 }
@@ -27,12 +27,16 @@ object NativePrivacySummary {
         allowLan: Boolean = false,
         communityListsEnabled: Boolean = true,
     ): List<NativePrivacyFeature> = buildList {
-        if (regional.russianNetworkBypass) add(NativePrivacyFeature.RUSSIAN_NETWORK)
+        // Describe one effective routing mode, including its independent Russian-network exception.
         when {
             fullTunnel && vpnMode -> add(NativePrivacyFeature.FULL_TUNNEL)
-            communityRouting -> if (communityListsEnabled) add(NativePrivacyFeature.COMMUNITY_LISTS)
+            communityRouting -> {
+                if (communityListsEnabled) add(NativePrivacyFeature.COMMUNITY_LISTS)
+                else if (regional.russianNetworkBypass) add(NativePrivacyFeature.RUSSIAN_APPS)
+            }
             vpnMode && regional.mode == NativeRegionalMode.RUSSIAN_BYPASS -> add(NativePrivacyFeature.RUSSIAN_APPS)
             vpnMode && regional.mode == NativeRegionalMode.SELECTED_PROXY -> add(NativePrivacyFeature.BLOCKED_SERVICES)
+            regional.russianNetworkBypass -> add(NativePrivacyFeature.RUSSIAN_APPS)
         }
         if (encryptedDns) add(NativePrivacyFeature.ENCRYPTED_DNS)
         if (publicDns && vpnMode && !root) add(NativePrivacyFeature.PUBLIC_DNS)

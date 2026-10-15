@@ -15,6 +15,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -45,10 +46,12 @@ fun NativeRegionalAppsScreen(
     // Only package names enter saved state, never PackageManager objects or icons.
     var draft by rememberSaveable(kind, stateSaver = NativeNullableStringListDraftSaver) { mutableStateOf<List<String>?>(null) }
     var serviceDraft by rememberSaveable(kind, stateSaver = NativeNullableStringListDraftSaver) { mutableStateOf<List<String>?>(null) }
+    var networkDraft by rememberSaveable(kind) { mutableStateOf<Boolean?>(null) }
+    var domainsDraft by rememberSaveable(kind) { mutableStateOf<String?>(null) }
     LaunchedEffect(kind) { if (snapshot == null && !busy) onReload() }
     var appliedRevision by rememberSaveable(kind) { mutableStateOf(revision) }
     LaunchedEffect(revision) {
-        if (revision > 0 && revision != appliedRevision) { draft = null; serviceDraft = null }
+        if (revision > 0 && revision != appliedRevision) { draft = null; serviceDraft = null; networkDraft = null; domainsDraft = null }
         appliedRevision = revision
     }
     val serviceIds = serviceDraft?.toSet() ?: snapshot?.selectedServices.orEmpty()
@@ -69,6 +72,18 @@ fun NativeRegionalAppsScreen(
         it.label.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true)
     }
     val canChange = !busy && snapshot != null
+    val network = networkDraft ?: snapshot?.russianNetworkBypass ?: true
+    val domains = domainsDraft ?: snapshot?.domains.orEmpty()
+    val choices = com.hiddify.hiddify.privacy.NativeRegionalAppChoices(
+        packages = if (draft != null || snapshot?.manual == true) selected else null,
+        services = if (serviceDraft != null || snapshot?.servicesManual == true) serviceIds else null,
+        russianNetworkBypass = if (kind == NativeRegionalAppKind.DIRECT) networkDraft else null,
+        domains = domainsDraft,
+    )
+    val valid = runCatching {
+        com.hiddify.hiddify.privacy.NativeRegionalServices.options(
+            com.hiddify.hiddify.privacy.NativeRegionalOptions(), kind, choices)
+    }.isSuccess
 
     Column(Modifier.fillMaxSize()) {
         LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -80,6 +95,25 @@ fun NativeRegionalAppsScreen(
                 Text(stringResource(if (kind == NativeRegionalAppKind.DIRECT) R.string.native_regional_apps_direct_hint
                     else R.string.native_regional_apps_proxy_hint))
                 Text(stringResource(R.string.native_regional_apps_save_hint), style = MaterialTheme.typography.bodySmall)
+            }
+            if (kind == NativeRegionalAppKind.DIRECT) {
+                item {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.native_privacy_direct_network), style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.native_privacy_direct_network_summary), style = MaterialTheme.typography.bodySmall)
+                        }
+                        Switch(network, enabled = canChange, onCheckedChange = { networkDraft = it })
+                    }
+                }
+            }
+            item {
+                OutlinedTextField(value = domains, onValueChange = { if (it.length <= 8192) domainsDraft = it },
+                    enabled = canChange, modifier = Modifier.fillMaxWidth(), minLines = 2,
+                    label = { Text(stringResource(if (kind == NativeRegionalAppKind.DIRECT)
+                        R.string.native_regional_direct_domains else R.string.native_regional_proxy_domains)) },
+                    supportingText = { Text(stringResource(R.string.native_regional_domains_hint)) }, isError = !valid)
             }
             item {
                 if (snapshot != null) {
@@ -152,10 +186,10 @@ fun NativeRegionalAppsScreen(
                 }
             }
         }
-        Button(enabled = canChange && selected.size <= 256 && (draft != null || serviceDraft != null), modifier = Modifier.fillMaxWidth(),
-            onClick = { onSave(com.hiddify.hiddify.privacy.NativeRegionalAppChoices(
-                packages = if (draft != null || snapshot?.manual == true) selected else null,
-                services = if (serviceDraft != null || snapshot?.servicesManual == true) serviceIds else null,
-            )) }) { Text(stringResource(R.string.native_regional_save)) }
+        Button(enabled = canChange && valid && selected.size <= 256 &&
+            (draft != null || serviceDraft != null || networkDraft != null || domainsDraft != null),
+            modifier = Modifier.fillMaxWidth(), onClick = { onSave(choices) }) {
+            Text(stringResource(R.string.native_regional_save))
+        }
     }
 }

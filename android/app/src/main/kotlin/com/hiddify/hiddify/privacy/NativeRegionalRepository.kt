@@ -14,6 +14,8 @@ data class NativeRegionalAppSnapshot(
     val services: List<NativeRegionalService> = emptyList(),
     val selectedServices: Set<String> = emptySet(),
     val servicesManual: Boolean = false,
+    val russianNetworkBypass: Boolean = true,
+    val domains: String = "",
 )
 
 class NativeRegionalRepository(private val context: Context) {
@@ -74,7 +76,9 @@ class NativeRegionalRepository(private val context: Context) {
             NativeRegionalService(it, it, emptyList(), emptyList())
         }
         return NativeRegionalAppSnapshot(kind, apps, selected, selection.manual, missing,
-            rows, selectedServices, Settings.privacyProxyServices.startsWith(NativeRegionalPackages.MANUAL_PREFIX))
+            rows, selectedServices, Settings.privacyProxyServices.startsWith(NativeRegionalPackages.MANUAL_PREFIX),
+            Settings.privacyRussianNetworkBypass,
+            if (kind == NativeRegionalAppKind.DIRECT) Settings.privacyDirectDomains else Settings.privacyProxyDomains)
     }
 
     /** Null choices leave that list unchanged; reset restores suggestions, empty sets select nothing. */
@@ -86,10 +90,17 @@ class NativeRegionalRepository(private val context: Context) {
         val next = NativeRegionalPackageValues(changes.getValue("flutter.privacy-direct-packages"),
             changes.getValue("flutter.privacy-proxy-packages"))
         val services = changes["flutter.privacy-proxy-services"] ?: Settings.privacyProxyServices
-        val options = load() // Editing choices must never silently switch the routing mode.
+        val options = NativeRegionalServices.options(load(), kind, choices)
         RegionalRouting.policy(context, options = options, packages = next, servicesStored = services)
         val editor = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE).edit()
         changes.forEach { (key, value) -> editor.putString(key, value) }
+        editor.putBoolean("flutter.privacy-russian-network-bypass", options.russianNetworkBypass)
+            .putString("flutter.privacy-direct-domains", options.directDomains)
+            .putString("flutter.privacy-proxy-domains", options.proxyDomains)
+        if (options.mode != NativeRegionalMode.OFF || options.russianNetworkBypass || Settings.handbookRouting) {
+            editor.putBoolean("flutter.execute-config-as-is", false)
+                .putString("config_options_json", options.managedCoreOptions(Settings.configOptions, Settings.handbookRouting))
+        }
         check(editor.commit()) { "Could not save regional applications" }
         return applicationSnapshot(kind)
     }

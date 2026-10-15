@@ -29,14 +29,17 @@ class NativePrivacySummaryTest {
         }
     }
 
-    @Test fun networkRowOnlyAppearsWhenEnabledAndStaysFirstInEveryMode() {
+    @Test fun networkIsGroupedWithTheEffectiveRoutingModeWithoutDuplicateApplicationRows() {
         for (mode in NativeRegionalMode.entries) for (full in listOf(false, true)) for (community in listOf(false, true)) {
             val on = summary(mode, network = true, full = full, community = community)
             val off = summary(mode, network = false, full = full, community = community)
-            assertEquals(NativePrivacyFeature.RUSSIAN_NETWORK, on.first())
-            assertFalse(NativePrivacyFeature.RUSSIAN_NETWORK in off)
-            assertEquals(off, on.drop(1))
+            assertEquals(if (off.isEmpty()) listOf(NativePrivacyFeature.RUSSIAN_APPS) else off, on)
+            assertTrue(on.size <= 1)
         }
+        assertEquals(listOf(NativePrivacyFeature.BLOCKED_SERVICES),
+            summary(NativeRegionalMode.SELECTED_PROXY, network = true))
+        assertEquals(listOf(NativePrivacyFeature.RUSSIAN_APPS),
+            summary(network = true, community = true, communityEnabled = false))
     }
 
     @Test fun summaryReflectsIndividualDnsProxyAndConnectionSettings() {

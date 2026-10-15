@@ -467,10 +467,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 regionalOptions = regionalOptions.value,
                 regionalBusy = regionalBusy.value,
                 onSaveRegionalOptions = { options, community, selectRouting -> saveRegionalOptions(options, community, selectRouting) },
-                onRussianNetworkBypassChanged = { enabled ->
-                    saveRegionalOptions(regionalOptions.value.copy(russianNetworkBypass = enabled),
-                        Settings.handbookRouting, selectRouting = false)
-                },
                 trafficFilters = trafficFilters.value,
                 trafficFiltersBusy = trafficFiltersBusy.value,
                 onSaveTrafficFilters = ::saveTrafficFilters,
@@ -1246,7 +1242,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun refreshRemoteProfile(profile: NativeProfile) {
         if (!profile.isRemote) return
-        runProfileOperation(profile.id, requireDisconnected = false) {
+        runProfileOperation(profile.id, requireDisconnected = false, onSuccess = {
+            Toast.makeText(this, getString(R.string.native_profile_updated, profile.name), Toast.LENGTH_LONG).show()
+        }) {
             refreshRemoteCancellable(profile.id)
         }
     }
@@ -1254,7 +1252,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun refreshAllRemoteProfiles() {
         val remoteIds = profiles.value.filter { it.isRemote }.map { it.id }
         if (remoteIds.isEmpty()) return
-        runProfileOperation("update-all", requireDisconnected = false) {
+        runProfileOperation("update-all", requireDisconnected = false, onSuccess = {
+            Toast.makeText(this, getString(R.string.native_profiles_updated, remoteIds.size), Toast.LENGTH_LONG).show()
+        }) {
             val failures = mutableListOf<String>()
             refreshNativeProfileBatch(remoteIds, { refreshRemoteCancellable(it) }) { _, error ->
                 failures += error.message ?: error.javaClass.simpleName

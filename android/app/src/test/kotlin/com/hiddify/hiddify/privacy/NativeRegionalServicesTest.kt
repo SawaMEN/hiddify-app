@@ -80,4 +80,33 @@ class NativeRegionalServicesTest {
         assertEquals("", proxy["flutter.privacy-proxy-packages"])
         assertEquals("", proxy["flutter.privacy-proxy-services"])
     }
+    @Test fun directNetworkAndDomainsSaveTogetherWithoutChangingModeOrProxyChoices() {
+        for (mode in NativeRegionalMode.entries) {
+            val current = NativeRegionalOptions(mode = mode, proxyDomains = "vpn.example")
+            val changed = NativeRegionalServices.options(current, NativeRegionalAppKind.DIRECT,
+                NativeRegionalAppChoices(russianNetworkBypass = false, domains = "BANK.example, direct.example"))
+            assertEquals(mode, changed.mode)
+            assertFalse(changed.russianNetworkBypass)
+            assertEquals("bank.example\ndirect.example", changed.directDomains)
+            assertEquals(current.proxyDomains, changed.proxyDomains)
+            assertEquals(current, NativeRegionalServices.options(current, NativeRegionalAppKind.DIRECT,
+                NativeRegionalAppChoices(reset = true)))
+        }
+    }
+
+    @Test fun proxyDomainEditsCannotChangeRussianNetworkOrDirectDomains() {
+        val current = NativeRegionalOptions(russianNetworkBypass = false, directDomains = "bank.example")
+        val changed = NativeRegionalServices.options(current, NativeRegionalAppKind.PROXY,
+            NativeRegionalAppChoices(domains = "video.example"))
+        assertEquals(current.copy(proxyDomains = "video.example"), changed)
+        assertThrows(IllegalArgumentException::class.java) {
+            NativeRegionalServices.options(current, NativeRegionalAppKind.PROXY,
+                NativeRegionalAppChoices(russianNetworkBypass = true))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            NativeRegionalServices.options(current, NativeRegionalAppKind.DIRECT,
+                NativeRegionalAppChoices(russianNetworkBypass = true, domains = "https://invalid.example"))
+        }
+    }
+
 }

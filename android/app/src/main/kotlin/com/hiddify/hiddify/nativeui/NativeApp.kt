@@ -182,7 +182,6 @@ fun NativeApp(
     regionalOptions: NativeRegionalOptions,
     regionalBusy: Boolean,
     onSaveRegionalOptions: (NativeRegionalOptions, Boolean, Boolean) -> Unit,
-    onRussianNetworkBypassChanged: (Boolean) -> Unit,
     trafficFilters: NativeTrafficFilters,
     trafficFiltersBusy: Boolean,
     onSaveTrafficFilters: (NativeTrafficFilters) -> Unit,
@@ -654,7 +653,6 @@ fun NativeApp(
                                     onApplySaved = if (status == Status.Started && recoveryAttempt == 0) onToggleConnection else null,
                                     onEnableVpn = { onProxyOnlyChanged(false) },
                                     onSaveRegional = { options, community -> onSaveRegionalOptions(options, community, true) },
-                                    onRussianNetworkBypassChanged = onRussianNetworkBypassChanged,
                                     onSaveConnection = onSaveConnectionOptions,
                                     onSaveProxy = onSaveProxyPrivacy,
                                     onOpenApps = { kind ->
