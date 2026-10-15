@@ -22,6 +22,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileFileReplacement.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileFileRemoval.kt'
             include 'com/hiddify/hiddify/nativelog/NativeLogPresentation.kt'
+            include 'com/hiddify/hiddify/nativelog/NativeRecentLogLines.kt'
             include 'com/hiddify/hiddify/nativelog/NativeLogFiles.kt'
             include 'com/hiddify/hiddify/nativelog/NativeCrashRecorder.kt'
             include 'com/hiddify/hiddify/nativelog/NativeProcessExitReason.kt'
@@ -34,12 +35,14 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeui/NativeSavedDraftBudget.kt'
             include 'com/hiddify/hiddify/nativediagnostics/NativeDiagnosticEndpoint.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileImportCancellation.kt'
+            include 'com/hiddify/hiddify/nativeprofile/NativeProfileRefresh.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileValidation.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeImportSummary.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeSubscriptionMetadata.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeQrCodec.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeJsonDocument.kt'
             include 'com/hiddify/hiddify/nativecore/NativeOutboundModels.kt'
+            include 'com/hiddify/hiddify/nativecore/NativeResponseChannel.kt'
             include 'com/hiddify/hiddify/nativecore/NativeLanSharingLink.kt'
             include 'com/hiddify/hiddify/nativecore/NativeGeneralOptions.kt'
             include 'com/hiddify/hiddify/nativecore/NativeStoredNumbers.kt'
@@ -74,6 +77,8 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileNetworkPresets.kt'
             include 'com/hiddify/hiddify/nativediagnostics/NativeDiagnosticModels.kt'
             include 'com/hiddify/hiddify/nativerouting/NativePerAppBackup.kt'
+            include 'com/hiddify/hiddify/nativerouting/NativeTimedSnapshotCache.kt'
+            include 'com/hiddify/hiddify/performance/NativeRuntimeBenchmark.kt'
             include 'com/hiddify/hiddify/privacy/NativeTrafficFilters.kt'
             include 'com/hiddify/hiddify/privacy/BinaryXml.kt'
             include 'com/hiddify/hiddify/privacy/RootAccess.kt'
@@ -81,6 +86,7 @@ sourceSets {
             include 'com/hiddify/hiddify/privacy/NativeCommunityLists.kt'
             include 'com/hiddify/hiddify/privacy/NativeRegionalOptions.kt'
             include 'com/hiddify/hiddify/privacy/NativeRegionalPackages.kt'
+            include 'com/hiddify/hiddify/privacy/NativeRegionalServices.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeConnectionPolicy.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeWarpStartupPolicy.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeWarpProbePolicy.kt'
@@ -114,6 +120,7 @@ dependencies {
 }
 
 test {
+    inputs.file('../../android/app/src/main/assets/region_routing.json')
     useJUnit()
     testLogging {
         events 'failed', 'skipped'
@@ -133,4 +140,12 @@ tasks.register('freeAudit', JavaExec) {
     dependsOn classes
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'com.hiddify.hiddify.nativeprofile.NativeFreeLiveAuditKt'
+}
+
+// Informational JVM comparison against the previous hot paths; no Android timing claims.
+tasks.register('runtimeBench', JavaExec) {
+    dependsOn classes
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.hiddify.hiddify.performance.NativeRuntimeBenchmark'
+    maxHeapSize = '768m'
 }

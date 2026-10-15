@@ -124,7 +124,12 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
             return -1
         }
 
-        val safeMtu = options.mtu.coerceIn(if (Settings.privacyDisableIpv6) 576 else 1280, 65_535)
+        // Read once for the whole builder: avoid parsing core options for every IPv6
+        // route and keep addresses, DNS and MTU consistent during a settings update.
+        val disableIpv6 = Settings.privacyDisableIpv6
+        val fullTunnel = Settings.privacyFullTunnel
+        val publicDns = Settings.privacyPublicDns
+        val safeMtu = options.mtu.coerceIn(if (disableIpv6) 576 else 1280, 65_535)
         if (safeMtu != options.mtu) {
             Log.w(TAG, "clamping invalid MTU ${options.mtu} to $safeMtu")
         }
@@ -144,24 +149,24 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
         val inet6Address = options.inet6Address
         while (inet6Address.hasNext()) {
             val address = inet6Address.next()
-            if (!Settings.privacyDisableIpv6) builder.addAddress(address.address(), address.prefix())
+            if (!disableIpv6) builder.addAddress(address.address(), address.prefix())
         }
 
-        if (options.autoRoute || Settings.privacyFullTunnel) {
+        if (options.autoRoute || fullTunnel) {
             val dnsServerAddress = options.dnsServerAddress
-            if (Settings.privacyPublicDns) {
+            if (publicDns) {
                 // The core hijacks DNS inside the TUN; the resolver is not contacted directly.
                 builder.addDnsServer("1.1.1.1")
             } else {
                 while (dnsServerAddress.hasNext()) {
                     val address = dnsServerAddress.next()
-                    if (!Settings.privacyDisableIpv6 || !address.contains(':')) builder.addDnsServer(address)
+                    if (!disableIpv6 || !address.contains(':')) builder.addDnsServer(address)
                 }
             }
 
-            if (Settings.privacyFullTunnel) {
+            if (fullTunnel) {
                 builder.addRoute("0.0.0.0", 0)
-                if (!Settings.privacyDisableIpv6) builder.addRoute("::", 0)
+                if (!disableIpv6) builder.addRoute("::", 0)
                 if (!applyPerAppRouting(builder)) addExcludePackage(builder, packageName)
             } else {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -178,10 +183,10 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
                     if (inet6RouteAddress.hasNext()) {
                         while (inet6RouteAddress.hasNext()) {
                             val route = inet6RouteAddress.next().toIpPrefix()
-                            if (!Settings.privacyDisableIpv6) builder.addRoute(route)
+                            if (!disableIpv6) builder.addRoute(route)
                         }
                     } else {
-                        if (!Settings.privacyDisableIpv6) builder.addRoute("::", 0)
+                        if (!disableIpv6) builder.addRoute("::", 0)
                     }
 
                     val inet4RouteExcludeAddress = options.inet4RouteExcludeAddress
@@ -192,7 +197,7 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
                     val inet6RouteExcludeAddress = options.inet6RouteExcludeAddress
                     while (inet6RouteExcludeAddress.hasNext()) {
                         val route = inet6RouteExcludeAddress.next().toIpPrefix()
-                        if (!Settings.privacyDisableIpv6) builder.excludeRoute(route)
+                        if (!disableIpv6) builder.excludeRoute(route)
                     }
                 } else {
                     val inet4RouteAddress = options.inet4RouteRange
@@ -204,7 +209,7 @@ class VPNService : VpnService(), PlatformInterfaceWrapper {
                     val inet6RouteAddress = options.inet6RouteRange
                     while (inet6RouteAddress.hasNext()) {
                         val address = inet6RouteAddress.next()
-                        if (!Settings.privacyDisableIpv6) builder.addRoute(address.address(), address.prefix())
+                        if (!disableIpv6) builder.addRoute(address.address(), address.prefix())
                     }
                 }
 

@@ -71,6 +71,17 @@ class NativeProfileRepository(private val context: Context) {
         // File replacement and DB transactions must share a lock across repository instances.
         private val mutationLock = Any()
 
+        // Repository instances share sockets and dispatcher threads; request overrides stay local.
+        private val subscriptionHttp =
+            OkHttpClient.Builder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(30, TimeUnit.SECONDS)
+                .callTimeout(45, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .followSslRedirects(true)
+                .build()
+
         private val importSchemes =
             setOf("hiddify", "v2ray", "v2rayn", "v2rayng", "clash", "clashmeta", "sing-box")
         private val allowedHeaders =
@@ -100,15 +111,7 @@ class NativeProfileRepository(private val context: Context) {
                 else -> flutterDatabase
             }
         }
-    private val http =
-        OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
-            .callTimeout(45, TimeUnit.SECONDS)
-            .followRedirects(true)
-            .followSslRedirects(true)
-            .build()
+    private val http = subscriptionHttp
     private val nestedHttp =
         http.newBuilder()
             .followRedirects(false)
@@ -307,11 +310,12 @@ class NativeProfileRepository(private val context: Context) {
         com.hiddify.hiddify.nativecore.NativeChainRepository().replaceDeletedProfile(id)
     }
 
-    fun refreshRemote(id: String): NativeProfile {
+    fun refreshRemote(id: String, cancellation: NativeProfileImportCancellation? = null): NativeProfile {
+        cancellation?.ensureActive()
         val profile =
             openDatabase().use { db -> getById(db, id) ?: error("Profile not found") }
         check(profile.isRemote && !profile.url.isNullOrBlank()) { "Profile is not a remote subscription" }
-        return importRemote(profile.url, existingId = profile.id, existingOverride = profile.userOverride)
+        return importRemote(profile.url, existingId = profile.id, existingOverride = profile.userOverride, cancellation = cancellation)
     }
 
     fun loadEditor(id: String): NativeProfileEditor {

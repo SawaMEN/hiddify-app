@@ -32,6 +32,7 @@ object Settings {
     val privacyDirectPackages get() = getString("flutter.privacy-direct-packages", "")
     val privacyProxyPackages get() = getString("flutter.privacy-proxy-packages", "")
     val privacyDirectDomains get() = getString("flutter.privacy-direct-domains", "")
+    val privacyProxyServices get() = getString("flutter.privacy-proxy-services", "")
     val privacyProxyDomains get() = getString("flutter.privacy-proxy-domains", "")
     val rootRouteTable: Int
         @Synchronized get() {

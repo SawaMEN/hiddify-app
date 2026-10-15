@@ -13,3 +13,12 @@ internal val NativeStringListDraftSaver = Saver<List<String>, ArrayList<String>>
     save = { it.takeIf(NativeSavedDraftBudget::fits)?.let(::ArrayList) },
     restore = { it.takeIf(NativeSavedDraftBudget::fits) },
 )
+
+// Preserve the difference between automatic choices (null) and a manual empty list.
+internal val NativeNullableStringListDraftSaver = Saver<List<String>?, ArrayList<String>>(
+    save = { values ->
+        if (values == null) arrayListOf()
+        else (listOf("") + values).takeIf(NativeSavedDraftBudget::fits)?.let(::ArrayList)
+    },
+    restore = { encoded -> encoded.takeIf(NativeSavedDraftBudget::fits)?.takeIf { it.isNotEmpty() }?.drop(1) },
+)

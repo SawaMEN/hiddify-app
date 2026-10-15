@@ -103,9 +103,12 @@ internal fun NativePrivacyOverviewScreen(
             runCatching { RegionalRouting.policy(context, options = regional) }.getOrNull()
         }
     }
-    val ready = policy?.get("privacy-routing-mode")?.let { it == "ru-bypass" }
+    val ready = policy?.get("privacy-routing-mode")?.let { it == "ru-bypass" || it == "proxy-selected" }
     val directCount = (policy?.get("privacy-direct-packages") as? List<*>)?.size ?: 0
     val proxyCount = (policy?.get("privacy-proxy-packages") as? List<*>)?.size ?: 0
+    val serviceCount = (policy?.get("privacy-selected-services") as? List<*>)?.size ?: 0
+    val regionalEnabled = regional.effectiveMode(settings.fullTunnel, settings.handbookRouting) !=
+        com.hiddify.hiddify.privacy.NativeRegionalMode.OFF
     val scheme = MaterialTheme.colorScheme
     Column(Modifier.fillMaxSize()) {
         // AppBar is outside ListView in Dart and stays visible while the content scrolls.
@@ -168,15 +171,15 @@ internal fun NativePrivacyOverviewScreen(
             Spacer(Modifier.height(10.dp))
             Card(Modifier.fillMaxWidth()) {
                 PrivacyFeature(R.drawable.privacy_apps, R.string.native_privacy_apps,
-                    if (regional.russianAppsBypass) stringResource(R.string.native_privacy_apps_on, directCount)
+                    if (regionalEnabled && regional.russianAppsBypass) stringResource(R.string.native_privacy_apps_on, directCount)
                     else stringResource(R.string.native_privacy_apps_off), if (!busy) ({ onOpenApps(NativeRegionalAppKind.DIRECT) }) else null)
                 PrivacyFeatureDivider()
                 PrivacyFeature(R.drawable.privacy_route, R.string.native_privacy_services,
-                    if (regional.restrictedServicesProxy) stringResource(R.string.native_privacy_services_on, proxyCount)
+                    if (regionalEnabled && regional.restrictedServicesProxy) stringResource(R.string.native_privacy_services_on, serviceCount, proxyCount)
                     else stringResource(R.string.native_privacy_services_off), if (!busy) ({ onOpenApps(NativeRegionalAppKind.PROXY) }) else null)
                 PrivacyFeatureDivider()
                 PrivacyFeature(R.drawable.privacy_language, R.string.native_privacy_network,
-                    stringResource(if (regional.russianNetworkBypass) R.string.native_privacy_network_on else R.string.native_privacy_network_off))
+                    stringResource(if (regionalEnabled && regional.russianNetworkBypass && regional.mode == com.hiddify.hiddify.privacy.NativeRegionalMode.RUSSIAN_BYPASS) R.string.native_privacy_network_on else R.string.native_privacy_network_off))
                 PrivacyFeatureDivider()
                 PrivacyFeature(R.drawable.privacy_dns, R.string.native_privacy_signals, stringResource(R.string.native_privacy_signals_summary))
             }
@@ -193,6 +196,10 @@ internal fun NativePrivacyOverviewScreen(
                 style = MaterialTheme.typography.titleMedium)
             PrivacyCategory(R.string.native_privacy_routing, R.string.native_privacy_routing_summary, R.drawable.privacy_route_outline,
                 "routing" in expandedCategories, { onToggleCategory("routing") }) {
+                NativeRoutingModeChoices(regional.mode, !busy) { onSaveRegional(regional.withMode(it)) }
+                if (settings.fullTunnel || settings.handbookRouting) {
+                    Text(stringResource(R.string.native_routing_override_notice), Modifier.padding(16.dp))
+                }
                 PrivacySwitch(R.string.native_privacy_handbook, R.string.native_privacy_handbook_summary, null,
                     settings.handbookRouting, !busy, onHandbook)
                 if (settings.handbookRouting) {
@@ -200,15 +207,15 @@ internal fun NativePrivacyOverviewScreen(
                     Text(stringResource(R.string.native_privacy_handbook_note), Modifier.padding(16.dp), style = MaterialTheme.typography.bodyMedium)
                 }
                 PrivacySwitch(R.string.native_privacy_direct_network, R.string.native_privacy_direct_network_summary,
-                    R.drawable.privacy_language, regional.russianNetworkBypass && !settings.handbookRouting, !busy && !settings.handbookRouting) {
+                    R.drawable.privacy_language, regional.russianNetworkBypass && !settings.handbookRouting && regional.mode == com.hiddify.hiddify.privacy.NativeRegionalMode.RUSSIAN_BYPASS, !busy && !settings.handbookRouting && regional.mode == com.hiddify.hiddify.privacy.NativeRegionalMode.RUSSIAN_BYPASS) {
                     onSaveRegional(regional.copy(russianNetworkBypass = it))
                 }
                 PrivacySwitch(R.string.native_privacy_direct_apps, R.string.native_privacy_direct_apps_summary,
-                    R.drawable.privacy_apps_outline, regional.russianAppsBypass && !settings.handbookRouting, !busy && !settings.handbookRouting) {
+                    R.drawable.privacy_apps_outline, regional.russianAppsBypass && regionalEnabled, !busy && regionalEnabled) {
                     onSaveRegional(regional.copy(russianAppsBypass = it))
                 }
                 PrivacySwitch(R.string.native_privacy_proxy_services, R.string.native_privacy_proxy_services_summary,
-                    R.drawable.privacy_route_outline, regional.restrictedServicesProxy && !settings.handbookRouting, !busy && !settings.handbookRouting) {
+                    R.drawable.privacy_route_outline, regional.restrictedServicesProxy && regionalEnabled, !busy && regionalEnabled) {
                     onSaveRegional(regional.copy(restrictedServicesProxy = it))
                 }
             }

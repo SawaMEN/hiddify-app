@@ -37,6 +37,8 @@ import com.hiddify.hiddify.nativeprofile.NativeProfileTransfer
 import com.hiddify.hiddify.nativeprofile.NativeImportSummary
 import com.hiddify.hiddify.nativeprofile.NativePreparedProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileImportCancellation
+import com.hiddify.hiddify.nativeprofile.runNativeProfileRefresh
+import com.hiddify.hiddify.nativeprofile.refreshNativeProfileBatch
 import com.hiddify.hiddify.nativeprofile.NativeProfileRepository
 import com.hiddify.hiddify.nativelog.NativeLogRepository
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
@@ -157,6 +159,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private val activeOutbound = mutableStateOf<com.hiddify.hiddify.nativecore.NativeOutbound?>(null)
     private val outboundOperationRevision = mutableStateOf(0)
     private val outboundBusyTag = mutableStateOf<String?>(null)
+    private var outboundRequestJob: Job? = null
+    private var outboundRequestGeneration = 0L
     private val systemStats = mutableStateOf(NativeSystemStats())
     private val wifiSharingDetails = mutableStateOf(NativeWifiSharingDetails())
     private val wifiSharingBusy = mutableStateOf(false)
@@ -390,7 +394,6 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
         refreshWifiSharingDetails()
-        refreshProfiles(syncActive = true)
         refreshPerApp()
 
         setContent {
@@ -612,7 +615,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshSettingsSnapshot()
         refreshCoreOptions()
         refreshChainOptions()
-        refreshProfiles()
+        // onStart owns initial synchronization; onCreate must not queue a read cancelled here.
+        refreshProfiles(syncActive = true)
         refreshPerApp()
         if (serviceStatus.value == Status.Started) refreshOutbounds(showError = false)
         startProfileUpdateLoop()
@@ -670,6 +674,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         activeOutboundRefreshJob?.cancel()
         activeOutboundRefreshJob = null
         activeOutbound.value = null
+        cancelOutboundRequest()
         connection.disconnect()
         super.onStop()
     }
@@ -839,29 +844,45 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    private fun cancelOutboundRequest() {
+        outboundRequestGeneration++
+        outboundRequestJob?.cancel()
+        outboundRequestJob = null
+        outboundBusyTag.value = null
+    }
+
+    private fun isCurrentOutboundRequest(generation: Long, session: Long, profile: String): Boolean =
+        generation == outboundRequestGeneration && nativeForeground && serviceStatus.value == Status.Started &&
+            session == pingSession && profile == Settings.activeConfigPath
+
     private fun refreshOutbounds(showError: Boolean) {
         if (serviceStatus.value != Status.Started) {
             outboundGroups.value = emptyList()
-            outboundBusyTag.value = null
+            cancelOutboundRequest()
             return
         }
-        if (outboundBusyTag.value != null) return
+        if (!nativeForeground || outboundBusyTag.value != null) return
 
+        val generation = ++outboundRequestGeneration
+        val session = pingSession
+        val profile = Settings.activeConfigPath
         outboundBusyTag.value = "__refresh__"
-        lifecycleScope.launch {
+        outboundRequestJob = lifecycleScope.launch {
             try {
-                outboundGroups.value =
-                    withContext(Dispatchers.IO) {
-                        outboundsRepository.load()
-                    }
+                val loaded = withContext(Dispatchers.IO) { outboundsRepository.load() }
+                if (isCurrentOutboundRequest(generation, session, profile)) outboundGroups.value = loaded
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
-                if (showError) {
-                    errorMessage.value = error.message ?: error.javaClass.simpleName
-                } else {
-                    Log.w(TAG, "failed to refresh native outbounds", error)
+                if (isCurrentOutboundRequest(generation, session, profile)) {
+                    if (showError) errorMessage.value = error.message ?: error.javaClass.simpleName
+                    else Log.w(TAG, "failed to refresh native outbounds", error)
                 }
             } finally {
-                outboundBusyTag.value = null
+                if (generation == outboundRequestGeneration) {
+                    outboundBusyTag.value = null
+                    outboundRequestJob = null
+                }
             }
         }
     }
@@ -883,33 +904,41 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun runOutboundOperation(
         busyTag: String,
-        operation: () -> Unit,
+        operation: suspend () -> Unit,
     ) {
         if (serviceStatus.value != Status.Started) {
             errorMessage.value = getString(R.string.native_outbounds_disconnected)
             outboundGroups.value = emptyList()
             return
         }
-        if (outboundBusyTag.value != null) return
+        if (!nativeForeground || outboundBusyTag.value != null) return
 
+        val generation = ++outboundRequestGeneration
+        val session = pingSession
+        val profile = Settings.activeConfigPath
         outboundBusyTag.value = busyTag
-        lifecycleScope.launch {
+        outboundRequestJob = lifecycleScope.launch {
             try {
-                val refreshed =
-                    withContext(Dispatchers.IO) {
-                        operation()
-                        outboundsRepository.load()
-                    }
+                val refreshed = withContext(Dispatchers.IO) {
+                    operation()
+                    outboundsRepository.load()
+                }
+                if (!isCurrentOutboundRequest(generation, session, profile)) return@launch
                 outboundGroups.value = refreshed
                 val active = withContext(Dispatchers.IO) { outboundsRepository.loadActive() }
-                if (nativeForeground && serviceStatus.value == Status.Started) activeOutbound.value = active
-            } catch (error: CancellationException) {
-                throw error
+                if (isCurrentOutboundRequest(generation, session, profile)) activeOutbound.value = active
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
-                errorMessage.value = error.message ?: error.javaClass.simpleName
+                if (isCurrentOutboundRequest(generation, session, profile)) {
+                    errorMessage.value = error.message ?: error.javaClass.simpleName
+                }
             } finally {
-                outboundOperationRevision.value++
-                outboundBusyTag.value = null
+                if (generation == outboundRequestGeneration) {
+                    outboundOperationRevision.value++
+                    outboundBusyTag.value = null
+                    outboundRequestJob = null
+                }
             }
         }
     }
@@ -940,9 +969,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             while (isActive && nativeForeground) {
                 if (serviceStatus.value == Status.Started) {
                     val profile = Settings.activeConfigPath
+                    val session = pingSession
                     try {
                         val active = withContext(Dispatchers.IO) { outboundsRepository.loadActive() }
-                        if (nativeForeground && serviceStatus.value == Status.Started && profile == Settings.activeConfigPath) {
+                        if (nativeForeground && serviceStatus.value == Status.Started && profile == Settings.activeConfigPath && session == pingSession) {
                             activeOutbound.value = active
                             if (active != null && outboundBusyTag.value == null &&
                                 !com.hiddify.hiddify.nativecore.NativeSpeedTestRepository.running &&
@@ -1168,6 +1198,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 while (isActive) {
                     try {
                         updateDueProfiles()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
                     } catch (error: Exception) {
                         Log.w(TAG, "automatic profile update cycle failed", error)
                     }
@@ -1182,18 +1214,23 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             withContext(Dispatchers.IO) {
                 profileOperationMutex.withLock {
                     val due = profileRepository.dueRemoteProfileIds()
-                    for (id in due) {
-                        runCatching { profileRepository.refreshRemote(id) }
-                            .onFailure { Log.w(TAG, "automatic profile update failed for $id", it) }
+                    if (due.isEmpty()) return@withLock null
+                    refreshNativeProfileBatch(due, { refreshRemoteCancellable(it) }) { id, error ->
+                        Log.w(TAG, "automatic profile update failed for $id", error)
                     }
+                    // Reload after attempted updates: a failure can occur after a committed DB write.
                     profileRepository.synchronizeActiveProfile()
                     profileRepository.listProfiles()
                 }
-            }
+            } ?: return
         profiles.value = loaded
         refreshProfileSnapshot()
         coreChangesSaved()
     }
+
+    private suspend fun refreshRemoteCancellable(id: String): NativeProfile = runNativeProfileRefresh(
+        onCancellationFailure = { Log.w(TAG, "Native subscription cancellation failed", it) },
+    ) { cancellation -> profileRepository.refreshRemote(id, cancellation) }
 
     private fun selectProfile(profile: NativeProfile) {
         runProfileOperation(profile.id, requireDisconnected = true,
@@ -1211,7 +1248,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun refreshRemoteProfile(profile: NativeProfile) {
         if (!profile.isRemote) return
         runProfileOperation(profile.id, requireDisconnected = false) {
-            profileRepository.refreshRemote(profile.id)
+            refreshRemoteCancellable(profile.id)
         }
     }
 
@@ -1220,8 +1257,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         if (remoteIds.isEmpty()) return
         runProfileOperation("update-all", requireDisconnected = false) {
             val failures = mutableListOf<String>()
-            for (id in remoteIds) {
-                runCatching { profileRepository.refreshRemote(id) }.onFailure { failures += it.message ?: it.javaClass.simpleName }
+            refreshNativeProfileBatch(remoteIds, { refreshRemoteCancellable(it) }) { _, error ->
+                failures += error.message ?: error.javaClass.simpleName
             }
             // Keep successful updates even if another subscription failed, and publish that snapshot.
             if (failures.isNotEmpty()) throw IllegalStateException(failures.distinct().joinToString("\n"))
@@ -1314,6 +1351,10 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             return
         }
 
+        // Foreground mutations take priority over a background subscription batch.
+        // Cancellation joins HTTP/JNI cleanup before the operation mutex becomes available.
+        profileUpdateJob?.cancel()
+        profileUpdateJob = null
         busyProfileId.value = operationId
         profileImportCancellation = importCancellation
         lifecycleScope.launch {
@@ -1368,6 +1409,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             } finally {
                 profileImportCancellation = null
                 busyProfileId.value = null
+                if (nativeForeground) startProfileUpdateLoop()
             }
         }
     }
@@ -1904,6 +1946,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 regionalApps.value = withContext(Dispatchers.IO) {
                     regionalOperationMutex.withLock { regionalRepository.applicationSnapshot(kind) }
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
@@ -1912,27 +1956,29 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
-    private fun saveRegionalApps(kind: NativeRegionalAppKind, selected: Set<String>) {
-        changeRegionalApps(kind, selected)
+    private fun saveRegionalApps(kind: NativeRegionalAppKind, choices: com.hiddify.hiddify.privacy.NativeRegionalAppChoices) {
+        changeRegionalApps(kind, choices)
     }
 
     private fun resetRegionalApps(kind: NativeRegionalAppKind) {
-        changeRegionalApps(kind, null)
+        changeRegionalApps(kind, com.hiddify.hiddify.privacy.NativeRegionalAppChoices(reset = true))
     }
 
-    private fun changeRegionalApps(kind: NativeRegionalAppKind, selected: Set<String>?) {
+    private fun changeRegionalApps(kind: NativeRegionalAppKind, choices: com.hiddify.hiddify.privacy.NativeRegionalAppChoices) {
         if (regionalBusy.value || regionalApps.value?.kind != kind) return
         regionalBusy.value = true
         lifecycleScope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
-                    regionalOperationMutex.withLock { regionalRepository.saveApplications(kind, selected) }
+                    regionalOperationMutex.withLock { regionalRepository.saveApplications(kind, choices) }
                 }
                 regionalApps.value = result
                 regionalAppsRevision.value += 1
                 regionalOptions.value = regionalRepository.load()
                 coreChangesSaved()
                 Toast.makeText(this@MainActivity, R.string.native_regional_apps_saved, Toast.LENGTH_SHORT).show()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
@@ -1947,9 +1993,13 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         lifecycleScope.launch {
             try {
                 regionalOptions.value = withContext(Dispatchers.IO) { regionalOperationMutex.withLock { regionalRepository.save(value) } }
+                refreshSettingsSnapshot()
+                refreshPerApp()
                 refreshPrivacySetupState()
                 coreChangesSaved()
                 Toast.makeText(this@MainActivity, R.string.native_regional_saved, Toast.LENGTH_SHORT).show()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
                 errorMessage.value = error.message ?: error.javaClass.simpleName
             } finally {
@@ -2812,6 +2862,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             if (serviceStatus.value != status) resetTrafficStats()
             if (status == Status.Started && serviceStatus.value != status) pingSession++
             serviceStatus.value = status
+            if (status != Status.Started) cancelOutboundRequest()
             if (startResult == false) {
                 homeConnectionFailed.value = true
                 if (errorMessage.value == null) errorMessage.value = getString(R.string.native_connection_service_unavailable)

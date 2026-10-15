@@ -12,7 +12,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,23 +60,15 @@ fun NativeRegionalRoutingScreen(
                 }
             }
         }
-        Text(stringResource(R.string.native_regional_mode), style = MaterialTheme.typography.titleMedium)
-        NativeRegionalMode.entries.forEach { choice ->
-            val label = when (choice) {
-                NativeRegionalMode.OFF -> R.string.native_regional_off
-                NativeRegionalMode.RUSSIAN_BYPASS -> R.string.native_regional_bypass
-                NativeRegionalMode.SELECTED_PROXY -> R.string.native_regional_selected
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                RadioButton(selected = mode == choice.value, enabled = !busy, onClick = { mode = choice.value })
-                NativeTextButton(enabled = !busy, onClick = { mode = choice.value }) { Text(stringResource(label)) }
-            }
-        }
-        if (mode == NativeRegionalMode.SELECTED_PROXY.value) {
-            Text(stringResource(R.string.native_regional_selected_summary), style = MaterialTheme.typography.bodySmall)
+        NativeRoutingModeChoices(NativeRegionalMode.fromValue(mode), !busy) { choice ->
+            val selected = draft.withMode(choice)
+            mode = selected.mode.value
+            network = selected.russianNetworkBypass
+            apps = selected.russianAppsBypass
+            restricted = selected.restrictedServicesProxy
         }
         RegionalSwitch(R.string.native_regional_network, R.string.native_regional_network_summary,
-            network, !busy) { network = it }
+            network, !busy && mode == NativeRegionalMode.RUSSIAN_BYPASS.value) { network = it }
         RegionalSwitch(R.string.native_regional_apps, R.string.native_regional_apps_summary,
             apps, !busy) { apps = it }
         RegionalSwitch(R.string.native_regional_restricted, R.string.native_regional_restricted_summary,

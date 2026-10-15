@@ -1,7 +1,7 @@
 package com.hiddify.hiddify.nativeprivacy
 
 import com.google.gson.JsonObject
-import com.google.gson.JsonParser
+import com.hiddify.hiddify.nativeprofile.NativeJsonDocument
 
 /** The snapshot field names are shared with Dart's VpnPrivacyActions. */
 object NativePrivacySetup {
@@ -22,6 +22,15 @@ object NativePrivacySetup {
         "customProxyPackages" to ("privacy-proxy-packages" to ""),
         "customDirectDomains" to ("privacy-direct-domains" to ""),
         "customProxyDomains" to ("privacy-proxy-domains" to ""),
+        "proxyServices" to ("privacy-proxy-services" to ""),
+        "perAppMode" to ("per_app_proxy_mode" to "off"),
+        "remoteDns" to ("remote-dns-address" to "tcp://8.8.8.8"),
+        "directDns" to ("direct-dns-address" to "udp://1.1.1.1"),
+        "strictRoute" to ("strict-route" to true),
+        "executeConfig" to ("execute-config-as-is" to false),
+        "wifiSharing" to ("wifi-vpn-sharing" to false),
+        "allowLan" to ("allow-connection-from-lan" to false),
+        "maskedProtocolsOnly" to ("privacy-modern-protocols-only" to false),
         "useRoot" to ("privacy-use-root" to false),
         "fullTunnel" to ("privacy-full-tunnel" to false),
         "hideLocalProxy" to ("privacy-hide-local-proxy" to true),
@@ -36,6 +45,12 @@ object NativePrivacySetup {
         "russianNetworkBypass" to true, "russianAppsBypass" to true, "restrictedServicesProxy" to true,
         "hideLocalProxy" to true, "hideClashApi" to true, "disableSystemProxy" to true,
         "publicDns" to true, "encryptedDns" to true, "fullTunnel" to false,
+        "useRoot" to false, "perAppMode" to "off", "proxyServices" to "",
+        "customDirectPackages" to "", "customProxyPackages" to "",
+        "customDirectDomains" to "", "customProxyDomains" to "",
+        "remoteDns" to "https://1.1.1.1/dns-query", "directDns" to "https://1.1.1.1/dns-query",
+        "strictRoute" to true, "executeConfig" to false,
+        "wifiSharing" to false, "allowLan" to false, "maskedProtocolsOnly" to false,
     )
 
     fun canRestore(preferences: Map<String, *>): Boolean =
@@ -51,7 +66,18 @@ object NativePrivacySetup {
         val before = snapshot(preferences)
         require(preferences[BACKUP_KEY] == null || preferences[BACKUP_KEY] is String) { "Invalid saved privacy backup" }
         val encoded = preferences[BACKUP_KEY] as? String ?: ""
-        val backup = if (encoded.isBlank()) encode(before) else encoded
+        require(encoded.length <= MAX_BACKUP_LENGTH) { "Saved privacy settings are too large" }
+        val backup = if (encoded.isBlank()) encode(before) else {
+            // Older backups never captured the newly managed settings. Add missing fields
+            // once, while retaining every original value from the first backup.
+            val original = parseObject(encoded)
+            val missing = before.keys.filterNot(original::has)
+            if (missing.isEmpty()) encoded else {
+                val captured = parseObject(encode(before))
+                missing.forEach { original.add(it, captured.get(it).deepCopy()) }
+                original.toString()
+            }
+        }
         require(backup.length <= MAX_BACKUP_LENGTH) { "Saved privacy settings are too large" }
         return changes(preferences, automatic) + (BACKUP_KEY to backup)
     }
@@ -75,7 +101,9 @@ object NativePrivacySetup {
         return fields.mapValues { (field, entry) ->
             val (key, fallback) = entry
             // Native core editors own the cached core JSON. Flutter values are used when absent.
-            if ((field == "mtu" || field == "ipv6Mode") && core.has(key)) readValue(core, key, fallback)
+            if (field == "executeConfig" && !core.has(key) && core.has("enable-full-config"))
+                readValue(core, "enable-full-config", fallback)
+            else if (field in setOf("mtu", "ipv6Mode", "remoteDns", "directDns", "strictRoute", "executeConfig", "allowLan") && core.has(key)) readValue(core, key, fallback)
             else preferences["flutter.$key"]?.takeIf { compatible(it, fallback) }?.let {
                 if (fallback is Long) (it as Number).toLong() else it
             } ?: fallback
@@ -88,6 +116,16 @@ object NativePrivacySetup {
         values["mtu"]?.let { root.addProperty("mtu", it as Long) }
         values["ipv6Mode"]?.let { root.addProperty("ipv6-mode", it as String) }
         values["serviceMode"]?.let { root.addProperty("enable-tun", it == "vpn") }
+        for (field in listOf("remoteDns", "directDns", "strictRoute", "executeConfig", "allowLan")) {
+            values[field]?.let { value ->
+                val key = fields.getValue(field).first
+                when (value) {
+                    is String -> root.addProperty(key, value)
+                    is Boolean -> root.addProperty(key, value)
+                }
+            }
+        }
+        values["executeConfig"]?.let { root.addProperty("enable-full-config", it as Boolean) }
         result[CORE_KEY] = root.toString()
         return result
     }
@@ -100,7 +138,7 @@ object NativePrivacySetup {
     }
 
     private fun parseObject(text: String): JsonObject {
-        val element = try { JsonParser.parseString(text) } catch (error: Exception) {
+        val element = try { NativeJsonDocument.parse(text) } catch (error: Exception) {
             throw IllegalArgumentException("Invalid saved settings", error)
         }
         require(element.isJsonObject) { "Saved settings must be a JSON object" }
@@ -137,6 +175,7 @@ object NativePrivacySetup {
             "Invalid saved IPv6 mode"
         }
         require(values["routingMode"] in setOf("off", "ru-bypass", "proxy-selected")) { "Invalid saved routing mode" }
+        require(values["perAppMode"] in setOf("off", "include", "exclude")) { "Invalid saved per-app mode" }
         require(values["mtu"] as Long in 576L..65535L) { "Invalid MTU in saved settings" }
         require(values.values.filterIsInstance<String>().all { it.length <= 65536 }) { "Saved setting is too large" }
     }

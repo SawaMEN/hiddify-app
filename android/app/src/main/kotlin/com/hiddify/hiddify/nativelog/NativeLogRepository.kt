@@ -43,25 +43,20 @@ class NativeLogRepository(private val context: Context) {
     }
 
     fun readRecent(): NativeLogSnapshot {
-        val lines = ArrayList<String>()
+        val lines = NativeRecentLogLines(MAX_LINES)
         val sources = ArrayList<String>()
         for (file in candidateFiles()) {
             if (!file.isFile || file.length() <= 0L) continue
-            val text = try { tailCache.read(file, MAX_SOURCE_BYTES) }
+            val fileLines = try { tailCache.readLines(file, MAX_SOURCE_BYTES, MAX_LINES) }
             catch (_: IOException) { continue }
             catch (_: SecurityException) { continue }
-            val fileLines =
-                text.lineSequence()
-                    .filter { it.isNotBlank() }
-                    .map { "[${file.name}] $it" }
-                    .toList()
             if (fileLines.isNotEmpty()) {
                 sources += file.absolutePath
-                lines += fileLines
+                lines.appendPresented(fileLines)
             }
         }
         return NativeLogSnapshot(
-            lines = lines.takeLast(MAX_LINES),
+            lines = lines.snapshot(),
             sources = sources,
         )
     }

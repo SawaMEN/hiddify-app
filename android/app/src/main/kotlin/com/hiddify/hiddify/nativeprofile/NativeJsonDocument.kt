@@ -162,18 +162,28 @@ object NativeJsonDocument {
         if (query.isBlank()) return emptyList()
         val result = mutableListOf<String>()
         fun visit(value: JsonElement, path: String) {
-            if (result.size >= MAX_SEARCH_RESULTS) return
-            val children = when {
-                value.isJsonObject -> value.asJsonObject.entrySet().map { it.key to it.value }
-                value.isJsonArray -> value.asJsonArray.mapIndexed { index, child -> index.toString() to child }
-                else -> emptyList()
-            }
-            for ((key, child) in children) {
-                if (result.size >= MAX_SEARCH_RESULTS) return
-                val next = NativeJsonDocument.child(path, key)
+            fun visitChild(key: String, child: JsonElement) {
                 val text = if (child.isJsonPrimitive) child.asJsonPrimitive.asString else if (child.isJsonNull) "null" else ""
-                if (key.contains(query, ignoreCase = true) || text.contains(query, ignoreCase = true)) result += next
-                visit(child, next)
+                val matches = key.contains(query, ignoreCase = true) || text.contains(query, ignoreCase = true)
+                val container = child.isJsonObject || child.isJsonArray
+                // Primitive misses need neither a JSON pointer nor a recursive call.
+                if (!matches && !container) return
+                val next = NativeJsonDocument.child(path, key)
+                if (matches) result += next
+                if (container && result.size < MAX_SEARCH_RESULTS) visit(child, next)
+            }
+            when {
+                value.isJsonObject -> for ((key, child) in value.asJsonObject.entrySet()) {
+                    if (result.size >= MAX_SEARCH_RESULTS) return
+                    visitChild(key, child)
+                }
+                value.isJsonArray -> {
+                    val array = value.asJsonArray
+                    for (index in 0 until array.size()) {
+                        if (result.size >= MAX_SEARCH_RESULTS) return
+                        visitChild(index.toString(), array[index])
+                    }
+                }
             }
         }
         visit(root, "")

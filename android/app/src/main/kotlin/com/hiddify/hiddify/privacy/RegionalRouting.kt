@@ -25,7 +25,10 @@ object RegionalRouting {
         cachedCatalogue ?: JSONObject(context.assets.open("region_routing.json").bufferedReader().use { it.readText() }).also { cachedCatalogue = it }
     }
 
-    fun policy(context: Context, @Suppress("UNUSED_PARAMETER") legacyRegion: String = "other", options: NativeRegionalOptions? = null, packages: NativeRegionalPackageValues? = null): Map<String, Any> {
+    fun serviceCatalogue(context: Context): List<NativeRegionalService> =
+        NativeRegionalServices.catalogue(catalogue(context).toString())
+
+    fun policy(context: Context, @Suppress("UNUSED_PARAMETER") legacyRegion: String = "other", options: NativeRegionalOptions? = null, packages: NativeRegionalPackageValues? = null, servicesStored: String? = null, fullTunnel: Boolean = Settings.privacyFullTunnel, handbookRouting: Boolean = Settings.handbookRouting): Map<String, Any> {
         val selected = options ?: NativeRegionalOptions(
             mode = NativeRegionalMode.fromValue(Settings.privacyRoutingMode),
             russianNetworkBypass = Settings.privacyRussianNetworkBypass,
@@ -34,7 +37,8 @@ object RegionalRouting {
             directDomains = Settings.privacyDirectDomains,
             proxyDomains = Settings.privacyProxyDomains,
         )
-        val mode = selected.effectiveMode(Settings.privacyFullTunnel, Settings.handbookRouting).value
+        val mode = selected.effectiveMode(fullTunnel, handbookRouting).value
+        val networkBypass = selected.networkBypassEnabled(fullTunnel, handbookRouting)
         val catalogue = catalogue(context)
         val version = catalogue.optInt("version", 1)
 
@@ -52,7 +56,10 @@ object RegionalRouting {
         } else catalogueTokens(catalogue, listOf("ruDomains"), true)
 
         val automaticDirect = (vpnAwarePackages + compatibilityPackages).distinct()
-        val automaticProxy = catalogueTokens(catalogue, listOf("proxyPackages"), false)
+        val services = NativeRegionalServices.catalogue(catalogue.toString())
+        val selectedServices = NativeRegionalServices.selection(servicesStored ?: Settings.privacyProxyServices, services)
+        val automaticProxy = if (services.isNotEmpty()) NativeRegionalServices.packages(services, selectedServices)
+            else catalogueTokens(catalogue, listOf("proxyPackages"), false)
         val directSelection = NativeRegionalPackages.selection(packages?.direct ?: Settings.privacyDirectPackages, automaticDirect)
         val proxySelection = NativeRegionalPackages.selection(packages?.proxy ?: Settings.privacyProxyPackages, automaticProxy)
 
@@ -87,29 +94,33 @@ object RegionalRouting {
             }.distinct()
         } else emptyList()
 
-        val builtInDirectDomains = if (selected.russianNetworkBypass) {
+        val builtInDirectDomains = if (networkBypass) {
             (vpnAwareDomains + compatibilityDomains).distinct()
         } else emptyList()
-        val directDomains = merged(builtInDirectDomains, selected.directDomains, true)
+        val directDomains = if (mode == NativeRegionalMode.SELECTED_PROXY.value) emptyList()
+            else merged(builtInDirectDomains, selected.directDomains, true)
         val proxyDomains = if (selected.restrictedServicesProxy) {
-            merged(catalogueTokens(catalogue, listOf("proxyDomains"), true), selected.proxyDomains, true)
+            merged(if (services.isNotEmpty()) NativeRegionalServices.domains(services, selectedServices)
+                else catalogueTokens(catalogue, listOf("proxyDomains"), true), selected.proxyDomains, true)
         } else emptyList()
 
         val regionalPolicy = mapOf<String, Any>(
             // Force the generic core region internally. The old user-facing region selector is gone.
             // ru enables the existing geoip/geosite + .ru path; other disables it.
-            "region" to if (selected.russianNetworkBypass && !Settings.handbookRouting) "ru" else "other",
+            "region" to if (networkBypass) "ru" else "other",
             "wifi-vpn-sharing" to Settings.wifiVpnSharing,
-            "handbook-routing" to Settings.handbookRouting,
+            "handbook-routing" to handbookRouting,
             "handbook-proxy" to Settings.handbookProxy,
             "handbook-direct" to Settings.handbookDirect,
             "handbook-proxy-sites" to Settings.handbookProxySites,
             "handbook-direct-sites" to Settings.handbookDirectSites,
             "privacy-routing-mode" to mode,
             "privacy-catalogue-version" to version,
-            "privacy-russian-network-bypass" to selected.russianNetworkBypass,
+            "privacy-russian-network-bypass" to networkBypass,
             "privacy-russian-apps-bypass" to selected.russianAppsBypass,
             "privacy-restricted-services-proxy" to selected.restrictedServicesProxy,
+            "privacy-selected-services" to if (selected.restrictedServicesProxy)
+                services.filter { it.id in selectedServices }.map { it.id } else emptyList<String>(),
             "privacy-direct-packages" to installedDirect,
             "privacy-proxy-packages" to installedProxy,
             "privacy-configured-direct-packages" to configuredDirect,

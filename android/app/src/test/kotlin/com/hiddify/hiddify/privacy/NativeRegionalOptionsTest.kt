@@ -80,4 +80,37 @@ class NativeRegionalOptionsTest {
             assertTrue(it, runCatching { NativeRoutingTokens.parse(it, false) }.isFailure)
         }
     }
+
+    @Test fun switchingModeSetsConsistentDefaultsAndRetainsCustomDomainDrafts() {
+        val original = NativeRegionalOptions(directDomains = "direct.example", proxyDomains = "proxy.example")
+        val selective = original.withMode(NativeRegionalMode.SELECTED_PROXY)
+        assertFalse(selective.russianNetworkBypass)
+        assertFalse(selective.russianAppsBypass)
+        assertTrue(selective.restrictedServicesProxy)
+        assertEquals("proxy.example", selective.proxyDomains)
+        val bypass = selective.withMode(NativeRegionalMode.RUSSIAN_BYPASS)
+        assertTrue(bypass.russianNetworkBypass && bypass.russianAppsBypass && bypass.restrictedServicesProxy)
+        assertFalse(bypass.withMode(NativeRegionalMode.OFF).restrictedServicesProxy)
+    }
+
+    @Test fun russianNetworkRulesCannotOverrideSelectiveOrDisabledRouting() {
+        for (mode in NativeRegionalMode.entries) {
+            val options = NativeRegionalOptions(mode = mode, russianNetworkBypass = true)
+            assertEquals(mode == NativeRegionalMode.RUSSIAN_BYPASS, options.networkBypassEnabled(false, false))
+            assertFalse(options.networkBypassEnabled(true, false))
+            assertFalse(options.networkBypassEnabled(false, true))
+        }
+    }
+
+    @Test fun explicitDeviceModesDisableFullConfigRulesButKeepProfileAndTransportSettings() {
+        val json = """{"execute-config-as-is":true,"enable-full-config":true,"mtu":1400,"tls-tricks":{"enable-fragment":true}}"""
+        for (mode in listOf(NativeRegionalMode.RUSSIAN_BYPASS, NativeRegionalMode.SELECTED_PROXY)) {
+            val root = com.google.gson.JsonParser.parseString(NativeRegionalOptions(mode = mode).managedCoreOptions(json)).asJsonObject
+            assertFalse(root["execute-config-as-is"].asBoolean)
+            assertFalse(root["enable-full-config"].asBoolean)
+            assertEquals(1400, root["mtu"].asInt)
+            assertTrue(root["tls-tricks"].asJsonObject["enable-fragment"].asBoolean)
+        }
+        assertEquals(json, NativeRegionalOptions(mode = NativeRegionalMode.OFF).managedCoreOptions(json))
+    }
 }
