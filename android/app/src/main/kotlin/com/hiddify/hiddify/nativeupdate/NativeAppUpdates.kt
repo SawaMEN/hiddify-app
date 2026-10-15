@@ -56,8 +56,7 @@ internal object NativeAppUpdates {
         context = app.applicationContext
         val channel = runCatching { NativeUpdateChannel.valueOf(prefs.getString("channel", state.value.channel.name)!!) }
             .getOrDefault(state.value.channel)
-        fun newer(release: NativeAppRelease) = NativeUpdatePolicy.newer(release,
-            BuildConfig.VERSION_CODE, BuildConfig.UPDATE_COMMIT, BuildConfig.UPDATE_BUILT_AT)
+        fun newer(release: NativeAppRelease) = isNewer(release, cachedOnly = true)
         val ongoing = cached("download_release")?.takeIf { prefs.getLong("download_id", -1) >= 0 && newer(it) }
         val saved = ongoing ?: cached("latest_${channel.name}")?.takeIf(::newer)
         mutableState.value = NativeAppUpdateState(channel = ongoing?.channel ?: channel, release = saved,
@@ -70,6 +69,25 @@ internal object NativeAppUpdates {
         launchTask {
             if (prefs.getLong("download_id", -1) >= 0) resumeDownload()
             else checkForUpdates(false)
+        }
+    }
+
+    private fun isNewer(release: NativeAppRelease, cachedOnly: Boolean = false): Boolean {
+        val digest = if (release.channel == NativeUpdateChannel.DEV && release.buildNumber == BuildConfig.VERSION_CODE)
+            installedDigest(cachedOnly) else ""
+        return NativeUpdatePolicy.newer(release, BuildConfig.VERSION_CODE, BuildConfig.UPDATE_BUILT_AT, digest)
+    }
+
+    private fun installedDigest(cachedOnly: Boolean): String {
+        val apk = File(context.applicationInfo.sourceDir)
+        val installed = context.packageManager.getPackageInfo(context.packageName, 0)
+        val key = "${apk.path}:${installed.lastUpdateTime}:${apk.length()}:${apk.lastModified()}"
+        val saved = prefs.getString("installed_sha256", "").orEmpty()
+        if (prefs.getString("installed_apk", null) == key && saved.matches(Regex("[a-f0-9]{64}"))) return saved
+        // Startup only uses a cached digest; hashing a large APK always runs on the IO scope.
+        if (cachedOnly) return ""
+        return NativeUpdateArtifact.sha256(apk).also {
+            prefs.edit().putString("installed_apk", key).putString("installed_sha256", it).apply()
         }
     }
 
@@ -93,8 +111,7 @@ internal object NativeAppUpdates {
             val found = NativeUpdateRepository().latestCompatible(channel)
             currentCoroutineContext().ensureActive()
             if (state.value.channel != channel) return@withLock
-            val release = found?.takeIf { NativeUpdatePolicy.newer(it, BuildConfig.VERSION_CODE,
-                BuildConfig.UPDATE_COMMIT, BuildConfig.UPDATE_BUILT_AT) }
+            val release = found?.takeIf { isNewer(it) }
             val skipped = release != null && release.identity == prefs.getString("skip_${channel.name}", null)
             val accepted = downloadMutex.withLock {
                 if (!state.value.isCurrentCheck(channel)) false else {
@@ -184,8 +201,7 @@ internal object NativeAppUpdates {
             // Reload under the same lock as skip/cancel: never restore an already cancelled task.
             if (prefs.getLong("download_id", -1) < 0) return@withLock
             val release = cached("download_release")
-            if (release == null || !NativeUpdatePolicy.newer(release, BuildConfig.VERSION_CODE,
-                    BuildConfig.UPDATE_COMMIT, BuildConfig.UPDATE_BUILT_AT)) {
+            if (release == null || !isNewer(release)) {
                 cancelDownloadLocked()
                 return@withLock
             }
@@ -217,7 +233,7 @@ internal object NativeAppUpdates {
             mutableState.update { it.copy(phase = NativeUpdatePhase.FAILED, error = context.getString(R.string.native_update_invalid_apk)) }
             return@withLock
         }
-        if (!NativeUpdatePolicy.newer(release, BuildConfig.VERSION_CODE, BuildConfig.UPDATE_COMMIT, BuildConfig.UPDATE_BUILT_AT)) {
+        if (!isNewer(release)) {
             cancelDownloadLocked()
             return@withLock
         }

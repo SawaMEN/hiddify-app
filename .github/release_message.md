@@ -1,11 +1,11 @@
 # VetrOFF Client RELEASE_TAG
 
-Стабильная версия приложения VetrOFF Client для Android (ARM64-v8a).
+VPN-клиент на Kotlin и Jetpack Compose для Android 10+ и ARM64-v8a.
 
-- Нативное приложение на Kotlin и Jetpack Compose.
-- Android 10 и новее (ARM64).
-- VPN-ядро загружается из последнего стабильного релиза [SawaMEN/hiddify-core](https://github.com/SawaMEN/hiddify-core/releases/latest).
-- Проверка SHA-256 файлов ядра и проверка версии перед сборкой.
-- В файлах релиза публикуются APK, `SHA256SUMS` и `appcast.xml` для обновлений.
+- Профили и подписки, маршрутизация приложений и доменов, диагностика и журнал.
+- Стабильный и Dev-каналы обновлений, фоновая загрузка и пропуск сборки.
+- VPN-ядро из стабильного релиза [SawaMEN/hiddify-core](https://github.com/SawaMEN/hiddify-core/releases/latest).
 
-**[Скачать APK](https://github.com/SawaMEN/hiddify-app/releases/download/RELEASE_TAG/vetroff-Android-arm64-v8a.apk)**
+[Скачать APK из этого релиза](https://github.com/SawaMEN/hiddify-app/releases/tag/RELEASE_TAG)
+
+Канал обновлений и прогресс загрузки доступны в «О приложении». Установка обновления требует подтверждения Android.

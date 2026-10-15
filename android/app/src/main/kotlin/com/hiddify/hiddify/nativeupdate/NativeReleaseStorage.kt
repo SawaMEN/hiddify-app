@@ -19,7 +19,6 @@ internal object NativeReleaseStorage {
             addProperty("size", release.size)
             addProperty("sha256", release.sha256)
             addProperty("publishedAt", release.publishedAt)
-            addProperty("commit", release.commit)
         }.toString()
     }
 
@@ -30,7 +29,6 @@ internal object NativeReleaseStorage {
             r.get("buildNumber").asInt, r.get("tag").asString, r.get("pageUrl").asString,
             r.get("assetId").asLong, r.get("assetName").asString, r.get("url").asString,
             r.get("size").asLong, r.get("sha256").asString, r.get("publishedAt").asLong,
-            r.get("commit")?.asString.orEmpty(),
         ).also { require(NativeUpdatePolicy.valid(it)) }
     }
 }

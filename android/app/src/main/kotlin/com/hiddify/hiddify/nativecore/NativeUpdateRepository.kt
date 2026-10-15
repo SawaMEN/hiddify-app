@@ -6,7 +6,7 @@ import com.hiddify.hiddify.nativeupdate.NativeUpdatePolicy
 import java.net.HttpURLConnection
 import java.net.URL
 
-internal class NativeUpdateRepository {
+internal class NativeUpdateRepository(private val fetch: ((String) -> String)? = null) {
     companion object {
         const val FORK_URL = "https://github.com/SawaMEN/hiddify-app"
         const val UPSTREAM_URL = "https://github.com/hiddify/hiddify-app"
@@ -15,17 +15,9 @@ internal class NativeUpdateRepository {
     }
 
     fun latestCompatible(channel: NativeUpdateChannel): NativeAppRelease? {
-        val json = get("https://api.github.com/repos/SawaMEN/hiddify-app/releases?per_page=100")
-        val release = NativeUpdatePolicy.releases(json, channel).firstOrNull() ?: return null
-        // New publications carry the exact APK build code/commit. Old stable releases still work.
-        val root = com.hiddify.hiddify.nativeprofile.NativeJsonDocument.parse(json).asJsonArray
-        val metadata = root.first { it.asJsonObject.get("tag_name").asString == release.tag }.asJsonObject
-            .getAsJsonArray("assets").firstOrNull { it.asJsonObject.get("name").asString == "update.json" }?.asJsonObject
-        return if (metadata == null) release else {
-            val url = metadata.get("browser_download_url").asString
-            require(url == "$FORK_URL/releases/download/${release.tag}/update.json")
-            NativeUpdatePolicy.manifest(release, get(url))
-        }
+        val url = "https://api.github.com/repos/SawaMEN/hiddify-app/releases?per_page=100"
+        val json = fetch?.invoke(url) ?: get(url)
+        return NativeUpdatePolicy.releases(json, channel).firstOrNull()
     }
 
     private fun get(url: String): String {

@@ -8,7 +8,7 @@ enum class NativeUpdateChannel { STABLE, DEV }
 data class NativeAppRelease(
     val channel: NativeUpdateChannel, val version: String, val buildNumber: Int, val tag: String,
     val pageUrl: String, val assetId: Long, val assetName: String, val url: String,
-    val size: Long, val sha256: String, val publishedAt: Long, val commit: String = "",
+    val size: Long, val sha256: String, val publishedAt: Long,
 ) {
     val identity: String get() = "${channel.name}:$assetId:$sha256"
 }
@@ -26,7 +26,6 @@ internal object NativeUpdatePolicy {
     fun valid(release: NativeAppRelease): Boolean =
         release.assetId > 0 && code(release.version) != null && release.buildNumber in 1..2100000000 &&
             release.size in 1..MAX_APK_BYTES && sha.matches(release.sha256) &&
-            (release.commit.isEmpty() || release.commit.matches(Regex("[a-f0-9]{40}"))) &&
             release.assetName.matches(Regex("[A-Za-z0-9._-]+\\.apk")) && release.assetName.contains("arm64", true) &&
             NativeReleasePolicy.trustedUrl(release.pageUrl, "/SawaMEN/hiddify-app/releases/") &&
             release.url == "https://github.com/SawaMEN/hiddify-app/releases/download/${release.tag}/${release.assetName}" &&
@@ -65,20 +64,9 @@ internal object NativeUpdatePolicy {
         }.getOrNull() }.sortedWith(compareByDescending<NativeAppRelease> { it.buildNumber }.thenByDescending { it.publishedAt })
     }
 
-    fun manifest(release: NativeAppRelease, json: String): NativeAppRelease {
-        val m = NativeJsonDocument.parse(json).asJsonObject
-        require(m.get("version").asString == release.version && m.get("channel").asString ==
-            if (release.channel == NativeUpdateChannel.DEV) "dev" else "prod")
-        val asset = m.getAsJsonArray("assets").map { it.asJsonObject }.first { it.get("name").asString == release.assetName }
-        require(asset.get("sha256").asString == release.sha256 && asset.get("size").asLong == release.size)
-        val commit = m.get("commit").asString
-        require(commit.isEmpty() || commit.matches(Regex("[a-f0-9]{40}")))
-        return release.copy(buildNumber = m.get("buildNumber").asInt, commit = commit).also { require(valid(it)) }
-    }
-
-    fun newer(remote: NativeAppRelease, currentBuild: Int, currentCommit: String, builtAt: Long): Boolean =
+    fun newer(remote: NativeAppRelease, currentBuild: Int, builtAt: Long, installedSha256: String): Boolean =
         remote.buildNumber > currentBuild || (remote.buildNumber == currentBuild && remote.channel == NativeUpdateChannel.DEV &&
-            remote.commit.isNotBlank() && remote.commit != currentCommit && remote.publishedAt > builtAt)
+            sha.matches(installedSha256) && remote.sha256 != installedSha256 && remote.publishedAt > builtAt)
 
     fun due(now: Long, lastCheck: Long): Boolean = lastCheck <= 0 || now < lastCheck || now - lastCheck >= CHECK_INTERVAL_MS
     fun notify(identity: String, skipped: String?, notified: String?): Boolean = identity != skipped && identity != notified

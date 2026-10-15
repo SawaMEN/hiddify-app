@@ -34,21 +34,21 @@ class NativeUpdatePolicyTest {
     @Test fun stableBuildCodesInTagsArePreservedAndValidated() {
         val r = NativeUpdatePolicy.releases("[${release("v1.2.0+40201.prod")}]", NativeUpdateChannel.STABLE).single()
         assertEquals(40201, r.buildNumber)
-        assertTrue(NativeUpdatePolicy.newer(r, 40200, "", 0))
-        assertFalse(NativeUpdatePolicy.newer(r, 40201, "", 0))
+        assertTrue(NativeUpdatePolicy.newer(r, 40200, 0, ""))
+        assertFalse(NativeUpdatePolicy.newer(r, 40201, 0, ""))
         assertFalse(NativeUpdatePolicy.valid(r.copy(buildNumber = 10200)))
         assertFalse(NativeUpdatePolicy.valid(r.copy(version = "1.3.0")))
     }
     @Test fun savedReleaseHasAStableExplicitSchemaAcrossAppBuilds() {
-        val r = candidate().copy(commit = "c".repeat(40))
+        val r = candidate()
         val encoded = NativeReleaseStorage.encode(r)
         assertEquals(r, NativeReleaseStorage.decode(encoded))
         val json = com.google.gson.JsonParser.parseString(encoded).asJsonObject
         assertEquals("STABLE", json.get("channel").asString)
         assertEquals(r.identity, NativeReleaseStorage.decode(encoded).identity)
         // This is the schema written by the previous reflection serializer as well.
-        json.remove("commit")
-        assertEquals(r.copy(commit = ""), NativeReleaseStorage.decode(json.toString()))
+        json.addProperty("commit", "c".repeat(40))
+        assertEquals(r, NativeReleaseStorage.decode(json.toString()))
         json.addProperty("url", "https://evil.example/app.apk")
         assertThrows(IllegalArgumentException::class.java) { NativeReleaseStorage.decode(json.toString()) }
     }
@@ -83,15 +83,18 @@ class NativeUpdatePolicyTest {
         assertFalse(available.isCurrentCheck(NativeUpdateChannel.STABLE))
         assertFalse(checking.copy(phase = NativeUpdatePhase.DOWNLOADING).isCurrentCheck(NativeUpdateChannel.STABLE))
     }
-    @Test fun rollingDevIdentitiesChangeWithoutChangingTheVersionOrTag() {
-        val r = NativeUpdatePolicy.releases("[${release("dev-latest", true)}]", NativeUpdateChannel.DEV).single().copy(commit = "b".repeat(40))
-        assertTrue(NativeUpdatePolicy.newer(r, r.buildNumber, "c".repeat(40), r.publishedAt - 1000))
-        assertFalse(NativeUpdatePolicy.newer(r, r.buildNumber, r.commit, r.publishedAt - 1000))
-        assertFalse(NativeUpdatePolicy.newer(r, r.buildNumber, "c".repeat(40), r.publishedAt + 1000))
-        assertFalse(NativeUpdatePolicy.newer(r, r.buildNumber + 1, "", 0))
-        assertFalse(NativeUpdatePolicy.newer(r.copy(commit = ""), r.buildNumber, "", 0))
+    @Test fun rollingDevUsesTheActualApkWithoutExtraMetadataFiles() {
+        val r = NativeUpdatePolicy.releases("[${release("dev-latest", true)}]", NativeUpdateChannel.DEV).single()
+        val installed = "c".repeat(64)
+        assertTrue(NativeUpdatePolicy.newer(r, r.buildNumber, r.publishedAt - 1000, installed))
+        assertFalse(NativeUpdatePolicy.newer(r, r.buildNumber, r.publishedAt - 1000, r.sha256))
+        assertFalse(NativeUpdatePolicy.newer(r, r.buildNumber, r.publishedAt + 1000, installed))
+        assertFalse(NativeUpdatePolicy.newer(r, r.buildNumber + 1, 0, installed))
+        assertFalse(NativeUpdatePolicy.newer(r, r.buildNumber, 0, ""))
         assertNotEquals(r.identity, r.copy(assetId = 2).identity)
         assertNotEquals(r.identity, r.copy(sha256 = "d".repeat(64)).identity)
+        // Moving the rolling tag before uploading the next APK must not offer the installed APK again.
+        assertFalse(NativeUpdatePolicy.newer(r.copy(assetId = 9), r.buildNumber, 0, r.sha256))
     }
     @Test fun skipAndNotificationHistoryApplyToOneSpecificBuild() {
         val r = candidate()
@@ -105,14 +108,6 @@ class NativeUpdatePolicyTest {
         assertTrue(NativeUpdatePolicy.due(1000 + NativeUpdatePolicy.CHECK_INTERVAL_MS,1000))
         assertTrue(NativeUpdatePolicy.due(999,1000))
         assertTrue(NativeUpdatePolicy.due(1000,0))
-    }
-    @Test fun publicationManifestMustMatchTheActualGithubAsset() {
-        val r = candidate()
-        val json = """{"version":"1.2.0","buildNumber":10200,"channel":"prod","commit":"${"c".repeat(40)}",
-            "assets":[{"name":"${r.assetName}","size":4,"sha256":"$sha"}]}"""
-        assertEquals("c".repeat(40), NativeUpdatePolicy.manifest(r,json).commit)
-        for (bad in listOf(json.replace(sha,"e".repeat(64)),json.replace("prod","dev"),json.replace("10200","-1")))
-            assertThrows(IllegalArgumentException::class.java) { NativeUpdatePolicy.manifest(r,bad) }
     }
     @Test fun corruptedTruncatedAndRemovedDownloadsCannotBeInstalled() {
         val file = Files.createTempFile("update", ".apk").toFile()

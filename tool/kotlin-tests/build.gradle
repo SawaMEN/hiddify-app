@@ -29,6 +29,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativelog/NativeVpnProcessPhase.kt'
             include 'com/hiddify/hiddify/nativecore/NativeSettingsDocument.kt'
             include 'com/hiddify/hiddify/nativecore/NativeReleasePolicy.kt'
+            include 'com/hiddify/hiddify/nativecore/NativeUpdateRepository.kt'
             include 'com/hiddify/hiddify/nativeupdate/NativeUpdatePolicy.kt'
             include 'com/hiddify/hiddify/nativeupdate/NativeUpdateArtifact.kt'
             include 'com/hiddify/hiddify/nativeupdate/NativeReleaseStorage.kt'

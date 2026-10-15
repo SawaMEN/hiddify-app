@@ -40,7 +40,8 @@ internal fun NativeAppUpdateCard(
             val release = state.release
             if (release != null) {
                 Text(stringResource(R.string.native_about_update_available, release.version))
-                if (release.commit.isNotEmpty()) Text(release.commit.take(12), style = MaterialTheme.typography.bodySmall)
+                Text(java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.MEDIUM, java.text.DateFormat.SHORT)
+                    .format(java.util.Date(release.publishedAt)), style = MaterialTheme.typography.bodySmall)
             }
             if (state.skipped) Text(stringResource(R.string.native_update_skipped), style = MaterialTheme.typography.bodySmall)
             when (state.phase) {

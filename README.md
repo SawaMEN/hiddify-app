@@ -1,77 +1,122 @@
-# VetrOFF Client — Android / Kotlin
+<div align="center">
+  <img src="assets/images/source/vetroff-logo.png" alt="VetrOFF" width="160" />
+  <h1>VetrOFF Client</h1>
+  <p>VPN-клиент для Android на Kotlin и Jetpack Compose.</p>
+  <p>
+    <a href="https://github.com/SawaMEN/hiddify-app/releases/latest">Стабильная версия</a> ·
+    <a href="https://github.com/SawaMEN/hiddify-app/releases/tag/dev-latest">Dev-сборка</a> ·
+    <a href="https://github.com/SawaMEN/hiddify-app/issues">Сообщить об ошибке</a>
+  </p>
+</div>
 
-Android VPN client built with Kotlin and Jetpack Compose. The application has no Dart sources,
-Flutter engine, Flutter SDK dependency or cross-platform compatibility UI. The UI uses Android system typography, shared surfaces and Android VPN integration.
+## Установка
 
-The VPN/protocol engine is the **latest stable release** of
-[SawaMEN/hiddify-core](https://github.com/SawaMEN/hiddify-core/releases/latest).
-Android builds download its verified ARM64 `hiddify-core.aar` and
-`libhiddify-root.so` pair (including SHA-256 and source provenance) rather than compiling
-a pinned Git submodule. Drafts and prereleases are excluded. The application
-repository no longer contains the `hiddify-core` Git submodule. Optional Go
-regression tests temporarily fetch source matching the selected stable release,
-without committing a pinned core revision. Kotlin communicates with the engine
-through the Android AAR and authenticated local RPC.
+Требуются **Android 10 или новее** и процессор **ARM64-v8a**.
 
-## Build
+1. Откройте стабильный релиз или Dev-сборку по ссылкам выше и скачайте APK.
+2. Откройте файл. При необходимости разрешите установку из выбранного источника в настройках Android.
+3. Добавьте подписку или конфигурацию, выберите профиль и подключитесь. При первом подключении подтвердите создание VPN-соединения.
 
-Requires Java 17, Android SDK platform 37.0, build-tools 37.0.0 and NDK 30.0.16248370.
-Building the APK from the stable core release does not require Go; Go is needed
-only for optional source-level core tests. Gradle is pinned by the Android wrapper.
+Подписку можно добавить по ссылке, из буфера обмена, через QR-код или меню «Поделиться». Для обновления установленного приложения нужен APK с той же подписью и совместимым кодом версии.
+
+## Возможности
+
+- Профили и подписки, обновление подписок, импорт и экспорт конфигураций.
+- Выбор серверов, проверка задержки и диагностика соединения.
+- Маршрутизация по приложениям и доменам: российские сервисы напрямую, выбранные сервисы через VPN или списки сообщества.
+- Прямое подключение к российским доменам и IP в настройках «Российские приложения», с высшим приоритетом правил.
+- Настройки DNS, соединения и локальных интерфейсов, восстановление подключения.
+- Журнал с фильтрами уровней, светлая и тёмная темы, русский и английский интерфейс.
+- Режим root и раздача VPN через точку доступа на поддерживаемых устройствах.
+
+Доступность root, точки доступа и фоновой работы зависит от устройства, прошивки и выданных разрешений. Параметры скрытия VPN уменьшают отдельные признаки его использования, но не гарантируют невидимость для приложений или сети.
+
+## Обновления приложения
+
+Управление находится в **«О приложении»**.
+
+| Канал | Что устанавливается |
+| --- | --- |
+| **Стабильный** | Официально опубликованные стабильные релизы этого форка. |
+| **Dev** | Последняя тестовая сборка из обновляемого релиза `dev-latest`. |
+
+Приложение автоматически проверяет обновления примерно раз в 6 часов, когда Android разрешает фоновую работу. При появлении обновления вверху главного экрана появляется кнопка перехода к нему. Обновление не блокирует использование приложения.
+
+- Автозагрузка выполняется по Wi-Fi; её можно отключить.
+- Вручную можно скачать APK и через мобильную сеть.
+- Прогресс, отмена и повтор загрузки доступны в «О приложении». Загрузка продолжается после сворачивания приложения.
+- **«Пропустить версию»** скрывает уведомления и кнопку на главной для конкретной сборки. Следующая новая сборка может быть предложена снова.
+- Установка начинается по нажатию кнопки и требует системного подтверждения Android.
+
+Сведения о релизе, размер и SHA-256 APK берутся из GitHub API. Перед установкой проверяются файл, пакет приложения и подпись. Отдельные `SHA256SUMS`, `update.json` и `appcast.xml` для обновления клиента не нужны. Dev-сборки различаются по опубликованным APK, даже если номер версии не изменился.
+
+Android не разрешает обычное обновление на меньший `versionCode`. Поэтому переключение на стабильный канал не устанавливает более старую сборку поверх новой Dev-версии.
+
+## Чем этот форк отличается от Hiddify
+
+Проект основан на [Hiddify App](https://github.com/hiddify/hiddify-app). В этом форке:
+
+- Android-интерфейс и прикладная логика перенесены на Kotlin и Jetpack Compose.
+- Переработаны маршрутизация, меню приватности и обновления приложения.
+- Используется собственное оформление VetrOFF и отдельный пакет `app.vetroff.client`.
+- Сборка не требует Flutter или Dart.
+
+Протоколы и обработку VPN-трафика обеспечивает [SawaMEN/hiddify-core](https://github.com/SawaMEN/hiddify-core). При сборке клиента загружается его последний стабильный ARM64-релиз: Android AAR и исполняемый компонент root. Файлы ядра проверяются по контрольным суммам и сведениям о происхождении из релиза ядра.
+
+Сохранённые профили и настройки этого форка совместимы с прежними установками. Старые имена хранилища, включая `flutter.*`, сохранены ради пользовательских данных и не означают зависимость приложения от Flutter.
+
+## Сборка из исходников
+
+Нужны:
+
+- Java 17;
+- Android SDK Platform 37.0 и Build Tools 37.0.0;
+- Android NDK 30.0.16248370;
+- Python 3 и доступ к GitHub для загрузки стабильного ядра.
+
+Укажите SDK через `ANDROID_HOME` или `sdk.dir` в `android/local.properties`. Gradle запускается через wrapper проекта.
 
 ```sh
 make android-apk-prepare
-make android-apk-release
+CHANNEL=dev make android-apk-release
 ```
 
-The APK is `build/app/outputs/apk/release/app-release.apk`, for Android 10+ and ARM64.
-Set `ANDROID_HOME` or `sdk.dir` in `android/local.properties`. App version/name are declared
-in `version.properties`. `CHANNEL=prod` requires a valid `android/key.properties` and keystore;
-dev builds can use debug signing. Signing files and local SDK configuration must not be committed.
+Готовый APK: `build/app/outputs/apk/release/app-release.apk`.
 
-## Stable release signing
+Версия задаётся в [version.properties](version.properties). Код Android вычисляется как `major × 10000 + minor × 100 + patch` и проверяется в CI. Для обычной сборки APK Go не требуется; он используется только дополнительными тестами исходников ядра.
 
-Stable Android APK releases must be signed using the existing production keystore.
-Configure these four repository secrets under **Settings → Secrets and variables → Actions**:
+### Подпись и публикация
 
-- `ANDROID_SIGNING_KEY`: base64-encoded JKS/PKCS12 keystore file, on a single line
-- `ANDROID_SIGNING_STORE_PASSWORD`: keystore password
-- `ANDROID_SIGNING_KEY_PASSWORD`: alias key password
-- `ANDROID_SIGNING_KEY_ALIAS`: signing key alias
+Для стабильной сборки `CHANNEL=prod` нужны `android/key.properties` и действующий keystore. Dev-сборку без настроенного ключа можно собрать с отладочной подписью. Для последовательных обновлений используйте один и тот же ключ, в том числе при переключении каналов.
 
-Do not commit the keystore or its passwords. Preserve an offline backup: future APK
-updates must be signed by the same identity as earlier installed production builds.
+В GitHub Actions подпись задаётся секретами:
 
-After signing is configured, use **Actions → Release VetrOFF Client → Run workflow**,
-select `prod`, and provide the intended stable tag. Stable releases can also
-be created by pushing a version tag from a commit containing that version.
-The workflow does **not** publish stable releases when development versions
-change in `main`. Missing production signing keys always stop production builds.
+| Секрет | Значение |
+| --- | --- |
+| `ANDROID_SIGNING_KEY` | Keystore в Base64, одной строкой. |
+| `ANDROID_SIGNING_STORE_PASSWORD` | Пароль хранилища. |
+| `ANDROID_SIGNING_KEY_PASSWORD` | Пароль ключа. |
+| `ANDROID_SIGNING_KEY_ALIAS` | Alias ключа. |
 
-## Development versions
+Успешные CI-сборки `main` публикуются как `dev-latest`. Стабильный релиз создаётся через **Actions → Release VetrOFF Client** с каналом `prod` либо подходящим тегом версии. Отсутствие ключей останавливает стабильную сборку. В релиз клиента публикуется APK.
 
-The current development version is **1.1.0**, Android `versionCode=10100`.
-The code is derived from `major * 10000 + minor * 100 + patch` and validated in CI.
-Successful `main` CI builds publish the rolling `dev-latest` prerelease as
-**VetrOFF Client Dev 1.1.0**; the APK is built against the latest stable
-Hiddify-core release. Stable releases require an explicit tag or manual action.
+Ключи подписи, пароли и локальные настройки SDK не должны попадать в Git. Сохраните резервную копию keystore: без прежней подписи нельзя выпустить совместимое обновление установленного приложения.
 
-**Upgrade compatibility:** the previous Android `versionCode=40201` is higher
-than `10100`. Android does not install lower-versionCode APKs as normal
-in-place updates. Keep the existing signing key and plan the upgrade strategy
-if devices already have a build with versionCode 40201.
+### Проверки
 
-## Existing installations
+```sh
+python3 tool/check_native_project.py
+python3 tool/check_dart_parity_audit.py
+./android/gradlew -p tool/kotlin-tests test --console=plain
+python3 -m unittest discover -s tool -p 'test_*.py'
+```
 
-The application ID remains `app.vetroff.client`. Existing preference names and profile database
-paths are intentionally preserved, including legacy `flutter.*` keys and `app_flutter/db.sqlite`.
-These names are a storage compatibility contract, not a dependency on Flutter. The previous
-`NativeMainActivity` component redirects through an Android manifest alias to the Kotlin launcher.
+Подробнее об устройстве проекта и переносе интерфейса — в [заметках о миграции](docs/KOTLIN_MIGRATION.md).
 
-Profiles/subscriptions, QR import/export, configuration editing, routing, VPN protection,
-connection recovery/health checks, hotspot sharing, core options, server selection, diagnostics,
-logs, themes and updates use the native repositories and Compose pages.
+## Ошибки и предложения
 
-See [migration notes](docs/KOTLIN_MIGRATION.md) for implementation details and remaining visual
-parity items. Device checks are still needed for VPN, root/private-copy installation and hotspot
-behavior; a successful APK build does not establish device behavior.
+Создайте [issue](https://github.com/SawaMEN/hiddify-app/issues) и укажите версию и канал приложения, модель устройства, версию Android и шаги воспроизведения. К сообщению можно приложить журнал, предварительно удалив ссылки подписок, ключи и другие личные данные.
+
+## Лицензия
+
+Проект использует [Hiddify Extended GNU General Public License v3](LICENSE.md). Благодарности исходному проекту [Hiddify](https://github.com/hiddify/hiddify-app) и его участникам.
