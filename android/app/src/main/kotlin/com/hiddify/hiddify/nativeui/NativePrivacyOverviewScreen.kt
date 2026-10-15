@@ -50,6 +50,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativeconnection.NativeConnectionOptions
+import com.hiddify.hiddify.nativeprivacy.NativePrivacyFeature
+import com.hiddify.hiddify.nativeprivacy.NativePrivacySummary
 import com.hiddify.hiddify.privacy.NativeProxyPrivacy
 import com.hiddify.hiddify.privacy.NativeRegionalAppKind
 import com.hiddify.hiddify.privacy.NativeRegionalOptions
@@ -100,16 +102,17 @@ internal fun NativePrivacyOverviewScreen(
         if (!preview) root = withContext(Dispatchers.IO) { RootCore.detect(context) }
     }
     LaunchedEffect(regional, regionalRevision, settings.fullTunnel, settings.handbookRouting, busy) {
+        policy = null
         if (!preview && !busy) policy = withContext(Dispatchers.IO) {
             runCatching { RegionalRouting.policy(context, options = regional) }.getOrNull()
         }
     }
-    val ready = policy?.get("privacy-routing-mode")?.let { it == "ru-bypass" || it == "proxy-selected" }
-    val directCount = (policy?.get("privacy-direct-packages") as? List<*>)?.size ?: 0
-    val proxyCount = (policy?.get("privacy-proxy-packages") as? List<*>)?.size ?: 0
-    val serviceCount = (policy?.get("privacy-selected-services") as? List<*>)?.size ?: 0
-    val regionalEnabled = regional.effectiveMode(settings.fullTunnel, settings.handbookRouting) !=
-        com.hiddify.hiddify.privacy.NativeRegionalMode.OFF
+    val directCount = (policy?.get("privacy-direct-packages") as? List<*>)?.size
+    val proxyCount = (policy?.get("privacy-proxy-packages") as? List<*>)?.size
+    val serviceCount = (policy?.get("privacy-selected-services") as? List<*>)?.size
+    val features = NativePrivacySummary.features(regional, settings.fullTunnel, settings.handbookRouting,
+        settings.encryptedDns, settings.publicDns, proxy, connection.adaptiveNetwork,
+        connection.maskedProtocolsOnly, settings.rootRequested, settings.wifiSharing)
     val scheme = MaterialTheme.colorScheme
     Column(Modifier.fillMaxSize()) {
         // AppBar is outside ListView in Dart and stays visible while the content scrolls.
@@ -129,37 +132,25 @@ internal fun NativePrivacyOverviewScreen(
                             Text(stringResource(if (configured) R.string.native_privacy_setup_configured else R.string.native_privacy_setup_ready),
                                 style = MaterialTheme.typography.titleLarge)
                             Spacer(Modifier.height(6.dp))
-                            Text(stringResource(when {
-                                !configured -> R.string.native_privacy_ready_description
-                                ready == false -> R.string.native_privacy_reapply_description
-                                else -> R.string.native_privacy_configured_description
-                            }), style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
-                    if (ready != null) {
-                        Spacer(Modifier.height(16.dp))
-                        Row(Modifier.fillMaxWidth().background(if (ready) scheme.secondaryContainer else scheme.errorContainer,
-                            RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 9.dp),
-                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(painterResource(if (ready) R.drawable.privacy_check else R.drawable.privacy_error), null, Modifier.size(20.dp))
-                            Text(if (ready) stringResource(R.string.native_privacy_policy_active, directCount, proxyCount)
-                                else stringResource(R.string.native_privacy_policy_off), style = MaterialTheme.typography.bodyLarge,
-                                modifier = Modifier.weight(1f))
+                            Text(stringResource(if (configured) R.string.native_privacy_configured_description
+                                else R.string.native_privacy_ready_description), style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
             }
             Spacer(Modifier.height(16.dp))
-            NativeButton(onConfigure, Modifier.fillMaxWidth().height(52.dp), enabled = canApply && !busy) {
+            NativeButton(onConfigure, Modifier.fillMaxWidth().heightIn(min = 52.dp), enabled = canApply && !busy && !configured) {
                 Icon(painterResource(R.drawable.privacy_auto), null, Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(if (configured) R.string.native_privacy_setup_again else R.string.native_privacy_setup_configure))
             }
-            Spacer(Modifier.height(10.dp))
-            NativeOutlinedButton(onRestore, Modifier.fillMaxWidth().height(48.dp), enabled = canApply && canRestore && !busy) {
-                Icon(painterResource(R.drawable.privacy_restore), null, Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.native_privacy_setup_restore))
+            if (canRestore) {
+                Spacer(Modifier.height(10.dp))
+                NativeOutlinedButton(onRestore, Modifier.fillMaxWidth().height(48.dp), enabled = canApply && canRestore && !busy) {
+                    Icon(painterResource(R.drawable.privacy_restore), null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.native_privacy_setup_restore))
+                }
             }
             if (busy) {
                 Spacer(Modifier.height(14.dp))
@@ -170,19 +161,14 @@ internal fun NativePrivacyOverviewScreen(
             Spacer(Modifier.height(24.dp))
             Text(stringResource(R.string.native_privacy_what), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(10.dp))
-            Card(Modifier.fillMaxWidth()) {
-                PrivacyFeature(R.drawable.privacy_apps, R.string.native_privacy_apps,
-                    if (regionalEnabled && regional.russianAppsBypass) stringResource(R.string.native_privacy_apps_on, directCount)
-                    else stringResource(R.string.native_privacy_apps_off), if (!busy) ({ onOpenApps(NativeRegionalAppKind.DIRECT) }) else null)
-                PrivacyFeatureDivider()
-                PrivacyFeature(R.drawable.privacy_route, R.string.native_privacy_services,
-                    if (regionalEnabled && regional.restrictedServicesProxy) stringResource(R.string.native_privacy_services_on, serviceCount, proxyCount)
-                    else stringResource(R.string.native_privacy_services_off), if (!busy) ({ onOpenApps(NativeRegionalAppKind.PROXY) }) else null)
-                PrivacyFeatureDivider()
-                PrivacyFeature(R.drawable.privacy_language, R.string.native_privacy_network,
-                    stringResource(if (regional.russianNetworkBypass) R.string.native_privacy_network_on else R.string.native_privacy_network_off))
-                PrivacyFeatureDivider()
-                PrivacyFeature(R.drawable.privacy_dns, R.string.native_privacy_signals, stringResource(R.string.native_privacy_signals_summary))
+            if (features.isEmpty()) {
+                Text(stringResource(R.string.native_privacy_nothing_configured), style = MaterialTheme.typography.bodyMedium)
+            } else Card(Modifier.fillMaxWidth()) {
+                features.forEachIndexed { index, feature ->
+                    if (index > 0) PrivacyFeatureDivider()
+                    PrivacyConfiguredFeature(feature, directCount, proxyCount, serviceCount,
+                        if (!busy) onOpenApps else null)
+                }
             }
             Spacer(Modifier.height(16.dp))
             Card(Modifier.fillMaxWidth()) {
@@ -250,6 +236,49 @@ internal fun NativePrivacyOverviewScreen(
                 style = MaterialTheme.typography.bodySmall, color = scheme.onSurfaceVariant)
         }
     }
+}
+
+@Composable
+private fun PrivacyConfiguredFeature(feature: NativePrivacyFeature, directCount: Int?, proxyCount: Int?,
+    serviceCount: Int?, onOpenApps: ((NativeRegionalAppKind) -> Unit)?) {
+    val (icon, title, description) = when (feature) {
+        NativePrivacyFeature.RUSSIAN_NETWORK -> Triple(R.drawable.privacy_language, R.string.native_privacy_network,
+            stringResource(R.string.native_privacy_network_on))
+        NativePrivacyFeature.RUSSIAN_APPS -> Triple(R.drawable.privacy_apps, R.string.native_privacy_apps,
+            if (directCount == null) stringResource(R.string.native_privacy_apps_loading)
+            else stringResource(R.string.native_privacy_apps_on, directCount))
+        NativePrivacyFeature.BLOCKED_SERVICES -> Triple(R.drawable.privacy_route, R.string.native_privacy_services,
+            if (serviceCount == null || proxyCount == null) stringResource(R.string.native_privacy_services_loading)
+            else stringResource(R.string.native_privacy_services_on, serviceCount, proxyCount))
+        NativePrivacyFeature.COMMUNITY_LISTS -> Triple(R.drawable.privacy_route, R.string.native_privacy_handbook,
+            stringResource(R.string.native_privacy_community_configured))
+        NativePrivacyFeature.FULL_TUNNEL -> Triple(R.drawable.privacy_security, R.string.native_privacy_full,
+            stringResource(R.string.native_privacy_full_summary))
+        NativePrivacyFeature.ENCRYPTED_DNS -> Triple(R.drawable.privacy_dns, R.string.native_privacy_encrypted,
+            stringResource(R.string.native_privacy_encrypted_summary))
+        NativePrivacyFeature.PUBLIC_DNS -> Triple(R.drawable.privacy_public, R.string.native_privacy_public,
+            stringResource(R.string.native_privacy_public_summary))
+        NativePrivacyFeature.HIDDEN_SYSTEM_PROXY -> Triple(R.drawable.privacy_http, R.string.native_privacy_system_proxy,
+            stringResource(R.string.native_privacy_system_proxy_summary))
+        NativePrivacyFeature.HIDDEN_LOCAL_PROXY -> Triple(R.drawable.privacy_wifi_off, R.string.native_proxy_hide_local,
+            stringResource(R.string.native_proxy_hide_local_summary))
+        NativePrivacyFeature.HIDDEN_API -> Triple(R.drawable.privacy_api, R.string.native_proxy_hide_clash,
+            stringResource(R.string.native_proxy_hide_clash_summary))
+        NativePrivacyFeature.ADAPTIVE_NETWORK -> Triple(R.drawable.privacy_network, R.string.native_privacy_adaptive,
+            stringResource(R.string.native_privacy_adaptive_summary))
+        NativePrivacyFeature.MASKED_PROTOCOLS -> Triple(R.drawable.privacy_security_filled, R.string.native_privacy_masked,
+            stringResource(R.string.native_privacy_masked_summary))
+        NativePrivacyFeature.ROOT -> Triple(R.drawable.privacy_admin, R.string.native_privacy_root,
+            stringResource(R.string.native_privacy_root_summary))
+        NativePrivacyFeature.WIFI_SHARING -> Triple(R.drawable.native_wifi_signal, R.string.native_setting_wifi_sharing,
+            stringResource(R.string.native_setting_wifi_sharing_summary))
+    }
+    val kind = when (feature) {
+        NativePrivacyFeature.RUSSIAN_APPS -> NativeRegionalAppKind.DIRECT
+        NativePrivacyFeature.BLOCKED_SERVICES -> NativeRegionalAppKind.PROXY
+        else -> null
+    }
+    PrivacyFeature(icon, title, description, if (kind != null && onOpenApps != null) ({ onOpenApps(kind) }) else null)
 }
 
 @Composable

@@ -53,12 +53,21 @@ object NativePrivacySetup {
         "wifiSharing" to false, "allowLan" to false, "maskedProtocolsOnly" to false,
     )
 
+    // Auto-setup tunes connection/privacy defaults without replacing routing choices.
+    private val routingFields = setOf(
+        "handbookRouting", "routingMode", "russianNetworkBypass", "russianAppsBypass",
+        "restrictedServicesProxy", "customDirectPackages", "customProxyPackages",
+        "customDirectDomains", "customProxyDomains", "proxyServices", "fullTunnel",
+    )
+    private fun recommendations(before: Map<String, Any>): Map<String, Any> =
+        automatic + before.filterKeys { it in routingFields }
+
     fun canRestore(preferences: Map<String, *>): Boolean =
         (preferences[BACKUP_KEY] as? String)?.isNotBlank() == true
 
     fun isConfigured(preferences: Map<String, *>): Boolean {
         val snapshot = snapshot(preferences)
-        return automatic.all { (field, value) -> snapshot[field] == value }
+        return recommendations(snapshot).all { (field, value) -> snapshot[field] == value }
     }
 
     /** Returns only changed preferences. The repository commits this map in one transaction. */
@@ -79,7 +88,7 @@ object NativePrivacySetup {
             }
         }
         require(backup.length <= MAX_BACKUP_LENGTH) { "Saved privacy settings are too large" }
-        return changes(preferences, automatic) + (BACKUP_KEY to backup)
+        return changes(preferences, recommendations(before)) + (BACKUP_KEY to backup)
     }
 
     fun restore(preferences: Map<String, *>): Map<String, Any> {

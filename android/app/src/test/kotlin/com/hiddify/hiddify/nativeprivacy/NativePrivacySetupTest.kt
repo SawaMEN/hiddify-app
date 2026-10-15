@@ -76,7 +76,7 @@ class NativePrivacySetupTest {
         assertEquals("ipv6_only", after["ipv6-mode"].asString)
     }
 
-    @Test fun automaticSetupResetsRoutingOverridesAndRestoresThemWithoutTouchingTransportFilters() {
+    @Test fun automaticSetupPreservesRoutingSelectionsAndRestoresOtherSettings() {
         val original = mapOf<String, Any>("flutter.privacy-use-root" to true,
             "flutter.privacy-direct-packages" to "manual:", "flutter.privacy-proxy-packages" to "com.Example.App",
             "flutter.privacy-direct-domains" to "example.org", "flutter.privacy-proxy-services" to "manual:youtube",
@@ -87,7 +87,7 @@ class NativePrivacySetupTest {
         assertEquals(false, applied["flutter.privacy-use-root"])
         assertEquals("off", applied["flutter.per_app_proxy_mode"])
         for (key in listOf("privacy-direct-packages", "privacy-proxy-packages", "privacy-direct-domains", "privacy-proxy-services"))
-            assertEquals("", applied["flutter.$key"])
+            assertEquals(original["flutter.$key"], applied["flutter.$key"])
         assertEquals(false, applied["flutter.wifi-vpn-sharing"])
         for (key in listOf("privacy-modern-allow-udp", "privacy-anonymization-block-quic"))
             assertFalse(changes.containsKey("flutter.$key"))
@@ -97,11 +97,32 @@ class NativePrivacySetupTest {
 
     @Test fun changedPolicyNoLongerReportsConfigured() {
         val applied = configured()
-        assertFalse(NativePrivacySetup.isConfigured(applied + ("flutter.handbook-routing" to true)))
+        assertTrue(NativePrivacySetup.isConfigured(applied + ("flutter.handbook-routing" to true)))
         assertFalse(NativePrivacySetup.isConfigured(applied + ("flutter.privacy-encrypted-dns" to false)))
         val core = JsonParser.parseString(applied[NativePrivacySetup.CORE_KEY] as String).asJsonObject
         core.addProperty("mtu", 1500)
         assertFalse(NativePrivacySetup.isConfigured(applied + (NativePrivacySetup.CORE_KEY to core.toString())))
+    }
+
+    @Test fun automaticSetupKeepsEveryRoutingModeNetworkToggleAndManualList() {
+        for (mode in listOf("off", "ru-bypass", "proxy-selected")) {
+            for (community in listOf(false, true)) for (network in listOf(false, true)) {
+                val routing = mapOf<String, Any>(
+                    "flutter.privacy-routing-mode" to mode, "flutter.handbook-routing" to community,
+                    "flutter.privacy-russian-network-bypass" to network, "flutter.privacy-full-tunnel" to true,
+                    "flutter.privacy-direct-packages" to "manual:com.example.bank",
+                    "flutter.privacy-proxy-packages" to "manual:com.example.video",
+                    "flutter.privacy-direct-domains" to "bank.example", "flutter.privacy-proxy-domains" to "video.example",
+                    "flutter.privacy-proxy-services" to "manual:youtube",
+                    "flutter.handbook-proxy-sites" to "youtube", "flutter.handbook-direct-sites" to "yandex")
+                val applied = configured(routing)
+                routing.forEach { (key, value) -> assertEquals(key, value, applied[key]) }
+                assertTrue(NativePrivacySetup.isConfigured(applied))
+                val repeated = configured(applied)
+                assertEquals(applied[NativePrivacySetup.BACKUP_KEY], repeated[NativePrivacySetup.BACKUP_KEY])
+                routing.forEach { (key, value) -> assertEquals(key, value, repeated[key]) }
+            }
+        }
     }
 
     private fun rejects(backup: String) {
@@ -163,8 +184,8 @@ class NativePrivacySetupTest {
         assertEquals("https://1.1.1.1/dns-query", core["remote-dns-address"].asString)
         assertEquals("https://1.1.1.1/dns-query", core["direct-dns-address"].asString)
         assertEquals(12334, core["mixed-port"].asInt)
-        assertEquals(false, applied["flutter.privacy-full-tunnel"])
-        assertEquals(false, applied["flutter.handbook-routing"])
+        assertEquals(true, applied["flutter.privacy-full-tunnel"])
+        assertEquals(true, applied["flutter.handbook-routing"])
         val restored = JsonParser.parseString(NativePrivacySetup.restore(applied)[NativePrivacySetup.CORE_KEY] as String).asJsonObject
         assertTrue(restored["execute-config-as-is"].asBoolean)
         assertTrue(restored["enable-full-config"].asBoolean)
@@ -173,11 +194,11 @@ class NativePrivacySetupTest {
         assertEquals("tcp://9.9.9.9", restored["remote-dns-address"].asString)
     }
 
-    @Test fun manualEmptyAppListAndAppRestrictionCannotStillReportAutomaticConfigured() {
+    @Test fun manualListsRemainCompatibleWithAutomaticConnectionSettings() {
         val applied = configured()
-        assertFalse(NativePrivacySetup.isConfigured(applied + ("flutter.privacy-direct-packages" to "manual:")))
+        assertTrue(NativePrivacySetup.isConfigured(applied + ("flutter.privacy-direct-packages" to "manual:")))
         assertFalse(NativePrivacySetup.isConfigured(applied + ("flutter.per_app_proxy_mode" to "include")))
-        assertFalse(NativePrivacySetup.isConfigured(applied + ("flutter.privacy-proxy-services" to "manual:")))
+        assertTrue(NativePrivacySetup.isConfigured(applied + ("flutter.privacy-proxy-services" to "manual:")))
     }
 
     @Test fun legacyRawConfigFlagIsRestoredWhenTheNativeAliasWasAbsent() {
