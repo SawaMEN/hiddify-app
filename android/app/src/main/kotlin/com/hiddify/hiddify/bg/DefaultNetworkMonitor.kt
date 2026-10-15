@@ -90,21 +90,24 @@ object DefaultNetworkMonitor {
             if (listener == null) return
             updateJob = scope.launch {
                 delay(150)
-                if (newNetwork == null) {
-                    notifyListener("", -1, newNetwork, expectedGeneration)
+                // A replacement network may already exist before its callback is delivered.
+                // Never reuse the lost interface or choose the VPN itself as its own upstream.
+                val network = newNetwork ?: runCatching { DefaultNetworkListener.underlyingNetwork() }.getOrNull()
+                if (network == null) {
+                    notifyListener("", -1, null, expectedGeneration)
                     return@launch
                 }
                 for (wait in listOf(100L, 200L, 400L, 800L, 1000L, 1000L)) {
                     if (!isActive) return@launch
-                    val name = runCatching { Application.connectivity.getLinkProperties(newNetwork)?.interfaceName }.getOrNull()
+                    val name = runCatching { Application.connectivity.getLinkProperties(network)?.interfaceName }.getOrNull()
                     val index = if (name == null) -1 else runCatching { NetworkInterface.getByName(name)?.index ?: -1 }.getOrDefault(-1)
                     if (name != null && index >= 0) {
-                        notifyListener(name, index, newNetwork, expectedGeneration)
+                        notifyListener(name, index, network, expectedGeneration)
                         return@launch
                     }
                     delay(wait)
                 }
-                notifyListener("", -1, newNetwork, expectedGeneration)
+                notifyListener("", -1, network, expectedGeneration)
             }
         }
     }

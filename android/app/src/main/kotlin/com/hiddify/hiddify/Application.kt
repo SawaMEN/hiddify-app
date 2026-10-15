@@ -18,14 +18,14 @@ class Application : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        com.hiddify.hiddify.nativeupdate.NativeAppUpdates.initialize(this)
-        com.hiddify.hiddify.nativerouting.NativeInstalledApps.observePackageChanges(this)
-
         Thread.getDefaultUncaughtExceptionHandler()?.let { previous ->
             Thread.setDefaultUncaughtExceptionHandler(
                 com.hiddify.hiddify.nativelog.NativeCrashRecorder(java.io.File(filesDir, "app.log"), previous),
             )
         }
+
+        com.hiddify.hiddify.nativeupdate.NativeAppUpdates.initialize(this)
+        com.hiddify.hiddify.nativerouting.NativeInstalledApps.observePackageChanges(this)
 
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
             Thread({
@@ -33,15 +33,21 @@ class Application : Application() {
                     val manager = getSystemService(android.app.ActivityManager::class.java)
                     val entries = manager.getHistoricalProcessExitReasons(packageName, 0, 8)
                     val result = org.json.JSONArray()
+                    val lines = mutableListOf<String>()
                     entries.forEach { entry ->
-                        // Record system evidence without config, IP addresses or crash trace secrets.
+                        val phase = com.hiddify.hiddify.nativelog.NativeVpnProcessPhase.fromSummary(entry.processStateSummary)?.token
+                        // Keep the system's exit reason and description; no configuration or native trace dump.
                         result.put(org.json.JSONObject().put("time", entry.timestamp).put("reason", entry.reason)
                             .put("reasonName", com.hiddify.hiddify.nativelog.NativeProcessExitReason.name(entry.reason))
-                            .put("vpnPhase", com.hiddify.hiddify.nativelog.NativeVpnProcessPhase.fromSummary(entry.processStateSummary)?.token)
+                            .put("vpnPhase", phase).put("pid", entry.pid).put("process", entry.processName)
+                            .put("importance", entry.importance).put("description", entry.description?.take(1024))
                             .put("status", entry.status).put("pssKiB", entry.pss).put("rssKiB", entry.rss))
+                        lines += com.hiddify.hiddify.nativelog.NativeProcessExitReason.format(entry.timestamp,
+                            entry.reason, entry.status, entry.pid, entry.processName, entry.importance, phase, entry.description)
                     }
                     // Core paths may still be "./" before the first VPN start.
                     java.io.File(filesDir, "last-exits.json").writeText(result.toString())
+                    java.io.File(filesDir, "last-exits.log").writeText(lines.asReversed().joinToString("\n", postfix = "\n"))
                 }.onFailure { android.util.Log.w("A/Diagnostics", "Unable to collect previous process exits", it) }
             }, "process-exit-diagnostics").start()
         }

@@ -56,9 +56,9 @@ object DefaultNetworkListener {
                         is NetworkMessage.Start -> {
                             if (listeners.isEmpty()) {
                                 register()
-                                if (fallback) {
-                                    network = runCatching { underlyingNetwork() }.getOrNull()
-                                }
+                                // Registration is asynchronous. Seed the initial interface before
+                                // returning to core setup instead of publishing a false offline state.
+                                network = runCatching { underlyingNetwork() }.getOrNull()
                             }
                             listeners[message.key] = message.listener
                             run {
