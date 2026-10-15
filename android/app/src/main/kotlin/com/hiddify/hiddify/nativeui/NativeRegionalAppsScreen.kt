@@ -79,7 +79,14 @@ fun NativeRegionalAppsScreen(
     val loadedApps = snapshot?.apps.orEmpty()
     val additionalMissing = selected - loadedApps.map { it.packageName }.toSet()
     val missing = snapshot?.missing.orEmpty() + additionalMissing
-    val visible = (loadedApps + additionalMissing.map { NativeInstalledApp(it, it, false) }).filter {
+    val availableApps = loadedApps + additionalMissing.map { NativeInstalledApp(it, it, false) }
+    // Default to known blocked-service apps while keeping search across all installed apps.
+    // Explicitly chosen custom apps stay visible even if they are not in the catalogue.
+    val servicePackages = services.flatMap { it.packages }.toSet()
+    val listedApps = if (kind == NativeRegionalAppKind.PROXY)
+        availableApps.filter { it.packageName in servicePackages || it.packageName in selected }
+    else availableApps
+    val visible = (if (kind == NativeRegionalAppKind.PROXY && query.isNotEmpty()) availableApps else listedApps).filter {
         it.label.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true)
     }
     val canChange = !busy && snapshot != null
@@ -166,7 +173,7 @@ fun NativeRegionalAppsScreen(
                         R.string.native_blocked_apps_title else R.string.native_regional_apps_direct_title),
                         style = MaterialTheme.typography.titleMedium)
                     Text(stringResource(R.string.native_blocked_apps_count,
-                        selected.size, loadedApps.size + additionalMissing.size),
+                        selected.size, listedApps.size),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedTextField(value = search, onValueChange = { search = it.take(256) },
