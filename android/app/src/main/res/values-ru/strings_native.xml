@@ -721,7 +721,10 @@
     <string name="native_privacy_pending_changes">Настройки сохранены, но текущее подключение использует прежние параметры. Переподключите VPN для применения.</string>
     <string name="native_privacy_proxy_mode_notice">Сейчас выбран режим прокси. Маршрутизация приложений и параметры VPN-сети Android в нём не действуют. Для переключения режима отключите текущее подключение.</string>
     <string name="native_profile_updated">Подписка «%1$s» обновлена</string>
-    <string name="native_profiles_updated">Обновлено подписок: %1$d</string>
+    <string name="native_profile_refresh_failed">Не удалось обновить подписку «%1$s».\n%2$s</string>
+    <string name="native_profiles_refresh_failed">Не удалось обновить подписки: %1$d из %2$d.\n%3$s</string>
+    <string name="native_profile_unchanged">Подписка «%1$s»: изменений нет</string>
+    <string name="native_profiles_refresh_result">Обновлено подписок: %1$d; без изменений: %2$d</string>
     <string name="native_routing_edit_direct">Настроить российские приложения, домены и IP</string>
     <string name="native_routing_edit_proxy">Настроить заблокированные сервисы</string>
     <string name="native_update_channel">Канал обновлений</string>

@@ -37,6 +37,7 @@ internal object NativeAppUpdates {
     private val checkMutex = Mutex()
     private val downloadMutex = Mutex()
     private var pollJob: Job? = null
+    private var foregroundCheckJob: Job? = null
     private val mutableState = MutableStateFlow(NativeAppUpdateState(channel =
         if (BuildConfig.CHANNEL == "prod") NativeUpdateChannel.STABLE else NativeUpdateChannel.DEV))
     val state = mutableState.asStateFlow()
@@ -95,10 +96,21 @@ internal object NativeAppUpdates {
         prefs.getString(key, null)?.let(NativeReleaseStorage::decode)
     }.getOrNull()
 
-    fun onForeground() { launchTask {
-        if (state.value.downloading) syncDownload()
-        else checkForUpdates(false)
-    } }
+    fun onForeground() {
+        if (foregroundCheckJob?.isActive == true) return
+        foregroundCheckJob = scope.launch {
+            while (isActive) {
+                try {
+                    if (state.value.downloading) syncDownload()
+                    else checkForUpdates(false)
+                } catch (cancelled: CancellationException) { throw cancelled }
+                  catch (error: Exception) { android.util.Log.w("AppUpdates", "Automatic check failed", error) }
+                // The due policy throttles requests; retry after connectivity returns without reopening the app.
+                delay(60_000)
+            }
+        }
+    }
+    fun onBackground() { foregroundCheckJob?.cancel(); foregroundCheckJob = null }
     fun checkNow() { launchTask { checkForUpdates(true) } }
     suspend fun checkForUpdates(force: Boolean) = checkMutex.withLock {
         val before = state.value

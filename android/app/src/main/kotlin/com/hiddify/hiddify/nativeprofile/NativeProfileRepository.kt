@@ -54,6 +54,9 @@ data class NativeProfileEditor(
     val isJson: Boolean = false,
 )
 
+/** Excludes the check timestamp and transport headers, which can change on every request. */
+private data class NativeSubscriptionRefreshSnapshot(val content: String?, val metadata: List<Any?>)
+
 /** Staged source stays off saved-instance state and is persisted only after confirmation. */
 internal data class NativePreparedProfile(
     val profile: NativeProfile,
@@ -310,12 +313,21 @@ class NativeProfileRepository(private val context: Context) {
         com.hiddify.hiddify.nativecore.NativeChainRepository().replaceDeletedProfile(id)
     }
 
-    fun refreshRemote(id: String, cancellation: NativeProfileImportCancellation? = null): NativeProfile {
+    fun refreshRemote(id: String, cancellation: NativeProfileImportCancellation? = null,
+        onChanged: ((Boolean) -> Unit)? = null): NativeProfile {
         cancellation?.ensureActive()
         val profile =
             openDatabase().use { db -> getById(db, id) ?: error("Profile not found") }
         check(profile.isRemote && !profile.url.isNullOrBlank()) { "Profile is not a remote subscription" }
-        return importRemote(profile.url, existingId = profile.id, existingOverride = profile.userOverride, cancellation = cancellation)
+        fun snapshot(value: NativeProfile) = NativeSubscriptionRefreshSnapshot(
+            content = profileFile(id).takeIf { it.isFile }?.readText(),
+            metadata = listOf(value.name, value.updateIntervalSeconds, value.upload, value.download,
+                value.total, value.expire, value.webPageUrl, value.supportUrl),
+        )
+        val before = if (onChanged != null) snapshot(profile) else null
+        val refreshed = importRemote(profile.url, existingId = profile.id, existingOverride = profile.userOverride, cancellation = cancellation)
+        if (onChanged != null) onChanged(before != snapshot(refreshed))
+        return refreshed
     }
 
     fun loadEditor(id: String): NativeProfileEditor {

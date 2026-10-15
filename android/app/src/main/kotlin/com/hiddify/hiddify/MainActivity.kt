@@ -661,6 +661,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     override fun onStop() {
+        NativeAppUpdates.onBackground()
         nativeForeground = false
         smartSelectionJob?.cancel()
         smartSelectionJob = null
@@ -1253,24 +1254,41 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private fun refreshRemoteProfile(profile: NativeProfile) {
         if (!profile.isRemote) return
+        var changed = false
         runProfileOperation(profile.id, requireDisconnected = false, onSuccess = {
-            Toast.makeText(this, getString(R.string.native_profile_updated, profile.name), Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(if (changed) R.string.native_profile_updated
+                else R.string.native_profile_unchanged, profile.name), Toast.LENGTH_LONG).show()
+        }, failureMessage = { error ->
+            getString(R.string.native_profile_refresh_failed, profile.name, error.message ?: error.javaClass.simpleName)
         }) {
-            refreshRemoteCancellable(profile.id)
+            runNativeProfileRefresh { cancellation ->
+                profileRepository.refreshRemote(profile.id, cancellation) { changed = it }
+            }
         }
     }
 
     private fun refreshAllRemoteProfiles() {
         val remoteIds = profiles.value.filter { it.isRemote }.map { it.id }
         if (remoteIds.isEmpty()) return
+        var updated = 0
+        var failed = 0
         runProfileOperation("update-all", requireDisconnected = false, onSuccess = {
-            Toast.makeText(this, getString(R.string.native_profiles_updated, remoteIds.size), Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.native_profiles_refresh_result,
+                updated, remoteIds.size - updated), Toast.LENGTH_LONG).show()
+        }, failureMessage = { error ->
+            getString(R.string.native_profiles_refresh_failed, failed.takeIf { it > 0 } ?: remoteIds.size,
+                remoteIds.size, error.message ?: error.javaClass.simpleName)
         }) {
             val failures = mutableListOf<String>()
-            refreshNativeProfileBatch(remoteIds, { refreshRemoteCancellable(it) }) { _, error ->
+            refreshNativeProfileBatch(remoteIds, { id ->
+                runNativeProfileRefresh { cancellation ->
+                    profileRepository.refreshRemote(id, cancellation) { if (it) updated++ }
+                }
+            }) { _, error ->
+                failed++
                 failures += error.message ?: error.javaClass.simpleName
             }
-            // Keep successful updates even if another subscription failed, and publish that snapshot.
+            // A failed request must never produce a success notification.
             if (failures.isNotEmpty()) throw IllegalStateException(failures.distinct().joinToString("\n"))
         }
     }
@@ -1350,6 +1368,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         operationId: String,
         requireDisconnected: Boolean,
         onSuccess: () -> Unit = {},
+        failureMessage: ((Exception) -> String)? = null,
         stopBeforeDeletingId: String? = null,
         importCancellation: NativeProfileImportCancellation? = null,
         operation: suspend () -> Unit,
@@ -1415,7 +1434,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     profileRepository.synchronizeActiveProfile()
                     profileRepository.listProfiles()
                 } } }.onSuccess { profiles.value = it; profilesLoadFailed.value = false; refreshProfileSnapshot() }
-                errorMessage.value = error.message ?: error.javaClass.simpleName
+                errorMessage.value = failureMessage?.invoke(error) ?: error.message ?: error.javaClass.simpleName
             } finally {
                 profileImportCancellation = null
                 busyProfileId.value = null

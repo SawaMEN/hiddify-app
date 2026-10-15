@@ -721,7 +721,10 @@
     <string name="native_privacy_pending_changes">Settings are saved, but the current connection still uses the previous values. Reconnect to apply them.</string>
     <string name="native_privacy_proxy_mode_notice">Proxy mode is selected. App routing and Android VPN network settings do not apply in this mode. Disconnect the current connection before switching modes.</string>
     <string name="native_profile_updated">Subscription “%1$s” updated</string>
-    <string name="native_profiles_updated">Subscriptions updated: %1$d</string>
+    <string name="native_profile_refresh_failed">Could not update subscription “%1$s”.\n%2$s</string>
+    <string name="native_profiles_refresh_failed">Could not update %1$d of %2$d subscriptions.\n%3$s</string>
+    <string name="native_profile_unchanged">Subscription “%1$s”: no changes</string>
+    <string name="native_profiles_refresh_result">Subscriptions updated: %1$d; unchanged: %2$d</string>
     <string name="native_routing_edit_direct">Configure Russian apps, domains and IPs</string>
     <string name="native_routing_edit_proxy">Configure blocked services</string>
     <string name="native_update_channel">Update channel</string>

@@ -52,6 +52,15 @@ class NativeUpdatePolicyTest {
         json.addProperty("url", "https://evil.example/app.apk")
         assertThrows(IllegalArgumentException::class.java) { NativeReleaseStorage.decode(json.toString()) }
     }
+    @Test fun indicatorDisappearsForSkippedBuildAndReturnsForANewRelease() {
+        assertFalse(NativeAppUpdateState().showUpdateIndicator)
+        val available = NativeAppUpdateState(release = candidate(), phase = NativeUpdatePhase.AVAILABLE)
+        assertTrue(available.showUpdateIndicator)
+        assertFalse(available.copy(skipped = true).showUpdateIndicator)
+        assertTrue(available.copy(phase = NativeUpdatePhase.READY).showUpdateIndicator)
+        assertTrue(available.copy(release = candidate().copy(assetId = 999), skipped = false).showUpdateIndicator)
+    }
+
     @Test fun cancelledChecksReleaseTheUiWithoutResettingDownloadOrSkipState() {
         val idle = NativeAppUpdateState(phase = NativeUpdatePhase.CHECKING).checkCancelled()
         assertEquals(NativeUpdatePhase.IDLE, idle.phase)
@@ -59,7 +68,7 @@ class NativeUpdatePolicyTest {
         val skipped = NativeAppUpdateState(phase = NativeUpdatePhase.CHECKING, release = candidate(), skipped = true).checkCancelled()
         assertEquals(NativeUpdatePhase.AVAILABLE, skipped.phase)
         assertTrue(skipped.skipped)
-        assertFalse(skipped.showBanner)
+        assertFalse(skipped.showUpdateIndicator)
         for (phase in NativeUpdatePhase.entries.filter { it != NativeUpdatePhase.CHECKING }) {
             val state = NativeAppUpdateState(phase = phase, release = candidate(), downloadedBytes = 2, totalBytes = 4)
             assertEquals(state, state.checkCancelled())

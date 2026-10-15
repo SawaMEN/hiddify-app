@@ -47,6 +47,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.FilledTonalIconButton
 import com.hiddify.hiddify.BuildConfig
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -932,7 +934,9 @@ private fun HomeScreen(
     onOpenDiagnostics: () -> Unit,
     onOpenOutbounds: () -> Unit,
 ) {
-    val versionLabel = stringResource(R.string.native_home_version)
+    val updateAvailable = updateState?.showUpdateIndicator == true
+    val versionLabel = if (updateAvailable) stringResource(R.string.native_about_update_available,
+        updateState?.release?.version.orEmpty()) else stringResource(R.string.native_home_version)
     var noProfileNotice by rememberSaveable { mutableStateOf(false) }
     if (noProfileNotice) AlertDialog(
         onDismissRequest = { noProfileNotice = false; onAddProfile() },
@@ -962,21 +966,19 @@ private fun HomeScreen(
             Spacer(Modifier.width(4.dp))
             Text(if (BuildConfig.CHANNEL == "prod") BuildConfig.VERSION_NAME
                 else "${BuildConfig.VERSION_NAME} ${BuildConfig.CHANNEL}",
-                modifier = Modifier.widthIn(max = 80.dp).semantics { contentDescription = versionLabel },
+                modifier = Modifier.widthIn(max = 80.dp).heightIn(min = 48.dp)
+                    .clickable(enabled = updateAvailable, onClick = onOpenUpdates)
+                    .wrapContentHeight().semantics { contentDescription = versionLabel },
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                color = if (updateAvailable) {
+                    if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) Color(0xFFF2B84B) else Color(0xFF946C00)
+                } else MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall)
             IconButton(onClick = onOpenDiagnostics) {
                 Icon(painterResource(R.drawable.home_health), stringResource(R.string.native_diagnostics_title))
             }
             FilledTonalIconButton(onClick = onAddProfile, enabled = busyProfileId == null) {
                 Icon(painterResource(R.drawable.home_add), stringResource(R.string.native_profile_add))
-            }
-        }
-        if (updateState?.showBanner == true) {
-            NativeOutlinedButton(onOpenUpdates, Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
-                Text(stringResource(if (updateState.phase == com.hiddify.hiddify.nativeupdate.NativeUpdatePhase.READY)
-                    R.string.native_update_ready else R.string.native_about_update_available,
-                    updateState.release?.version.orEmpty()))
             }
         }
         if (!hasProfiles && !hasActiveProfile && !profilesLoading && !profilesLoadFailed) {

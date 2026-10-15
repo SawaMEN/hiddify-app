@@ -14,7 +14,7 @@ data class NativeAppUpdateState(
 ) {
     val downloading get() = phase == NativeUpdatePhase.DOWNLOADING || phase == NativeUpdatePhase.VERIFYING
     val busy get() = downloading || phase == NativeUpdatePhase.CHECKING
-    val showBanner get() = release != null && !skipped
+    val showUpdateIndicator get() = release != null && !skipped
     internal fun isCurrentCheck(requestedChannel: NativeUpdateChannel): Boolean =
         channel == requestedChannel && phase == NativeUpdatePhase.CHECKING
     internal fun canStartDownload(expectedIdentity: String?, automatic: Boolean): Boolean =
