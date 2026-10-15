@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
@@ -70,7 +71,11 @@ internal fun NativeAppUpdateCard(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (state.downloading) NativeTextButton(onClick = onCancel) { Text(stringResource(R.string.native_update_cancel_download)) }
-                else if (state.phase != NativeUpdatePhase.READY) NativeTextButton(onClick = onCheck, enabled = !state.busy) { Text(stringResource(R.string.native_about_check_update)) }
+                else if (state.phase != NativeUpdatePhase.READY) NativeTextButton(onClick = onCheck, enabled = !state.busy) {
+                    Icon(painterResource(R.drawable.native_about_sync), null, Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.native_about_check_update))
+                }
                 if (release != null && !state.skipped) NativeTextButton(onClick = onSkip, enabled = state.phase != NativeUpdatePhase.VERIFYING) {
                     Text(stringResource(R.string.native_update_skip))
                 }

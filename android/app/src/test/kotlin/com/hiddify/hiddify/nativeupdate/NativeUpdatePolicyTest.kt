@@ -31,6 +31,40 @@ class NativeUpdatePolicyTest {
             r.copy(tag = "../other"))) assertFalse(NativeUpdatePolicy.valid(bad))
         assertTrue(NativeUpdatePolicy.releases("[${release().replace("sha256:$sha", "sha256:bad")}]", NativeUpdateChannel.STABLE).isEmpty())
     }
+    @Test fun stableBuildCodesInTagsArePreservedAndValidated() {
+        val r = NativeUpdatePolicy.releases("[${release("v1.2.0+40201.prod")}]", NativeUpdateChannel.STABLE).single()
+        assertEquals(40201, r.buildNumber)
+        assertTrue(NativeUpdatePolicy.newer(r, 40200, "", 0))
+        assertFalse(NativeUpdatePolicy.newer(r, 40201, "", 0))
+        assertFalse(NativeUpdatePolicy.valid(r.copy(buildNumber = 10200)))
+        assertFalse(NativeUpdatePolicy.valid(r.copy(version = "1.3.0")))
+    }
+    @Test fun savedReleaseHasAStableExplicitSchemaAcrossAppBuilds() {
+        val r = candidate().copy(commit = "c".repeat(40))
+        val encoded = NativeReleaseStorage.encode(r)
+        assertEquals(r, NativeReleaseStorage.decode(encoded))
+        val json = com.google.gson.JsonParser.parseString(encoded).asJsonObject
+        assertEquals("STABLE", json.get("channel").asString)
+        assertEquals(r.identity, NativeReleaseStorage.decode(encoded).identity)
+        // This is the schema written by the previous reflection serializer as well.
+        json.remove("commit")
+        assertEquals(r.copy(commit = ""), NativeReleaseStorage.decode(json.toString()))
+        json.addProperty("url", "https://evil.example/app.apk")
+        assertThrows(IllegalArgumentException::class.java) { NativeReleaseStorage.decode(json.toString()) }
+    }
+    @Test fun cancelledChecksReleaseTheUiWithoutResettingDownloadOrSkipState() {
+        val idle = NativeAppUpdateState(phase = NativeUpdatePhase.CHECKING).checkCancelled()
+        assertEquals(NativeUpdatePhase.IDLE, idle.phase)
+        assertFalse(idle.busy)
+        val skipped = NativeAppUpdateState(phase = NativeUpdatePhase.CHECKING, release = candidate(), skipped = true).checkCancelled()
+        assertEquals(NativeUpdatePhase.AVAILABLE, skipped.phase)
+        assertTrue(skipped.skipped)
+        assertFalse(skipped.showBanner)
+        for (phase in NativeUpdatePhase.entries.filter { it != NativeUpdatePhase.CHECKING }) {
+            val state = NativeAppUpdateState(phase = phase, release = candidate(), downloadedBytes = 2, totalBytes = 4)
+            assertEquals(state, state.checkCancelled())
+        }
+    }
     @Test fun rollingDevIdentitiesChangeWithoutChangingTheVersionOrTag() {
         val r = NativeUpdatePolicy.releases("[${release("dev-latest", true)}]", NativeUpdateChannel.DEV).single().copy(commit = "b".repeat(40))
         assertTrue(NativeUpdatePolicy.newer(r, r.buildNumber, "c".repeat(40), r.publishedAt - 1000))

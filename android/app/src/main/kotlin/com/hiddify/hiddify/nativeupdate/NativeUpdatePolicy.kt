@@ -26,10 +26,13 @@ internal object NativeUpdatePolicy {
     fun valid(release: NativeAppRelease): Boolean =
         release.assetId > 0 && code(release.version) != null && release.buildNumber in 1..2100000000 &&
             release.size in 1..MAX_APK_BYTES && sha.matches(release.sha256) &&
+            (release.commit.isEmpty() || release.commit.matches(Regex("[a-f0-9]{40}"))) &&
             release.assetName.matches(Regex("[A-Za-z0-9._-]+\\.apk")) && release.assetName.contains("arm64", true) &&
             NativeReleasePolicy.trustedUrl(release.pageUrl, "/SawaMEN/hiddify-app/releases/") &&
             release.url == "https://github.com/SawaMEN/hiddify-app/releases/download/${release.tag}/${release.assetName}" &&
-            ((release.channel == NativeUpdateChannel.STABLE && NativeReleasePolicy.productionTag(release.tag) != null) ||
+            ((release.channel == NativeUpdateChannel.STABLE && NativeReleasePolicy.productionTag(release.tag)?.let {
+                it.first == release.version && (it.second == 0 || it.second == release.buildNumber)
+            } == true) ||
                 (release.channel == NativeUpdateChannel.DEV && release.tag == "dev-latest"))
 
     fun releases(json: String, channel: NativeUpdateChannel): List<NativeAppRelease> {
@@ -51,7 +54,9 @@ internal object NativeUpdatePolicy {
                 name.endsWith(".apk") && name.contains("arm64", true) &&
                     (channel == NativeUpdateChannel.DEV || !name.contains("dev", true))
             }?.asJsonObject ?: return@runCatching null
-            val candidate = NativeAppRelease(channel, version, code(version) ?: return@runCatching null, tag,
+            val taggedBuild = if (channel == NativeUpdateChannel.STABLE) NativeReleasePolicy.productionTag(tag)?.second else null
+            val build = taggedBuild?.takeIf { it > 0 } ?: code(version) ?: return@runCatching null
+            val candidate = NativeAppRelease(channel, version, build, tag,
                 r.get("html_url").asString, asset.get("id").asLong, asset.get("name").asString,
                 asset.get("browser_download_url").asString, asset.get("size").asLong,
                 asset.get("digest")?.takeUnless { it.isJsonNull }?.asString?.removePrefix("sha256:").orEmpty(),

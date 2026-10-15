@@ -16,7 +16,8 @@ class NativeUpdateJob : JobService() {
     private val jobs = mutableMapOf<Int, Job>()
     override fun onStartJob(params: JobParameters): Boolean {
         NativeAppUpdates.initialize(applicationContext)
-        jobs[params.jobId] = scope.launch {
+        val job = scope.launch(start = CoroutineStart.LAZY) {
+            val running = currentCoroutineContext()[Job]
             var retry = false
             var stopped = false
             try {
@@ -25,10 +26,15 @@ class NativeUpdateJob : JobService() {
             } catch (cancelled: CancellationException) { stopped = true; throw cancelled }
               catch (_: Exception) { retry = true }
             finally { withContext(NonCancellable + Dispatchers.Main) {
-                jobs.remove(params.jobId)
-                if (!stopped) jobFinished(params, retry)
+                // An old cancelled run must never finish/remove a replacement with the same ID.
+                if (jobs[params.jobId] === running) {
+                    jobs.remove(params.jobId)
+                    if (!stopped) jobFinished(params, retry)
+                }
             } }
         }
+        jobs[params.jobId] = job
+        job.start()
         return true
     }
     override fun onStopJob(params: JobParameters): Boolean { jobs.remove(params.jobId)?.cancel(); return true }

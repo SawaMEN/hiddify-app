@@ -12,7 +12,6 @@ import android.os.Environment
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.android.apksig.ApkVerifier
-import com.google.gson.Gson
 import com.hiddify.hiddify.BuildConfig
 import com.hiddify.hiddify.MainActivity
 import com.hiddify.hiddify.R
@@ -25,23 +24,6 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-enum class NativeUpdatePhase { IDLE, CHECKING, AVAILABLE, DOWNLOADING, VERIFYING, READY, FAILED }
-data class NativeAppUpdateState(
-    val channel: NativeUpdateChannel = if (BuildConfig.CHANNEL == "prod") NativeUpdateChannel.STABLE else NativeUpdateChannel.DEV,
-    val phase: NativeUpdatePhase = NativeUpdatePhase.IDLE,
-    val release: NativeAppRelease? = null,
-    val skipped: Boolean = false,
-    val autoDownload: Boolean = true,
-    val downloadedBytes: Long = 0,
-    val totalBytes: Long = 0,
-    val waiting: Boolean = false,
-    val error: String? = null,
-) {
-    val downloading get() = phase == NativeUpdatePhase.DOWNLOADING || phase == NativeUpdatePhase.VERIFYING
-    val busy get() = downloading || phase == NativeUpdatePhase.CHECKING
-    val showBanner get() = release != null && !skipped
-}
-
 /** Application-owned state; downloads belong to Android and survive Activity/process recreation. */
 internal object NativeAppUpdates {
     const val OPEN_UPDATES = "open_app_updates"
@@ -52,11 +34,11 @@ internal object NativeAppUpdates {
     private lateinit var context: Context
     private val prefs get() = context.getSharedPreferences("app_updates", Context.MODE_PRIVATE)
     private val downloads get() = requireNotNull(context.getSystemService(DownloadManager::class.java)) { "Android DownloadManager is unavailable" }
-    private val gson = Gson()
     private val checkMutex = Mutex()
     private val downloadMutex = Mutex()
     private var pollJob: Job? = null
-    private val mutableState = MutableStateFlow(NativeAppUpdateState())
+    private val mutableState = MutableStateFlow(NativeAppUpdateState(channel =
+        if (BuildConfig.CHANNEL == "prod") NativeUpdateChannel.STABLE else NativeUpdateChannel.DEV))
     val state = mutableState.asStateFlow()
     private var initialized = false
 
@@ -92,7 +74,7 @@ internal object NativeAppUpdates {
     }
 
     private fun cached(key: String): NativeAppRelease? = runCatching {
-        prefs.getString(key, null)?.let { gson.fromJson(it, NativeAppRelease::class.java) }?.takeIf(NativeUpdatePolicy::valid)
+        prefs.getString(key, null)?.let { NativeReleaseStorage.decode(it) }?.takeIf(NativeUpdatePolicy::valid)
     }.getOrNull()
 
     fun onForeground() { launchTask {
@@ -114,7 +96,7 @@ internal object NativeAppUpdates {
             val release = found?.takeIf { NativeUpdatePolicy.newer(it, BuildConfig.VERSION_CODE,
                 BuildConfig.UPDATE_COMMIT, BuildConfig.UPDATE_BUILT_AT) }
             prefs.edit().putLong(lastKey, System.currentTimeMillis())
-                .putString("latest_${channel.name}", release?.let(gson::toJson)).apply()
+                .putString("latest_${channel.name}", release?.let(NativeReleaseStorage::encode)).apply()
             val skipped = release != null && release.identity == prefs.getString("skip_${channel.name}", null)
             mutableState.update { it.copy(release = release, skipped = skipped,
                 phase = if (release == null) NativeUpdatePhase.IDLE else NativeUpdatePhase.AVAILABLE, error = null) }
@@ -122,7 +104,10 @@ internal object NativeAppUpdates {
                 notifyRelease(release, ready = false)
                 if (state.value.autoDownload) startDownload(automatic = true)
             }
-        } catch (cancelled: CancellationException) { throw cancelled }
+        } catch (cancelled: CancellationException) {
+            mutableState.update { if (it.channel == channel) it.checkCancelled() else it }
+            throw cancelled
+        }
         catch (error: Exception) {
             if (state.value.channel == channel) mutableState.update { it.copy(phase = NativeUpdatePhase.FAILED,
                 error = error.message ?: error.javaClass.simpleName) }
@@ -156,10 +141,11 @@ internal object NativeAppUpdates {
     }
 
     fun download() { launchTask { startDownload(automatic = false) } }
-    private suspend fun startDownload(automatic: Boolean) = downloadMutex.withLock {
+    private suspend fun startDownload(automatic: Boolean, expectedIdentity: String? = state.value.release?.identity) = downloadMutex.withLock {
         val current = state.value
         val release = current.release ?: return@withLock
-        if (current.downloading || current.phase == NativeUpdatePhase.READY || (automatic && current.skipped)) return@withLock
+        if (release.identity != expectedIdentity || current.busy || current.phase == NativeUpdatePhase.READY ||
+            (automatic && (current.skipped || !current.autoDownload))) return@withLock
         try {
             require(NativeUpdatePolicy.valid(release))
             val file = destination(release)
@@ -171,11 +157,12 @@ internal object NativeAppUpdates {
                 .setMimeType("application/vnd.android.package-archive")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
                 .setAllowedOverRoaming(false).setAllowedOverMetered(!automatic)
+                .apply { if (automatic) setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI) }
                 .setDestinationUri(Uri.fromFile(file))
             val id = downloads.enqueue(request)
             if (!automatic) prefs.edit().remove("skip_${release.channel.name}").apply()
             // Commit before observing progress so a background completion can recover its metadata.
-            if (!prefs.edit().putLong("download_id", id).putString("download_release", gson.toJson(release)).commit()) {
+            if (!prefs.edit().putLong("download_id", id).putString("download_release", NativeReleaseStorage.encode(release)).commit()) {
                 downloads.remove(id)
                 error("Could not save update download")
             }
@@ -188,12 +175,23 @@ internal object NativeAppUpdates {
     }
 
     private suspend fun resumeDownload() {
-        val release = cached("download_release")
-        if (release == null || !NativeUpdatePolicy.newer(release, BuildConfig.VERSION_CODE, BuildConfig.UPDATE_COMMIT, BuildConfig.UPDATE_BUILT_AT)) {
-            cancelDownload(); return
+        downloadMutex.withLock {
+            // Reload under the same lock as skip/cancel: never restore an already cancelled task.
+            if (prefs.getLong("download_id", -1) < 0) return@withLock
+            val release = cached("download_release")
+            if (release == null || !NativeUpdatePolicy.newer(release, BuildConfig.VERSION_CODE,
+                    BuildConfig.UPDATE_COMMIT, BuildConfig.UPDATE_BUILT_AT)) {
+                cancelDownloadLocked()
+                return@withLock
+            }
+            if (release.identity == prefs.getString("skip_${release.channel.name}", null)) {
+                cancelDownloadLocked()
+                mutableState.update { it.copy(skipped = true) }
+                return@withLock
+            }
+            mutableState.update { it.copy(channel = release.channel, release = release, phase = NativeUpdatePhase.DOWNLOADING,
+                totalBytes = release.size, skipped = false) }
         }
-        mutableState.update { it.copy(channel = release.channel, release = release, phase = NativeUpdatePhase.DOWNLOADING,
-            totalBytes = release.size, skipped = false) }
         syncDownload()
         if (state.value.downloading) poll()
     }
@@ -201,14 +199,19 @@ internal object NativeAppUpdates {
     private fun poll() {
         if (pollJob?.isActive == true) return
         pollJob = launchTask {
-            while (isActive && state.value.downloading) { syncDownload(); delay(1000) }
+            while (currentCoroutineContext().isActive && state.value.downloading) { syncDownload(); delay(1000) }
         }
     }
 
     suspend fun syncDownload() = downloadMutex.withLock {
         val id = prefs.getLong("download_id", -1)
         if (id < 0) return@withLock
-        val release = cached("download_release") ?: return@withLock
+        val release = cached("download_release")
+        if (release == null) {
+            cancelDownloadLocked()
+            mutableState.update { it.copy(phase = NativeUpdatePhase.FAILED, error = context.getString(R.string.native_update_invalid_apk)) }
+            return@withLock
+        }
         if (!NativeUpdatePolicy.newer(release, BuildConfig.VERSION_CODE, BuildConfig.UPDATE_COMMIT, BuildConfig.UPDATE_BUILT_AT)) {
             cancelDownloadLocked()
             return@withLock
@@ -273,12 +276,22 @@ internal object NativeAppUpdates {
 
     suspend fun installationFile(): File = downloadMutex.withLock {
         check(state.value.phase == NativeUpdatePhase.READY)
-        verify(requireNotNull(state.value.release))
+        try { verify(requireNotNull(state.value.release)) }
+        catch (error: Exception) {
+            cancelDownloadLocked()
+            mutableState.update { it.copy(phase = NativeUpdatePhase.FAILED, error = error.message ?: error.javaClass.simpleName) }
+            throw error
+        }
     }
 
     private fun notifyRelease(release: NativeAppRelease, ready: Boolean) {
-        if (state.value.skipped) return
-        val key = if (ready) "ready_notified" else "notified"
+        runCatching { notifyReleaseIfAllowed(release, ready) }
+            .onFailure { android.util.Log.w("AppUpdates", "Update notification unavailable", it) }
+    }
+
+    private fun notifyReleaseIfAllowed(release: NativeAppRelease, ready: Boolean) {
+        if (state.value.skipped || state.value.release?.identity != release.identity) return
+        val key = "${if (ready) "ready_notified" else "notified"}_${release.channel.name}"
         if (!NativeUpdatePolicy.notify(release.identity, prefs.getString("skip_${release.channel.name}", null), prefs.getString(key, null))) return
         val manager = NotificationManagerCompat.from(context)
         if (!manager.areNotificationsEnabled()) return
