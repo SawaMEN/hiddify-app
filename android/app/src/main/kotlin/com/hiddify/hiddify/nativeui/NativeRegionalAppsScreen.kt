@@ -113,13 +113,24 @@ fun NativeRegionalAppsScreen(
             if (busy) item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
             if (kind == NativeRegionalAppKind.PROXY) {
                 item {
-                    NativeTextButton(enabled = canChange,
-                        modifier = Modifier.fillMaxWidth(), onClick = {
-                            search = ""
-                            serviceSearch = ""
-                            onReset()
-                        }) {
-                        Text(stringResource(R.string.native_regional_clear_all))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        NativeTextButton(enabled = canChange,
+                            modifier = Modifier.weight(1f), onClick = {
+                                search = ""
+                                serviceSearch = ""
+                                onReset()
+                            }) {
+                            Text(stringResource(R.string.native_regional_clear_all))
+                        }
+                        NativeTextButton(enabled = canChange,
+                            modifier = Modifier.weight(1f), onClick = {
+                                search = ""
+                                serviceSearch = ""
+                                onSave(com.hiddify.hiddify.privacy.NativeRegionalAppChoices(
+                                    packages = emptySet(), services = emptySet(), domains = ""))
+                            }) {
+                            Text(stringResource(R.string.native_regional_uncheck_all))
+                        }
                     }
                 }
                 item {

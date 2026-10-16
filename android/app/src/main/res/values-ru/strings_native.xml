@@ -694,6 +694,7 @@
 
     <string name="native_blocked_apps_title">Приложения через VPN</string>
     <string name="native_regional_clear_all">Сбросить всё</string>
+    <string name="native_regional_uncheck_all">Сбросить все</string>
     <string name="native_network_saved">Сохранённая настройка</string>
     <string name="native_network_hide">Скрыть дополнительные настройки</string>
     <string name="native_tls_random_browser">Случайный браузер</string>
