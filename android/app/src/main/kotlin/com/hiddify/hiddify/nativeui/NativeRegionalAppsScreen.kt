@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -49,45 +50,60 @@ fun NativeRegionalAppsScreen(
     var serviceDraft by rememberSaveable(kind, stateSaver = NativeNullableStringListDraftSaver) { mutableStateOf<List<String>?>(null) }
     var networkDraft by rememberSaveable(kind) { mutableStateOf<Boolean?>(null) }
     var domainsDraft by rememberSaveable(kind) { mutableStateOf<String?>(null) }
-    LaunchedEffect(kind) { if (snapshot == null && !busy) onReload() }
+    var loadRequested by remember(kind) { mutableStateOf(false) }
+    LaunchedEffect(kind, busy) {
+        if (snapshot == null && !busy && !loadRequested) {
+            loadRequested = true
+            onReload()
+        }
+    }
     var appliedRevision by rememberSaveable(kind) { mutableStateOf(revision) }
     LaunchedEffect(revision) {
         if (revision > 0 && revision != appliedRevision) { draft = null; serviceDraft = null; networkDraft = null; domainsDraft = null }
         appliedRevision = revision
     }
-    val serviceIds = serviceDraft?.toSet() ?: snapshot?.selectedServices.orEmpty()
+    val serviceIds = remember(serviceDraft, snapshot) { serviceDraft?.toSet() ?: snapshot?.selectedServices.orEmpty() }
     val services = snapshot?.services.orEmpty()
-    val installedPackages = snapshot?.apps.orEmpty().filter { it.packageName !in snapshot?.missing.orEmpty() }
-        .map { it.packageName }.toSet()
-    val legacyExtras = snapshot?.selected.orEmpty() - com.hiddify.hiddify.privacy.NativeRegionalServices.packages(
-        services, snapshot?.selectedServices.orEmpty()).toSet()
-    val configuredSelected = draft?.toSet() ?: if (serviceDraft != null && snapshot?.manual == false)
-        com.hiddify.hiddify.privacy.NativeRegionalServices.packages(services, serviceIds)
-            .filter { it in installedPackages }.toSet() + legacyExtras
-        else snapshot?.selected.orEmpty()
-    val selected = if (kind == NativeRegionalAppKind.PROXY) configuredSelected.intersect(installedPackages)
-        else configuredSelected
+    val installedPackages = remember(snapshot) {
+        snapshot?.apps.orEmpty().filter { it.packageName !in snapshot?.missing.orEmpty() }
+            .mapTo(hashSetOf()) { it.packageName }
+    }
+    val legacyExtras = remember(snapshot) {
+        snapshot?.selected.orEmpty() - com.hiddify.hiddify.privacy.NativeRegionalServices.packages(
+            services, snapshot?.selectedServices.orEmpty()).toSet()
+    }
+    val selected = remember(kind, snapshot, draft, serviceDraft) {
+        val configured = draft?.toSet() ?: if (serviceDraft != null && snapshot?.manual == false)
+            com.hiddify.hiddify.privacy.NativeRegionalServices.packages(services, serviceIds)
+                .filter { it in installedPackages }.toSet() + legacyExtras
+            else snapshot?.selected.orEmpty()
+        if (kind == NativeRegionalAppKind.PROXY) configured.intersect(installedPackages) else configured
+    }
     val query = search.trim()
     val serviceQuery = serviceSearch.trim()
-    val servicesMatchingSearch = services.filter { service ->
-        val term = serviceQuery
-        service.name.contains(term, ignoreCase = true) ||
-            service.id.contains(term, ignoreCase = true) ||
-            service.domains.any { it.contains(term, ignoreCase = true) }
+    val servicesMatchingSearch = remember(services, serviceQuery) {
+        services.filter { service ->
+            service.name.contains(serviceQuery, ignoreCase = true) ||
+                service.id.contains(serviceQuery, ignoreCase = true) ||
+                service.domains.any { it.contains(serviceQuery, ignoreCase = true) }
+        }
     }
-    val allServiceDomains = services.flatMap { it.domains }.toSet()
-    val selectedServiceDomains = services.filter { it.id in serviceIds }.flatMap { it.domains }.toSet()
+    val allServiceDomains = remember(services) { services.flatMap { it.domains }.toSet() }
+    val selectedServiceDomains = remember(services, serviceIds) {
+        services.filter { it.id in serviceIds }.flatMap { it.domains }.toSet()
+    }
 
-    val loadedApps = snapshot?.apps.orEmpty()
-    val additionalMissing = selected - loadedApps.map { it.packageName }.toSet()
-    val missing = snapshot?.missing.orEmpty() + additionalMissing
-    val availableApps = loadedApps + additionalMissing.map { NativeInstalledApp(it, it, false) }
-    // The catalogue suggests defaults; it must not restrict which installed apps can be chosen.
-    val listedApps = if (kind == NativeRegionalAppKind.PROXY)
-        availableApps.filter { it.packageName !in missing }
-    else availableApps
-    val visible = listedApps.filter {
-        it.label.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true)
+    val unavailableSelection = if (kind == NativeRegionalAppKind.DIRECT) selected else emptySet()
+    val (missing, listedApps) = remember(kind, snapshot, unavailableSelection) {
+        val loadedApps = snapshot?.apps.orEmpty()
+        val additionalMissing = unavailableSelection - loadedApps.mapTo(hashSetOf()) { it.packageName }
+        val missing = snapshot?.missing.orEmpty() + additionalMissing
+        val available = loadedApps + additionalMissing.map { NativeInstalledApp(it, it, false) }
+        // The catalogue suggests defaults; it must not restrict installed app choices.
+        missing to if (kind == NativeRegionalAppKind.PROXY) available.filter { it.packageName !in missing } else available
+    }
+    val visible = remember(listedApps, query) {
+        listedApps.filter { it.label.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true) }
     }
     val canChange = !busy && snapshot != null
     val network = networkDraft ?: snapshot?.russianNetworkBypass ?: true
@@ -98,10 +114,12 @@ fun NativeRegionalAppsScreen(
         russianNetworkBypass = if (kind == NativeRegionalAppKind.DIRECT) networkDraft else null,
         domains = domainsDraft,
     )
-    val valid = runCatching {
-        com.hiddify.hiddify.privacy.NativeRegionalServices.options(
-            com.hiddify.hiddify.privacy.NativeRegionalOptions(), kind, choices)
-    }.isSuccess
+    val valid = remember(kind, networkDraft, domainsDraft) {
+        runCatching {
+            com.hiddify.hiddify.privacy.NativeRegionalServices.options(
+                com.hiddify.hiddify.privacy.NativeRegionalOptions(), kind, choices)
+        }.isSuccess
+    }
 
 
     Column(Modifier.fillMaxSize()) {

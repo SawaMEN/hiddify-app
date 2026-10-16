@@ -52,21 +52,27 @@ class NativeRegionalRepository(private val context: Context) {
     }
 
     fun applicationSnapshot(kind: NativeRegionalAppKind): NativeRegionalAppSnapshot {
-        val policy = RegionalRouting.policy(context)
-        val stored = if (kind == NativeRegionalAppKind.DIRECT) Settings.privacyDirectPackages else Settings.privacyProxyPackages
-        val selection = NativeRegionalPackages.selection(stored, emptyList())
-        val key = if (kind == NativeRegionalAppKind.DIRECT) "privacy-configured-direct-packages" else "privacy-configured-proxy-packages"
-        val configured = (policy[key] as? List<*>)?.filterIsInstance<String>().orEmpty()
-        // Keep uninstalled manual/legacy choices; automatic defaults reflect packages present on this device.
-        val selected = (if (selection.manual) selection.values else configured + selection.values)
-            .filterNot { it == context.packageName }.toSet()
         val installed = NativeInstalledApps(context).load().filter { it.packageName != "android" }
-        val services = if (kind == NativeRegionalAppKind.PROXY) RegionalRouting.serviceCatalogue(context) else emptyList()
+        val installedPackages = installed.mapTo(hashSetOf()) { it.packageName }
+        val catalogue = RegionalRouting.serviceCatalogue(context)
+        val serviceSelection = NativeRegionalServices.selection(Settings.privacyProxyServices, catalogue)
+        val directStored = Settings.privacyDirectPackages
+        val proxyStored = Settings.privacyProxyPackages
+        val directSelection = NativeRegionalPackages.selection(directStored, RegionalRouting.directPackageCatalogue(context))
+        val proxySelection = NativeRegionalPackages.selection(proxyStored, NativeRegionalServices.packages(catalogue, serviceSelection))
+        val stored = if (kind == NativeRegionalAppKind.DIRECT) directStored else proxyStored
+        val selection = NativeRegionalPackages.selection(stored, emptyList())
+        val candidates = if (kind == NativeRegionalAppKind.DIRECT)
+            NativeRegionalPackages.directCandidates(directSelection, proxySelection) else proxySelection.values
+        // Keep uninstalled manual/legacy choices; automatic defaults reflect packages present on this device.
+        val selected = NativeRegionalPackages.pickerSelection(stored, candidates, installedPackages)
+            .filterNot { it == context.packageName }.toSet()
+        val services = if (kind == NativeRegionalAppKind.PROXY) catalogue else emptyList()
         val apps = NativeRegionalApplications.rows(installed, selected, includeMissing = kind == NativeRegionalAppKind.DIRECT)
             .filterNot { it.packageName == context.packageName }
-        val missing = apps.map { it.packageName }.toSet() - installed.map { it.packageName }.toSet()
+        val missing = apps.map { it.packageName }.toSet() - installedPackages
         val selectedServices = if (kind == NativeRegionalAppKind.PROXY)
-            NativeRegionalServices.selection(Settings.privacyProxyServices, services) else emptySet()
+            serviceSelection else emptySet()
         val rows = services + (selectedServices - services.map { it.id }.toSet()).map {
             NativeRegionalService(it, it, emptyList(), emptyList())
         }

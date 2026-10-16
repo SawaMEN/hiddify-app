@@ -4,6 +4,27 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeRegionalPackagesTest {
+    @Test fun pickerRetainsManualAndLegacyMissingChoicesButOnlySuggestsInstalledDefaults() {
+        val installed = (1..1000).map { "com.example.app$it" }.toSet()
+        val candidates = listOf("com.example.app1", "com.example.absent")
+        assertEquals(setOf("com.example.app1"), NativeRegionalPackages.pickerSelection("", candidates, installed))
+        assertEquals(setOf("com.example.app1", "com.example.legacy"),
+            NativeRegionalPackages.pickerSelection("com.example.legacy", candidates, installed))
+        assertEquals(setOf("com.example.absent"),
+            NativeRegionalPackages.pickerSelection("manual:com.example.absent", candidates, installed))
+        assertTrue(NativeRegionalPackages.pickerSelection("manual:", candidates, installed).isEmpty())
+    }
+
+    @Test fun sharedDirectCandidateRulePreservesAllAutomaticAndManualConflictCases() {
+        val direct = listOf("com.example.shared", "com.example.bank")
+        val proxy = listOf("com.example.shared", "com.example.chat")
+        for (directManual in listOf(false, true)) for (proxyManual in listOf(false, true)) {
+            assertEquals(if (proxyManual && !directManual) listOf("com.example.bank") else direct,
+                NativeRegionalPackages.directCandidates(NativePackageSelection(directManual, direct),
+                    NativePackageSelection(proxyManual, proxy)))
+        }
+    }
+
     @Test fun manualEmptyAndAutomaticEmptyAreDifferent() {
         val defaults = listOf("com.example.default")
         assertEquals(NativePackageSelection(true, emptyList()), NativeRegionalPackages.selection("manual:", defaults))

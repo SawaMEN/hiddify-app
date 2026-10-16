@@ -11,6 +11,19 @@ import com.hiddify.hiddify.Application as BoxApplication
 
 class Application : Application() {
 
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            com.hiddify.hiddify.nativeui.clearNativeInstalledAppIcons()
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onLowMemory() {
+        super.onLowMemory()
+        com.hiddify.hiddify.nativeui.clearNativeInstalledAppIcons()
+    }
+
     override fun attachBaseContext(base: Context?) {
         super.attachBaseContext(base)
         application = this

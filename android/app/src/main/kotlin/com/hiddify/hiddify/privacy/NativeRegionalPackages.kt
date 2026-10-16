@@ -8,6 +8,20 @@ data class NativeRegionalPackageValues(val direct: String, val proxy: String)
 object NativeRegionalPackages {
     const val MANUAL_PREFIX = "manual:"
 
+    /** Manual VPN choices override automatic direct suggestions; manual direct choices win ties. */
+    fun directCandidates(direct: NativePackageSelection, proxy: NativePackageSelection): List<String> =
+        if (proxy.manual && !direct.manual) {
+            val proxyPackages = proxy.values.toSet()
+            direct.values.filterNot { it in proxyPackages }
+        } else direct.values
+
+    /** Build a picker selection without constructing the VPN policy or querying package UIDs. */
+    fun pickerSelection(stored: String, candidates: List<String>, installed: Set<String>): Set<String> {
+        val selection = selection(stored, emptyList())
+        return if (selection.manual) selection.values.toSet()
+        else candidates.filterTo(linkedSetOf()) { it in installed } + selection.values
+    }
+
     fun selection(stored: String, automatic: List<String>): NativePackageSelection =
         if (stored.startsWith(MANUAL_PREFIX)) {
             NativePackageSelection(true, NativeRoutingTokens.parse(stored.removePrefix(MANUAL_PREFIX), false))

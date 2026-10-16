@@ -15,6 +15,7 @@ object RegionalRouting {
     }
 
     fun serviceCatalogue(context: Context): List<NativeRegionalService> = catalogue(context).services
+    internal fun directPackageCatalogue(context: Context): List<String> = catalogue(context).directPackages
 
     fun policy(context: Context, options: NativeRegionalOptions? = null, packages: NativeRegionalPackageValues? = null, servicesStored: String? = null, fullTunnel: Boolean = Settings.privacyFullTunnel, handbookRouting: Boolean = Settings.handbookRouting): Map<String, Any> {
         val selected = options ?: NativeRegionalOptions(
@@ -46,9 +47,7 @@ object RegionalRouting {
 
         // A manually selected restricted service can override an automatic Russian-app suggestion.
         // If both sides are manual, direct routing wins while both switches are enabled.
-        val directCandidates = if (proxySelection.manual && !directSelection.manual) {
-            directSelection.values.filterNot { it in proxySelection.values }
-        } else directSelection.values
+        val directCandidates = NativeRegionalPackages.directCandidates(directSelection, proxySelection)
         val configuredDirect = installed(directCandidates)
         val configuredProxy = installed(proxySelection.values)
 
