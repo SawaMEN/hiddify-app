@@ -43,6 +43,10 @@ data class NativeRegionalOptions(
 ) {
     val russianAppsBypass: Boolean get() = mode == NativeRegionalMode.RUSSIAN_BYPASS
     val restrictedServicesProxy: Boolean get() = mode != NativeRegionalMode.OFF
+    // Selected-services mode already sends all other traffic direct. A higher-priority
+    // Russian-network exception would instead leak selected apps/domains outside VPN.
+    val russianNetworkBypassActive: Boolean
+        get() = russianNetworkBypass && mode != NativeRegionalMode.SELECTED_PROXY
 
     fun validated(): NativeRegionalOptions {
         require(directDomains.length <= 8192 && proxyDomains.length <= 8192) { "Domain list exceeds 8192 characters" }

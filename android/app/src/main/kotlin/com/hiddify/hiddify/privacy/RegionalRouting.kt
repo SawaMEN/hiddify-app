@@ -25,7 +25,7 @@ object RegionalRouting {
         )
         val effective = selected.withMode(selected.effectiveMode(fullTunnel, handbookRouting))
         val mode = effective.mode.value
-        val networkBypass = selected.russianNetworkBypass
+        val networkBypass = effective.russianNetworkBypassActive
         val catalogue = catalogue(context)
         val version = catalogue.version
         val automaticDirect = catalogue.directPackages

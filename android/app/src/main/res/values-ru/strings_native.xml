@@ -274,7 +274,7 @@
     <string name="native_regional_apps_reset">Сбросить к встроенному автовыбору</string>
 
     <string name="native_regional_apps_empty">Подходящих приложений нет</string>
-    <string name="native_regional_apps_missing">Не установлено или недоступно; сохранённый выбор сохраняется</string>
+    <string name="native_regional_apps_missing">Не установлено или недоступно</string>
     <string name="native_regional_apps_saved">Настройки маршрутизации сохранены. Переподключите VPN для применения.</string>
     <string name="native_regional_apps_save_first">Сохраните изменения маршрутизации перед выбором приложений.</string>
     <string name="native_wifi_permission_denied">Не предоставлено разрешение для точки Wi-Fi.</string>
@@ -514,7 +514,7 @@
     <string name="native_privacy_public">Публичный DNS в сведениях о сети</string>
     <string name="native_privacy_public_summary">Показывает публичный DNS вместо внутреннего адреса туннеля; запросы всё равно перехватывает ядро.</string>
     <string name="native_privacy_direct_network">Российские домены и IP напрямую</string>
-    <string name="native_privacy_direct_network_summary">Высший приоритет: российские домены и IP идут напрямую во всех режимах, включая списки сообщества и полный туннель.</string>
+    <string name="native_privacy_direct_network_summary">Российские домены и IP идут напрямую с высшим приоритетом. В режиме «Заблокированные сервисы через VPN» эта настройка не применяется: выбранные сервисы идут через VPN, остальное — напрямую.</string>
     <string name="native_privacy_system_proxy">Не объявлять системный HTTP-прокси</string>
     <string name="native_privacy_system_proxy_summary">Не добавляет HTTP-прокси в сведения о VPN-сети.</string>
     <string name="native_qr_permission_denied">Доступ запрещен</string>

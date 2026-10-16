@@ -80,7 +80,7 @@ fun NativeRegionalAppsScreen(
     val additionalMissing = selected - loadedApps.map { it.packageName }.toSet()
     val missing = snapshot?.missing.orEmpty() + additionalMissing
     val availableApps = loadedApps + additionalMissing.map { NativeInstalledApp(it, it, false) }
-    // Default to known blocked-service apps while keeping search across all installed apps.
+    // Include uninstalled catalogue apps; search also covers other installed apps.
     // Explicitly chosen custom apps stay visible even if they are not in the catalogue.
     val servicePackages = services.flatMap { it.packages }.toSet()
     val listedApps = if (kind == NativeRegionalAppKind.PROXY)

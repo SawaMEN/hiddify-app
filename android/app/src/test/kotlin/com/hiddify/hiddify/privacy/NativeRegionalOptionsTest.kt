@@ -4,6 +4,21 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeRegionalOptionsTest {
+    @Test fun selectedServicesCannotBeOverriddenBySavedRussianNetworkBypass() {
+        for (saved in listOf(false, true)) {
+            val selected = NativeRegionalOptions(mode = NativeRegionalMode.SELECTED_PROXY,
+                russianNetworkBypass = saved)
+            assertFalse(selected.russianNetworkBypassActive)
+            // Preserve the saved preference when switching back to other routing modes.
+            for (mode in listOf(NativeRegionalMode.RUSSIAN_BYPASS, NativeRegionalMode.OFF))
+                assertEquals(saved, selected.withMode(mode).russianNetworkBypassActive)
+            for ((full, community) in listOf(true to false, false to true)) {
+                val effective = selected.withMode(selected.effectiveMode(full, community))
+                assertEquals(saved, effective.russianNetworkBypassActive)
+            }
+        }
+    }
+
     @Test fun defaultsMatchCompatibilityUi() {
         val value = NativeRegionalOptions()
         assertEquals(NativeRegionalMode.RUSSIAN_BYPASS, value.mode)

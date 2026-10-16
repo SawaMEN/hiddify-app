@@ -61,11 +61,10 @@ class NativeRegionalRepository(private val context: Context) {
         val selected = (if (selection.manual) selection.values else configured + selection.values)
             .filterNot { it == context.packageName }.toSet()
         val installed = NativeInstalledApps(context).load().filter { it.packageName != "android" }
-        val missing = selected - installed.map { it.packageName }.toSet()
-        val apps = (installed + missing.map { NativeInstalledApp(it, it, false) })
-            .sortedWith(compareByDescending<NativeInstalledApp> { it.packageName in selected }
-                .thenBy(String.CASE_INSENSITIVE_ORDER) { it.label }.thenBy { it.packageName })
         val services = if (kind == NativeRegionalAppKind.PROXY) RegionalRouting.serviceCatalogue(context) else emptyList()
+        val apps = NativeRegionalApplications.rows(installed, services, selected)
+            .filterNot { it.packageName == context.packageName }
+        val missing = apps.map { it.packageName }.toSet() - installed.map { it.packageName }.toSet()
         val selectedServices = if (kind == NativeRegionalAppKind.PROXY)
             NativeRegionalServices.selection(Settings.privacyProxyServices, services) else emptySet()
         val rows = services + (selectedServices - services.map { it.id }.toSet()).map {

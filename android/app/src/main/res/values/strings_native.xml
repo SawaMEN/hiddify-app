@@ -274,7 +274,7 @@
     <string name="native_regional_apps_reset">Reset to bundled automatic selection</string>
 
     <string name="native_regional_apps_empty">No matching applications</string>
-    <string name="native_regional_apps_missing">Not installed or unavailable; saved choice retained</string>
+    <string name="native_regional_apps_missing">Not installed or unavailable</string>
     <string name="native_regional_apps_saved">Routing choices saved. Reconnect the VPN to apply.</string>
     <string name="native_regional_apps_save_first">Save routing changes before opening application selection.</string>
     <string name="native_wifi_permission_denied">Wi-Fi hotspot permission was declined.</string>
@@ -514,7 +514,7 @@
     <string name="native_privacy_public">Public DNS in network information</string>
     <string name="native_privacy_public_summary">Shows a public DNS address instead of the tunnel address; the core still intercepts DNS queries.</string>
     <string name="native_privacy_direct_network">Russian domains and IPs direct</string>
-    <string name="native_privacy_direct_network_summary">Highest priority: Russian domains and IPs go direct in every mode, including community lists and full tunnel.</string>
+    <string name="native_privacy_direct_network_summary">Russian domains and IPs go direct with highest priority. This setting does not apply in Blocked services through VPN mode: selected services use the VPN and everything else goes direct.</string>
     <string name="native_privacy_system_proxy">Disable system HTTP proxy</string>
     <string name="native_privacy_system_proxy_summary">Does not advertise an HTTP proxy on the VPN network.</string>
     <string name="native_qr_permission_denied">Permission denied</string>
