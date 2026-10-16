@@ -62,7 +62,7 @@ class NativeRegionalRepository(private val context: Context) {
             .filterNot { it == context.packageName }.toSet()
         val installed = NativeInstalledApps(context).load().filter { it.packageName != "android" }
         val services = if (kind == NativeRegionalAppKind.PROXY) RegionalRouting.serviceCatalogue(context) else emptyList()
-        val apps = NativeRegionalApplications.rows(installed, services, selected)
+        val apps = NativeRegionalApplications.rows(installed, selected, includeMissing = kind == NativeRegionalAppKind.DIRECT)
             .filterNot { it.packageName == context.packageName }
         val missing = apps.map { it.packageName }.toSet() - installed.map { it.packageName }.toSet()
         val selectedServices = if (kind == NativeRegionalAppKind.PROXY)

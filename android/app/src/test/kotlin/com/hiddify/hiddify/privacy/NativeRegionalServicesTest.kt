@@ -5,6 +5,21 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeRegionalServicesTest {
+    @Test fun clearingAllProxyChoicesPersistsEmptyListsInsteadOfRestoringSuggestions() {
+        val current = NativeRegionalPackageValues("manual:com.example.bank", "manual:com.example.chat")
+        val choices = NativeRegionalAppChoices(packages = emptySet(), services = emptySet(), domains = "")
+        val changes = NativeRegionalServices.changes(current, "manual:chat", NativeRegionalAppKind.PROXY, choices)
+        assertEquals(current.direct, changes["flutter.privacy-direct-packages"])
+        val packages = changes.getValue("flutter.privacy-proxy-packages")
+        assertEquals("manual:", packages)
+        assertTrue(NativeRegionalPackages.selection(packages, listOf("com.example.chat")).values.isEmpty())
+        val services = NativeRegionalServices.catalogue(fixture)
+        assertTrue(NativeRegionalServices.selection(changes.getValue("flutter.privacy-proxy-services"), services).isEmpty())
+        val options = NativeRegionalOptions(mode = NativeRegionalMode.SELECTED_PROXY,
+            directDomains = "bank.example", proxyDomains = "chat.example")
+        assertEquals(options.copy(proxyDomains = ""), NativeRegionalServices.options(options, NativeRegionalAppKind.PROXY, choices))
+    }
+
     private val fixture = """{"proxyServices":[
         {"id":"video","name":"Video","packages":["com.example.video"],"domains":["video.example","cdn.example"]},
         {"id":"chat","name":"Chat","packages":["com.example.chat"],"domains":["chat.example","cdn.example"]}]}"""

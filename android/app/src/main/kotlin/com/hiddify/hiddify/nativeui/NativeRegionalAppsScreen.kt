@@ -61,10 +61,12 @@ fun NativeRegionalAppsScreen(
         .map { it.packageName }.toSet()
     val legacyExtras = snapshot?.selected.orEmpty() - com.hiddify.hiddify.privacy.NativeRegionalServices.packages(
         services, snapshot?.selectedServices.orEmpty()).toSet()
-    val selected = draft?.toSet() ?: if (serviceDraft != null && snapshot?.manual == false)
+    val configuredSelected = draft?.toSet() ?: if (serviceDraft != null && snapshot?.manual == false)
         com.hiddify.hiddify.privacy.NativeRegionalServices.packages(services, serviceIds)
             .filter { it in installedPackages }.toSet() + legacyExtras
         else snapshot?.selected.orEmpty()
+    val selected = if (kind == NativeRegionalAppKind.PROXY) configuredSelected.intersect(installedPackages)
+        else configuredSelected
     val query = search.trim()
     val serviceQuery = serviceSearch.trim()
     val servicesMatchingSearch = services.filter { service ->
@@ -80,13 +82,11 @@ fun NativeRegionalAppsScreen(
     val additionalMissing = selected - loadedApps.map { it.packageName }.toSet()
     val missing = snapshot?.missing.orEmpty() + additionalMissing
     val availableApps = loadedApps + additionalMissing.map { NativeInstalledApp(it, it, false) }
-    // Include uninstalled catalogue apps; search also covers other installed apps.
-    // Explicitly chosen custom apps stay visible even if they are not in the catalogue.
-    val servicePackages = services.flatMap { it.packages }.toSet()
+    // The catalogue suggests defaults; it must not restrict which installed apps can be chosen.
     val listedApps = if (kind == NativeRegionalAppKind.PROXY)
-        availableApps.filter { it.packageName in servicePackages || it.packageName in selected }
+        availableApps.filter { it.packageName !in missing }
     else availableApps
-    val visible = (if (kind == NativeRegionalAppKind.PROXY && query.isNotEmpty()) availableApps else listedApps).filter {
+    val visible = listedApps.filter {
         it.label.contains(query, ignoreCase = true) || it.packageName.contains(query, ignoreCase = true)
     }
     val canChange = !busy && snapshot != null
@@ -206,7 +206,7 @@ fun NativeRegionalAppsScreen(
                     Checkbox(checked = checked, enabled = enabled, onCheckedChange = { toggle() })
                 }
             }
-            if (snapshot != null && (snapshot.manual || snapshot.servicesManual)) {
+            if (kind == NativeRegionalAppKind.DIRECT && snapshot != null && (snapshot.manual || snapshot.servicesManual)) {
                 item {
                     NativeTextButton(enabled = canChange, onClick = onReset) {
                         Text(stringResource(R.string.native_regional_apps_reset))
@@ -214,10 +214,22 @@ fun NativeRegionalAppsScreen(
                 }
             }
         }
+        if (kind == NativeRegionalAppKind.PROXY) {
+            NativeTextButton(enabled = canChange &&
+                (selected.isNotEmpty() || serviceIds.isNotEmpty() || domains.isNotBlank()),
+                modifier = Modifier.fillMaxWidth(), onClick = {
+                    draft = emptyList()
+                    serviceDraft = emptyList()
+                    domainsDraft = ""
+                }) {
+                Text(stringResource(R.string.native_regional_clear_all))
+            }
+        }
         Button(enabled = canChange && valid && selected.size <= 256 &&
             (draft != null || serviceDraft != null || networkDraft != null || domainsDraft != null),
             modifier = Modifier.fillMaxWidth(), onClick = { onSave(choices) }) {
-            Text(stringResource(R.string.native_regional_save))
+            Text(stringResource(if (kind == NativeRegionalAppKind.PROXY)
+                R.string.native_community_apply else R.string.native_regional_save))
         }
     }
 }
