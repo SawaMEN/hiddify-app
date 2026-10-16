@@ -5,6 +5,26 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeRegionalServicesTest {
+    @Test fun resetRestoresAllServicesAndSuggestedAppsAfterSelectingEveryAppAndDeselectingServices() {
+        val services = NativeRegionalServices.catalogue(fixture)
+        val current = NativeRegionalPackageValues("manual:com.example.bank",
+            "manual:com.example.video,com.example.chat,com.example.browser")
+        val choices = NativeRegionalAppChoices(reset = true)
+        for (previousServices in listOf("manual:chat", "manual:")) {
+            val changes = NativeRegionalServices.changes(current, previousServices, NativeRegionalAppKind.PROXY, choices)
+            val restoredServices = NativeRegionalServices.selection(changes.getValue("flutter.privacy-proxy-services"), services)
+            assertEquals(setOf("video", "chat"), restoredServices)
+            val packages = NativeRegionalPackages.selection(changes.getValue("flutter.privacy-proxy-packages"),
+                NativeRegionalServices.packages(services, restoredServices))
+            assertFalse(packages.manual)
+            assertEquals(setOf("com.example.video", "com.example.chat"), packages.values.toSet())
+            assertEquals(current.direct, changes["flutter.privacy-direct-packages"])
+        }
+        val options = NativeRegionalOptions(mode = NativeRegionalMode.SELECTED_PROXY,
+            russianNetworkBypass = false, directDomains = "bank.example", proxyDomains = "custom.example")
+        assertEquals(options.copy(proxyDomains = ""), NativeRegionalServices.options(options, NativeRegionalAppKind.PROXY, choices))
+    }
+
     @Test fun clearingAllProxyChoicesPersistsEmptyListsInsteadOfRestoringSuggestions() {
         val current = NativeRegionalPackageValues("manual:com.example.bank", "manual:com.example.chat")
         val choices = NativeRegionalAppChoices(packages = emptySet(), services = emptySet(), domains = "")

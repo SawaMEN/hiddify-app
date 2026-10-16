@@ -48,6 +48,19 @@ data class NativeRegionalOptions(
     val russianNetworkBypassActive: Boolean
         get() = russianNetworkBypass && mode != NativeRegionalMode.SELECTED_PROXY
 
+    /** Core route and DNS network inputs, after applying the effective routing mode. */
+    fun networkPolicy(builtInDirectDomains: List<String>): Map<String, Any> {
+        val bypass = russianNetworkBypassActive
+        val domains = if (bypass || mode == NativeRegionalMode.RUSSIAN_BYPASS)
+            NativeRoutingTokens.merge(if (bypass) builtInDirectDomains else emptyList(), directDomains, true)
+        else emptyList()
+        return mapOf(
+            "region" to if (bypass) "ru" else "other",
+            "privacy-russian-network-bypass" to bypass,
+            "privacy-direct-domains" to domains,
+        )
+    }
+
     fun validated(): NativeRegionalOptions {
         require(directDomains.length <= 8192 && proxyDomains.length <= 8192) { "Domain list exceeds 8192 characters" }
         fun domains(value: String): String {

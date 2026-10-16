@@ -113,12 +113,11 @@ fun NativeRegionalAppsScreen(
             if (busy) item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
             if (kind == NativeRegionalAppKind.PROXY) {
                 item {
-                    NativeTextButton(enabled = canChange &&
-                        (selected.isNotEmpty() || serviceIds.isNotEmpty() || domains.isNotBlank()),
+                    NativeTextButton(enabled = canChange,
                         modifier = Modifier.fillMaxWidth(), onClick = {
-                            draft = emptyList()
-                            serviceDraft = emptyList()
-                            domainsDraft = ""
+                            search = ""
+                            serviceSearch = ""
+                            onReset()
                         }) {
                         Text(stringResource(R.string.native_regional_clear_all))
                     }

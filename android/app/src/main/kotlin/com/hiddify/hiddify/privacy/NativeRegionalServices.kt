@@ -74,7 +74,7 @@ object NativeRegionalServices {
         return (if (kind == NativeRegionalAppKind.DIRECT) current.copy(
             russianNetworkBypass = choices.russianNetworkBypass ?: current.russianNetworkBypass,
             directDomains = choices.domains ?: current.directDomains,
-        ) else current.copy(proxyDomains = choices.domains ?: current.proxyDomains)).validated()
+        ) else current.copy(proxyDomains = if (choices.reset) "" else choices.domains ?: current.proxyDomains)).validated()
     }
 
     private fun validate(ids: Set<String>) {

@@ -25,7 +25,6 @@ object RegionalRouting {
         )
         val effective = selected.withMode(selected.effectiveMode(fullTunnel, handbookRouting))
         val mode = effective.mode.value
-        val networkBypass = effective.russianNetworkBypassActive
         val catalogue = catalogue(context)
         val version = catalogue.version
         val automaticDirect = catalogue.directPackages
@@ -66,18 +65,10 @@ object RegionalRouting {
             }.distinct()
         } else emptyList()
 
-        val builtInDirectDomains = if (networkBypass) {
-            catalogue.directDomains
-        } else emptyList()
-        val directDomains = if (networkBypass || effective.mode == NativeRegionalMode.RUSSIAN_BYPASS)
-            merged(builtInDirectDomains, selected.directDomains, true) else emptyList()
         val proxyDomains = if (effective.restrictedServicesProxy)
             merged(NativeRegionalServices.domains(services, selectedServices), selected.proxyDomains, true) else emptyList()
 
         val regionalPolicy = mapOf<String, Any>(
-            // Force the generic core region internally. The old user-facing region selector is gone.
-            // ru enables the existing geoip/geosite + .ru path; other disables it.
-            "region" to if (networkBypass) "ru" else "other",
             "wifi-vpn-sharing" to Settings.wifiVpnSharing,
             "handbook-routing" to handbookRouting,
             "handbook-proxy" to Settings.handbookProxy,
@@ -86,7 +77,6 @@ object RegionalRouting {
             "handbook-direct-sites" to Settings.handbookDirectSites,
             "privacy-routing-mode" to mode,
             "privacy-catalogue-version" to version,
-            "privacy-russian-network-bypass" to networkBypass,
             "privacy-russian-apps-bypass" to effective.russianAppsBypass,
             "privacy-restricted-services-proxy" to effective.restrictedServicesProxy,
             "privacy-selected-services" to if (effective.restrictedServicesProxy)
@@ -99,12 +89,11 @@ object RegionalRouting {
             "privacy-default-proxy-packages" to defaultProxy,
             "privacy-direct-packages-manual" to directSelection.manual,
             "privacy-proxy-packages-manual" to proxySelection.manual,
-            "privacy-direct-domains" to directDomains,
             "privacy-proxy-domains" to proxyDomains,
             "privacy-root" to Settings.privacyUseRoot,
             "privacy-root-exclude-uids" to (listOf(0, context.applicationInfo.uid) + if (mode == "ru-bypass" || mode == "proxy-selected") directUids else emptySet<Int>()),
             "privacy-root-table" to Settings.rootRouteTable,
         )
-        return regionalPolicy + NetworkPrivacySettings.policy(context)
+        return regionalPolicy + effective.networkPolicy(catalogue.directDomains) + NetworkPrivacySettings.policy(context)
     }
 }

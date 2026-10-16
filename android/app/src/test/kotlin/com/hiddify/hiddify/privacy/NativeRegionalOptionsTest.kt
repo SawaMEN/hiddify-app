@@ -4,6 +4,33 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeRegionalOptionsTest {
+    @Test fun selectedServicesGenerateIdenticalCoreNetworkInputsForEitherRussianDomainSetting() {
+        val options = NativeRegionalOptions(mode = NativeRegionalMode.SELECTED_PROXY,
+            directDomains = "selected.example.ru", proxyDomains = "selected.example.ru")
+        val expected = mapOf<String, Any>("region" to "other",
+            "privacy-russian-network-bypass" to false, "privacy-direct-domains" to emptyList<String>())
+        for (enabled in listOf(false, true)) {
+            val selected = options.copy(russianNetworkBypass = enabled)
+            assertEquals(expected, selected.networkPolicy(listOf("example.ru", "russian.example")))
+            assertEquals(options.proxyDomains, selected.proxyDomains)
+        }
+    }
+
+    @Test fun networkPolicyRetainsRussianBypassBehaviorInOtherModes() {
+        val options = NativeRegionalOptions(directDomains = "custom.example")
+        for (mode in listOf(NativeRegionalMode.RUSSIAN_BYPASS, NativeRegionalMode.OFF)) {
+            val active = options.withMode(mode).networkPolicy(listOf("bank.example"))
+            assertEquals("ru", active["region"])
+            assertEquals(true, active["privacy-russian-network-bypass"])
+            assertEquals(listOf("bank.example", "custom.example"), active["privacy-direct-domains"])
+            val disabled = options.withMode(mode).copy(russianNetworkBypass = false).networkPolicy(listOf("bank.example"))
+            assertEquals("other", disabled["region"])
+            assertEquals(false, disabled["privacy-russian-network-bypass"])
+            assertEquals(if (mode == NativeRegionalMode.RUSSIAN_BYPASS) listOf("custom.example") else emptyList<String>(),
+                disabled["privacy-direct-domains"])
+        }
+    }
+
     @Test fun selectedServicesCannotBeOverriddenBySavedRussianNetworkBypass() {
         for (saved in listOf(false, true)) {
             val selected = NativeRegionalOptions(mode = NativeRegionalMode.SELECTED_PROXY,
