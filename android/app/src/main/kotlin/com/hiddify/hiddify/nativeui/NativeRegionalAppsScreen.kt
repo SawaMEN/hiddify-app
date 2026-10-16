@@ -113,6 +113,17 @@ fun NativeRegionalAppsScreen(
             if (busy) item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
             if (kind == NativeRegionalAppKind.PROXY) {
                 item {
+                    NativeTextButton(enabled = canChange &&
+                        (selected.isNotEmpty() || serviceIds.isNotEmpty() || domains.isNotBlank()),
+                        modifier = Modifier.fillMaxWidth(), onClick = {
+                            draft = emptyList()
+                            serviceDraft = emptyList()
+                            domainsDraft = ""
+                        }) {
+                        Text(stringResource(R.string.native_regional_clear_all))
+                    }
+                }
+                item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(stringResource(R.string.native_blocked_services_title),
                             style = MaterialTheme.typography.titleMedium)
@@ -214,22 +225,10 @@ fun NativeRegionalAppsScreen(
                 }
             }
         }
-        if (kind == NativeRegionalAppKind.PROXY) {
-            NativeTextButton(enabled = canChange &&
-                (selected.isNotEmpty() || serviceIds.isNotEmpty() || domains.isNotBlank()),
-                modifier = Modifier.fillMaxWidth(), onClick = {
-                    draft = emptyList()
-                    serviceDraft = emptyList()
-                    domainsDraft = ""
-                }) {
-                Text(stringResource(R.string.native_regional_clear_all))
-            }
-        }
         Button(enabled = canChange && valid && selected.size <= 256 &&
             (draft != null || serviceDraft != null || networkDraft != null || domainsDraft != null),
             modifier = Modifier.fillMaxWidth(), onClick = { onSave(choices) }) {
-            Text(stringResource(if (kind == NativeRegionalAppKind.PROXY)
-                R.string.native_community_apply else R.string.native_regional_save))
+            Text(stringResource(R.string.native_regional_save))
         }
     }
 }
