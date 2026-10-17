@@ -14,7 +14,7 @@ data class NativeImportSummary(
     companion object {
         private val known = setOf(
             "ss", "shadowsocks", "ssr", "vmess", "vless", "trojan", "tuic", "hy", "hysteria",
-            "hy2", "hysteria2", "wg", "wireguard", "wireguard_legacy", "awg", "ssh", "socks",
+            "hy2", "hysteria2", "wg", "wireguard", "wireguard_legacy", "awg", "ssh", "socks", "olcrtc",
             "http", "shadowtls", "anytls", "snell", "mieru", "warp", "psiphon", "openvpn",
             "openvpn-client", "openvpn-server", "openconnect", "tailscale", "tailcat", "cloudflared",
             "masque", "masque-client", "masque-server", "trusttunnel", "hiddify", "tunnel_client",
@@ -70,6 +70,16 @@ data class NativeImportSummary(
             }
             for (line in content.lineSequence()) {
                 val text = line.trim()
+                // olcRTC uses the # delimiter for the encryption key, not a display fragment.
+                if (OlcRtcShareLink.isOlcRtc(text)) {
+                    val link = runCatching { OlcRtcShareLink.parse(text) }.getOrNull()
+                    if (link == null) {
+                        unsupported += "olcRTC (invalid share link)"
+                    } else {
+                        add("olcrtc", link.fingerprint())
+                    }
+                    continue
+                }
                 val uri = runCatching { URI(text) }.getOrNull() ?: continue
                 val scheme = uri.scheme?.lowercase() ?: continue
                 if ((!text.contains("://") && scheme != "fptn") || scheme in setOf("http", "https", "hiddify")) continue
