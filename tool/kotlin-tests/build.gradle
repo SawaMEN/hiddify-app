@@ -43,6 +43,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileRefresh.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileValidation.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeImportSummary.kt'
+            include 'com/hiddify/hiddify/nativeprofile/OlcRtcShareLink.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeSubscriptionMetadata.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeQrCodec.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeJsonDocument.kt'
