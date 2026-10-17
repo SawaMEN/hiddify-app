@@ -123,7 +123,7 @@ class NativeImportSummaryTest {
     @Test fun olcRtcLinksAreDetectedButNeverMisreportedAsWorkingCoreProtocols() {
         val key = "d823fa01cb3e0609b67322f7cf984c4ee2e4ce2e294936fc24ef38c9e59f4799"
         val links = "olcrtc://jitsi?datachannel@https://meet.example.org/room#" + key +
-            "$" + "One\nolcrtc://jitsi?datachannel@https://meet.example.org/room#" + key + "$Two"
+            "$" + "One\nolcrtc://jitsi?datachannel@https://meet.example.org/room#" + key + "\$Two"
         val summary = NativeImportSummary.parse(links)
         assertEquals(2, summary.servers)
         assertEquals(1, summary.duplicates)
