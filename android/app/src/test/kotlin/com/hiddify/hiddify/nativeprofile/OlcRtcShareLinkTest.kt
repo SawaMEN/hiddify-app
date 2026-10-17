@@ -34,6 +34,16 @@ class OlcRtcShareLinkTest {
         assertThrows(IllegalArgumentException::class.java) { OlcRtcShareLink.parse("olcrtc://fake?datachannel@room#" + key) }
     }
 
+    @Test fun rejectsProviderTransportPairsThatNativeCoreCannotStart() {
+        for (header in listOf(
+            "telemost?datachannel", "telemost?seichannel", "wbstream?datachannel",
+        )) {
+            assertThrows(IllegalArgumentException::class.java) {
+                OlcRtcShareLink.parse("olcrtc://" + header + "@room#" + key)
+            }
+        }
+    }
+
     @Test fun rejectsUnsupportedTransportParametersAndDuplicates() {
         assertThrows(IllegalArgumentException::class.java) { OlcRtcShareLink.parse("olcrtc://jitsi?datachannel<fps=30>@room#" + key) }
         assertThrows(IllegalArgumentException::class.java) { OlcRtcShareLink.parse("olcrtc://jitsi?vp8channel<vp8-fps=30&vp8-fps=20>@room#" + key) }
