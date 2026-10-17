@@ -23,7 +23,6 @@ data class NativeImportSummary(
         private val unavailable = mapOf(
             "vk-turn-proxy" to "VK TURN Proxy", "wingsv" to "VK TURN Proxy",
             "tg" to "MTProto (Telegram)", "mtproto" to "MTProto (Telegram)",
-            "olcrtc" to "olcRTC (native runtime not integrated)",
         )
         private val utility = setOf("direct", "block", "dns", "selector", "urltest", "url-test", "reject")
 
