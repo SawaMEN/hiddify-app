@@ -818,6 +818,11 @@ class NativeProfileRepository(private val context: Context) {
             val index = value.indexOf("://")
             if (index <= 0) continue
             val scheme = value.substring(0, index).lowercase()
+            // olcRTC's '#' component is a secret, not the profile's display name.
+            if (OlcRtcShareLink.isOlcRtc(value)) {
+                return runCatching { OlcRtcShareLink.parse(value).comment }.getOrNull()
+                    ?.takeIf { it.isNotBlank() } ?: "olcRTC"
+            }
             val fragment =
                 value.substringAfter('#', "")
                     .substringBefore(" -> ")
