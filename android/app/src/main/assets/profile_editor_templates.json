@@ -24,6 +24,17 @@
         }
       }
     },
+    "olcrtc": {
+      "type": "olcrtc",
+      "tag": "olcRTC",
+      "provider": "jitsi",
+      "transport": "datachannel",
+      "room_id": "https://meet.jit.si/your-room",
+      "key": "",
+      "dns_server": "8.8.8.8:53",
+      "vp8_fps": 30,
+      "vp8_batch": 64
+    },
     "mieru": {
       "type": "mieru",
       "tag": "mieru-out",
@@ -477,6 +488,12 @@
     }
   },
   "possibleValues": {
+    "config.outbounds.provider": [
+      "jitsi", "telemost", "wbstream"
+    ],
+    "config.outbounds.transport": [
+      "datachannel", "vp8channel", "seichannel", "videochannel"
+    ],
     "config.outbounds.flow": [
       "",
       "xtls-rprx-vision"
@@ -594,7 +611,8 @@
       "sudoku",
       "fptn",
       "openflux",
-      "pingtunnel"
+      "pingtunnel",
+      "olcrtc"
     ],
     "config.endpoints.type": [
       "wireguard",
