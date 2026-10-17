@@ -76,6 +76,12 @@ internal class OlcRtcShareLink private constructor(
             val transportSpec = header.substring(question + 1)
             val transport = transportSpec.substringBefore('<').lowercase()
             require(transport in transports) { "Unsupported olcRTC transport" }
+            require(!(provider == "telemost" && transport in setOf("datachannel", "seichannel"))) {
+                "Telemost cannot use this olcRTC transport"
+            }
+            require(!(provider == "wbstream" && transport == "datachannel")) {
+                "WB Stream DataChannel requires a moderator token; use another transport"
+            }
             val parameters = linkedMapOf<String, String>()
             if ('<' in transportSpec) {
                 require(transportSpec.endsWith('>') && transportSpec.count { it == '<' } == 1 && transportSpec.count { it == '>' } == 1) {
