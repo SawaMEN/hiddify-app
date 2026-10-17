@@ -128,7 +128,7 @@ class NativeImportSummaryTest {
         assertEquals(2, summary.servers)
         assertEquals(1, summary.duplicates)
         assertEquals(0, summary.unknownTypes)
-        assertEquals(listOf("olcRTC (native runtime not integrated)"), summary.unsupportedProtocols)
+        assertTrue(summary.unsupportedProtocols.isEmpty())
         assertFalse(summary.toString().contains(key))
     }
 
