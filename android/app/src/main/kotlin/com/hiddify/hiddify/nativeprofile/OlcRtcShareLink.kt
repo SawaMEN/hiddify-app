@@ -63,7 +63,8 @@ internal class OlcRtcShareLink private constructor(
             }
             val comment = keyAndComment.substringAfter('$', "").trim().takeIf(String::isNotEmpty)
                 ?.also { require(it.length <= 256) { "olcRTC label is too long" } }
-            val at = beforeKey.lastIndexOf('@')
+            // A room URL can contain '@'; the first '@' separates the transport header.
+            val at = beforeKey.indexOf('@')
             require(at > 0 && at < beforeKey.lastIndex) { "olcRTC link requires a room ID" }
             val header = beforeKey.substring(0, at)
             val room = beforeKey.substring(at + 1)
