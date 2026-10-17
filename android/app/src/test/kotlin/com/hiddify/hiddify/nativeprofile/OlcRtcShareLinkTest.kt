@@ -23,6 +23,12 @@ class OlcRtcShareLinkTest {
         assertEquals("Test / node", link.comment)
     }
 
+    @Test fun preservesAtSignInsideRoomUrl() {
+        val room = "https://meet.example.org/room@group"
+        val link = OlcRtcShareLink.parse("olcrtc://jitsi?datachannel@" + room + "#" + key)
+        assertEquals(room, link.roomId)
+    }
+
     @Test fun rejectsSecretWithInvalidSizeAndBadProvider() {
         assertThrows(IllegalArgumentException::class.java) { OlcRtcShareLink.parse("olcrtc://jitsi?datachannel@room#1234") }
         assertThrows(IllegalArgumentException::class.java) { OlcRtcShareLink.parse("olcrtc://fake?datachannel@room#" + key) }
