@@ -6,14 +6,15 @@
 **olcRTC**, a separate Go WebRTC tunnel engine. It is not a built-in sing-box
 outbound. Olcbox's original repository is archived and labels itself alpha.
 
-This branch provides the **first, non-networking stage** only:
+The app branch provides the profile-import stage:
 - Parse the documented `olcrtc://provider?transport<key=value&...>@room#key$comment`
   client share format without treating `#key` as the profile name.
 - Recognize olcRTC subscription entries (including names containing spaces), detect
   duplicates while ignoring the human-readable comment, validate the 64-hex key,
   and avoid exposing keys in diagnostic `toString()`.
-- Fail closed with an explicit **native runtime not integrated** import warning.
-  This intentionally **does not** claim that a connection can be established.
+- Let the already present native `Mobile.validateProfile` API validate real olcRTC
+  outbounds using the currently bundled core. The app does not treat a parsed
+  URL as proof of network support; old cores reject unknown olcRTC URLs.
 
 ## Remaining prerequisites for real VPN support
 
@@ -34,11 +35,19 @@ This branch provides the **first, non-networking stage** only:
    authenticated end-to-end interoperability tests against matching servers.
    Ensure OLC2 and OLVC protocol versions match the selected server.
 
-**Do not remove the unsupported-protocol guard** until the native engine,
-packaging and lifecycle checks above are implemented. Otherwise the UI can
-incorrectly display a working profile for a connection that cannot start.
+**Native release prerequisite:** No published Android ARM64 core release includes
+these development-branch changes yet. The app currently downloads its core from
+stable releases. Direct `olcrtc://` imports need a compatible core build;
+import failures from the old core are expected until that release exists.
+Do not claim a functioning tunnel based solely on successful URI parsing.
 
 References:
 - https://github.com/alananisimov/olcbox
 - https://github.com/openlibrecommunity/olcrtc/blob/master/docs/uri.md
 - https://github.com/ghostlane-project/olcrtc
+
+## Work in progress branches
+
+- [hiddify-core/pull/7](https://github.com/SawaMEN/hiddify-core/pull/7): strict native URI parsing and a matching sing-box submodule SHA.
+- [hiddify-sing-box/pull/2](https://github.com/SawaMEN/hiddify-sing-box/pull/2): olcRTC Go-runtime outbound with SOCKS5 authentication and Android network protection.
+- Both are intentionally draft changes until compilation, Android packaging, and end-to-end traffic tests succeed.
