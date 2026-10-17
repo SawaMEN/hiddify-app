@@ -26,7 +26,7 @@ internal class OlcRtcShareLink private constructor(
     companion object {
         private const val PREFIX = "olcrtc://"
         private const val MAX_LINK_LENGTH = 16_384
-        private val providers = setOf("jitsi", "telemost", "wbstream", "jazz", "salutejazz", "vkcalls", "mtslink", "none")
+        private val providers = setOf("jitsi", "telemost", "wbstream")
         private val transports = setOf("datachannel", "vp8channel", "seichannel", "videochannel")
         private val allowedParameters = mapOf(
             "datachannel" to emptySet(),
