@@ -14,7 +14,7 @@ data class NativeImportSummary(
     companion object {
         private val known = setOf(
             "ss", "shadowsocks", "ssr", "vmess", "vless", "trojan", "tuic", "hy", "hysteria",
-            "hy2", "hysteria2", "wg", "wireguard", "wireguard_legacy", "awg", "ssh", "socks",
+            "hy2", "hysteria2", "wg", "wireguard", "wireguard_legacy", "awg", "ssh", "socks", "olcrtc",
             "http", "shadowtls", "anytls", "snell", "mieru", "warp", "psiphon", "openvpn",
             "openvpn-client", "openvpn-server", "openconnect", "tailscale", "tailcat", "cloudflared",
             "masque", "masque-client", "masque-server", "trusttunnel", "hiddify", "tunnel_client",
@@ -23,6 +23,7 @@ data class NativeImportSummary(
         private val unavailable = mapOf(
             "vk-turn-proxy" to "VK TURN Proxy", "wingsv" to "VK TURN Proxy",
             "tg" to "MTProto (Telegram)", "mtproto" to "MTProto (Telegram)",
+            "olcrtc" to "olcRTC (native runtime not integrated)",
         )
         private val utility = setOf("direct", "block", "dns", "selector", "urltest", "url-test", "reject")
 
@@ -70,6 +71,39 @@ data class NativeImportSummary(
             }
             for (line in content.lineSequence()) {
                 val text = line.trim()
+                // olcRTC uses '#' for its encryption key and allows spaces after '
+                val scheme = uri.scheme?.lowercase() ?: continue
+                if ((!text.contains("://") && scheme != "fptn") || scheme in setOf("http", "https", "hiddify")) continue
+                add(scheme, text.substringBefore('#'))
+            }
+            if (servers == 0) {
+                Regex("^\\s*(?:-\\s*)?type:\\s*[\"']?([a-zA-Z0-9_-]+)[\"']?(?=\\s|$)", RegexOption.MULTILINE)
+                    .findAll(content).forEach { add(it.groupValues[1].lowercase(), "yaml-${it.range.first}") }
+                for (key in listOf("dns", "rules", "rule-providers")) {
+                    if (Regex("^$key:", RegexOption.MULTILINE).containsMatchIn(content)) overrides += key
+                }
+            }
+            return summary()
+        }
+
+        private fun canonical(value: com.google.gson.JsonElement): com.google.gson.JsonElement = when {
+            value.isJsonObject -> com.google.gson.JsonObject().apply {
+                value.asJsonObject.entrySet().sortedBy { it.key }.forEach { (key, child) -> add(key, canonical(child)) }
+            }
+            value.isJsonArray -> com.google.gson.JsonArray().apply { value.asJsonArray.forEach { add(canonical(it)) } }
+            else -> value.deepCopy()
+        }
+    }
+}
+
+.
+                // Neither is a conventional URI fragment; validate without leaking secrets.
+                if (OlcRtcShareLink.isOlcRtc(text)) {
+                    val link = runCatching { OlcRtcShareLink.parse(text) }.getOrNull()
+                    if (link != null) add("olcrtc", link.fingerprint())
+                    else unsupported += "olcRTC (invalid share link)"
+                    continue
+                }
                 val uri = runCatching { URI(text) }.getOrNull() ?: continue
                 val scheme = uri.scheme?.lowercase() ?: continue
                 if ((!text.contains("://") && scheme != "fptn") || scheme in setOf("http", "https", "hiddify")) continue
