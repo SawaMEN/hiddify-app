@@ -6,6 +6,12 @@ import org.junit.Test
 class OlcRtcShareLinkTest {
     private val key = "d823fa01cb3e0609b67322f7cf984c4ee2e4ce2e294936fc24ef38c9e59f4799"
 
+    @Test fun commentMayContainHashWithoutChangingCredentials() {
+        val link = OlcRtcShareLink.parse("olcrtc://jitsi?datachannel@room#" + key + "$" + "Node #1")
+        assertEquals(key, link.encryptionKey)
+        assertEquals("Node #1", link.comment)
+    }
+
     @Test fun parsesVideoParamsAndCommentWithoutConfusingKeyForFragment() {
         val link = OlcRtcShareLink.parse("olcrtc://wbstream?vp8channel<vp8-fps=60&vp8-batch=64>@room-1#" + key + "$" + "RU / node")
         assertEquals("wbstream", link.provider)

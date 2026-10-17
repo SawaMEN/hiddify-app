@@ -52,16 +52,15 @@ internal class OlcRtcShareLink private constructor(
             require(link.none { it == '\n' || it == '\r' || it.code < 0x20 }) {
                 "Invalid olcRTC share link"
             }
-            val payload = link.substring(PREFIX.length)
+            val payload = link.substring(PREFIX.length).substringBefore('$')
             val keySeparator = payload.lastIndexOf('#')
             require(keySeparator > 0) { "olcRTC link requires an encryption key" }
             val beforeKey = payload.substring(0, keySeparator)
-            val keyAndComment = payload.substring(keySeparator + 1)
-            val key = keyAndComment.substringBefore('$')
+            val key = payload.substring(keySeparator + 1)
             require(key.length == 64 && key.all { it in '0'..'9' || it in 'a'..'f' || it in 'A'..'F' }) {
                 "olcRTC key must contain 64 hexadecimal characters"
             }
-            val comment = keyAndComment.substringAfter('$', "").trim().takeIf(String::isNotEmpty)
+            val comment = link.substringAfter('$', "").trim().takeIf(String::isNotEmpty)
                 ?.also { require(it.length <= 256) { "olcRTC label is too long" } }
             // A room URL can contain '@'; the first '@' separates the transport header.
             val at = beforeKey.indexOf('@')
