@@ -1,53 +1,57 @@
-# olcRTC / Olcbox integration status
+# olcRTC integration — development status
 
-## Scope
+olcRTC support is developed across three linked pull requests:
 
-[Olcbox](https://github.com/alananisimov/olcbox) is an application built around
-**olcRTC**, a separate Go WebRTC tunnel engine. It is not a built-in sing-box
-outbound. Olcbox's original repository is archived and labels itself alpha.
+- [Hiddify App #79](https://github.com/SawaMEN/hiddify-app/pull/79) — Android URI/subscription import, provider compatibility checks, duplicate detection, JSON editor template and JVM tests.
+- [Hiddify Core #7](https://github.com/SawaMEN/hiddify-core/pull/7) — strict share URI-to-native-outbound conversion and Android ARM64 integration CI.
+- [hiddify-sing-box #2](https://github.com/SawaMEN/hiddify-sing-box/pull/2) — `olcrtc` native outbound using the pinned upstream Go WebRTC engine.
 
-The app branch provides the profile-import stage:
-- Parse the documented `olcrtc://provider?transport<key=value&...>@room#key$comment`
-  client share format without treating `#key` as the profile name.
-- Recognize olcRTC subscription entries (including names containing spaces), detect
-  duplicates while ignoring the human-readable comment, validate the 64-hex key,
-  and avoid exposing keys in diagnostic `toString()`.
-- Let the already present native `Mobile.validateProfile` API validate real olcRTC
-  outbounds using the currently bundled core. The app does not treat a parsed
-  URL as proof of network support; old cores reject unknown olcRTC URLs.
+All three PRs remain drafts. Changes are **not deployed to main or stable users**.
 
-## Remaining prerequisites for real VPN support
+## Supported configuration
 
-1. Choose and pin a vetted olcRTC **engine** commit, with compatible authenticated
-   record format and server version. Do not vendor a mutable branch or assume
-   an Olcbox UI build contains a native sing-box transport.
-2. Integrate the Go engine into `SawaMEN/hiddify-core` or
-   `SawaMEN/hiddify-sing-box`, and publish a matching Android ARM64 core artifact.
-   The app fetches its engine from stable `SawaMEN/hiddify-core` releases.
-3. Bridge engine-generated **loopback-only SOCKS5** traffic into the existing
-   sing-box routing/tunnel, not a second Android `VpnService`. Keep the engine's
-   WebRTC signaling and media sockets off the VPN route to prevent loops.
-4. Manage one runtime per active connection, with correct selection, cancellation,
-   network migration, restart, stop, deletion, background lifecycle, and local port
-   ownership. Mixed subscriptions and proxy chains need their own routing design.
-5. Add a full UI (import/deeplinks, provider and transport parameters, protected
-   credentials), native integration tests, Android instrumentation tests, and
-   authenticated end-to-end interoperability tests against matching servers.
-   Ensure OLC2 and OLVC protocol versions match the selected server.
+The v1 share format follows the [official olcRTC URI convention](https://github.com/openlibrecommunity/olcrtc/blob/master/docs/uri.md):
 
-**Native release prerequisite:** No published Android ARM64 core release includes
-these development-branch changes yet. The app currently downloads its core from
-stable releases. Direct `olcrtc://` imports need a compatible core build;
-import failures from the old core are expected until that release exists.
-Do not claim a functioning tunnel based solely on successful URI parsing.
+```text
+olcrtc://jitsi?datachannel@https://meet.jit.si/example-room#<64-hex-character-key>$My server
+olcrtc://wbstream?vp8channel<vp8-fps=60&vp8-batch=64>@room-name#<64-hex-character-key>
+```
 
-References:
-- https://github.com/alananisimov/olcbox
-- https://github.com/openlibrecommunity/olcrtc/blob/master/docs/uri.md
-- https://github.com/ghostlane-project/olcrtc
+The 64-character encryption key must be a secure 32-byte random value shared with a compatible **server**, not the example string above. Do not log, paste into screenshots, or commit real keys.
 
-## Work in progress branches
+To create a profile manually, the core also accepts this native outbound (replace placeholders):
 
-- [hiddify-core/pull/7](https://github.com/SawaMEN/hiddify-core/pull/7): strict native URI parsing and a matching sing-box submodule SHA.
-- [hiddify-sing-box/pull/2](https://github.com/SawaMEN/hiddify-sing-box/pull/2): olcRTC Go-runtime outbound with SOCKS5 authentication and Android network protection.
-- Both are intentionally draft changes until compilation, Android packaging, and end-to-end traffic tests succeed.
+```json
+{
+  "type": "olcrtc",
+  "tag": "olcRTC",
+  "provider": "jitsi",
+  "transport": "datachannel",
+  "room_id": "https://meet.jit.si/example-room",
+  "key": "YOUR_64_HEX_CHARACTER_KEY",
+  "dns_server": "8.8.8.8:53"
+}
+```
+
+**Provider/transport combinations:** Jitsi supports the four built-in transports. Telemost does not support datachannel or seichannel. WB Stream guest DataChannel is not supported by the URI importer. Some configurations require a moderator/authorized provider token and cannot be created from the simple URI.
+
+For VP8, SEI or VideoChannel, the editor exposes their corresponding transport parameters. The engine applies defaults when optional parameters are omitted.
+
+## Native networking and lifecycle
+
+The sing-box outbound uses the upstream olcRTC Go mobile runtime (no second Android `VpnService`), a loopback-only SOCKS5 proxy with random per-instance credentials, and Android socket protection for signaling, DNS and Pion ICE. On Android, missing socket protection prevents startup. Stopping an outbound stops its runtime.
+
+## CI and building a test APK
+
+The [core olcRTC CI workflow](https://github.com/SawaMEN/hiddify-core/blob/feature/olcrtc-protocol/.github/workflows/olcrtc-ci.yml) runs Go adapter tests, full native parser tests with production tags, builds Android ARM64 `hiddify-core.aar` and its matching `libhiddify-root.so`, and then builds a **development APK using that exact native core** from the app's `feature/olcrtc-protocol` branch.
+
+The normal Hiddify App workflow still downloads a **stable released core** and therefore cannot prove olcRTC transport availability. Only use the integrated APK from the core olcRTC workflow to test this feature. Artifacts are short-lived and development/debug-signed, **not production releases**.
+
+## Before releasing
+
+- Confirm integration CI is green for the exact application and core commits.
+- Test live WebRTC tunnel connectivity, TCP and UDP traffic, DNS resolution, server interoperability (OLC2/OLVC frame compatibility), reconnects, network handover, and failure recovery on real Android hardware.
+- Audit application lifecycle (background, cancellation, profile removal, switching, multiple outbounds) and socket protection.
+- Release and verify the new native Android core and root companion; then let the normal stable Hiddify App release consume that version.
+
+No successful end-to-end WebRTC traffic test has yet been recorded for this development work. **A green build is not evidence of working connectivity.**
