@@ -120,6 +120,18 @@ class NativeImportSummaryTest {
         assertEquals(1, summary.servers)
     }
 
+    @Test fun olcRtcLinksAreDetectedButNeverMisreportedAsWorkingCoreProtocols() {
+        val key = "d823fa01cb3e0609b67322f7cf984c4ee2e4ce2e294936fc24ef38c9e59f4799"
+        val links = "olcrtc://jitsi?datachannel@https://meet.example.org/room#" + key +
+            "$" + "One\\nolcrtc://jitsi?datachannel@https://meet.example.org/room#" + key + "$Two"
+        val summary = NativeImportSummary.parse(links)
+        assertEquals(2, summary.servers)
+        assertEquals(1, summary.duplicates)
+        assertEquals(0, summary.unknownTypes)
+        assertEquals(listOf("olcRTC (native runtime not integrated)"), summary.unsupportedProtocols)
+        assertFalse(summary.toString().contains(key))
+    }
+
     @Test fun malformedAndUtilityOnlyContentDoesNotInventServers() {
         assertEquals(0, NativeImportSummary.parse("not a configuration").servers)
         assertEquals(0, NativeImportSummary.parse("""{"outbounds":[{"type":"reject"},null,3],"endpoints":{}}""").servers)
