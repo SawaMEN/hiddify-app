@@ -35,8 +35,8 @@ class OlcRtcShareLinkTest {
     }
 
     @Test fun metadataDoesNotChangeFingerprintButCredentialDoes() {
-        val one = OlcRtcShareLink.parse("olcrtc://jitsi?datachannel@room#" + key + "$One")
-        val two = OlcRtcShareLink.parse("olcrtc://jitsi?datachannel@room#" + key + "$Two")
+        val one = OlcRtcShareLink.parse("olcrtc://jitsi?datachannel@room#" + key + "\$One")
+        val two = OlcRtcShareLink.parse("olcrtc://jitsi?datachannel@room#" + key + "\$Two")
         val three = OlcRtcShareLink.parse("olcrtc://jitsi?datachannel@room#" + "a".repeat(64))
         assertEquals(one.fingerprint(), two.fingerprint())
         assertNotEquals(one.fingerprint(), three.fingerprint())
