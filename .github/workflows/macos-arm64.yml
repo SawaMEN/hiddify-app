@@ -1,0 +1,37 @@
+name: macOS Swift ARM64
+
+on:
+  push:
+    branches:
+      - main
+      - feat/macos-swift-arm64
+    paths:
+      - "macos/**"
+      - ".github/workflows/macos-arm64.yml"
+  pull_request:
+    paths:
+      - "macos/**"
+      - ".github/workflows/macos-arm64.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  swift-build:
+    name: Native SwiftUI app + Packet Tunnel
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate native Xcode project
+        run: xcodegen generate --spec macos/project.yml --project macos
+      - name: Build for Apple Silicon
+        run: |
+          set -o pipefail
+          xcodebuild -project macos/VetrOFF.xcodeproj \
+            -scheme VetrOFF \
+            -configuration Debug \
+            -destination 'generic/platform=macOS' \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO build
