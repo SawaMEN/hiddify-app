@@ -56,6 +56,10 @@ jobs:
           fi
           xcrun swiftc -target arm64-apple-macos14.0 \
             -F "$(dirname "$FW")" -framework HiddifyCore \
+            -framework AppKit -framework CoreText \
+            -framework UniformTypeIdentifiers -framework SystemConfiguration \
+            -framework Network -framework CoreServices -framework ApplicationServices \
+            -framework Carbon -framework Security -lresolv \
             -o "$RUNNER_TEMP/vetroff-core-smoke" \
             macos/Integration/CoreSmoke.swift
           "$RUNNER_TEMP/vetroff-core-smoke"

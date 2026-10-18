@@ -159,3 +159,9 @@ This is a **build size** optimization, not a claim of runtime speed
 improvement. The heavy Go framework workflow runs only when its
 build script or workflow changes (or manually), rather than rerunning
 on every UI change in the draft PR.
+
+The core is a **static** XCFramework. A standalone Swift linker must also
+link the Apple frameworks used by Chromium/Cronet inside the core (AppKit,
+CoreText, Network, SystemConfiguration, UniformTypeIdentifiers, and related
+system frameworks) plus `libresolv`; Xcode must carry these linkage settings
+when the core becomes a target dependency. The smoke job verifies this list.

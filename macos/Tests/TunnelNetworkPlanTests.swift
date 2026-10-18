@@ -15,7 +15,7 @@ final class TunnelNetworkPlanTests: XCTestCase {
 
     func testFullTunnelGetsDefaultRoutesAndDNS() throws {
         let settings = try validPlan().makeSettings()
-        XCTAssertEqual(settings.mtu.intValue, 1500)
+        XCTAssertEqual(settings.mtu?.intValue, 1500)
         XCTAssertEqual(settings.ipv4Settings?.includedRoutes?.count, 1)
         XCTAssertEqual(settings.ipv6Settings?.includedRoutes?.count, 1)
         XCTAssertEqual(settings.dnsSettings?.servers.count, 2)
