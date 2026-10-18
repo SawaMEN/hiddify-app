@@ -13,11 +13,13 @@ private let corePlatformErrorDomain = "app.vetroff.client.macos.CorePlatform"
 /// packets, wraps TCP sockets, or inserts a localhost proxy in that path.
 final class CorePlatformInterface: NSObject, LibboxPlatformInterfaceProtocol, @unchecked Sendable {
     private let tunnel: NEPacketTunnelProvider
+    private let lifecycle: TunnelLifecycle
     private let access = NSLock()
     private var monitor: NativeDefaultNetworkMonitor?
 
-    init(tunnel: NEPacketTunnelProvider) {
+    init(tunnel: NEPacketTunnelProvider, lifecycle: TunnelLifecycle) {
         self.tunnel = tunnel
+        self.lifecycle = lifecycle
         super.init()
     }
 
@@ -67,6 +69,7 @@ final class CorePlatformInterface: NSObject, LibboxPlatformInterfaceProtocol, @u
             TunnelIPv6Address(address: $0.address(), prefixLength: Int($0.prefix()))
         }
         let settings = try plan.makeSettings()
+        try lifecycle.checkStarting()
 
         // We must use a bounded wait and treat timeout as a failed start,
         // otherwise NEPacketTunnelProvider can claim success while blackholing.
@@ -76,11 +79,16 @@ final class CorePlatformInterface: NSObject, LibboxPlatformInterfaceProtocol, @u
             completionState.set(error)
             completed.signal()
         }
-        guard completed.wait(timeout: .now() + 20) == .success else {
-            throw NSError(domain: corePlatformErrorDomain, code: 3, userInfo: [
-                NSLocalizedDescriptionKey: "Applying macOS VPN network settings timed out."
-            ])
+        let deadline = DispatchTime.now() + .seconds(20)
+        while completed.wait(timeout: .now() + .milliseconds(200)) == .timedOut {
+            try lifecycle.checkStarting()
+            if DispatchTime.now() >= deadline {
+                throw NSError(domain: corePlatformErrorDomain, code: 3, userInfo: [
+                    NSLocalizedDescriptionKey: "Applying macOS VPN network settings timed out."
+                ])
+            }
         }
+        try lifecycle.checkStarting()
         if let error = completionState.get() {
             throw error
         }
@@ -93,6 +101,7 @@ final class CorePlatformInterface: NSObject, LibboxPlatformInterfaceProtocol, @u
                 NSLocalizedDescriptionKey: "macOS utun descriptor was not found."
             ])
         }
+        try lifecycle.checkStarting()
         ret0_.pointee = fd
     }
 
