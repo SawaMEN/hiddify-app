@@ -43,10 +43,12 @@ fi
 # This produces a direct gomobile ObjC/Swift library. No separate daemon,
 # localhost proxy, gRPC transport or Flutter runtime is introduced.
 "${GOMOBILE}" bind -v \
-    -target=macos \
+    -target=macos/arm64 \
     -libname=HiddifyCore \
     -tags="${GO_TAGS},${MAC_TAGS}" \
     -trimpath \
+    -ldflags="-s -w" \
+    -macosversion=14.0 \
     -o "${OUT_DIR}/HiddifyCore.xcframework" \
     github.com/sagernet/sing-box/experimental/libbox \
     ./platform/mobile

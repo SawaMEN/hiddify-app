@@ -150,3 +150,12 @@ tunnel connection is advertised by this smoke test.
 framework, rather than assuming Xcode expands a value in Info.plist. A
 missing/unprovisioned group fails closed; neither target silently falls back
 to an unshared Keychain.
+
+### ARM64 core artifact optimization
+
+Native Core CI now builds only `macos/arm64`, with `-s -w`
+stripping unnecessary debug/linker symbols and `-macosversion=14.0`.
+This is a **build size** optimization, not a claim of runtime speed
+improvement. The heavy Go framework workflow runs only when its
+build script or workflow changes (or manually), rather than rerunning
+on every UI change in the draft PR.

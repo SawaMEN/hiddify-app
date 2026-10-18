@@ -1,12 +1,9 @@
 name: macOS Native Core Build
 
 on:
-  pull_request:
-    paths:
-      - "macos/scripts/build-hiddify-core.sh"
-      - ".github/workflows/macos-core-arm64.yml"
   push:
     branches:
+      - main
       - feat/macos-swift-arm64
     paths:
       - "macos/scripts/build-hiddify-core.sh"
