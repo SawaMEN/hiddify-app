@@ -102,8 +102,8 @@ final class CorePlatformInterface: NSObject, LibboxPlatformInterfaceProtocol, @u
         return result
     }
 
-    func usePlatformAutoDetectInterfaceControl() -> Bool { false }
-    func autoDetectInterfaceControl(_ fd: Int32) throws {}
+    func usePlatformAutoDetectControl() -> Bool { false }
+    func autoDetectControl(_ fd: Int32) throws {}
     func useProcFS() -> Bool { false }
     func underNetworkExtension() -> Bool { true }
     func includeAllNetworks() -> Bool { false }
@@ -177,7 +177,7 @@ final class CorePlatformInterface: NSObject, LibboxPlatformInterfaceProtocol, @u
         ])
     }
 
-    func sendNotification(_ notification: LibboxNotification?) throws {}
+    func send(_ notification: LibboxNotification?) throws {}
     func cancelNotification(_ identifier: String?, typeID: Int32) throws {}
     func startNeighborMonitor(_ listener: (any LibboxNeighborUpdateListenerProtocol)?) throws {}
     func closeNeighborMonitor(_ listener: (any LibboxNeighborUpdateListenerProtocol)?) throws {}
