@@ -249,7 +249,7 @@ connection enabled until those results are reviewed.
 
 ### macOS-specific forked Go TUN activation
 
-Pinned `hiddify-core` revision `ddb5a020fc54ea22c0d2a2fd699839270745d664` comes from
+Pinned `hiddify-core` revision `37ed16781062332d2269e57d2bf1a85d6a4e2717` comes from
 [SawaMEN/hiddify-core PR #8](https://github.com/SawaMEN/hiddify-core/pull/8).
 The standard `mobile.Start` and default `EnableTun=false` remain unchanged
 for Android. The extension instead calls `MobileStartPacketTunnel`, which
@@ -268,3 +268,11 @@ old revision, preventing a false-positive integration test.
 
 This opt-in Go entrypoint is guarded by `//go:build darwin` in the core
 fork so it is **excluded** from Android and Linux builds at compile time.
+
+The native Packet Tunnel uses a **non-persistent** hcore start context:
+the usual `lastStartRequestContent` database entry and
+`data/current-config.json` credential-bearing file are not written, and
+the sing-box log path is set to `/dev/null`. This path is opt-in only;
+Android and other core starts retain their original persistence behavior.
+The signed-device acceptance test must still check stderr and operating
+system diagnostic logs for inadvertent secrets.
