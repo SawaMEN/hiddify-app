@@ -59,7 +59,7 @@ jobs:
             -framework AppKit -framework CoreText \
             -framework UniformTypeIdentifiers -framework SystemConfiguration \
             -framework Network -framework CoreServices -framework ApplicationServices \
-            -framework Carbon -framework Security -lresolv \
+            -framework Carbon -framework Security -lresolv -lbsm \
             -o "$RUNNER_TEMP/vetroff-core-smoke" \
             macos/Integration/CoreSmoke.swift
           "$RUNNER_TEMP/vetroff-core-smoke"

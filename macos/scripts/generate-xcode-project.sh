@@ -35,7 +35,7 @@ if source.count(marker) != 1:
     raise SystemExit("Unexpected project.yml extension build settings")
 source = source.replace(
     marker,
-    marker + '        OTHER_LDFLAGS: "$(inherited) -framework AppKit -framework CoreText -framework UniformTypeIdentifiers -framework SystemConfiguration -framework Network -framework CoreServices -framework ApplicationServices -framework Carbon -framework Security -lresolv"\n',
+    marker + '        OTHER_LDFLAGS: "$(inherited) -framework AppKit -framework CoreText -framework UniformTypeIdentifiers -framework SystemConfiguration -framework Network -framework CoreServices -framework ApplicationServices -framework Carbon -framework Security -lresolv -lbsm"\n',
     1,
 )
 pathlib.Path(sys.argv[2]).write_text(source, encoding="utf-8")

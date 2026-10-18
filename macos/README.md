@@ -186,3 +186,7 @@ networking process is linked into `VetrOFF.app` itself.
 forked Go module can be reached from Swift. A working VPN connection still
 requires the callback adapter, native TUN file descriptor and real traffic
 verification before the disabled Connect button is unlocked.
+
+For Chromium/Cronet's macOS Mach audit-token APIs the static link must also
+include `libbsm` (`-lbsm`). This is a system library, not another process or
+runtime networking layer.
