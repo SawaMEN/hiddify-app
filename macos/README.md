@@ -4,20 +4,27 @@ This directory is an **independent Swift 6 / SwiftUI macOS client**.
 It does not build, replace or change the existing Android Kotlin client.
 The default scope is **macOS 14+ / arm64**.
 
-## Current stage: bootstrap, not a working VPN
+## Current stage: in-extension core integration (not traffic-verified)
 
 Implemented:
-- Native SwiftUI macOS application, navigation and diagnostics shell.
-- A real macOS Packet Tunnel app-extension target and signing entitlements.
-- Isolated ARM64 macOS CI build, independent of Android workflows.
+- Native Swift 6 / SwiftUI ARM64 macOS app, menu bar and diagnostics.
+- Real Network Extension Packet Tunnel target with native Go/libbox
+  PlatformInterface callbacks, Go lifecycle management and utun descriptors.
+- Static XCFramework built from a pinned SawaMEN/hiddify-core revision,
+  linked inside the extension rather than in the SwiftUI app.
+- Native IPv4/IPv6/DNS/MTU settings, included/excluded routes, network
+  interface enumeration, Keychain-backed profiles and status diagnostics.
+- Cancellation-aware Go startup, stop cleanup and ARM64 CI compilation/tests.
 
-Not implemented:
-- Native libbox/Go bridge for `NEPacketTunnelFlow`.
-- VPN profile manager, Keychain-backed profile store and subscription import.
-- DNS/routing, reconnect/recovery, menu-bar UI, signed DMG and notarization.
+Still requiring on-device verification or implementation:
+- Signed runtime test with real TCP/UDP packets and IPv4/IPv6/DNS leak checks.
+- Subscription URL fetching/refresh and full format/profile compatibility.
+- Fail-safe DNS and IPv6 behavior, default-interface changes, sleep/wake.
+- Production signing, distribution, notarization and complete test coverage.
 
-The extension deliberately **fails startup** until packets are actually
-forwarded. Do not ship or advertise this stage as a working VPN.
+An integrated **Debug-only** client exposes an explicitly labelled manual
+connection test for local JSON profiles. The regular project and Release
+remain gated. A passing CI build is **not** evidence of a working VPN.
 
 ## Architecture
 
@@ -26,7 +33,7 @@ VetrOFF.app (SwiftUI; Swift 6)
   └─ Native app services (Foundation / Keychain / NetworkExtension)
        └─ NETunnelProviderManager
             └─ PacketTunnel.appex (NEPacketTunnelProvider)
-                 └─ direct Go/libbox bridge (future, no proxy daemon or gRPC hop)
+                 └─ direct in-process Go/libbox bridge (no proxy daemon or gRPC hop)
                       └─ SawaMEN/hiddify-core (sing-box-based protocol engine)
 ```
 
@@ -34,15 +41,15 @@ A generated gomobile Objective-C bridge or an explicit C ABI is the one
 necessary language boundary for the Go engine; it is not a separate
 networking process. The engine **must run inside the extension** for
 system packet tunneling. Implement a tested `libbox.PlatformInterface`
-adapter for the native packet flow and socket protection before enabling
-connection controls.
+adapter for the native packet flow and socket protection; confirm
+packet forwarding on a signed test device before enabling Release controls.
 
 The companion [SawaMEN/hiddify-core](https://github.com/SawaMEN/hiddify-core)
-contains `make macos-arm64` for a desktop shared library and
-`ios-full` for a Go mobile XCFramework. These are not interchangeable:
-the desktop C ABI does not implement `NEPacketTunnelFlow`. The current
-published core release does not include a macOS binary. The next stage
-must validate a macOS libbox build and the Packet Tunnel integration.
+can build a desktop C shared library or the **static macOS/arm64
+XCFramework used here**. The desktop C ABI alone does not provide the
+libbox platform callback required for a Network Extension. The pinned
+mobile-binding XCFramework is built and link-tested by GitHub Actions
+against the extension; physical-device operation is a separate gate.
 
 ## Generate and build
 
@@ -98,10 +105,11 @@ signing and explicit macOS VPN permission.
   prefixes. It does not parse/convert subscriptions or prove core support.
 - `ProfileStore` stores only nonsecret metadata in UserDefaults. Raw URLs,
   subscription tokens, JSON credentials and secrets live in Keychain.
-- The Connect button remains disabled by `isCoreReady == false` until
-  packet forwarding and the Go lifecycle are integrated. Installing the
-  VPN preference entry is not the same as connecting.
-- The ARM64 workflow also compiles native unit tests for source validation.
+- The normal app / Release Connect button remains disabled. Only the
+  integrated Debug test exposes manual connection for JSON profiles.
+  Installing a VPN preference does not prove packet forwarding.
+- ARM64 CI builds and **executes** unit tests for source, routing,
+  diagnostics, cancellation and lifecycle behavior.
 
 Swift 6 strict concurrency: the Apple NetworkExtension SDK exposes some
 async Objective-C methods returning non-Sendable manager objects. The native
@@ -231,3 +239,10 @@ credentials, server addresses or subscription URLs.
 The `trafficVerified` flag intentionally remains false until a signed
 physical-Mac acceptance test proves actual packet forwarding. These
 diagnostics **do not** establish an active or private internet connection.
+
+## Next physical-Mac milestone
+
+Follow [ON_DEVICE_TESTING.md](ON_DEVICE_TESTING.md) on an Apple Silicon
+Mac to sign both targets, approve VPN permissions and explicitly measure
+packet routing, DNS/IPv6 behavior and sleep/wake. Do not mark the Release
+connection enabled until those results are reviewed.
