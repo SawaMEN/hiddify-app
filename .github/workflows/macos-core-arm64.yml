@@ -1,0 +1,52 @@
+name: macOS Native Core Build
+
+on:
+  pull_request:
+    paths:
+      - "macos/scripts/build-hiddify-core.sh"
+      - ".github/workflows/macos-core-arm64.yml"
+  push:
+    branches:
+      - feat/macos-swift-arm64
+    paths:
+      - "macos/scripts/build-hiddify-core.sh"
+      - ".github/workflows/macos-core-arm64.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core-xcframework:
+    name: Build forked Go libbox for macOS
+    runs-on: macos-15
+    timeout-minutes: 55
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+      - name: Checkout pinned user core
+        uses: actions/checkout@v4
+        with:
+          repository: SawaMEN/hiddify-core
+          ref: 242bfa7d6014e6a57cd6d62b7d9604fb2a2926ed
+          path: _build/hiddify-core
+          submodules: recursive
+          persist-credentials: false
+      - name: Install Go matching core
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: _build/hiddify-core/go.mod
+          cache: false
+      - name: Build native XCFramework
+        env:
+          VETROFF_CORE_DIR: ${{ github.workspace }}/_build/hiddify-core
+          VETROFF_CORE_OUT: ${{ github.workspace }}/_build/output
+          VETROFF_CORE_SHA: 242bfa7d6014e6a57cd6d62b7d9604fb2a2926ed
+        run: bash macos/scripts/build-hiddify-core.sh
+      - name: Upload built native framework
+        uses: actions/upload-artifact@v4
+        with:
+          name: HiddifyCore-macos-arm64-experiment
+          path: _build/output/HiddifyCore.xcframework
+          if-no-files-found: error
+          retention-days: 7
