@@ -144,3 +144,9 @@ runs the resulting Apple Silicon executable after building the
 `macos/arm64` XCFramework and before uploading it. The core artifact
 is not bundled with the regular lightweight UI-only CI yet; no user
 tunnel connection is advertised by this smoke test.
+
+**Signing hardening:** The Keychain group is now read from the actual
+`keychain-access-groups` code-signing entitlement using the public Security
+framework, rather than assuming Xcode expands a value in Info.plist. A
+missing/unprovisioned group fails closed; neither target silently falls back
+to an unshared Keychain.

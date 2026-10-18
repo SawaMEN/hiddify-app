@@ -26,12 +26,21 @@ enum ProfileVaultError: LocalizedError {
 enum ProfileVault {
     private static let service = "app.vetroff.client.macos.profiles"
 
-    private static func group(bundle: Bundle) throws -> String {
-        guard let value = bundle.object(forInfoDictionaryKey: "VetrOFFKeychainAccessGroup") as? String,
-              !value.isEmpty,
-              !value.contains("$(")
+    private static func group(bundle _: Bundle) throws -> String {
+        // Read the actual code-signing entitlement instead of trusting an
+        // Info.plist build-variable expansion. The extension has a different
+        // bundle identifier but receives the exact same shared group.
+        guard let task = SecTaskCreateFromSelf(kCFAllocatorDefault),
+              let value = SecTaskCopyValueForEntitlement(
+                  task,
+                  "keychain-access-groups" as CFString,
+                  nil
+              ) as? [String],
+              let accessGroup = value.first(where: {
+                  $0.hasSuffix(".app.vetroff.client.macos.shared")
+              })
         else { throw ProfileVaultError.missingAccessGroup }
-        return value
+        return accessGroup
     }
 
     private static func query(_ id: UUID, bundle: Bundle) throws -> [String: Any] {
