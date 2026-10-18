@@ -1,41 +1,45 @@
 import Foundation
-import NetworkExtension
+@preconcurrency import NetworkExtension
 
-/// Native macOS Packet Tunnel entry point.
-///
-/// Do not create system routes or report success until the Go/libbox TUN bridge
-/// is active. A successful callback without forwarding IP packets blackholes
-/// the user's traffic while incorrectly presenting the VPN as connected.
+/// Real native NetworkExtension entry point.
+/// System settings are installed only by Go's OpenTun callback.
 final class PacketTunnelProvider: NEPacketTunnelProvider {
+    #if canImport(HiddifyCore)
+    private lazy var core = NativeTunnelEngine(tunnel: self)
+    #endif
+
     override func startTunnel(
         options: [String: NSObject]?,
         completionHandler: @escaping (Error?) -> Void
     ) {
-        // Resolve only an opaque profile ID. No credentials traverse
-        // startVPNTunnel(options:) or VPN preference storage.
+        let content: String
         do {
             let request = try TunnelStartRequest(options: options)
-            _ = try ProfileVault.source(id: request.profileID)
+            content = try ProfileVault.source(id: request.profileID)
         } catch {
             completionHandler(error)
             return
         }
 
-        let error = NSError(
+        #if canImport(HiddifyCore)
+        core.start(profileContent: content, completion: completionHandler)
+        #else
+        completionHandler(NSError(
             domain: "app.vetroff.client.macos.PacketTunnel",
             code: 1,
-            userInfo: [
-                NSLocalizedDescriptionKey:
-                    "The VetrOFF native macOS packet-flow bridge is not integrated yet."
-            ]
-        )
-        completionHandler(error)
+            userInfo: [NSLocalizedDescriptionKey: "HiddifyCore XCFramework is not linked."]
+        ))
+        #endif
     }
 
     override func stopTunnel(
         with reason: NEProviderStopReason,
         completionHandler: @escaping () -> Void
     ) {
+        #if canImport(HiddifyCore)
+        core.stop(completion: completionHandler)
+        #else
         completionHandler()
+        #endif
     }
 }
