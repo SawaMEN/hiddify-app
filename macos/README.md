@@ -165,3 +165,24 @@ link the Apple frameworks used by Chromium/Cronet inside the core (AppKit,
 CoreText, Network, SystemConfiguration, UniformTypeIdentifiers, and related
 system frameworks) plus `libresolv`; Xcode must carry these linkage settings
 when the core becomes a target dependency. The smoke job verifies this list.
+
+## Optional direct in-extension Go linking
+
+Place the CI-built framework at `macos/Core/HiddifyCore.xcframework`
+(or symlink that path to the artifact), then run:
+
+```sh
+bash macos/scripts/generate-xcode-project.sh
+xcodebuild -project macos/VetrOFF.xcodeproj -scheme VetrOFF \
+  -configuration Debug -destination 'generic/platform=macOS' \
+  ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build
+```
+
+The generator adds the **static** HiddifyCore only to `PacketTunnel` and
+sets its required Apple framework linker flags. No Go runtime or additional
+networking process is linked into `VetrOFF.app` itself.
+
+`NativeCoreProbe` is compile-time optional; it tests that the bundled
+forked Go module can be reached from Swift. A working VPN connection still
+requires the callback adapter, native TUN file descriptor and real traffic
+verification before the disabled Connect button is unlocked.

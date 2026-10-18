@@ -1,0 +1,2 @@
+# Native Go binary is produced in CI or supplied by the developer.
+*.xcframework

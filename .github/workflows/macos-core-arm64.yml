@@ -63,6 +63,19 @@ jobs:
             -o "$RUNNER_TEMP/vetroff-core-smoke" \
             macos/Integration/CoreSmoke.swift
           "$RUNNER_TEMP/vetroff-core-smoke"
+      - name: Link native core into macOS Packet Tunnel
+        env:
+          VETROFF_CORE_OUT: ${{ github.workspace }}/_build/output
+        run: |
+          set -euo pipefail
+          brew install xcodegen
+          mkdir -p macos/Core
+          ln -s "$VETROFF_CORE_OUT/HiddifyCore.xcframework" macos/Core/HiddifyCore.xcframework
+          bash macos/scripts/generate-xcode-project.sh
+          xcodebuild -project macos/VetrOFF.xcodeproj \
+            -scheme VetrOFF -configuration Debug \
+            -destination 'generic/platform=macOS' \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
       - name: Upload built native framework
         uses: actions/upload-artifact@v4
         with:
