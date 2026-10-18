@@ -1,5 +1,5 @@
 import Foundation
-import NetworkExtension
+@preconcurrency import NetworkExtension
 import Observation
 
 /// System VPN preferences only. The transport stays disabled until the

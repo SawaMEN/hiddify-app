@@ -89,3 +89,21 @@ signing and explicit macOS VPN permission.
   sharing instead of silently presenting unsupported toggles.
 - Preserve license notices and review distribution obligations before
   packaging releases.
+
+## Native profile and system integration milestone
+
+- `VPNController` can load existing matching `NETunnelProviderManager` entries,
+  install a single system VPN configuration and observe status changes.
+- `ProfileSource` currently validates **only** JSON structure or known URI
+  prefixes. It does not parse/convert subscriptions or prove core support.
+- `ProfileStore` stores only nonsecret metadata in UserDefaults. Raw URLs,
+  subscription tokens, JSON credentials and secrets live in Keychain.
+- The Connect button remains disabled by `isCoreReady == false` until
+  packet forwarding and the Go lifecycle are integrated. Installing the
+  VPN preference entry is not the same as connecting.
+- The ARM64 workflow also compiles native unit tests for source validation.
+
+Swift 6 strict concurrency: the Apple NetworkExtension SDK exposes some
+async Objective-C methods returning non-Sendable manager objects. The native
+controller uses `@preconcurrency import NetworkExtension` pending upstream
+SDK annotations; confinement to `@MainActor` is maintained throughout.
