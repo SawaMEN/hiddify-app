@@ -5,7 +5,7 @@ set -euo pipefail
 # This runs only on macOS and DOES NOT alter or build the Android client.
 CORE_DIR="${VETROFF_CORE_DIR:?Set VETROFF_CORE_DIR to a checkout of SawaMEN/hiddify-core}"
 OUT_DIR="${VETROFF_CORE_OUT:-$(pwd)/macos/build/Core}"
-CORE_EXPECTED_SHA="${VETROFF_CORE_SHA:-5bcb778cbe1de37f46e85bd194cbbadc3ad5194d}"
+CORE_EXPECTED_SHA="${VETROFF_CORE_SHA:-ddb5a020fc54ea22c0d2a2fd699839270745d664}"
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
     echo "This build must run on macOS with Xcode." >&2

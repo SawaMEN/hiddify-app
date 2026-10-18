@@ -249,7 +249,7 @@ connection enabled until those results are reviewed.
 
 ### macOS-specific forked Go TUN activation
 
-Pinned `hiddify-core` revision `5bcb778cbe1de37f46e85bd194cbbadc3ad5194d` comes from
+Pinned `hiddify-core` revision `ddb5a020fc54ea22c0d2a2fd699839270745d664` comes from
 [SawaMEN/hiddify-core PR #8](https://github.com/SawaMEN/hiddify-core/pull/8).
 The standard `mobile.Start` and default `EnableTun=false` remain unchanged
 for Android. The extension instead calls `MobileStartPacketTunnel`, which
@@ -265,3 +265,6 @@ signed Mac.
 The core CI artifact now contains the pinned Go commit prefix in its filename.
 The integrated Swift-Go build refuses to download an artifact from the
 old revision, preventing a false-positive integration test.
+
+This opt-in Go entrypoint is guarded by `//go:build darwin` in the core
+fork so it is **excluded** from Android and Linux builds at compile time.

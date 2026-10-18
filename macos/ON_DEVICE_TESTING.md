@@ -104,6 +104,6 @@ field is **by design** until a complete acceptance run succeeds.
 **Do not remove the Release connection gate based only on CI success.**
 
 **Core revision requirement:** use the artifact named
-`HiddifyCore-macos-5bcb778cbe1d` from the experimental macOS core
+`HiddifyCore-macos-ddb5a020fc54` from the experimental macOS core
 build. Older `HiddifyCore-macos-arm64-experiment` artifacts predate the
 explicit TUN activation and cannot safely verify VPN startup.

@@ -31,7 +31,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          ARTIFACT_NAME="HiddifyCore-macos-5bcb778cbe1d"
+          ARTIFACT_NAME="HiddifyCore-macos-ddb5a020fc54"
           # The artifact name includes the actual *core* revision. Do not
           # silently link a previously built (and potentially no-TUN) core.
           # The core and integration workflows start on the same commit.
