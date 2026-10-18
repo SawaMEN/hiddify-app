@@ -150,7 +150,7 @@ struct ContentView: View {
                     GroupBox {
                         HStack(spacing: 12) {
                             Image(systemName: selectedID == profile.id ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(selectedID == profile.id ? .tint : .secondary)
+                                .foregroundStyle(selectedID == profile.id ? Color.accentColor : Color.secondary)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(profile.name).font(.headline)
                                 Text(profile.format.label).font(.caption).foregroundStyle(.secondary)
