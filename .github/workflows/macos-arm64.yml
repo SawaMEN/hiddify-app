@@ -44,3 +44,12 @@ jobs:
             -destination 'generic/platform=macOS' \
             ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO build-for-testing
+      - name: Run native unit tests on Apple Silicon
+        run: |
+          set -o pipefail
+          xcodebuild -project macos/VetrOFF.xcodeproj \
+            -scheme VetrOFF \
+            -configuration Debug \
+            -destination 'platform=macOS,arch=arm64' \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO test

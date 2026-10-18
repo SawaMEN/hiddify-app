@@ -107,3 +107,15 @@ Swift 6 strict concurrency: the Apple NetworkExtension SDK exposes some
 async Objective-C methods returning non-Sendable manager objects. The native
 controller uses `@preconcurrency import NetworkExtension` pending upstream
 SDK annotations; confinement to `@MainActor` is maintained throughout.
+
+## macOS menu bar and persistence
+
+The app and the menu bar share a single `VPNController` instance to avoid
+multiple independent connections or competing observers. The selected profile
+UUID persists in UserDefaults (the profile content remains in Keychain).
+The menu bar currently shows VPN status and permits disconnect; it does not
+claim the unavailable core is connected.
+
+The CI job runs (not just compiles) native Swift source-format tests on the
+ARM64 macOS runner. Network Extension signing and actual VPN traffic are
+separate physical-device acceptance gates.

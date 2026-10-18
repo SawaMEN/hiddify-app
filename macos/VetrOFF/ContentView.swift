@@ -28,14 +28,15 @@ private enum Page: String, CaseIterable, Identifiable {
 
 struct ContentView: View {
     @State private var page: Page? = .home
-    @State private var vpn = VPNController()
-    @State private var profiles = ProfileStore()
+    let vpn: VPNController
+    let profiles: ProfileStore
+    @AppStorage("macos.selectedProfileID.v1") private var selectedProfileID = ""
 
     @State private var showImporter = false
     @State private var showPasteSheet = false
     @State private var draftText = ""
     @State private var draftName = ""
-    @State private var selectedID: UUID?
+    private var selectedID: UUID? { UUID(uuidString: selectedProfileID) }
     @State private var showMessage: String?
 
     var body: some View {
@@ -156,12 +157,12 @@ struct ContentView: View {
                                 Text(profile.format.label).font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Button("Выбрать") { selectedID = profile.id }
+                            Button("Выбрать") { selectedProfileID = profile.id.uuidString }
                                 .disabled(selectedID == profile.id)
                             Button(role: .destructive) {
                                 do {
                                     try profiles.delete(profile.id)
-                                    if selectedID == profile.id { selectedID = nil }
+                                    if selectedID == profile.id { selectedProfileID = "" }
                                 } catch {
                                     showMessage = error.localizedDescription
                                 }
@@ -240,7 +241,7 @@ struct ContentView: View {
     private func addProfile(_ raw: String, name: String?) {
         do {
             let record = try profiles.add(raw, name: name)
-            selectedID = record.id
+            selectedProfileID = record.id.uuidString
             showMessage = nil
         } catch {
             showMessage = error.localizedDescription
