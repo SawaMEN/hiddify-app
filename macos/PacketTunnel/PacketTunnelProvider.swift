@@ -11,6 +11,16 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         options: [String: NSObject]?,
         completionHandler: @escaping (Error?) -> Void
     ) {
+        // Resolve only an opaque profile ID. No credentials traverse
+        // startVPNTunnel(options:) or VPN preference storage.
+        do {
+            let request = try TunnelStartRequest(options: options)
+            _ = try ProfileVault.source(id: request.profileID)
+        } catch {
+            completionHandler(error)
+            return
+        }
+
         let error = NSError(
             domain: "app.vetroff.client.macos.PacketTunnel",
             code: 1,

@@ -119,3 +119,18 @@ claim the unavailable core is connected.
 The CI job runs (not just compiles) native Swift source-format tests on the
 ARM64 macOS runner. Network Extension signing and actual VPN traffic are
 separate physical-device acceptance gates.
+
+## Shared Keychain boundary
+
+Both signed targets (app and Packet Tunnel) request
+`$(AppIdentifierPrefix)app.vetroff.client.macos.shared` through
+`keychain-access-groups`. The Info.plist expands the same group for Keychain
+queries. Unsigned builds can compile but cannot exercise the shared Keychain:
+an Apple provisioning profile and real device test are required.
+
+The system tunnel start contract is an opaque `profileID` UUID only.
+The extension resolves credentials locally from Keychain. It intentionally
+refuses startup until the libbox packet engine is wired, and it never stores
+configuration secrets in Network Extension preferences or connect options.
+Existing experimental default-group Keychain items require an explicit
+migration; never assume they are readable under the shared group.

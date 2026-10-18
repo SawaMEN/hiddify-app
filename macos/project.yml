@@ -23,6 +23,7 @@ targets:
         excludes:
           - Info.plist
           - VetrOFF.entitlements
+      - path: Shared
     info:
       path: VetrOFF/Info.plist
     entitlements:
@@ -45,6 +46,7 @@ targets:
         excludes:
           - Info.plist
           - PacketTunnel.entitlements
+      - path: Shared
     info:
       path: PacketTunnel/Info.plist
     entitlements:
