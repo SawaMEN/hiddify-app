@@ -38,6 +38,17 @@ source = source.replace(
     marker + '        OTHER_LDFLAGS: "$(inherited) -framework AppKit -framework CoreText -framework UniformTypeIdentifiers -framework SystemConfiguration -framework Network -framework CoreServices -framework ApplicationServices -framework Carbon -framework Security -lresolv -lbsm"\n',
     1,
 )
+# Only this integration variant may expose a *manual* connection test.
+# Release builds always omit DEBUG, and the normal no-core Xcode project
+# never receives VETROFF_NATIVE_CORE_TESTING.
+app_marker = '        ENABLE_HARDENED_RUNTIME: YES\n        GENERATE_INFOPLIST_FILE: NO\n'
+if source.count(app_marker) != 1:
+    raise SystemExit("Unexpected macOS app build settings")
+source = source.replace(
+    app_marker,
+    '        SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited) VETROFF_NATIVE_CORE_TESTING"\n' + app_marker,
+    1,
+)
 pathlib.Path(sys.argv[2]).write_text(source, encoding="utf-8")
 PY
 trap 'rm -f "$GENERATED"' EXIT

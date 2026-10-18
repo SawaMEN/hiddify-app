@@ -110,14 +110,26 @@ struct ContentView: View {
                         Text(profiles.profiles.first(where: { $0.id == selectedID })?.name ?? "Не выбран")
                     }
                     HStack {
-                        Button("Подключить") { vpn.connect() }
-                            .buttonStyle(.borderedProminent)
-                            .disabled(!vpn.isCoreReady || selectedID == nil || !vpn.isInstalled)
+                        Button(vpn.isCoreReady ? "Тестировать VPN (Debug)" : "Подключить") {
+                            guard let id = selectedID else { return }
+                            vpn.connect(profileID: id)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(
+                            !vpn.isCoreReady ||
+                            selectedID == nil ||
+                            !vpn.isInstalled ||
+                            profiles.profiles.first(where: { $0.id == selectedID })?.format != .json
+                        )
                         if vpn.canStop {
                             Button("Отключить") { vpn.stop() }
                         }
                     }
-                    Text("Подключение станет доступным после проверки нативного Go/libbox Packet Tunnel. Пока оно отключено, чтобы VPN не блокировал интернет.")
+                    Text(
+                        vpn.isCoreReady
+                        ? "Экспериментальный запуск доступен только в Debug со встроенным Go-ядром и JSON-профилем. Проверяйте DNS и IPv6 на тестовом Mac; соединение ещё не признано стабильным."
+                        : "В обычной сборке подключение отключено до физической проверки передачи IP-пакетов через нативный TUN."
+                    )
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

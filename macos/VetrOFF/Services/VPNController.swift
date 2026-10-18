@@ -96,10 +96,39 @@ final class VPNController {
     // Never start an unimplemented tunnel: reporting success would silently
     // blackhole traffic. This gate is removed ONLY when the in-extension core
     // lifecycle and packet forwarding are proven.
-    var isCoreReady: Bool { false }
+    var isCoreReady: Bool {
+        #if DEBUG && VETROFF_NATIVE_CORE_TESTING
+        true
+        #else
+        false
+        #endif
+    }
 
-    func connect() {
-        errorMessage = "Сетевое ядро ещё не подключено к Packet Tunnel. Подключение отключено, чтобы не нарушать доступ к сети."
+    func connect(profileID: UUID) {
+        guard isCoreReady else {
+            errorMessage = "Подключение доступно только в подписанной тестовой сборке со встроенным Go-ядром."
+            return
+        }
+        guard let manager, isInstalled else {
+            errorMessage = "Сначала установите VPN-конфигурацию в настройках macOS."
+            return
+        }
+        guard status == .disconnected else {
+            errorMessage = "VPN не находится в состоянии «Отключено»."
+            return
+        }
+
+        do {
+            // Only an opaque UUID crosses NetworkExtension IPC; the extension
+            // reads the secret profile itself through its signed Keychain group.
+            try manager.connection.startVPNTunnel(
+                options: TunnelStartRequest(profileID: profileID).options
+            )
+            errorMessage = nil
+            refreshStatus()
+        } catch {
+            errorMessage = "Ошибка запуска VPN: \(error.localizedDescription)"
+        }
     }
 
     private func observeConnection() {

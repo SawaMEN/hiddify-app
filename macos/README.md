@@ -200,3 +200,21 @@ no explicit routes, it installs the protocol-family default route.
 This preserves the network-routing control plane and avoids per-packet
 Swift translation. macOS application-level routing rules need separate
 platform-specific design and testing; Android per-app rules are not copied.
+
+## Signing-only manual integration test
+
+The **integrated Xcode generator** adds the internal compile condition
+`VETROFF_NATIVE_CORE_TESTING` to the SwiftUI app. With `DEBUG` and that
+condition, the home screen permits an explicitly labelled **test** connection
+for local **JSON profiles only**. It passes the selected UUID through
+`NETunnelProviderManager.connection.startVPNTunnel(options:)`.
+
+The normal lightweight project and every Release configuration do **not**
+expose the test connection. The real Go OpenTun callback must return a valid
+utun descriptor after macOS network settings have been applied; failures
+are reported to NetworkExtension instead of claiming success.
+
+This is not an end-to-end-verified VPN. Install a signed macOS build with
+the Network Extension and shared Keychain entitlements on an actual Apple
+Silicon Mac, approve the VPN configuration, and independently validate
+TCP, UDP, DNS, IPv6, sleep/wake, network switches and leak behavior.
