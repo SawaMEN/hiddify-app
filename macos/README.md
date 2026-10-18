@@ -190,3 +190,13 @@ verification before the disabled Connect button is unlocked.
 For Chromium/Cronet's macOS Mach audit-token APIs the static link must also
 include `libbsm` (`-lbsm`). This is a system library, not another process or
 runtime networking layer.
+
+## Native TUN routes
+
+The embedded libbox OpenTun callback now maps explicitly supplied IPv4/IPv6
+included and excluded routes into NetworkExtension without flattening them
+into unconditional default routes. If the Go engine requests auto-route but
+no explicit routes, it installs the protocol-family default route.
+This preserves the network-routing control plane and avoids per-packet
+Swift translation. macOS application-level routing rules need separate
+platform-specific design and testing; Android per-app rules are not copied.

@@ -47,13 +47,25 @@ final class CorePlatformInterface: NSObject, LibboxPlatformInterfaceProtocol, @u
         let dnsMode = options.getDNSMode()?.value ?? ""
         let automatic = options.getAutoRoute()
 
-        let plan = TunnelNetworkPlan(
+        var plan = TunnelNetworkPlan(
             ipv4: ipv4,
             ipv6: ipv6,
             dns: dnsMode == "disabled" ? [] : dns,
             mtu: Int(options.getMTU()),
             fullTunnel: automatic
         )
+        plan.includedIPv4Routes = Self.prefixes(options.getInet4RouteAddress()).map {
+            TunnelIPv4Address(address: $0.address(), mask: $0.mask())
+        }
+        plan.excludedIPv4Routes = Self.prefixes(options.getInet4RouteExcludeAddress()).map {
+            TunnelIPv4Address(address: $0.address(), mask: $0.mask())
+        }
+        plan.includedIPv6Routes = Self.prefixes(options.getInet6RouteAddress()).map {
+            TunnelIPv6Address(address: $0.address(), prefixLength: Int($0.prefix()))
+        }
+        plan.excludedIPv6Routes = Self.prefixes(options.getInet6RouteExcludeAddress()).map {
+            TunnelIPv6Address(address: $0.address(), prefixLength: Int($0.prefix()))
+        }
         let settings = try plan.makeSettings()
 
         // We must use a bounded wait and treat timeout as a failed start,
@@ -282,7 +294,7 @@ private final class NativeDefaultNetworkMonitor: @unchecked Sendable {
     func start() {
         monitor.pathUpdateHandler = { [self] path in
             let interface = path.availableInterfaces.first(where: {
-                !$0.name.hasPrefix("utun") && !$0.name.hasPrefix("lo")
+                path.usesInterface($0) && !$0.name.hasPrefix("utun") && !$0.name.hasPrefix("lo")
             })
             listener.updateDefaultInterface(
                 interface?.name ?? "",

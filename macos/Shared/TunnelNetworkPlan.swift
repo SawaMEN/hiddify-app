@@ -42,6 +42,10 @@ struct TunnelNetworkPlan: Sendable {
     let dns: [String]
     let mtu: Int
     let fullTunnel: Bool
+    var includedIPv4Routes: [TunnelIPv4Address] = []
+    var excludedIPv4Routes: [TunnelIPv4Address] = []
+    var includedIPv6Routes: [TunnelIPv6Address] = []
+    var excludedIPv6Routes: [TunnelIPv6Address] = []
 
     func makeSettings() throws -> NEPacketTunnelNetworkSettings {
         guard !ipv4.isEmpty || !ipv6.isEmpty else {
@@ -70,7 +74,17 @@ struct TunnelNetworkPlan: Sendable {
                 addresses: ipv4.map(\.address),
                 subnetMasks: ipv4.map(\.mask)
             )
-            cfg.includedRoutes = fullTunnel ? [NEIPv4Route.default()] : []
+            for route in includedIPv4Routes + excludedIPv4Routes {
+                guard Self.isIPv4(route.address) else { throw TunnelNetworkPlanError.invalidIPv4 }
+                guard Self.isIPv4(route.mask) else { throw TunnelNetworkPlanError.invalidMask }
+            }
+            let custom = includedIPv4Routes.map {
+                NEIPv4Route(destinationAddress: $0.address, subnetMask: $0.mask)
+            }
+            cfg.includedRoutes = custom.isEmpty && fullTunnel ? [NEIPv4Route.default()] : custom
+            cfg.excludedRoutes = excludedIPv4Routes.map {
+                NEIPv4Route(destinationAddress: $0.address, subnetMask: $0.mask)
+            }
             settings.ipv4Settings = cfg
         }
 
@@ -87,7 +101,17 @@ struct TunnelNetworkPlan: Sendable {
                 addresses: ipv6.map(\.address),
                 networkPrefixLengths: ipv6.map { NSNumber(value: $0.prefixLength) }
             )
-            cfg.includedRoutes = fullTunnel ? [NEIPv6Route.default()] : []
+            for route in includedIPv6Routes + excludedIPv6Routes {
+                guard Self.isIPv6(route.address) else { throw TunnelNetworkPlanError.invalidIPv6 }
+                guard (0...128).contains(route.prefixLength) else { throw TunnelNetworkPlanError.invalidPrefix }
+            }
+            let custom = includedIPv6Routes.map {
+                NEIPv6Route(destinationAddress: $0.address, networkPrefixLength: NSNumber(value: $0.prefixLength))
+            }
+            cfg.includedRoutes = custom.isEmpty && fullTunnel ? [NEIPv6Route.default()] : custom
+            cfg.excludedRoutes = excludedIPv6Routes.map {
+                NEIPv6Route(destinationAddress: $0.address, networkPrefixLength: NSNumber(value: $0.prefixLength))
+            }
             settings.ipv6Settings = cfg
         }
 

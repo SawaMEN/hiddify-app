@@ -73,4 +73,25 @@ final class TunnelNetworkPlanTests: XCTestCase {
             XCTAssertEqual($0 as? TunnelNetworkPlanError, .invalidIPv4)
         }
     }
+    func testExplicitSplitRoutesAreHonored() throws {
+        var plan = validPlan()
+        plan.includedIPv4Routes = [TunnelIPv4Address(address: "10.0.0.0", mask: "255.0.0.0")]
+        plan.excludedIPv4Routes = [TunnelIPv4Address(address: "10.4.0.0", mask: "255.255.0.0")]
+        plan.includedIPv6Routes = [TunnelIPv6Address(address: "2001:db8::", prefixLength: 32)]
+        plan.excludedIPv6Routes = [TunnelIPv6Address(address: "2001:db8:42::", prefixLength: 48)]
+        let settings = try plan.makeSettings()
+        XCTAssertEqual(settings.ipv4Settings?.includedRoutes?.first?.destinationAddress, "10.0.0.0")
+        XCTAssertEqual(settings.ipv4Settings?.excludedRoutes?.first?.destinationAddress, "10.4.0.0")
+        XCTAssertEqual(settings.ipv6Settings?.includedRoutes?.first?.destinationNetworkPrefixLength.intValue, 32)
+        XCTAssertEqual(settings.ipv6Settings?.excludedRoutes?.first?.destinationNetworkPrefixLength.intValue, 48)
+    }
+
+    func testRejectsBadExcludedRoute() {
+        var plan = validPlan()
+        plan.excludedIPv4Routes = [TunnelIPv4Address(address: "not-an-ip", mask: "255.255.255.0")]
+        XCTAssertThrowsError(try plan.makeSettings()) {
+            XCTAssertEqual($0 as? TunnelNetworkPlanError, .invalidIPv4)
+        }
+    }
+
 }
