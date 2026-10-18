@@ -294,7 +294,7 @@ private final class NativeDefaultNetworkMonitor: @unchecked Sendable {
     func start() {
         monitor.pathUpdateHandler = { [self] path in
             let interface = path.availableInterfaces.first(where: {
-                path.usesInterface($0) && !$0.name.hasPrefix("utun") && !$0.name.hasPrefix("lo")
+                !$0.name.hasPrefix("utun") && !$0.name.hasPrefix("lo")
             })
             listener.updateDefaultInterface(
                 interface?.name ?? "",
