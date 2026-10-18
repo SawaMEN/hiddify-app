@@ -57,3 +57,16 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: PacketTunnel/Info.plist
         ENABLE_HARDENED_RUNTIME: YES
+  VetrOFFTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: VetrOFF
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.vetroff.client.macos.Tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/VetrOFF.app/Contents/MacOS/VetrOFF"
+        BUNDLE_LOADER: "$(TEST_HOST)"

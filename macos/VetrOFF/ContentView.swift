@@ -1,11 +1,10 @@
+import AppKit
+import NetworkExtension
 import SwiftUI
+import UniformTypeIdentifiers
 
 private enum Page: String, CaseIterable, Identifiable {
-    case home
-    case profiles
-    case settings
-    case diagnostics
-
+    case home, profiles, settings, diagnostics
     var id: Self { self }
 
     var title: String {
@@ -29,93 +28,222 @@ private enum Page: String, CaseIterable, Identifiable {
 
 struct ContentView: View {
     @State private var page: Page? = .home
+    @State private var vpn = VPNController()
+    @State private var profiles = ProfileStore()
+
+    @State private var showImporter = false
+    @State private var showPasteSheet = false
+    @State private var draftText = ""
+    @State private var draftName = ""
+    @State private var selectedID: UUID?
+    @State private var showMessage: String?
 
     var body: some View {
         NavigationSplitView {
             List(selection: $page) {
                 ForEach(Page.allCases) { item in
-                    Label(item.title, systemImage: item.symbol)
-                        .tag(item)
+                    Label(item.title, systemImage: item.symbol).tag(item)
                 }
             }
             .navigationTitle("VetrOFF")
             .navigationSplitViewColumnWidth(min: 180, ideal: 210)
         } detail: {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 22) {
                     switch page ?? .home {
                     case .home: home
-                    case .profiles: profiles
+                    case .profiles: profilePage
                     case .settings: settings
                     case .diagnostics: diagnostics
                     }
                 }
-                .frame(maxWidth: 640, alignment: .leading)
+                .frame(maxWidth: 690, alignment: .leading)
                 .padding(28)
                 .frame(maxWidth: .infinity, alignment: .top)
             }
+        }
+        .frame(minWidth: 760, minHeight: 520)
+        .task { await vpn.load() }
+        .sheet(isPresented: $showPasteSheet) { importSheet }
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json, .plainText]) { result in
+            do {
+                let url = try result.get()
+                let allowed = url.startAccessingSecurityScopedResource()
+                defer { if allowed { url.stopAccessingSecurityScopedResource() } }
+                let source = try ProfileSource.decodeUTF8(Data(contentsOf: url))
+                Task { @MainActor in addProfile(source, name: url.deletingPathExtension().lastPathComponent) }
+            } catch {
+                Task { @MainActor in showMessage = error.localizedDescription }
+            }
+        }
+        .alert("VetrOFF", isPresented: Binding(
+            get: { showMessage != nil || vpn.errorMessage != nil },
+            set: { visible in
+                if !visible {
+                    showMessage = nil
+                    vpn.errorMessage = nil
+                }
+            }
+        )) {
+            Button("OK") {
+                showMessage = nil
+                vpn.errorMessage = nil
+            }
+        } message: {
+            Text(showMessage ?? vpn.errorMessage ?? "")
         }
     }
 
     private var home: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Подключение")
-                .font(.largeTitle.bold())
-
+            Text("Подключение").font(.largeTitle.bold())
             GroupBox {
-                VStack(alignment: .leading, spacing: 14) {
-                    Label("Не подключено", systemImage: "circle.dotted")
-                        .font(.title3)
-
-                    Text("Пользовательский интерфейс и Packet Tunnel Extension созданы. VPN-ядро ещё не подключено к системному packetFlow.")
-                        .foregroundStyle(.secondary)
-
-                    Button("Подключить") {}
-                        .buttonStyle(.borderedProminent)
-                        .disabled(true)
-
-                    Text("Подключение будет доступно только после проверки реального прохождения трафика. Приложение не сообщает о фиктивном VPN-соединении.")
+                VStack(alignment: .leading, spacing: 16) {
+                    HStack {
+                        Image(systemName: "network")
+                            .foregroundStyle(vpn.status == .connected ? .green : .secondary)
+                        Text(vpn.statusText).font(.title3.weight(.medium))
+                        Spacer()
+                    }
+                    LabeledContent("Выбранный профиль") {
+                        Text(profiles.profiles.first(where: { $0.id == selectedID })?.name ?? "Не выбран")
+                    }
+                    HStack {
+                        Button("Подключить") { vpn.connect() }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!vpn.isCoreReady || selectedID == nil || !vpn.isInstalled)
+                        if vpn.canStop {
+                            Button("Отключить") { vpn.stop() }
+                        }
+                    }
+                    Text("Подключение станет доступным после проверки нативного Go/libbox Packet Tunnel. Пока оно отключено, чтобы VPN не блокировал интернет.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(8)
+            }
+            Text("Проект предназначен для Apple Silicon и не использует Flutter, Dart либо Android-компоненты.")
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var profilePage: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Профили").font(.largeTitle.bold())
+                Spacer()
+                Button("Из файла", systemImage: "doc.badge.plus") { showImporter = true }
+                Button("Добавить", systemImage: "plus") {
+                    draftText = ""
+                    draftName = ""
+                    showPasteSheet = true
+                }
+            }
+            if profiles.profiles.isEmpty {
+                ContentUnavailableView(
+                    "Нет профилей",
+                    systemImage: "square.stack.3d.up.slash",
+                    description: Text("Добавьте JSON, ссылку на сервер или URL подписки. Исходный текст хранится в Keychain.")
+                )
+            } else {
+                ForEach(profiles.profiles) { profile in
+                    GroupBox {
+                        HStack(spacing: 12) {
+                            Image(systemName: selectedID == profile.id ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(selectedID == profile.id ? .tint : .secondary)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(profile.name).font(.headline)
+                                Text(profile.format.label).font(.caption).foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Button("Выбрать") { selectedID = profile.id }
+                                .disabled(selectedID == profile.id)
+                            Button(role: .destructive) {
+                                do {
+                                    try profiles.delete(profile.id)
+                                    if selectedID == profile.id { selectedID = nil }
+                                } catch {
+                                    showMessage = error.localizedDescription
+                                }
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .help("Удалить профиль")
+                        }
+                        .padding(6)
+                    }
+                }
+            }
+        }
+    }
+
+    private var importSheet: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Добавить профиль").font(.title2.bold())
+            TextField("Название (необязательно)", text: $draftName)
+            TextEditor(text: $draftText)
+                .font(.system(.body, design: .monospaced))
+                .frame(minHeight: 200)
+                .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.quaternary))
+            HStack {
+                Button("Вставить из буфера") {
+                    if let text = NSPasteboard.general.string(forType: .string) {
+                        draftText = text
+                    }
+                }
+                Spacer()
+                Button("Отмена") { showPasteSheet = false }
+                Button("Сохранить") {
+                    addProfile(draftText, name: draftName)
+                    if showMessage == nil { showPasteSheet = false }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(draftText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+        }
+        .padding(24)
+        .frame(width: 570, height: 390)
+    }
+
+    private var settings: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Настройки").font(.largeTitle.bold())
+            GroupBox {
+                VStack(alignment: .leading, spacing: 12) {
+                    LabeledContent("Платформа", value: "macOS 14+")
+                    LabeledContent("Процессор", value: "Apple Silicon ARM64")
+                    LabeledContent("Сетевой туннель", value: "Native Network Extension")
+                    LabeledContent("Установлен в системе", value: vpn.isInstalled ? "Да" : "Нет")
+                    Button(vpn.isInstalled ? "VPN-конфигурация установлена" : "Установить VPN-конфигурацию") {
+                        Task { await vpn.install() }
+                    }
+                    .disabled(vpn.isBusy || vpn.isInstalled)
+                    Text("Разрешение macOS на установку VPN не означает, что сетевое ядро уже подключено.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 .padding(8)
             }
         }
     }
 
-    private var profiles: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Профили")
-                .font(.largeTitle.bold())
-            ContentUnavailableView(
-                "Профили ещё не импортированы",
-                systemImage: "square.stack.3d.up.slash",
-                description: Text("Нативный импорт и хранилище профилей будут добавлены после подключения ядра, чтобы не менять формат существующих подписок.")
-            )
-        }
-    }
-
-    private var settings: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Настройки")
-                .font(.largeTitle.bold())
-            LabeledContent("Платформа", value: "macOS")
-            LabeledContent("Архитектура", value: "Apple Silicon (arm64)")
-            LabeledContent("Интерфейс", value: "SwiftUI")
-            LabeledContent("Системный туннель", value: "Network Extension")
-        }
-    }
-
     private var diagnostics: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Диагностика")
-                .font(.largeTitle.bold())
+            Text("Диагностика").font(.largeTitle.bold())
             LabeledContent("Система", value: ProcessInfo.processInfo.operatingSystemVersionString)
-            LabeledContent("Архитектура сборки", value: architecture)
-            LabeledContent("VPN-движок", value: "Не инициализирован")
-            Text("Для диагностических проверок трафика потребуется реальный адаптер libbox ↔ NEPacketTunnelFlow.")
-                .foregroundStyle(.secondary)
+            LabeledContent("Архитектура", value: architecture)
+            LabeledContent("Системный VPN", value: vpn.statusText)
+            LabeledContent("Передача пакетов Go/libbox", value: "Пока не подключена")
+        }
+    }
+
+    private func addProfile(_ raw: String, name: String?) {
+        do {
+            let record = try profiles.add(raw, name: name)
+            selectedID = record.id
+            showMessage = nil
+        } catch {
+            showMessage = error.localizedDescription
         }
     }
 
