@@ -1,0 +1,51 @@
+name: macOS Core Integration
+
+on:
+  push:
+    branches:
+      - feat/macos-swift-arm64
+    paths:
+      - "macos/PacketTunnel/**"
+      - "macos/Shared/**"
+      - "macos/scripts/generate-xcode-project.sh"
+      - ".github/workflows/macos-integrated-arm64.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: macos-core-integrated-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  link-core:
+    name: Compile Packet Tunnel against pinned native Go core
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download latest successful forked core build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          RUN_ID="$(gh run list --repo "${{ github.repository }}" --workflow "macOS Native Core Build" --branch feat/macos-swift-arm64 --status success --json databaseId --jq '.[0].databaseId')"
+          if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then
+            echo "No successful pinned Go core build is available." >&2
+            exit 1
+          fi
+          mkdir -p macos/Core/HiddifyCore.xcframework
+          gh run download "$RUN_ID" --repo "${{ github.repository }}" --name HiddifyCore-macos-arm64-experiment --dir macos/Core/HiddifyCore.xcframework
+          test -d macos/Core/HiddifyCore.xcframework/macos-arm64/HiddifyCore.framework
+      - name: Install native project generator
+        run: brew install xcodegen
+      - name: Compile real Go ↔ Swift Network Extension
+        run: |
+          set -euo pipefail
+          bash macos/scripts/generate-xcode-project.sh
+          xcodebuild -project macos/VetrOFF.xcodeproj \
+            -scheme VetrOFF -configuration Debug \
+            -destination 'generic/platform=macOS' \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
