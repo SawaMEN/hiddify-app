@@ -34,6 +34,13 @@ jobs:
         with:
           go-version-file: _build/hiddify-core/go.mod
           cache: false
+      - name: Test dedicated Go Packet Tunnel settings
+        working-directory: _build/hiddify-core
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          set -euo pipefail
+          go test -timeout 8m ./platform/mobile -run 'TestPacketTunnel' -count=1
       - name: Build native XCFramework
         env:
           VETROFF_CORE_DIR: ${{ github.workspace }}/_build/hiddify-core

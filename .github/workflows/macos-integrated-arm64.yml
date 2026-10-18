@@ -34,9 +34,18 @@ jobs:
           ARTIFACT_NAME="HiddifyCore-macos-5bcb778cbe1d"
           # The artifact name includes the actual *core* revision. Do not
           # silently link a previously built (and potentially no-TUN) core.
-          RUN_ID="$(gh api "repos/${{ github.repository }}/actions/artifacts?name=$ARTIFACT_NAME&per_page=100" --jq '.artifacts | map(select(.expired == false)) | .[0].workflow_run.id // empty')"
+          # The core and integration workflows start on the same commit.
+          # Wait for the newly pinned framework instead of falsely trying to
+          # link an older successful artifact or failing in a CI race.
+          RUN_ID=""
+          for attempt in $(seq 1 30); do
+            RUN_ID="$(gh api "repos/${{ github.repository }}/actions/artifacts?name=$ARTIFACT_NAME&per_page=100" --jq '.artifacts | map(select(.expired == false)) | .[0].workflow_run.id // empty')"
+            if [[ -n "$RUN_ID" && "$RUN_ID" != "null" ]]; then break; fi
+            echo "Waiting for pinned native core build ($attempt/30)"
+            sleep 20
+          done
           if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then
-            echo "Missing successful pinned-core artifact: $ARTIFACT_NAME. Run macOS Native Core Build first." >&2
+            echo "Missing pinned-core artifact $ARTIFACT_NAME after 10 minutes." >&2
             exit 1
           fi
           mkdir -p macos/Core/HiddifyCore.xcframework
