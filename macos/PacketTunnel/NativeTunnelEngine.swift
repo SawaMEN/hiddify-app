@@ -18,6 +18,10 @@ final class NativeTunnelEngine: @unchecked Sendable {
         self.tunnel = tunnel
     }
 
+    var diagnosticLifecycleState: String {
+        lifecycle.snapshot.rawValue
+    }
+
     func start(profileContent: String, completion: @escaping (Error?) -> Void) {
         let finished = NativeCompletion(completion)
         do {

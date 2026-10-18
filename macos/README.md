@@ -218,3 +218,16 @@ This is not an end-to-end-verified VPN. Install a signed macOS build with
 the Network Extension and shared Keychain entitlements on an actual Apple
 Silicon Mac, approve the VPN configuration, and independently validate
 TCP, UDP, DNS, IPv6, sleep/wake, network switches and leak behavior.
+
+## On-device diagnostics without an RPC daemon
+
+The Diagnostics screen uses Apple's built-in
+`NETunnelProviderSession.sendProviderMessage` / `handleAppMessage`
+channel. The extension accepts only the exact fixed `VETROFF_STATUS_V1`
+request and returns a version, whether the linked Go framework responds,
+and the in-process lifecycle state. It never returns profile contents,
+credentials, server addresses or subscription URLs.
+
+The `trafficVerified` flag intentionally remains false until a signed
+physical-Mac acceptance test proves actual packet forwarding. These
+diagnostics **do not** establish an active or private internet connection.

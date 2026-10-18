@@ -12,7 +12,7 @@ enum TunnelLifecycleError: LocalizedError, Equatable {
     }
 }
 
-enum TunnelLifecycleState: Equatable {
+enum TunnelLifecycleState: String, Equatable {
     case idle
     case starting
     case running

@@ -13,6 +13,7 @@ final class VPNController {
     private(set) var isInstalled = false
     private(set) var isBusy = false
     var errorMessage: String?
+    private(set) var diagnosticMessage = "Статус ядра не запрашивался."
 
     @ObservationIgnored private var manager: NETunnelProviderManager?
     @ObservationIgnored private var statusObserver: NSObjectProtocol?
@@ -128,6 +129,32 @@ final class VPNController {
             refreshStatus()
         } catch {
             errorMessage = "Ошибка запуска VPN: \(error.localizedDescription)"
+        }
+    }
+
+    func queryTunnelDiagnostics() {
+        guard let session = manager?.connection as? NETunnelProviderSession else {
+            diagnosticMessage = "VPN-конфигурация не установлена."
+            return
+        }
+        guard status == .connected || status == .connecting || status == .reasserting else {
+            diagnosticMessage = "Проверка расширения доступна только при запуске VPN."
+            return
+        }
+        do {
+            try session.sendProviderMessage(TunnelDiagnosticsProtocol.statusRequest) { [weak self] data in
+                let reply = data.flatMap { try? JSONDecoder().decode(TunnelDiagnosticReply.self, from: $0) }
+                Task { @MainActor [weak self] in
+                    if let reply {
+                        let linked = reply.coreLinked ? "загружено" : "отсутствует"
+                        self?.diagnosticMessage = "Go: \(linked), стадия: \(reply.lifecycleState). Передача пакетов не подтверждена."
+                    } else {
+                        self?.diagnosticMessage = "Packet Tunnel не ответил на запрос диагностики."
+                    }
+                }
+            }
+        } catch {
+            diagnosticMessage = "Ошибка диагностики Network Extension: \(error.localizedDescription)"
         }
     }
 

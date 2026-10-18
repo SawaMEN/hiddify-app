@@ -246,6 +246,9 @@ struct ContentView: View {
             LabeledContent("Система", value: ProcessInfo.processInfo.operatingSystemVersionString)
             LabeledContent("Архитектура", value: architecture)
             LabeledContent("Системный VPN", value: vpn.statusText)
+            LabeledContent("Ядро внутри Packet Tunnel", value: vpn.diagnosticMessage)
+            Button("Проверить Network Extension") { vpn.queryTunnelDiagnostics() }
+                .disabled(vpn.status == .invalid || vpn.status == .disconnected)
             LabeledContent("Передача пакетов Go/libbox", value: "Пока не подключена")
         }
     }

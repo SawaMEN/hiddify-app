@@ -42,4 +42,26 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         completionHandler()
         #endif
     }
+    override func handleAppMessage(
+        _ messageData: Data,
+        completionHandler: ((Data?) -> Void)?
+    ) {
+        guard TunnelDiagnosticsProtocol.accepts(messageData) else {
+            completionHandler?(nil)
+            return
+        }
+        #if canImport(HiddifyCore)
+        let reply = TunnelDiagnosticReply(
+            coreLinked: NativeCoreProbe.isLinked(),
+            lifecycleState: core.diagnosticLifecycleState
+        )
+        #else
+        let reply = TunnelDiagnosticReply(
+            coreLinked: false,
+            lifecycleState: "unavailable"
+        )
+        #endif
+        completionHandler?(try? JSONEncoder().encode(reply))
+    }
+
 }
