@@ -43,6 +43,25 @@ jobs:
           VETROFF_CORE_OUT: ${{ github.workspace }}/_build/output
           VETROFF_CORE_SHA: 242bfa7d6014e6a57cd6d62b7d9604fb2a2926ed
         run: bash macos/scripts/build-hiddify-core.sh
+      - name: Verify ARM64 framework and direct Swift/Go call
+        env:
+          VETROFF_CORE_OUT: ${{ github.workspace }}/_build/output
+        run: |
+          set -euo pipefail
+          FW=$(find "$VETROFF_CORE_OUT/HiddifyCore.xcframework" -type d -name HiddifyCore.framework | head -n 1)
+          test -n "$FW"
+          BIN="$FW/HiddifyCore"
+          test -f "$BIN"
+          xcrun lipo -archs "$BIN"
+          if ! xcrun lipo -archs "$BIN" | grep -qw arm64; then
+            echo "Missing Apple Silicon architecture" >&2
+            exit 1
+          fi
+          xcrun swiftc -target arm64-apple-macos14.0 \
+            -F "$(dirname "$FW")" -framework HiddifyCore \
+            -o "$RUNNER_TEMP/vetroff-core-smoke" \
+            macos/Integration/CoreSmoke.swift
+          "$RUNNER_TEMP/vetroff-core-smoke"
       - name: Upload built native framework
         uses: actions/upload-artifact@v4
         with:

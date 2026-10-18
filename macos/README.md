@@ -134,3 +134,13 @@ refuses startup until the libbox packet engine is wired, and it never stores
 configuration secrets in Network Extension preferences or connect options.
 Existing experimental default-group Keychain items require an explicit
 migration; never assume they are readable under the shared group.
+
+## Verified direct native core smoke-test
+
+`macos/Integration/CoreSmoke.swift` imports the generated
+`HiddifyCore` Objective-C/Swift module and calls the forked
+`MobileTest()` function in-process. The separate core workflow now
+runs the resulting Apple Silicon executable after building the
+`macos/arm64` XCFramework and before uploading it. The core artifact
+is not bundled with the regular lightweight UI-only CI yet; no user
+tunnel connection is advertised by this smoke test.
