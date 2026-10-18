@@ -65,8 +65,19 @@ final class NativeTunnelEngine: @unchecked Sendable {
                 }
                 try lifecycle.checkStarting()
                 var startError: NSError?
-                guard MobileStart("", profileContent, &startError) else {
+                guard MobileStartPacketTunnel(profileContent, &startError) else {
                     throw startError ?? NSError(domain: "VetrOFF.Go", code: 2)
+                }
+                // The mobile core defaults to EnableTun=false. Even if Go
+                // reports success, NetworkExtension must NOT report connected
+                // unless the synchronous OpenTun callback returned a real FD.
+                guard callback.hasOpenedTunnel else {
+                    throw NSError(
+                        domain: "app.vetroff.client.macos.PacketTunnel",
+                        code: 8,
+                        userInfo: [NSLocalizedDescriptionKey:
+                            "Go core started without opening the macOS TUN interface."]
+                    )
                 }
                 try lifecycle.didStart() // A stop during Go startup wins.
                 finished.call(nil)

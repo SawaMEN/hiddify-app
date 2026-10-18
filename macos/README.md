@@ -246,3 +246,22 @@ Follow [ON_DEVICE_TESTING.md](ON_DEVICE_TESTING.md) on an Apple Silicon
 Mac to sign both targets, approve VPN permissions and explicitly measure
 packet routing, DNS/IPv6 behavior and sleep/wake. Do not mark the Release
 connection enabled until those results are reviewed.
+
+### macOS-specific forked Go TUN activation
+
+Pinned `hiddify-core` revision `5bcb778cbe1de37f46e85bd194cbbadc3ad5194d` comes from
+[SawaMEN/hiddify-core PR #8](https://github.com/SawaMEN/hiddify-core/pull/8).
+The standard `mobile.Start` and default `EnableTun=false` remain unchanged
+for Android. The extension instead calls `MobileStartPacketTunnel`, which
+explicitly enables the TUN inbound, strict full routes and encrypted DNS
+bootstrap, while disabling local SOCKS/mixed/Clash listeners and system proxy.
+
+After Go returns, `NativeTunnelEngine` independently verifies that its
+`CorePlatformInterface.OpenTun` callback acquired a real utun FD. Returning
+success without the callback is treated as a failed connection. This is a
+required *startup invariant*, not proof that TCP/UDP forwarding works on a
+signed Mac.
+
+The core CI artifact now contains the pinned Go commit prefix in its filename.
+The integrated Swift-Go build refuses to download an artifact from the
+old revision, preventing a false-positive integration test.

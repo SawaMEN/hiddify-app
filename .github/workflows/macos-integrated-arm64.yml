@@ -31,13 +31,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          RUN_ID="$(gh run list --repo "${{ github.repository }}" --workflow "macOS Native Core Build" --branch feat/macos-swift-arm64 --status success --json databaseId --jq '.[0].databaseId')"
+          ARTIFACT_NAME="HiddifyCore-macos-5bcb778cbe1d"
+          # The artifact name includes the actual *core* revision. Do not
+          # silently link a previously built (and potentially no-TUN) core.
+          RUN_ID="$(gh api "repos/${{ github.repository }}/actions/artifacts?name=$ARTIFACT_NAME&per_page=100" --jq '.artifacts | map(select(.expired == false)) | .[0].workflow_run.id // empty')"
           if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then
-            echo "No successful pinned Go core build is available." >&2
+            echo "Missing successful pinned-core artifact: $ARTIFACT_NAME. Run macOS Native Core Build first." >&2
             exit 1
           fi
           mkdir -p macos/Core/HiddifyCore.xcframework
-          gh run download "$RUN_ID" --repo "${{ github.repository }}" --name HiddifyCore-macos-arm64-experiment --dir macos/Core/HiddifyCore.xcframework
+          gh run download "$RUN_ID" --repo "${{ github.repository }}" --name "$ARTIFACT_NAME" --dir macos/Core/HiddifyCore.xcframework
           test -d macos/Core/HiddifyCore.xcframework/macos-arm64/HiddifyCore.framework
       - name: Install native project generator
         run: brew install xcodegen

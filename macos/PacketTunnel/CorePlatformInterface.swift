@@ -16,6 +16,13 @@ final class CorePlatformInterface: NSObject, LibboxPlatformInterfaceProtocol, @u
     private let lifecycle: TunnelLifecycle
     private let access = NSLock()
     private var monitor: NativeDefaultNetworkMonitor?
+    private var didOpenTun = false
+
+    var hasOpenedTunnel: Bool {
+        access.lock()
+        defer { access.unlock() }
+        return didOpenTun
+    }
 
     init(tunnel: NEPacketTunnelProvider, lifecycle: TunnelLifecycle) {
         self.tunnel = tunnel
@@ -103,6 +110,9 @@ final class CorePlatformInterface: NSObject, LibboxPlatformInterfaceProtocol, @u
         }
         try lifecycle.checkStarting()
         ret0_.pointee = fd
+        access.lock()
+        didOpenTun = true
+        access.unlock()
     }
 
     private static func prefixes(_ iterator: (any LibboxRoutePrefixIteratorProtocol)?) -> [LibboxRoutePrefix] {
@@ -296,6 +306,7 @@ final class CorePlatformInterface: NSObject, LibboxPlatformInterfaceProtocol, @u
         access.lock()
         let current = monitor
         monitor = nil
+        didOpenTun = false
         access.unlock()
         current?.cancel()
     }
