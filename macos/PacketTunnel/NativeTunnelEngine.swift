@@ -78,10 +78,13 @@ final class NativeTunnelEngine: @unchecked Sendable {
                 platform?.reset()
                 platform = nil
                 // Explicitly release routes even when setup failed halfway.
-                tunnel.setTunnelNetworkSettings(nil) { _ in
+                // Stay in 'stopping' until macOS confirms route cleanup.
+                // Otherwise a new start could race a late nil-settings callback.
+                _ = lifecycle.requestStop()
+                tunnel.setTunnelNetworkSettings(nil) { [self] _ in
+                    lifecycle.finish()
                     finished.call(error)
                 }
-                lifecycle.finish()
             }
         }
     }
@@ -97,10 +100,15 @@ final class NativeTunnelEngine: @unchecked Sendable {
             }
             platform?.reset()
             platform = nil
-            tunnel.setTunnelNetworkSettings(nil) { _ in
+            if shouldStop {
+                tunnel.setTunnelNetworkSettings(nil) { [self] _ in
+                    lifecycle.finish()
+                    finished.call(nil)
+                }
+            } else {
+                // Already idle, or the failed-start cleanup owns route removal.
                 finished.call(nil)
             }
-            lifecycle.finish()
         }
     }
 }
