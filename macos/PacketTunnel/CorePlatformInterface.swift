@@ -135,27 +135,77 @@ final class CorePlatformInterface: NSObject, LibboxPlatformInterfaceProtocol, @u
         }
         defer { if let head { freeifaddrs(head) } }
 
-        var byName: [String: LibboxNetworkInterface] = [:]
+        struct Snapshot {
+            var flags: UInt32
+            var addresses: [String]
+        }
+        var snapshots: [String: Snapshot] = [:]
         var cursor = head
         while let item = cursor {
             let record = item.pointee
             let name = String(cString: record.ifa_name)
-            if byName[name] == nil, !name.hasPrefix("utun") {
-                let descriptor = LibboxNetworkInterface()
-                descriptor.name = name
-                descriptor.index = Int32(if_nametoindex(name))
-                descriptor.flags = Int32(bitPattern: record.ifa_flags)
-                descriptor.mtu = 1500
-                descriptor.type = name.hasPrefix("en") ? LibboxInterfaceTypeWIFI : LibboxInterfaceTypeOther
-                descriptor.metered = false
-                descriptor.addresses = NativeStringIterator(values: [])
-                descriptor.dnsServer = NativeStringIterator(values: [])
-                descriptor.gateway = NativeStringIterator(values: [])
-                byName[name] = descriptor
-            }
             cursor = record.ifa_next
+            if name.hasPrefix("utun") { continue }
+
+            var snapshot = snapshots[name] ?? Snapshot(flags: record.ifa_flags, addresses: [])
+            if let address = record.ifa_addr, let mask = record.ifa_netmask {
+                let family = Int32(address.pointee.sa_family)
+                if family == AF_INET || family == AF_INET6 {
+                    var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+                    let status = host.withUnsafeMutableBufferPointer { buffer in
+                        getnameinfo(
+                            address,
+                            socklen_t(address.pointee.sa_len),
+                            buffer.baseAddress,
+                            socklen_t(buffer.count),
+                            nil,
+                            0,
+                            NI_NUMERICHOST
+                        )
+                    }
+                    if status == 0 {
+                        let ip = String(cString: host).split(separator: "%").first.map(String.init) ?? ""
+                        let length: Int
+                        if family == AF_INET {
+                            let value = UnsafeRawPointer(mask)
+                                .assumingMemoryBound(to: sockaddr_in.self)
+                                .pointee.sin_addr.s_addr
+                            length = Int(value.nonzeroBitCount)
+                        } else {
+                            let value = UnsafeRawPointer(mask)
+                                .assumingMemoryBound(to: sockaddr_in6.self)
+                                .pointee.sin6_addr
+                            length = withUnsafeBytes(of: value) { bytes in
+                                bytes.reduce(0) { $0 + $1.nonzeroBitCount }
+                            }
+                        }
+                        let cidr = "\(ip)/\(length)"
+                        if !ip.isEmpty && !snapshot.addresses.contains(cidr) {
+                            snapshot.addresses.append(cidr)
+                        }
+                    }
+                }
+            }
+            snapshots[name] = snapshot
         }
-        return NativeInterfaceIterator(values: Array(byName.values))
+
+        let interfaces: [LibboxNetworkInterface] = snapshots.map { name, snapshot in
+            let descriptor = LibboxNetworkInterface()
+            descriptor.name = name
+            descriptor.index = Int32(if_nametoindex(name))
+            descriptor.flags = Int32(bitPattern: snapshot.flags)
+            // macOS may report different MTUs on cellular/Ethernet/Wi-Fi.
+            // Never infer a physical interface MTU from the virtual TUN MTU;
+            // 1500 is the safe fallback until an ioctl probe is installed.
+            descriptor.mtu = 1500
+            descriptor.type = LibboxInterfaceTypeOther
+            descriptor.metered = false
+            descriptor.addresses = NativeStringIterator(values: snapshot.addresses)
+            descriptor.dnsServer = NativeStringIterator(values: [])
+            descriptor.gateway = NativeStringIterator(values: [])
+            return descriptor
+        }
+        return NativeInterfaceIterator(values: interfaces)
     }
 
     func startDefaultInterfaceMonitor(_ listener: (any LibboxInterfaceUpdateListenerProtocol)?) throws {
