@@ -31,8 +31,8 @@ final class MacOSReleaseCheckerTests: XCTestCase {
         )
         let result = MacOSUpdatePolicy.latestNewer(releases, current: MacOSVersion("0.5.0")!)
         XCTAssertEqual(result?.version, MacOSVersion("0.8.0"))
-        XCTAssertEqual(result?.url?.host, "github.com")
-        XCTAssertEqual(result?.url?.path,
+        XCTAssertEqual(result?.url.host, "github.com")
+        XCTAssertEqual(result?.url.path,
                        "/SawaMEN/hiddify-app/releases/tag/macos-v0.8.0-abcdefabcdef")
     }
 
