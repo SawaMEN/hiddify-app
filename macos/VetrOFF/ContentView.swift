@@ -38,6 +38,7 @@ struct ContentView: View {
     @State private var draftName = ""
     private var selectedID: UUID? { UUID(uuidString: selectedProfileID) }
     @State private var showMessage: String?
+    @State private var releaseChecker = MacOSReleaseChecker()
 
     var body: some View {
         NavigationSplitView {
@@ -227,6 +228,24 @@ struct ContentView: View {
                     LabeledContent("Процессор", value: "Apple Silicon ARM64")
                     LabeledContent("Сетевой туннель", value: "Native Network Extension")
                     LabeledContent("Установлен в системе", value: vpn.isInstalled ? "Да" : "Нет")
+                    Divider()
+                    LabeledContent("Версия macOS", value:
+                        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
+                    Button(releaseChecker.checking ? "Проверка…" : "Проверить обновления macOS") {
+                        Task { await releaseChecker.check() }
+                    }
+                    .disabled(releaseChecker.checking)
+                    Text(releaseChecker.status)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let availableRelease = releaseChecker.availableRelease {
+                        Button("Открыть страницу проверенного релиза") {
+                            NSWorkspace.shared.open(availableRelease)
+                        }
+                    }
+                    Text("Обновления не устанавливаются автоматически. Доступность новой подписанной версии проверяется по GitHub Releases.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Button(vpn.isInstalled ? "VPN-конфигурация установлена" : "Установить VPN-конфигурацию") {
                         Task { await vpn.install() }
                     }
