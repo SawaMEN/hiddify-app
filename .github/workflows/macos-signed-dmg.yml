@@ -142,7 +142,11 @@ jobs:
       - name: Immutable release metadata
         id: info
         run: |
-          echo "tag=macos-signed-${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
+          VERSION="$(plutil -extract CFBundleShortVersionString raw -o - macos/VetrOFF/Info.plist)"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "::error::Invalid macOS semantic version" >&2; exit 1;
+          }
+          echo "tag=macos-v${VERSION}-${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
           echo "sha256=$(shasum -a 256 dist/VetrOFF-macOS-arm64.dmg | awk '{print $1}')" >> "$GITHUB_OUTPUT"
 
       - name: Upload one DMG for private signed-device acceptance
