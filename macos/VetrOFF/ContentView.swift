@@ -129,7 +129,8 @@ struct ContentView: View {
                             !vpn.isCoreReady ||
                             selectedID == nil ||
                             !vpn.isInstalled ||
-                            !(selectedID.map { profiles.isReadyForDebugConnect($0) } ?? false)
+                            !(selectedID.map { profiles.isReadyForDebugConnect($0) } ?? false) ||
+                            (selectedID.map { profiles.refreshing.contains($0) } ?? false)
                         )
                         if vpn.canStop {
                             Button("Отключить") { vpn.stop() }
