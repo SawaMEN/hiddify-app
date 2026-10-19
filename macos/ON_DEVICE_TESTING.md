@@ -120,3 +120,18 @@ remain present even if the Go TUN options include custom included
 networks. Missing IPv4 or IPv6 TUN addresses must reject the connection
 rather than report connected. Confirm that dual-stack leak checks work
 over the physical adapter and that reconnect cleans up both families.
+
+## Stage 2 profile/subscription checks
+
+- Import a single VLESS/Trojan URI; confirm the core (not Swift) parses it.
+- Import several newline-separated URIs, choose the **second** server,
+  connect in signed Debug mode and confirm the chosen outbound in the
+  effective Go configuration without exposing proxy credentials in logs.
+- Import a real HTTPS subscription with a nonsecret test token; verify
+  refresh, Base64 decoding and listing, then disconnect and refresh again.
+- Disconnect the network before refreshing; the last good cached
+  subscription and chosen server must remain available.
+- Test HTTPS redirect to HTTP, localhost and private textual IPs.
+  These must be rejected, with no credential-bearing URL in diagnostics.
+- Confirm JSON and Clash YAML are passed *whole* to the Go parser. They
+  do **not** get a misleading Swift-only outbound selection UI.

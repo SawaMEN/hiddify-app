@@ -314,3 +314,27 @@ A proper downloadable VPN will require the owner's Apple Developer ID,
 packet-tunnel entitlements for both app and extension, notarization,
 and signed-Mac traffic acceptance tests. Production tagged releases do not
 publish this unsigned preview.
+
+## Stage 2 — native subscriptions and server selection (experimental)
+
+- `ProfileSource` identifies line-separated URI bundles (VLESS, VMess,
+  Trojan, Shadowsocks, Hysteria2, TUIC, Naïve and more) without attempting
+  to decode protocol secrets or TLS configuration in Swift. Parsing and
+  validation are **still performed by the pinned Go core** at connection.
+- HTTPS subscription URLs are downloaded from the app through an ephemeral
+  `URLSession` (30s resource timeout). Redirects must remain HTTPS and may
+  not target localhost/private textual IPs. Downloaded files and decoded
+  payloads are capped at 8 MiB before reading them into memory. Supports
+  plain, Base64-wrapped link bundles, JSON and Clash YAML.
+- The original subscription address, cached content and active server
+  (unaltered URI) are separate entries in the *shared signed Keychain*;
+  the SwiftUI menu shows only server indexes and schemes, never passwords.
+  Repeated refreshes retain the last usable content when download fails.
+- Debug-mode `PacketTunnelProvider` now resolves the **active** source
+  directly from Keychain using the existing opaque profile UUID. A
+  subscription must be refreshed before it becomes connectable.
+- JSON/YAML multi-outbound policies currently go unchanged to Go (no
+  fabricated independent server picker). Only plain URI lists expose
+  per-server selection. Automated background refresh, Go-based profile
+  preflight, latency measurements and full format compatibility are still
+  future work. These features do not unlock Release VPN.
