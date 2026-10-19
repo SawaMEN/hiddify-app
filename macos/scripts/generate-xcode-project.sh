@@ -40,24 +40,25 @@ if any((team, app_uuid, tun_uuid)):
     if not (re.fullmatch(r"[A-Z0-9]{10}", team) and
             all(re.fullmatch(r"[0-9A-Fa-f-]{36}", x) for x in (app_uuid, tun_uuid))):
         raise SystemExit("Invalid/missing team and separate provisioning profile UUIDs")
+    newline = chr(10)
     source = source.replace(
-        "    CODE_SIGN_STYLE: Automatic\\n",
-        "    CODE_SIGN_STYLE: Manual\\n",
+        "    CODE_SIGN_STYLE: Automatic" + newline,
+        "    CODE_SIGN_STYLE: Manual" + newline,
         1,
     )
     for bid, profile_uuid in (
         ("app.vetroff.client.macos", app_uuid),
         ("app.vetroff.client.macos.PacketTunnel", tun_uuid),
     ):
-        anchor = "        PRODUCT_BUNDLE_IDENTIFIER: " + bid + "\\n"
+        anchor = "        PRODUCT_BUNDLE_IDENTIFIER: " + bid + newline
         if source.count(anchor) != 1:
             raise SystemExit("Unexpected project.yml signing target layout")
         source = source.replace(
             anchor,
-            anchor + "        DEVELOPMENT_TEAM: " + team + "\\n" +
-            "        PROVISIONING_PROFILE_SPECIFIER: " + profile_uuid + "\\n" +
-            "        CODE_SIGN_STYLE: Manual\\n" +
-            "        CODE_SIGN_IDENTITY: \\"Developer ID Application\\"\\n",
+            anchor + "        DEVELOPMENT_TEAM: " + team + newline +
+            "        PROVISIONING_PROFILE_SPECIFIER: " + profile_uuid + newline +
+            "        CODE_SIGN_STYLE: Manual" + newline +
+            '        CODE_SIGN_IDENTITY: "Developer ID Application"' + newline,
             1,
         )
 
