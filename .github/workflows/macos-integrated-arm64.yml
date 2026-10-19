@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feat/macos-stage3-release
       - fix/macos-route-safety
       - feat/macos-swift-arm64
     paths:
@@ -13,6 +14,7 @@ on:
       - "macos/Integration/CoreSmoke.swift"
       - "macos/scripts/generate-xcode-project.sh"
       - ".github/workflows/macos-integrated-arm64.yml"
+      - "macos/scripts/generate-xcode-project.sh"
   workflow_dispatch:
 
 permissions:
