@@ -41,4 +41,57 @@ final class ProfileSourceTests: XCTestCase {
             XCTAssertEqual($0 as? ProfileSourceError, .tooLarge)
         }
     }
+    func testMultiLineLinksAreSelectableWithoutChangingRawURI() throws {
+        let first = "vless://test@example.com:443#Primary"
+        let second = "trojan://secret@example.net:443#Secondary"
+        let input = "# Comment\n" + first + "\n" + second + "\n"
+        XCTAssertEqual(try ProfileSource.classify(input), .proxyURI)
+        let servers = ProfileSource.servers(in: input)
+        XCTAssertEqual(servers.count, 2)
+        XCTAssertEqual(servers[0].rawURI, first)
+        XCTAssertEqual(servers[1].rawURI, second)
+        XCTAssertEqual(servers[0].scheme, "vless")
+    }
+
+    func testUnknownServerInBatchMustNotSilentlyDisappear() {
+        let input = "vless://uuid@example.com\nunknown://secret@example.com"
+        XCTAssertThrowsError(try ProfileSource.classify(input))
+        XCTAssertTrue(ProfileSource.servers(in: input).isEmpty)
+    }
+
+    func testBase64SubscriptionDecodesAndKeepsLinks() throws {
+        let links = "vless://uuid@one.example:443\ntrojan://pass@two.example:443"
+        let base64 = Data(links.utf8).base64EncodedString()
+        let decoded = try ProfileSource.decodeSubscription(Data(base64.utf8))
+        XCTAssertEqual(decoded, links)
+        XCTAssertEqual(ProfileSource.servers(in: decoded).count, 2)
+    }
+
+    func testSubscriptionAcceptsClashYAMLAndJSON() throws {
+        let yaml = "proxies:\n  - name: Node1\n    type: ss\n    server: example.org"
+        XCTAssertEqual(try ProfileSource.classify(yaml), .yaml)
+        XCTAssertEqual(try ProfileSource.decodeSubscription(Data(yaml.utf8)), yaml)
+        let json = #"{"outbounds":[{"type":"direct","tag":"direct"}]}"#
+        XCTAssertEqual(try ProfileSource.decodeSubscription(Data(json.utf8)), json)
+    }
+
+    func testRejectsSubscriptionContainingAnotherSubscriptionURL() {
+        XCTAssertThrowsError(
+            try ProfileSource.decodeSubscription(Data("https://private.example/sub".utf8))
+        ) {
+            XCTAssertEqual($0 as? ProfileSourceError, .invalidSubscription)
+        }
+    }
+
+    func testServerListDoesNotExposeCredentialsInTitle() {
+        let entries = ProfileSource.servers(in: "trojan://topsecret@example.net:443#Europe")
+        XCTAssertEqual(entries.count, 1)
+        XCTAssertFalse(entries[0].title.contains("topsecret"))
+    }
+
+    func testNoServerCountExplosion() {
+        let links = Array(repeating: "vless://uuid@example.net:443", count: ProfileSource.maxServers + 1)
+        XCTAssertTrue(ProfileSource.servers(in: links.joined(separator: "\n")).isEmpty)
+    }
+
 }
