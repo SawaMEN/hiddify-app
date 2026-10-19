@@ -335,6 +335,10 @@ publish this unsigned preview.
   subscription must be refreshed before it becomes connectable.
 - JSON/YAML multi-outbound policies currently go unchanged to Go (no
   fabricated independent server picker). Only plain URI lists expose
-  per-server selection. Automated background refresh, Go-based profile
+  per-server selection. Automatic refresh is checked when the app launches and once per hour
+  while it stays open (only when the VPN is stopped); subscriptions older
+  than 12 hours are refreshed. Refresh never runs after the app exits.
+  Cross-origin HTTPS redirects are rejected to avoid disclosing signed
+  subscription URLs to a second hostname. Go-based profile
   preflight, latency measurements and full format compatibility are still
   future work. These features do not unlock Release VPN.

@@ -66,8 +66,13 @@ struct ContentView: View {
         .frame(minWidth: 760, minHeight: 520)
         .task {
             await vpn.load()
-            if !vpn.canStop {
-                await profiles.refreshStaleSubscriptions()
+            // Periodic refresh runs only while the app is open, and never
+            // mutates the selected source during an active VPN connection.
+            while !Task.isCancelled {
+                if !vpn.canStop {
+                    await profiles.refreshStaleSubscriptions()
+                }
+                try? await Task.sleep(for: .seconds(60 * 60))
             }
         }
         .sheet(isPresented: $showPasteSheet) { importSheet }

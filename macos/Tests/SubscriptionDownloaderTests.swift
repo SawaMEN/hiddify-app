@@ -13,7 +13,7 @@ final class SubscriptionDownloaderTests: XCTestCase {
 
     func testRejectsLocalhostAndPrivateLiteralIPs() {
         for host in ["localhost", "127.0.0.1", "192.168.1.1",
-                     "10.1.2.3", "[::1]", "server.local", "api.internal"] {
+                     "10.1.2.3", "127.1", "2130706433", "[::1]", "server.local", "api.internal"] {
             XCTAssertThrowsError(
                 try SubscriptionDownloader.validate(URL(string: "https://\(host)/sub")!)
             )

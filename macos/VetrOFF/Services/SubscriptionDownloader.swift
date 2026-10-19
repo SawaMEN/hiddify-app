@@ -27,7 +27,8 @@ private final class SubscriptionRedirectGuard: NSObject, URLSessionTaskDelegate,
         completionHandler: @escaping (URLRequest?) -> Void
     ) {
         guard let url = request.url,
-              (try? SubscriptionDownloader.validate(url)) != nil
+              (try? SubscriptionDownloader.validate(url)) != nil,
+              url.host?.lowercased() == task.originalRequest?.url?.host?.lowercased()
         else {
             completionHandler(nil)
             return
@@ -54,13 +55,10 @@ enum SubscriptionDownloader {
             throw SubscriptionDownloadError.privateHost
         }
 
-        let octets = normalized.split(separator: ".", omittingEmptySubsequences: false)
-        if octets.count == 4, octets.allSatisfy({ $0.allSatisfy(\.isNumber) }),
-           let a = Int(octets[0]), let b = Int(octets[1]) {
-            // Conservative: IP literal hosts are not permitted, including
-            // loopback, RFC1918, link-local and public IPv4 literals.
-            _ = a
-            _ = b
+        // Block canonical and abbreviated numeric IPv4 hosts such as
+        // 127.1 and 2130706433, which CFNetwork may interpret as loopback.
+        if normalized.allSatisfy({ $0.isNumber || $0 == "." }) ||
+            normalized.hasPrefix("0x") {
             throw SubscriptionDownloadError.privateHost
         }
     }
