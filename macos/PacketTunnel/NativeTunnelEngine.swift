@@ -15,6 +15,7 @@ final class NativeTunnelEngine: @unchecked Sendable {
     private var platform: CorePlatformInterface?
     private var settingsCoordinator: TunnelSettingsCoordinator?
     private var setupAttempted = false
+    private var coreStopFailed = false
     private var teardownInProgress = false
     private var teardownWatchdogFired = false
     private var failedStart: (completion: NativeCompletion, error: Error)?
@@ -123,11 +124,16 @@ final class NativeTunnelEngine: @unchecked Sendable {
         guard !teardownInProgress else { return }
         teardownInProgress = true
         teardownWatchdogFired = false
+        coreStopFailed = false
         _ = lifecycle.requestStop()
 
         if setupAttempted {
             var error: NSError?
-            _ = MobileStop(&error)
+            if !MobileStop(&error) {
+                // Even if macOS removes routes, a failed Go stop may leave
+                // a live core instance. Reject reconnects in this provider.
+                coreStopFailed = true
+            }
             setupAttempted = false
         }
         platform?.reset()
@@ -138,7 +144,7 @@ final class NativeTunnelEngine: @unchecked Sendable {
                 guard teardownInProgress else { return }
                 // A failed settings removal MUST NOT make the service idle:
                 // no retry may start until macOS has cleared old routes.
-                if error == nil {
+                if error == nil && !coreStopFailed {
                     lifecycle.finish()
                 }
                 teardownInProgress = false
