@@ -35,8 +35,11 @@ for measuring resident Go memory and behavior under memory pressure.
    `VETROFF_ALLOW_PROVISIONING_UPDATES=1`. The script verifies that
    **both** the app and the embedded extension have valid code signatures,
    the packet-tunnel entitlement and matching provisioned Keychain groups.
-   It stops before any VPN test if they do not match. This is a local
-   developer build, not an installable public release.
+   It stops before any VPN test if they do not match. On success it
+   also packages exactly one
+   `macos/build/VetrOFF-macOS-arm64-signed-debug.dmg` for installation
+   and real-device testing. This is a local developer preview, **not** a
+   notarized public release.
 
 5. Set your own Apple Developer Team and provisioning for both
    `VetrOFF` and `PacketTunnel`. Both must have Network Extension

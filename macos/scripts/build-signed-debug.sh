@@ -79,6 +79,13 @@ if groups[0] != groups[1]:
 print("Both code signatures have the packet-tunnel entitlement and matching Keychain access group.")
 PY
 
+# Produce exactly one signed test DMG after signature/entitlement preflight.
+# Do not publish it as production: it is not Developer ID notarized, and
+# successful packaging does not verify that any packets were forwarded.
+SIGNED_DMG="${VETROFF_SIGNED_DMG_OUTPUT:-$ROOT/macos/build/VetrOFF-macOS-arm64-signed-debug.dmg}"
+bash "$ROOT/macos/scripts/package-dmg.sh" "$APP" "$SIGNED_DMG"
+
 echo "Signed test application: $APP"
+echo "Signed Debug installer: $SIGNED_DMG"
 echo "Run it on this Mac and perform macos/ON_DEVICE_TESTING.md."
 echo "This check does NOT verify real TCP/UDP packets, DNS, IPv6 or Apple notarization."
