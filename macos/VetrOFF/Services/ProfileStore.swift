@@ -123,6 +123,11 @@ final class ProfileStore {
 
         let url = try ProfileVault.source(id: id)
         let content = try await SubscriptionDownloader.fetch(url)
+        // Profile positions may change while network I/O suspends this actor
+        // (e.g. another profile is removed). Re-resolve by stable UUID.
+        guard let updatedPosition = profiles.firstIndex(where: { $0.id == id }) else {
+            throw ProfileStoreError.notFound
+        }
         let servers = ProfileSource.servers(in: content)
         let oldActive = try? ProfileVault.connectableSource(id: id)
         let selectedIndex = ProfileSource.preservingSelection(
@@ -136,8 +141,8 @@ final class ProfileStore {
         try ProfileVault.saveActiveSource(id: id, source: effective)
 
         var next = profiles
-        next[position].lastRefreshedAt = Date()
-        next[position].selectedServerIndex = selectedIndex
+        next[updatedPosition].lastRefreshedAt = Date()
+        next[updatedPosition].selectedServerIndex = selectedIndex
         try persist(next)
         profiles = next
         serverLists[id] = servers
@@ -156,6 +161,7 @@ final class ProfileStore {
     }
 
     func delete(_ id: UUID) throws {
+        guard !refreshing.contains(id) else { throw ProfileStoreError.refreshInProgress }
         let remaining = profiles.filter { $0.id != id }
         try persist(remaining)
         profiles = remaining
