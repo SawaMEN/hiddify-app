@@ -31,6 +31,7 @@ struct ContentView: View {
     let vpn: VPNController
     let profiles: ProfileStore
     @AppStorage("macos.selectedProfileID.v1") private var selectedProfileID = ""
+    @AppStorage("macos.autoRefreshSubscriptions") private var autoRefreshSubscriptions = true
 
     @State private var showImporter = false
     @State private var showPasteSheet = false
@@ -38,6 +39,8 @@ struct ContentView: View {
     @State private var draftName = ""
     private var selectedID: UUID? { UUID(uuidString: selectedProfileID) }
     @State private var showMessage: String?
+    @State private var probeStatuses: [UUID: String] = [:]
+    @State private var probing: Set<UUID> = []
 
     var body: some View {
         NavigationSplitView {
@@ -64,7 +67,17 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 760, minHeight: 520)
-        .task { await vpn.load() }
+        .task {
+            await vpn.load()
+            // Periodic refresh runs only while the app is open, and never
+            // mutates the selected source during an active VPN connection.
+            while !Task.isCancelled {
+                if autoRefreshSubscriptions && !vpn.canStop {
+                    await profiles.refreshStaleSubscriptions()
+                }
+                try? await Task.sleep(for: .seconds(60 * 60))
+            }
+        }
         .sheet(isPresented: $showPasteSheet) { importSheet }
         .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json, .plainText]) { result in
             do {
@@ -119,7 +132,8 @@ struct ContentView: View {
                             !vpn.isCoreReady ||
                             selectedID == nil ||
                             !vpn.isInstalled ||
-                            profiles.profiles.first(where: { $0.id == selectedID })?.format != .json
+                            !(selectedID.map { profiles.isReadyForDebugConnect($0) } ?? false) ||
+                            (selectedID.map { profiles.refreshing.contains($0) } ?? false)
                         )
                         if vpn.canStop {
                             Button("Отключить") { vpn.stop() }
@@ -127,7 +141,7 @@ struct ContentView: View {
                     }
                     Text(
                         vpn.isCoreReady
-                        ? "Экспериментальный запуск доступен только в Debug со встроенным Go-ядром и JSON-профилем. Проверяйте DNS и IPv6 на тестовом Mac; соединение ещё не признано стабильным."
+                        ? "Только Debug: поддерживаются локальные JSON/YAML/URI и заранее обновлённые HTTPS-подписки. Выбор URI передаётся нативному Go-ядру; передача IP-пакетов не подтверждена."
                         : "В обычной сборке подключение отключено до физической проверки передачи IP-пакетов через нативный TUN."
                     )
                         .font(.caption)
@@ -164,13 +178,97 @@ struct ContentView: View {
                         HStack(spacing: 12) {
                             Image(systemName: selectedID == profile.id ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(selectedID == profile.id ? Color.accentColor : Color.secondary)
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 7) {
                                 Text(profile.name).font(.headline)
                                 Text(profile.format.label).font(.caption).foregroundStyle(.secondary)
+
+                                if profile.format == .subscriptionURL {
+                                    if let updated = profile.lastRefreshedAt {
+                                        Text("Обновлено: \(updated.formatted(date: .abbreviated, time: .shortened))")
+                                            .font(.caption2).foregroundStyle(.secondary)
+                                    } else {
+                                        Text("Не загружена — обновите подписку")
+                                            .font(.caption2).foregroundStyle(.secondary)
+                                    }
+                                }
+
+                                let servers = profiles.servers(for: profile.id)
+                                if !servers.isEmpty {
+                                    Picker("Сервер", selection: Binding<Int>(
+                                        get: { profile.selectedServerIndex ?? 0 },
+                                        set: { index in
+                                            do {
+                                                try profiles.selectServer(id: profile.id, index: index)
+                                                probeStatuses.removeValue(forKey: profile.id)
+                                            } catch {
+                                                showMessage = error.localizedDescription
+                                            }
+                                        }
+                                    )) {
+                                        ForEach(servers) { server in
+                                            Text(server.title).tag(server.index)
+                                        }
+                                    }
+                                    .labelsHidden()
+                                    .frame(maxWidth: 260)
+                                    .disabled(vpn.canStop || profiles.refreshing.contains(profile.id))
+
+                                    if let chosen = servers.first(where: {
+                                        $0.index == (profile.selectedServerIndex ?? 0)
+                                    }) {
+                                        HStack(spacing: 8) {
+                                            Button(probing.contains(profile.id) ? "TCP-проверка…" : "TCP-проверка") {
+                                                probing.insert(profile.id)
+                                                probeStatuses.removeValue(forKey: profile.id)
+                                                Task { @MainActor in
+                                                    let summary: String
+                                                    do {
+                                                        let ms = try await TCPReachability.measure(chosen)
+                                                        summary = "TCP-порт: \(ms) мс"
+                                                    } catch {
+                                                        summary = error.localizedDescription
+                                                    }
+                                                    let current = profiles.servers(for: profile.id).first {
+                                                        $0.index == (profiles.profiles.first {
+                                                            $0.id == profile.id
+                                                        }?.selectedServerIndex ?? 0)
+                                                    }
+                                                    if current?.rawURI == chosen.rawURI {
+                                                        probeStatuses[profile.id] = summary
+                                                    }
+                                                    probing.remove(profile.id)
+                                                }
+                                            }
+                                            .disabled(
+                                                probing.contains(profile.id) ||
+                                                vpn.canStop ||
+                                                profiles.refreshing.contains(profile.id) ||
+                                                TCPReachability.target(for: chosen) == nil
+                                            )
+                                            .font(.caption)
+                                            if let status = probeStatuses[profile.id] {
+                                                Text(status).font(.caption2)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
+                                    }
+                                }
                             }
                             Spacer()
+                            if profile.format == .subscriptionURL {
+                                Button(profiles.refreshing.contains(profile.id) ? "Обновление…" : "Обновить") {
+                                    Task {
+                                        do {
+                                            try await profiles.refresh(profile.id)
+                                        } catch {
+                                            showMessage = error.localizedDescription
+                                        }
+                                    }
+                                }
+                                .disabled(profiles.refreshing.contains(profile.id) || vpn.canStop)
+                            }
                             Button("Выбрать") { selectedProfileID = profile.id.uuidString }
-                                .disabled(selectedID == profile.id)
+                                .disabled(selectedID == profile.id || vpn.canStop)
                             Button(role: .destructive) {
                                 do {
                                     try profiles.delete(profile.id)
@@ -182,6 +280,7 @@ struct ContentView: View {
                                 Image(systemName: "trash")
                             }
                             .help("Удалить профиль")
+                            .disabled(vpn.canStop || profiles.refreshing.contains(profile.id))
                         }
                         .padding(6)
                     }
@@ -227,6 +326,9 @@ struct ContentView: View {
                     LabeledContent("Процессор", value: "Apple Silicon ARM64")
                     LabeledContent("Сетевой туннель", value: "Native Network Extension")
                     LabeledContent("Установлен в системе", value: vpn.isInstalled ? "Да" : "Нет")
+                    Toggle("Автоматически обновлять подписки", isOn: $autoRefreshSubscriptions)
+                    Text("Проверка раз в час, обновление при возрасте кэша более 12 часов. Только пока приложение запущено и VPN выключен.")
+                        .font(.caption).foregroundStyle(.secondary)
                     Button(vpn.isInstalled ? "VPN-конфигурация установлена" : "Установить VPN-конфигурацию") {
                         Task { await vpn.install() }
                     }
@@ -258,6 +360,15 @@ struct ContentView: View {
             let record = try profiles.add(raw, name: name)
             selectedProfileID = record.id.uuidString
             showMessage = nil
+            if record.format == .subscriptionURL {
+                Task {
+                    do {
+                        try await profiles.refresh(record.id)
+                    } catch {
+                        showMessage = "Подписка сохранена, но обновление не удалось: \(error.localizedDescription)"
+                    }
+                }
+            }
         } catch {
             showMessage = error.localizedDescription
         }
