@@ -29,28 +29,62 @@ jobs:
   package-macos-preview:
     name: Package native macOS ARM64 app and PacketTunnel
     runs-on: macos-15
-    timeout-minutes: 35
+    timeout-minutes: 60
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Download pinned Go XCFramework from a successful build
+      - name: Download pinned Go XCFramework when CI artifact exists
+        id: core-cache
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          # Must agree with macos-core-arm64.yml. Never fall back to
-          # the UI-only (no Go bridge) project.
+          # Must agree with macos-core-arm64.yml; no fallback to a stale core.
           CORE_ARTIFACT="HiddifyCore-macos-37ed16781062"
-          RUN_ID="$(gh api "repos/$GH_REPO/actions/artifacts?name=$CORE_ARTIFACT&per_page=100" --jq             '.artifacts | map(select(.expired == false)) | .[0].workflow_run.id // empty')"
+          RUN_ID="$(gh api "repos/$GH_REPO/actions/artifacts?name=$CORE_ARTIFACT&per_page=100" --jq '.artifacts | map(select(.expired == false)) | .[0].workflow_run.id // empty')"
           if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then
-            echo "::error::Pinned Go XCFramework unavailable. First run macOS Native Core Build." >&2
-            exit 1
+            echo "cached=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Pinned core artifact missing or expired; rebuilding."
+          else
+            mkdir -p macos/Core/HiddifyCore.xcframework
+            gh run download "$RUN_ID" --name "$CORE_ARTIFACT" --dir macos/Core/HiddifyCore.xcframework
+            test -d macos/Core/HiddifyCore.xcframework/macos-arm64/HiddifyCore.framework
+            echo "cached=true" >> "$GITHUB_OUTPUT"
           fi
-          mkdir -p macos/Core/HiddifyCore.xcframework
-          gh run download "$RUN_ID" --name "$CORE_ARTIFACT" --dir macos/Core/HiddifyCore.xcframework
-          test -d macos/Core/HiddifyCore.xcframework/macos-arm64/HiddifyCore.framework
+
+      - name: Checkout exact Go source if artifact expired
+        if: ${{ steps.core-cache.outputs.cached != 'true' }}
+        uses: actions/checkout@v4
+        with:
+          repository: SawaMEN/hiddify-core
+          ref: 37ed16781062332d2269e57d2bf1a85d6a4e2717
+          path: _build/hiddify-core
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Install pinned Go version if rebuilding
+        if: ${{ steps.core-cache.outputs.cached != 'true' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: _build/hiddify-core/go.mod
+          cache: false
+
+      - name: Rebuild exact macOS Go XCFramework if artifact expired
+        if: ${{ steps.core-cache.outputs.cached != 'true' }}
+        env:
+          VETROFF_CORE_DIR: ${{ github.workspace }}/_build/hiddify-core
+          VETROFF_CORE_OUT: ${{ github.workspace }}/_build/output
+          VETROFF_CORE_SHA: 37ed16781062332d2269e57d2bf1a85d6a4e2717
+        run: |
+          set -euo pipefail
+          bash macos/scripts/build-hiddify-core.sh
+          mkdir -p macos/Core
+          ln -s "$VETROFF_CORE_OUT/HiddifyCore.xcframework" macos/Core/HiddifyCore.xcframework
+
+      - name: Enforce linked native Go core before packaging
+        run: test -d macos/Core/HiddifyCore.xcframework/macos-arm64/HiddifyCore.framework
 
       - name: Generate native Xcode project
         run: |
