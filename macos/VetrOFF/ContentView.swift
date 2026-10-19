@@ -223,7 +223,7 @@ struct ContentView: View {
                                 .disabled(profiles.refreshing.contains(profile.id) || vpn.canStop)
                             }
                             Button("Выбрать") { selectedProfileID = profile.id.uuidString }
-                                .disabled(selectedID == profile.id)
+                                .disabled(selectedID == profile.id || vpn.canStop)
                             Button(role: .destructive) {
                                 do {
                                     try profiles.delete(profile.id)
@@ -235,6 +235,7 @@ struct ContentView: View {
                                 Image(systemName: "trash")
                             }
                             .help("Удалить профиль")
+                            .disabled(vpn.canStop || profiles.refreshing.contains(profile.id))
                         }
                         .padding(6)
                     }
