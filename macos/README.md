@@ -315,6 +315,23 @@ packet-tunnel entitlements for both app and extension, notarization,
 and signed-Mac traffic acceptance tests. Production tagged releases do not
 publish this unsigned preview.
 
+## Signed macOS stage-1 device build
+
+`APPLE_TEAM_ID=<10-character-team-id> bash macos/scripts/build-signed-debug.sh`
+creates a **locally signed Debug** app from the pinned in-process Go
+XCFramework. It verifies code signatures and required Network Extension
+and shared Keychain entitlements for **both** binaries, failing if the
+Apple Developer Team has not provisioned the capabilities. After the
+preflight passes it creates one local signed Debug DMG at
+`macos/build/VetrOFF-macOS-arm64-signed-debug.dmg`.
+
+This script requires a configured Apple Developer account on an actual
+Apple Silicon Mac. It does not download private signing keys or upload
+credentials. No unsigned CI DMG is a substitute for a signed device test.
+The Production Release VPN gate stays disabled until the on-device
+`macos/ON_DEVICE_TESTING.md` matrix passes.
+
+
 ## Stage 2 — native subscriptions and server selection (experimental)
 
 - `ProfileSource` identifies line-separated URI bundles (VLESS, VMess,

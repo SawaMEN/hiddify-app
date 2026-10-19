@@ -12,7 +12,7 @@ for measuring resident Go memory and behavior under memory pressure.
 
 1. Download the latest successful
    [macOS Native Core Build](https://github.com/SawaMEN/hiddify-app/actions/workflows/macos-core-arm64.yml)
-   artifact `HiddifyCore-macos-arm64-experiment`.
+   artifact `HiddifyCore-macos-37ed16781062`.
 2. Extract its contents into
    `macos/Core/HiddifyCore.xcframework/`; the resulting folder must
    contain the `macos-arm64/HiddifyCore.framework` slice.
@@ -24,12 +24,29 @@ for measuring resident Go memory and behavior under memory pressure.
    open macos/VetrOFF.xcodeproj
    ```
 
-4. Set your own Apple Developer Team and provisioning for both
+4. For a signed local Debug build, configure Xcode with your Apple
+   Developer account and the packet-tunnel/keychain capabilities; then run:
+
+   ```sh
+   APPLE_TEAM_ID=YOURTEAMID bash macos/scripts/build-signed-debug.sh
+   ```
+
+   If Xcode must fetch a provisioning profile, opt in with
+   `VETROFF_ALLOW_PROVISIONING_UPDATES=1`. The script verifies that
+   **both** the app and the embedded extension have valid code signatures,
+   the packet-tunnel entitlement and matching provisioned Keychain groups.
+   It stops before any VPN test if they do not match. On success it
+   also packages exactly one
+   `macos/build/VetrOFF-macOS-arm64-signed-debug.dmg` for installation
+   and real-device testing. This is a local developer preview, **not** a
+   notarized public release.
+
+5. Set your own Apple Developer Team and provisioning for both
    `VetrOFF` and `PacketTunnel`. Both must have Network Extension
    packet-tunnel entitlement and the **same**
    `app.vetroff.client.macos.shared` Keychain group with the correct
    Team ID prefix. These identifiers must match the installed app.
-5. Build/run the integrated **Debug** scheme, not the UI-only version.
+6. Build/run the integrated **Debug** scheme, not the UI-only version.
    After granting VPN permission, install one JSON profile using the
    interface, select it and use **Тестировать VPN (Debug)**.
 
@@ -120,6 +137,29 @@ remain present even if the Go TUN options include custom included
 networks. Missing IPv4 or IPv6 TUN addresses must reject the connection
 rather than report connected. Confirm that dual-stack leak checks work
 over the physical adapter and that reconnect cleans up both families.
+
+## Startup/stop timing validation (stage 1)
+
+After signing with an eligible Apple Developer team, exercise these
+cases while observing the in-app Network Extension diagnostic state:
+
+- Cancel while the first `setTunnelNetworkSettings(settings)` call is
+  still pending. The later OS callback must be followed by **exactly one**
+  `setTunnelNetworkSettings(nil)`; never report a connected tunnel.
+- Cancel after `OpenTun` times out (20 s). A late OS network-settings
+  callback must not restore routes after cleanup.
+- Submit repeated stop events while a teardown is pending: Go must stop
+  once, all stop completions must eventually fire and a new start must
+  remain blocked until macOS acknowledges clearing routes.
+- If OS settings removal fails or does not return, a restart in the same
+  extension must fail closed. A 30 s watchdog returns outstanding provider
+  completion handlers but does **not** claim that routes were removed.
+- Run 50 connect/cancel/reconnect cycles, including Wi-Fi changes, sleep,
+  IPv6 and DNS capture. Record observations without profile secrets.
+
+The CI tests simulate out-of-order apply and removal callbacks; they
+cannot validate actual macOS utun packet delivery or provisioning.
+
 
 ## Stage 2 profile/subscription checks
 

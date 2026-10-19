@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feat/macos-stage2-profiles
+      - fix/macos-stage1-tun-teardown
       - fix/macos-route-safety
       - feat/macos-swift-arm64
     paths:

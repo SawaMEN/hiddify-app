@@ -12,7 +12,7 @@ private let corePlatformErrorDomain = "app.vetroff.client.macos.CorePlatform"
 /// sing-tun using the duplicated utun file descriptor; Swift never copies
 /// packets, wraps TCP sockets, or inserts a localhost proxy in that path.
 final class CorePlatformInterface: NSObject, LibboxPlatformInterfaceProtocol, @unchecked Sendable {
-    private let tunnel: NEPacketTunnelProvider
+    private let settingsCoordinator: TunnelSettingsCoordinator
     private let lifecycle: TunnelLifecycle
     private let access = NSLock()
     private var monitor: NativeDefaultNetworkMonitor?
@@ -24,8 +24,8 @@ final class CorePlatformInterface: NSObject, LibboxPlatformInterfaceProtocol, @u
         return didOpenTun
     }
 
-    init(tunnel: NEPacketTunnelProvider, lifecycle: TunnelLifecycle) {
-        self.tunnel = tunnel
+    init(settingsCoordinator: TunnelSettingsCoordinator, lifecycle: TunnelLifecycle) {
+        self.settingsCoordinator = settingsCoordinator
         self.lifecycle = lifecycle
         super.init()
     }
@@ -82,7 +82,7 @@ final class CorePlatformInterface: NSObject, LibboxPlatformInterfaceProtocol, @u
         // otherwise NEPacketTunnelProvider can claim success while blackholing.
         let completed = DispatchSemaphore(value: 0)
         let completionState = TunnelSettingsResult()
-        tunnel.setTunnelNetworkSettings(settings) { error in
+        settingsCoordinator.apply(settings) { error in
             completionState.set(error)
             completed.signal()
         }
