@@ -15,7 +15,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         let content: String
         do {
             let request = try TunnelStartRequest(options: options)
-            content = try ProfileVault.source(id: request.profileID)
+            content = try ProfileVault.connectableSource(id: request.profileID)
         } catch {
             completionHandler(error)
             return

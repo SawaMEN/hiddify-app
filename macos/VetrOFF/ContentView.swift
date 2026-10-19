@@ -119,7 +119,7 @@ struct ContentView: View {
                             !vpn.isCoreReady ||
                             selectedID == nil ||
                             !vpn.isInstalled ||
-                            profiles.profiles.first(where: { $0.id == selectedID })?.format != .json
+                            !(selectedID.map { profiles.isReadyForDebugConnect($0) } ?? false)
                         )
                         if vpn.canStop {
                             Button("Отключить") { vpn.stop() }
@@ -127,7 +127,7 @@ struct ContentView: View {
                     }
                     Text(
                         vpn.isCoreReady
-                        ? "Экспериментальный запуск доступен только в Debug со встроенным Go-ядром и JSON-профилем. Проверяйте DNS и IPv6 на тестовом Mac; соединение ещё не признано стабильным."
+                        ? "Только Debug: поддерживаются локальные JSON/YAML/URI и заранее обновлённые HTTPS-подписки. Выбор URI передаётся нативному Go-ядру; передача IP-пакетов не подтверждена."
                         : "В обычной сборке подключение отключено до физической проверки передачи IP-пакетов через нативный TUN."
                     )
                         .font(.caption)
@@ -164,11 +164,54 @@ struct ContentView: View {
                         HStack(spacing: 12) {
                             Image(systemName: selectedID == profile.id ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(selectedID == profile.id ? Color.accentColor : Color.secondary)
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 7) {
                                 Text(profile.name).font(.headline)
                                 Text(profile.format.label).font(.caption).foregroundStyle(.secondary)
+
+                                if profile.format == .subscriptionURL {
+                                    if let updated = profile.lastRefreshedAt {
+                                        Text("Обновлено: \(updated.formatted(date: .abbreviated, time: .shortened))")
+                                            .font(.caption2).foregroundStyle(.secondary)
+                                    } else {
+                                        Text("Не загружена — обновите подписку")
+                                            .font(.caption2).foregroundStyle(.secondary)
+                                    }
+                                }
+
+                                let servers = profiles.servers(for: profile.id)
+                                if !servers.isEmpty {
+                                    Picker("Сервер", selection: Binding<Int>(
+                                        get: { profile.selectedServerIndex ?? 0 },
+                                        set: { index in
+                                            do {
+                                                try profiles.selectServer(id: profile.id, index: index)
+                                            } catch {
+                                                showMessage = error.localizedDescription
+                                            }
+                                        }
+                                    )) {
+                                        ForEach(servers) { server in
+                                            Text(server.title).tag(server.index)
+                                        }
+                                    }
+                                    .labelsHidden()
+                                    .frame(maxWidth: 260)
+                                    .disabled(vpn.canStop || profiles.refreshing.contains(profile.id))
+                                }
                             }
                             Spacer()
+                            if profile.format == .subscriptionURL {
+                                Button(profiles.refreshing.contains(profile.id) ? "Обновление…" : "Обновить") {
+                                    Task {
+                                        do {
+                                            try await profiles.refresh(profile.id)
+                                        } catch {
+                                            showMessage = error.localizedDescription
+                                        }
+                                    }
+                                }
+                                .disabled(profiles.refreshing.contains(profile.id) || vpn.canStop)
+                            }
                             Button("Выбрать") { selectedProfileID = profile.id.uuidString }
                                 .disabled(selectedID == profile.id)
                             Button(role: .destructive) {
@@ -258,6 +301,15 @@ struct ContentView: View {
             let record = try profiles.add(raw, name: name)
             selectedProfileID = record.id.uuidString
             showMessage = nil
+            if record.format == .subscriptionURL {
+                Task {
+                    do {
+                        try await profiles.refresh(record.id)
+                    } catch {
+                        showMessage = "Подписка сохранена, но обновление не удалось: \(error.localizedDescription)"
+                    }
+                }
+            }
         } catch {
             showMessage = error.localizedDescription
         }
