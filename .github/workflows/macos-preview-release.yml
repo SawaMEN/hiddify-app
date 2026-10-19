@@ -11,6 +11,7 @@ on:
   push:
     branches:
       - main
+      - feat/macos-dev-release-zip
     paths:
       - "macos/**"
       - ".github/workflows/macos-preview-release.yml"
