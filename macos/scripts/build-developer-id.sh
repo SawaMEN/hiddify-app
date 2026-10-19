@@ -87,9 +87,9 @@ export VETROFF_APP_PROFILE_UUID
 export VETROFF_TUN_PROFILE_UUID
 VETROFF_APP_PROFILE_UUID="$(validate_profile "$MACOS_APP_PROFILE_B64" \
     app.vetroff.client.macos app)"
+APP_PROFILE_PATH="$HOME/Library/MobileDevice/Provisioning Profiles/$VETROFF_APP_PROFILE_UUID.mobileprovision"
 VETROFF_TUN_PROFILE_UUID="$(validate_profile "$MACOS_TUN_PROFILE_B64" \
     app.vetroff.client.macos.PacketTunnel tunnel)"
-APP_PROFILE_PATH="$HOME/Library/MobileDevice/Provisioning Profiles/$VETROFF_APP_PROFILE_UUID.mobileprovision"
 TUN_PROFILE_PATH="$HOME/Library/MobileDevice/Provisioning Profiles/$VETROFF_TUN_PROFILE_UUID.mobileprovision"
 
 
