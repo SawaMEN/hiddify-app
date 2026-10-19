@@ -39,6 +39,8 @@ struct ContentView: View {
     @State private var draftName = ""
     private var selectedID: UUID? { UUID(uuidString: selectedProfileID) }
     @State private var showMessage: String?
+    @State private var probeStatuses: [UUID: String] = [:]
+    @State private var probing: Set<UUID> = []
 
     var body: some View {
         NavigationSplitView {
@@ -197,6 +199,7 @@ struct ContentView: View {
                                         set: { index in
                                             do {
                                                 try profiles.selectServer(id: profile.id, index: index)
+                                                probeStatuses.removeValue(forKey: profile.id)
                                             } catch {
                                                 showMessage = error.localizedDescription
                                             }
@@ -209,6 +212,46 @@ struct ContentView: View {
                                     .labelsHidden()
                                     .frame(maxWidth: 260)
                                     .disabled(vpn.canStop || profiles.refreshing.contains(profile.id))
+
+                                    if let chosen = servers.first(where: {
+                                        $0.index == (profile.selectedServerIndex ?? 0)
+                                    }) {
+                                        HStack(spacing: 8) {
+                                            Button(probing.contains(profile.id) ? "TCP-проверка…" : "TCP-проверка") {
+                                                probing.insert(profile.id)
+                                                probeStatuses.removeValue(forKey: profile.id)
+                                                Task { @MainActor in
+                                                    let summary: String
+                                                    do {
+                                                        let ms = try await TCPReachability.measure(chosen)
+                                                        summary = "TCP-порт: \(ms) мс"
+                                                    } catch {
+                                                        summary = error.localizedDescription
+                                                    }
+                                                    let current = profiles.servers(for: profile.id).first {
+                                                        $0.index == (profiles.profiles.first {
+                                                            $0.id == profile.id
+                                                        }?.selectedServerIndex ?? 0)
+                                                    }
+                                                    if current?.rawURI == chosen.rawURI {
+                                                        probeStatuses[profile.id] = summary
+                                                    }
+                                                    probing.remove(profile.id)
+                                                }
+                                            }
+                                            .disabled(
+                                                probing.contains(profile.id) ||
+                                                vpn.canStop ||
+                                                profiles.refreshing.contains(profile.id) ||
+                                                TCPReachability.target(for: chosen) == nil
+                                            )
+                                            .font(.caption)
+                                            if let status = probeStatuses[profile.id] {
+                                                Text(status).font(.caption2)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             Spacer()
