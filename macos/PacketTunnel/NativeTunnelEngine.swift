@@ -16,6 +16,7 @@ final class NativeTunnelEngine: @unchecked Sendable {
     private var settingsCoordinator: TunnelSettingsCoordinator?
     private var setupAttempted = false
     private var teardownInProgress = false
+    private var teardownWatchdogFired = false
     private var failedStart: (completion: NativeCompletion, error: Error)?
     private var stopCallbacks: [NativeCompletion] = []
 
@@ -101,6 +102,13 @@ final class NativeTunnelEngine: @unchecked Sendable {
         // Cancels synchronous Go/OpenTun startup without waiting on the worker.
         _ = lifecycle.requestStop()
         queue.async { [self] in
+            // A first watchdog may have already released outstanding stop
+            // completions while macOS is still holding the settings callback.
+            // Repeated stop requests must not hang forever behind that event.
+            if teardownInProgress && teardownWatchdogFired {
+                finished.call(nil)
+                return
+            }
             stopCallbacks.append(finished)
             if teardownInProgress { return }
             if lifecycle.snapshot == .idle {
@@ -114,6 +122,7 @@ final class NativeTunnelEngine: @unchecked Sendable {
     private func beginTeardown() {
         guard !teardownInProgress else { return }
         teardownInProgress = true
+        teardownWatchdogFired = false
         _ = lifecycle.requestStop()
 
         if setupAttempted {
@@ -133,6 +142,7 @@ final class NativeTunnelEngine: @unchecked Sendable {
                     lifecycle.finish()
                 }
                 teardownInProgress = false
+                teardownWatchdogFired = false
                 settingsCoordinator = nil
                 if let failedStart {
                     self.failedStart = nil
@@ -153,6 +163,7 @@ final class NativeTunnelEngine: @unchecked Sendable {
         // The lifecycle deliberately remains "stopping" until real cleanup.
         queue.asyncAfter(deadline: .now() + .seconds(30)) { [self] in
             guard teardownInProgress else { return }
+            teardownWatchdogFired = true
             if let failedStart {
                 self.failedStart = nil
                 failedStart.completion.call(failedStart.error)
