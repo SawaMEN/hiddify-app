@@ -22,6 +22,8 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Validate local signed-device build script
+        run: bash -n macos/scripts/build-signed-debug.sh
       - name: Install XcodeGen
         run: brew install xcodegen
       - name: Generate native Xcode project
