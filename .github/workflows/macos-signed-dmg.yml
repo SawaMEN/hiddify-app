@@ -23,6 +23,7 @@ on:
 permissions:
   contents: read
   actions: read
+  issues: read
 
 concurrency:
   group: vetroff-macos-signed-${{ github.ref }}
@@ -53,8 +54,19 @@ jobs:
             [[ "$ACCEPTED" == "$EXPECTED" ]] || {
               echo "::error::The signed-device test must cover this exact commit." >&2; exit 1;
             }
-            [[ "$RECORD" == https://github.com/* ]] || {
-              echo "::error::Provide the GitHub acceptance-test report URL." >&2; exit 1;
+            if [[ "$RECORD" =~ ^https://github.com/SawaMEN/hiddify-app/issues/([0-9]+)$ ]]; then
+              ISSUE_NUMBER="${BASH_REMATCH[1]}"
+            else
+              echo "::error::Acceptance evidence must be an issue in this repository." >&2
+              exit 1
+            fi
+            ISSUE_BODY="$(gh api "repos/${{ github.repository }}/issues/$ISSUE_NUMBER" --jq '.body // ""')"
+            ISSUE_LABELS="$(gh api "repos/${{ github.repository }}/issues/$ISSUE_NUMBER" --jq '[.labels[].name] | join(",")')"
+            [[ "$ISSUE_BODY" == *"$EXPECTED"* ]] || {
+              echo "::error::The acceptance report must document this exact commit." >&2; exit 1;
+            }
+            [[ ",$ISSUE_LABELS," == *",macos-device-accepted,"* ]] || {
+              echo "::error::Acceptance report requires macos-device-accepted label." >&2; exit 1;
             }
             for pr in 83 84; do
               merged="$(gh api "repos/${{ github.repository }}/pulls/$pr" --jq '.merged')"
