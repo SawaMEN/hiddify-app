@@ -10,6 +10,7 @@ final class NativeTunnelEngine: @unchecked Sendable {
     private let queue = DispatchQueue(label: "app.vetroff.client.macos.core", qos: .userInitiated)
     private let tunnel: NEPacketTunnelProvider
     private let lifecycle = TunnelLifecycle()
+    private let preflight = NativeProfilePreflight()
 
     // These fields are accessed ONLY from the serial worker queue.
     private var platform: CorePlatformInterface?
@@ -38,6 +39,10 @@ final class NativeTunnelEngine: @unchecked Sendable {
 
         queue.async { [self] in
             do {
+                try lifecycle.checkStarting()
+                // Parse and validate with the pinned Go core BEFORE creating
+                // the VPN interface or installing any system routes.
+                try preflight.validate(profileContent, lifecycle: lifecycle)
                 try lifecycle.checkStarting()
 
                 let coordinator = TunnelSettingsCoordinator { [tunnel] settings, handler in
@@ -102,6 +107,7 @@ final class NativeTunnelEngine: @unchecked Sendable {
         let finished = NativeCompletion { _ in completion() }
         // Cancels synchronous Go/OpenTun startup without waiting on the worker.
         _ = lifecycle.requestStop()
+        preflight.cancel()
         queue.async { [self] in
             // A first watchdog may have already released outstanding stop
             // completions while macOS is still holding the settings callback.
