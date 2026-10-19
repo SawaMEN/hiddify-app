@@ -1,0 +1,97 @@
+name: macOS Native Core Build
+
+on:
+  push:
+    branches:
+      - main
+      - feat/macos-swift-arm64
+    paths:
+      - "macos/scripts/build-hiddify-core.sh"
+      - ".github/workflows/macos-core-arm64.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A changed macOS core pin supersedes prior experimental framework builds.
+concurrency:
+  group: macos-native-core-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-xcframework:
+    name: Build forked Go libbox for macOS
+    runs-on: macos-15
+    timeout-minutes: 55
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+      - name: Checkout pinned user core
+        uses: actions/checkout@v4
+        with:
+          repository: SawaMEN/hiddify-core
+          ref: 37ed16781062332d2269e57d2bf1a85d6a4e2717
+          path: _build/hiddify-core
+          submodules: recursive
+          persist-credentials: false
+      - name: Install Go matching core
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: _build/hiddify-core/go.mod
+          cache: false
+      - name: Test dedicated Go Packet Tunnel settings
+        working-directory: _build/hiddify-core
+        env:
+          CGO_ENABLED: "1"
+        run: |
+          set -euo pipefail
+          go test -timeout 8m ./platform/mobile -run 'TestPacketTunnel' -count=1
+      - name: Build native XCFramework
+        env:
+          VETROFF_CORE_DIR: ${{ github.workspace }}/_build/hiddify-core
+          VETROFF_CORE_OUT: ${{ github.workspace }}/_build/output
+          VETROFF_CORE_SHA: 37ed16781062332d2269e57d2bf1a85d6a4e2717
+        run: bash macos/scripts/build-hiddify-core.sh
+      - name: Verify ARM64 framework and direct Swift/Go call
+        env:
+          VETROFF_CORE_OUT: ${{ github.workspace }}/_build/output
+        run: |
+          set -euo pipefail
+          FW=$(find "$VETROFF_CORE_OUT/HiddifyCore.xcframework" -type d -name HiddifyCore.framework | head -n 1)
+          test -n "$FW"
+          BIN="$FW/HiddifyCore"
+          test -f "$BIN"
+          xcrun lipo -archs "$BIN"
+          if ! xcrun lipo -archs "$BIN" | grep -qw arm64; then
+            echo "Missing Apple Silicon architecture" >&2
+            exit 1
+          fi
+          xcrun swiftc -target arm64-apple-macos14.0 \
+            -F "$(dirname "$FW")" -framework HiddifyCore \
+            -framework AppKit -framework CoreText \
+            -framework UniformTypeIdentifiers -framework SystemConfiguration \
+            -framework Network -framework CoreServices -framework ApplicationServices \
+            -framework Carbon -framework Security -lresolv -lbsm \
+            -o "$RUNNER_TEMP/vetroff-core-smoke" \
+            macos/Integration/CoreSmoke.swift
+          "$RUNNER_TEMP/vetroff-core-smoke"
+      - name: Link native core into macOS Packet Tunnel
+        env:
+          VETROFF_CORE_OUT: ${{ github.workspace }}/_build/output
+        run: |
+          set -euo pipefail
+          brew install xcodegen
+          mkdir -p macos/Core
+          ln -s "$VETROFF_CORE_OUT/HiddifyCore.xcframework" macos/Core/HiddifyCore.xcframework
+          bash macos/scripts/generate-xcode-project.sh
+          xcodebuild -project macos/VetrOFF.xcodeproj \
+            -scheme VetrOFF -configuration Debug \
+            -destination 'generic/platform=macOS' \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
+      - name: Upload built native framework
+        uses: actions/upload-artifact@v4
+        with:
+          name: HiddifyCore-macos-37ed16781062
+          path: _build/output/HiddifyCore.xcframework
+          if-no-files-found: error
+          retention-days: 7

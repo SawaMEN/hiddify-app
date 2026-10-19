@@ -1,0 +1,66 @@
+name: macOS Core Integration
+
+on:
+  push:
+    branches:
+      - main
+      - feat/macos-swift-arm64
+    paths:
+      - "macos/PacketTunnel/**"
+      - "macos/Shared/**"
+      - "macos/project.yml"
+      - "macos/Integration/CoreSmoke.swift"
+      - "macos/scripts/generate-xcode-project.sh"
+      - ".github/workflows/macos-integrated-arm64.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: macos-core-integrated-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  link-core:
+    name: Compile Packet Tunnel against pinned native Go core
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download latest successful forked core build
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ARTIFACT_NAME="HiddifyCore-macos-37ed16781062"
+          # The artifact name includes the actual *core* revision. Do not
+          # silently link a previously built (and potentially no-TUN) core.
+          # The artifact name embeds the pinned core revision. The integration
+          # job works on both main and feature branches and never falls back
+          # to stale Go binaries while a matching core is still building.
+          RUN_ID=""
+          for attempt in $(seq 1 60); do
+            RUN_ID="$(gh api "repos/${{ github.repository }}/actions/artifacts?name=$ARTIFACT_NAME&per_page=100" --jq '.artifacts | map(select(.expired == false)) | .[0].workflow_run.id // empty')"
+            if [[ -n "$RUN_ID" && "$RUN_ID" != "null" ]]; then break; fi
+            echo "Waiting for pinned native core build ($attempt/60)"
+            sleep 20
+          done
+          if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then
+            echo "Missing pinned-core artifact $ARTIFACT_NAME after 20 minutes." >&2
+            exit 1
+          fi
+          mkdir -p macos/Core/HiddifyCore.xcframework
+          gh run download "$RUN_ID" --repo "${{ github.repository }}" --name "$ARTIFACT_NAME" --dir macos/Core/HiddifyCore.xcframework
+          test -d macos/Core/HiddifyCore.xcframework/macos-arm64/HiddifyCore.framework
+      - name: Install native project generator
+        run: brew install xcodegen
+      - name: Compile real Go ↔ Swift Network Extension
+        run: |
+          set -euo pipefail
+          bash macos/scripts/generate-xcode-project.sh
+          xcodebuild -project macos/VetrOFF.xcodeproj \
+            -scheme VetrOFF -configuration Debug \
+            -destination 'generic/platform=macOS' \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
