@@ -295,3 +295,22 @@ The default-interface monitor filters out utun and loopback, checks
 `NWPath.status`, and accepts only interfaces of types that the
 current path can use. It is still not a substitute for signed-device
 verification of the effective route table.
+
+## Downloadable macOS developer-preview release
+
+The rolling [dev-latest release](https://github.com/SawaMEN/hiddify-app/releases/tag/dev-latest)
+now has a **macOS ARM64 unsigned developer-preview** publishing workflow:
+`.github/workflows/macos-preview-release.yml`. The CI job constructs
+`VetrOFF.app` plus its real `PacketTunnel.appex` using the pinned Go
+XCFramework and produces `VetrOFF-macOS-arm64-unsigned-preview.zip`, an
+associated SHA-256 checksum and a plain-text safety notice. The main-branch
+job appends these assets to the rolling development release without removing
+Android APKs. The ZIP is also attached to its workflow run.
+
+**Do not confuse this with a macOS production download.** The ZIP is
+unsigned and unnotarized; macOS Gatekeeper can block it, and a packet
+extension cannot be enabled without appropriate signing and provisioning.
+A proper downloadable VPN will require the owner's Apple Developer ID,
+packet-tunnel entitlements for both app and extension, notarization,
+and signed-Mac traffic acceptance tests. Production tagged releases do not
+publish this unsigned preview.

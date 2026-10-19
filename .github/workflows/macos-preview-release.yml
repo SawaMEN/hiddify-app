@@ -1,0 +1,158 @@
+name: macOS Unsigned Developer Preview
+
+# GitHub-hosted macOS can compile, but cannot provision a production
+# Developer ID / Network Extension entitlement without the owner's identity.
+# Publish ONLY an explicitly unsigned development preview.
+on:
+  pull_request:
+    paths:
+      - "macos/**"
+      - ".github/workflows/macos-preview-release.yml"
+  push:
+    branches:
+      - main
+      - feat/macos-dev-release-zip
+    paths:
+      - "macos/**"
+      - ".github/workflows/macos-preview-release.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: macos-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package-macos-preview:
+    name: Package native macOS ARM64 app and PacketTunnel
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Download pinned Go XCFramework when CI artifact exists
+        id: core-cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          # Must agree with macos-core-arm64.yml; no fallback to a stale core.
+          CORE_ARTIFACT="HiddifyCore-macos-37ed16781062"
+          RUN_ID="$(gh api "repos/$GH_REPO/actions/artifacts?name=$CORE_ARTIFACT&per_page=100" --jq '.artifacts | map(select(.expired == false)) | .[0].workflow_run.id // empty')"
+          if [[ -z "$RUN_ID" || "$RUN_ID" == "null" ]]; then
+            echo "cached=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Pinned core artifact missing or expired; rebuilding."
+          else
+            mkdir -p macos/Core/HiddifyCore.xcframework
+            gh run download "$RUN_ID" --name "$CORE_ARTIFACT" --dir macos/Core/HiddifyCore.xcframework
+            test -d macos/Core/HiddifyCore.xcframework/macos-arm64/HiddifyCore.framework
+            echo "cached=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout exact Go source if artifact expired
+        if: ${{ steps.core-cache.outputs.cached != 'true' }}
+        uses: actions/checkout@v4
+        with:
+          repository: SawaMEN/hiddify-core
+          ref: 37ed16781062332d2269e57d2bf1a85d6a4e2717
+          path: _build/hiddify-core
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Install pinned Go version if rebuilding
+        if: ${{ steps.core-cache.outputs.cached != 'true' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: _build/hiddify-core/go.mod
+          cache: false
+
+      - name: Rebuild exact macOS Go XCFramework if artifact expired
+        if: ${{ steps.core-cache.outputs.cached != 'true' }}
+        env:
+          VETROFF_CORE_DIR: ${{ github.workspace }}/_build/hiddify-core
+          VETROFF_CORE_OUT: ${{ github.workspace }}/_build/output
+          VETROFF_CORE_SHA: 37ed16781062332d2269e57d2bf1a85d6a4e2717
+        run: |
+          set -euo pipefail
+          bash macos/scripts/build-hiddify-core.sh
+          mkdir -p macos/Core
+          ln -s "$VETROFF_CORE_OUT/HiddifyCore.xcframework" macos/Core/HiddifyCore.xcframework
+
+      - name: Enforce linked native Go core before packaging
+        run: test -d macos/Core/HiddifyCore.xcframework/macos-arm64/HiddifyCore.framework
+
+      - name: Generate native Xcode project
+        run: |
+          brew install xcodegen
+          bash macos/scripts/generate-xcode-project.sh
+
+      - name: Build complete Debug app for Apple Silicon (unsigned)
+        run: |
+          set -euo pipefail
+          xcodebuild -project macos/VetrOFF.xcodeproj \
+            -scheme VetrOFF -configuration Debug \
+            -destination 'generic/platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/vetroff-preview" \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGNING_ALLOWED=NO build
+
+      - name: Verify executable, extension, architecture and package ZIP
+        env:
+          VETROFF_BUILD_APP: ${{ runner.temp }}/vetroff-preview/Build/Products/Debug/VetrOFF.app
+          VETROFF_PREVIEW_OUT: ${{ github.workspace }}/dist
+        run: bash macos/scripts/package-unsigned-preview.sh
+
+      - name: Upload preview CI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VetrOFF-macOS-arm64-unsigned-preview
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-dev-release:
+    # Keep unsigned builds off stable tagged releases.
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+    needs: package-macos-preview
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Download just-built macOS preview
+        uses: actions/download-artifact@v4
+        with:
+          name: VetrOFF-macOS-arm64-unsigned-preview
+          path: dist
+      - name: Attach macOS ZIP to rolling dev-latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          test -s dist/VetrOFF-macOS-arm64-unsigned-preview.zip
+          test -s dist/VetrOFF-macOS-arm64-unsigned-preview.sha256
+          test -s dist/VetrOFF-macOS-README.txt
+
+          # Never touch Android APK assets and do not change the Android
+          # release workflow's rolling dev-latest tag management.
+          if gh release view dev-latest >/dev/null 2>&1; then
+            gh release upload dev-latest \
+              dist/VetrOFF-macOS-arm64-unsigned-preview.zip \
+              dist/VetrOFF-macOS-arm64-unsigned-preview.sha256 \
+              dist/VetrOFF-macOS-README.txt \
+              --clobber
+          else
+            gh release create dev-latest \
+              --title "VetrOFF Client Dev" \
+              --notes "Development builds only. The macOS ZIP is unsigned and the VPN Network Extension is not production-ready." \
+              --prerelease \
+              dist/VetrOFF-macOS-arm64-unsigned-preview.zip \
+              dist/VetrOFF-macOS-arm64-unsigned-preview.sha256 \
+              dist/VetrOFF-macOS-README.txt
+          fi
