@@ -31,6 +31,7 @@ struct ContentView: View {
     let vpn: VPNController
     let profiles: ProfileStore
     @AppStorage("macos.selectedProfileID.v1") private var selectedProfileID = ""
+    @AppStorage("macos.autoRefreshSubscriptions") private var autoRefreshSubscriptions = true
 
     @State private var showImporter = false
     @State private var showPasteSheet = false
@@ -69,7 +70,7 @@ struct ContentView: View {
             // Periodic refresh runs only while the app is open, and never
             // mutates the selected source during an active VPN connection.
             while !Task.isCancelled {
-                if !vpn.canStop {
+                if autoRefreshSubscriptions && !vpn.canStop {
                     await profiles.refreshStaleSubscriptions()
                 }
                 try? await Task.sleep(for: .seconds(60 * 60))
@@ -282,6 +283,9 @@ struct ContentView: View {
                     LabeledContent("Процессор", value: "Apple Silicon ARM64")
                     LabeledContent("Сетевой туннель", value: "Native Network Extension")
                     LabeledContent("Установлен в системе", value: vpn.isInstalled ? "Да" : "Нет")
+                    Toggle("Автоматически обновлять подписки", isOn: $autoRefreshSubscriptions)
+                    Text("Проверка раз в час, обновление при возрасте кэша более 12 часов. Только пока приложение запущено и VPN выключен.")
+                        .font(.caption).foregroundStyle(.secondary)
                     Button(vpn.isInstalled ? "VPN-конфигурация установлена" : "Установить VPN-конфигурацию") {
                         Task { await vpn.install() }
                     }
