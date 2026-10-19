@@ -16,7 +16,11 @@ fi
 TEMP="$(mktemp -d "$RUNNER_TEMP/vetroff-sign.XXXXXX")"
 KC="$TEMP/signing.keychain-db"
 KC_PASSWORD="$(openssl rand -hex 32)"
+APP_PROFILE_PATH=""
+TUN_PROFILE_PATH=""
 cleanup() {
+    if [[ -n "$APP_PROFILE_PATH" ]]; then rm -f "$APP_PROFILE_PATH"; fi
+    if [[ -n "$TUN_PROFILE_PATH" ]]; then rm -f "$TUN_PROFILE_PATH"; fi
     security list-keychains -d user -s "$HOME/Library/Keychains/login.keychain-db" || true
     security delete-keychain "$KC" >/dev/null 2>&1 || true
     rm -rf "$TEMP"
@@ -85,6 +89,9 @@ VETROFF_APP_PROFILE_UUID="$(validate_profile "$MACOS_APP_PROFILE_B64" \
     app.vetroff.client.macos app)"
 VETROFF_TUN_PROFILE_UUID="$(validate_profile "$MACOS_TUN_PROFILE_B64" \
     app.vetroff.client.macos.PacketTunnel tunnel)"
+APP_PROFILE_PATH="$HOME/Library/MobileDevice/Provisioning Profiles/$VETROFF_APP_PROFILE_UUID.mobileprovision"
+TUN_PROFILE_PATH="$HOME/Library/MobileDevice/Provisioning Profiles/$VETROFF_TUN_PROFILE_UUID.mobileprovision"
+
 
 echo "Validated separate application and Packet Tunnel Developer ID profiles."
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
