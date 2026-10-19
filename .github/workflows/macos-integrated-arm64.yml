@@ -3,10 +3,13 @@ name: macOS Core Integration
 on:
   push:
     branches:
+      - main
       - feat/macos-swift-arm64
     paths:
       - "macos/PacketTunnel/**"
       - "macos/Shared/**"
+      - "macos/project.yml"
+      - "macos/Integration/CoreSmoke.swift"
       - "macos/scripts/generate-xcode-project.sh"
       - ".github/workflows/macos-integrated-arm64.yml"
   workflow_dispatch:
@@ -34,9 +37,9 @@ jobs:
           ARTIFACT_NAME="HiddifyCore-macos-37ed16781062"
           # The artifact name includes the actual *core* revision. Do not
           # silently link a previously built (and potentially no-TUN) core.
-          # The core and integration workflows start on the same commit.
-          # Wait for the newly pinned framework instead of falsely trying to
-          # link an older successful artifact or failing in a CI race.
+          # The artifact name embeds the pinned core revision. The integration
+          # job works on both main and feature branches and never falls back
+          # to stale Go binaries while a matching core is still building.
           RUN_ID=""
           for attempt in $(seq 1 60); do
             RUN_ID="$(gh api "repos/${{ github.repository }}/actions/artifacts?name=$ARTIFACT_NAME&per_page=100" --jq '.artifacts | map(select(.expired == false)) | .[0].workflow_run.id // empty')"
