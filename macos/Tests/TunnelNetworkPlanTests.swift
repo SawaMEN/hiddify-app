@@ -188,4 +188,24 @@ final class TunnelNetworkPlanTests: XCTestCase {
         XCTAssertNoThrow(try plan.makeSettings())
     }
 
+    func testNoncanonicalIPv4ZeroPrefixStillExcluded() {
+        var plan = validPlan()
+        plan.excludedIPv4Routes = [
+            TunnelIPv4Address(address: "203.0.113.1", mask: "0.0.0.0")
+        ]
+        XCTAssertThrowsError(try plan.makeSettings()) {
+            XCTAssertEqual($0 as? TunnelNetworkPlanError, .unsafeExclusion)
+        }
+    }
+
+    func testNoncanonicalIPv6ZeroPrefixStillExcluded() {
+        var plan = validPlan()
+        plan.excludedIPv6Routes = [
+            TunnelIPv6Address(address: "2001:db8::1", prefixLength: 0)
+        ]
+        XCTAssertThrowsError(try plan.makeSettings()) {
+            XCTAssertEqual($0 as? TunnelNetworkPlanError, .unsafeExclusion)
+        }
+    }
+
 }

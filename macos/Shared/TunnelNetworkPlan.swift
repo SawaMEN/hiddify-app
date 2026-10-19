@@ -77,10 +77,10 @@ struct TunnelNetworkPlan: Sendable {
         // macOS and would silently bypass the VPN for that entire family.
         if fullTunnel && (
             excludedIPv4Routes.contains(where: {
-                $0.address == "0.0.0.0" && $0.mask == "0.0.0.0"
+                $0.mask == "0.0.0.0"
             }) ||
             excludedIPv6Routes.contains(where: {
-                $0.address == "::" && $0.prefixLength == 0
+                $0.prefixLength == 0
             })
         ) {
             throw TunnelNetworkPlanError.unsafeExclusion
