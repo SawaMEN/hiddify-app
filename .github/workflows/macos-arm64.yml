@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feat/macos-stage3-release
       - feat/macos-swift-arm64
     paths:
       - "macos/**"
@@ -55,3 +56,21 @@ jobs:
             -destination 'platform=macOS,arch=arm64' \
             ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO test
+      - name: Validate release scripts and separate provisioned signing targets
+        run: |
+          set -euo pipefail
+          bash -n macos/scripts/build-developer-id.sh
+          bash -n macos/scripts/verify-signed-app.sh
+          bash -n macos/scripts/generate-xcode-project.sh
+          # Simulate the project-generation path using inert identifiers.
+          # Never import signing keys into ordinary CI.
+          mkdir -p macos/Core/HiddifyCore.xcframework
+          trap 'rm -rf macos/Core/HiddifyCore.xcframework' EXIT
+          VETROFF_TEAM_ID=ABCDE12345 \
+          VETROFF_APP_PROFILE_UUID=11111111-1111-1111-1111-111111111111 \
+          VETROFF_TUN_PROFILE_UUID=22222222-2222-2222-2222-222222222222 \
+            bash macos/scripts/generate-xcode-project.sh
+          grep -F '11111111-1111-1111-1111-111111111111' macos/VetrOFF.xcodeproj/project.pbxproj
+          grep -F '22222222-2222-2222-2222-222222222222' macos/VetrOFF.xcodeproj/project.pbxproj
+          grep -F 'ABCDE12345' macos/VetrOFF.xcodeproj/project.pbxproj
+

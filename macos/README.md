@@ -386,3 +386,20 @@ end-to-end VPN responsiveness or a throughput benchmark. UDP-first
 transports (Hysteria2, TUIC and Naïve QUIC) are deliberately excluded
 rather than showing a misleading TCP timing. Each test is bounded to
 five seconds and has no persistent credential-bearing output.
+
+
+## Stage 3: signed distribution, notarization, updates
+
+The protected GitHub Actions workflow `macos-signed-dmg.yml` creates a
+single Developer ID-signed ARM64 disk image from the **Release** app and
+embedded PacketTunnel, with separate validated provisioning profiles.
+It enforces Apple notarization and staples the resulting ticket before
+publishing. Its default private-test mode does **not** create a public
+GitHub Release. Review `macos/RELEASE_CHECKLIST.md` to set up protected
+secrets and to complete physical-device acceptance.
+
+SwiftUI now offers an opt-in **check for signed macOS updates** action.
+It considers only newer semantic versions with exactly one matching DMG,
+and opens the corresponding repository release page — there is no
+background downloader or untrusted executable installer. The disabled
+Release VPN gate is unchanged.

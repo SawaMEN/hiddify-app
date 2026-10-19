@@ -39,6 +39,7 @@ struct ContentView: View {
     @State private var draftName = ""
     private var selectedID: UUID? { UUID(uuidString: selectedProfileID) }
     @State private var showMessage: String?
+    @State private var releaseChecker = MacOSReleaseChecker()
     @State private var probeStatuses: [UUID: String] = [:]
     @State private var probing: Set<UUID> = []
 
@@ -326,6 +327,25 @@ struct ContentView: View {
                     LabeledContent("Процессор", value: "Apple Silicon ARM64")
                     LabeledContent("Сетевой туннель", value: "Native Network Extension")
                     LabeledContent("Установлен в системе", value: vpn.isInstalled ? "Да" : "Нет")
+                    Divider()
+                    LabeledContent("Версия macOS", value:
+                        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "—")
+                    Button(releaseChecker.checking ? "Проверка…" : "Проверить обновления macOS") {
+                        Task { await releaseChecker.check() }
+                    }
+                    .disabled(releaseChecker.checking)
+                    Text(releaseChecker.status)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let availableRelease = releaseChecker.availableRelease {
+                        Button("Открыть страницу проверенного релиза") {
+                            NSWorkspace.shared.open(availableRelease)
+                        }
+                    }
+                    Text("Обновления не устанавливаются автоматически. Доступность новой подписанной версии проверяется по GitHub Releases.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
                     Toggle("Автоматически обновлять подписки", isOn: $autoRefreshSubscriptions)
                     Text("Проверка раз в час, обновление при возрасте кэша более 12 часов. Только пока приложение запущено и VPN выключен.")
                         .font(.caption).foregroundStyle(.secondary)
