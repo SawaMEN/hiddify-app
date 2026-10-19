@@ -10,6 +10,7 @@ enum TunnelNetworkPlanError: LocalizedError, Equatable {
     case invalidIPv4
     case invalidIPv6
     case invalidMask
+    case unsafeExclusion
     case invalidPrefix
     case invalidMTU
 
@@ -21,7 +22,8 @@ enum TunnelNetworkPlanError: LocalizedError, Equatable {
         case .missingDNS: "Не указан DNS для полного VPN-туннеля."
         case .invalidIPv4: "Некорректный IPv4-адрес."
         case .invalidIPv6: "Некорректный IPv6-адрес."
-        case .invalidMask: "Некорректная IPv4-маска."
+        case .invalidMask: "Некорректная или несмежная IPv4-маска."
+        case .unsafeExclusion: "Исключающий маршрут 0/0 отключает полный VPN-туннель."
         case .invalidPrefix: "Длина IPv6-префикса выходит за пределы 0–128."
         case .invalidMTU: "MTU должен находиться в диапазоне 1280–9000."
         }
@@ -71,6 +73,19 @@ struct TunnelNetworkPlan: Sendable {
         if fullTunnel && ipv6.isEmpty {
             throw TunnelNetworkPlanError.missingIPv6
         }
+        // A full-family exclusion outranks the default included route on
+        // macOS and would silently bypass the VPN for that entire family.
+        if fullTunnel && (
+            excludedIPv4Routes.contains(where: {
+                $0.address == "0.0.0.0" && $0.mask == "0.0.0.0"
+            }) ||
+            excludedIPv6Routes.contains(where: {
+                $0.address == "::" && $0.prefixLength == 0
+            })
+        ) {
+            throw TunnelNetworkPlanError.unsafeExclusion
+        }
+
 
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
         settings.mtu = NSNumber(value: mtu)
@@ -80,7 +95,7 @@ struct TunnelNetworkPlan: Sendable {
                 guard Self.isIPv4(item.address) else {
                     throw TunnelNetworkPlanError.invalidIPv4
                 }
-                guard Self.isIPv4(item.mask) else {
+                guard Self.isIPv4Mask(item.mask) else {
                     throw TunnelNetworkPlanError.invalidMask
                 }
             }
@@ -90,7 +105,7 @@ struct TunnelNetworkPlan: Sendable {
             )
             for route in includedIPv4Routes + excludedIPv4Routes {
                 guard Self.isIPv4(route.address) else { throw TunnelNetworkPlanError.invalidIPv4 }
-                guard Self.isIPv4(route.mask) else { throw TunnelNetworkPlanError.invalidMask }
+                guard Self.isIPv4Mask(route.mask) else { throw TunnelNetworkPlanError.invalidMask }
             }
             let custom = includedIPv4Routes.map {
                 NEIPv4Route(destinationAddress: $0.address, subnetMask: $0.mask)
@@ -160,6 +175,17 @@ struct TunnelNetworkPlan: Sendable {
     private static func isIPv4(_ text: String) -> Bool {
         var address = in_addr()
         return text.withCString { inet_pton(AF_INET, $0, &address) } == 1
+    }
+
+    /// An IPv4 netmask must have consecutive one bits followed by zeroes.
+    /// inet_pton accepts non-contiguous masks, but NetworkExtension must not.
+    private static func isIPv4Mask(_ text: String) -> Bool {
+        var address = in_addr()
+        guard text.withCString({ inet_pton(AF_INET, $0, &address) }) == 1 else {
+            return false
+        }
+        let inverted = ~UInt32(bigEndian: address.s_addr)
+        return (inverted & (inverted &+ 1)) == 0
     }
 
     private static func isIPv6(_ text: String) -> Bool {

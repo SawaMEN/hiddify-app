@@ -150,4 +150,42 @@ final class TunnelNetworkPlanTests: XCTestCase {
         XCTAssertNil(settings.ipv6Settings)
     }
 
+    func testRejectsNonContiguousIPv4Mask() {
+        var plan = validPlan()
+        plan.includedIPv4Routes = [
+            TunnelIPv4Address(address: "192.168.0.0", mask: "255.0.255.0")
+        ]
+        XCTAssertThrowsError(try plan.makeSettings()) {
+            XCTAssertEqual($0 as? TunnelNetworkPlanError, .invalidMask)
+        }
+    }
+
+    func testRejectsExcludedIPv4DefaultInFullTunnel() {
+        var plan = validPlan()
+        plan.excludedIPv4Routes = [
+            TunnelIPv4Address(address: "0.0.0.0", mask: "0.0.0.0")
+        ]
+        XCTAssertThrowsError(try plan.makeSettings()) {
+            XCTAssertEqual($0 as? TunnelNetworkPlanError, .unsafeExclusion)
+        }
+    }
+
+    func testRejectsExcludedIPv6DefaultInFullTunnel() {
+        var plan = validPlan()
+        plan.excludedIPv6Routes = [
+            TunnelIPv6Address(address: "::", prefixLength: 0)
+        ]
+        XCTAssertThrowsError(try plan.makeSettings()) {
+            XCTAssertEqual($0 as? TunnelNetworkPlanError, .unsafeExclusion)
+        }
+    }
+
+    func testValidFullSubnetMaskAllowed() throws {
+        var plan = validPlan()
+        plan.includedIPv4Routes = [
+            TunnelIPv4Address(address: "10.4.0.0", mask: "255.255.0.0")
+        ]
+        XCTAssertNoThrow(try plan.makeSettings())
+    }
+
 }
