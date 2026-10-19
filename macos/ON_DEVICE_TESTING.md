@@ -112,3 +112,11 @@ After connecting and disconnecting, inspect the extension's own
 Application Support directory: the special macOS start path must not create
 `data/current-config.json` or a saved `lastStartRequestContent` containing
 profile secrets. **Do not** include raw profile content in bug reports.
+
+## Route completeness acceptance gate
+
+In full-tunnel Debug mode, verify both IPv4 and IPv6 default routes
+remain present even if the Go TUN options include custom included
+networks. Missing IPv4 or IPv6 TUN addresses must reject the connection
+rather than report connected. Confirm that dual-stack leak checks work
+over the physical adapter and that reconnect cleans up both families.

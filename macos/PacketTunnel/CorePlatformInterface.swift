@@ -363,9 +363,17 @@ private final class NativeDefaultNetworkMonitor: @unchecked Sendable {
 
     func start() {
         monitor.pathUpdateHandler = { [self] path in
-            let interface = path.availableInterfaces.first(where: {
-                !$0.name.hasPrefix("utun") && !$0.name.hasPrefix("lo")
-            })
+            // availableInterfaces contains eligible but not necessarily
+            // actively used interfaces. Never announce a disconnected NIC
+            // as the default physical route when Wi-Fi/Ethernet changes.
+            let interface = path.status == .satisfied
+                ? path.availableInterfaces.first(where: {
+                    !$0.name.hasPrefix("utun") &&
+                    !$0.name.hasPrefix("lo") &&
+                    $0.type != .loopback &&
+                    path.usesInterfaceType($0.type)
+                })
+                : nil
             listener.updateDefaultInterface(
                 interface?.name ?? "",
                 interfaceIndex: interface.map { Int32($0.index) } ?? -1,

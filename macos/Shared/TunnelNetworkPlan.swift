@@ -4,6 +4,8 @@ import Darwin
 
 enum TunnelNetworkPlanError: LocalizedError, Equatable {
     case missingAddress
+    case missingIPv4
+    case missingIPv6
     case missingDNS
     case invalidIPv4
     case invalidIPv6
@@ -14,6 +16,8 @@ enum TunnelNetworkPlanError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .missingAddress: "В конфигурации TUN отсутствуют IP-адреса."
+        case .missingIPv4: "Полный VPN не может запуститься без IPv4-маршрута через TUN."
+        case .missingIPv6: "Полный VPN не может запуститься без IPv6-маршрута через TUN."
         case .missingDNS: "Не указан DNS для полного VPN-туннеля."
         case .invalidIPv4: "Некорректный IPv4-адрес."
         case .invalidIPv6: "Некорректный IPv6-адрес."
@@ -58,6 +62,16 @@ struct TunnelNetworkPlan: Sendable {
             throw TunnelNetworkPlanError.missingDNS
         }
 
+        // A complete macOS VPN cannot silently leave either IP family on the
+        // physical adapter. Reject malformed single-stack TUN settings rather
+        // than showing Connected while the missing family leaks outside.
+        if fullTunnel && ipv4.isEmpty {
+            throw TunnelNetworkPlanError.missingIPv4
+        }
+        if fullTunnel && ipv6.isEmpty {
+            throw TunnelNetworkPlanError.missingIPv6
+        }
+
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: "127.0.0.1")
         settings.mtu = NSNumber(value: mtu)
 
@@ -81,7 +95,14 @@ struct TunnelNetworkPlan: Sendable {
             let custom = includedIPv4Routes.map {
                 NEIPv4Route(destinationAddress: $0.address, subnetMask: $0.mask)
             }
-            cfg.includedRoutes = custom.isEmpty && fullTunnel ? [NEIPv4Route.default()] : custom
+            // Auto-route must always contain a default route. Explicit
+            // included networks are additive; they must not replace 0/0.
+            let hasDefault = includedIPv4Routes.contains {
+                $0.address == "0.0.0.0" && $0.mask == "0.0.0.0"
+            }
+            cfg.includedRoutes = fullTunnel && !hasDefault
+                ? [NEIPv4Route.default()] + custom
+                : custom
             cfg.excludedRoutes = excludedIPv4Routes.map {
                 NEIPv4Route(destinationAddress: $0.address, subnetMask: $0.mask)
             }
@@ -108,7 +129,12 @@ struct TunnelNetworkPlan: Sendable {
             let custom = includedIPv6Routes.map {
                 NEIPv6Route(destinationAddress: $0.address, networkPrefixLength: NSNumber(value: $0.prefixLength))
             }
-            cfg.includedRoutes = custom.isEmpty && fullTunnel ? [NEIPv6Route.default()] : custom
+            let hasDefault = includedIPv6Routes.contains {
+                $0.address == "::" && $0.prefixLength == 0
+            }
+            cfg.includedRoutes = fullTunnel && !hasDefault
+                ? [NEIPv6Route.default()] + custom
+                : custom
             cfg.excludedRoutes = excludedIPv6Routes.map {
                 NEIPv6Route(destinationAddress: $0.address, networkPrefixLength: NSNumber(value: $0.prefixLength))
             }
