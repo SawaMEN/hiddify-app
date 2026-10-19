@@ -1,0 +1,96 @@
+name: Publish macOS ARM64 DMG Preview
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/macos-dmg.yml"
+      - "macos/scripts/package-dmg.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: macos-dmg-preview-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  macos-dmg:
+    name: Build one VetrOFF-macOS-arm64.dmg
+    runs-on: macos-15
+    timeout-minutes: 40
+    steps:
+      - name: Checkout macOS application
+        uses: actions/checkout@v4
+
+      - name: Fetch pinned ARM64 Go core
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ARTIFACT_NAME="HiddifyCore-macos-37ed16781062"
+          RUN_ID="$(gh api "repos/${{ github.repository }}/actions/artifacts?name=$ARTIFACT_NAME&per_page=100" \
+            --jq '.artifacts | map(select(.expired == false)) | .[0].workflow_run.id // empty')"
+          if [[ -z "$RUN_ID" ]]; then
+            echo "::error::No pinned core framework is available; run macOS Native Core Build first."
+            exit 1
+          fi
+          mkdir -p macos/Core/HiddifyCore.xcframework
+          gh run download "$RUN_ID" --repo "${{ github.repository }}" \
+            --name "$ARTIFACT_NAME" --dir macos/Core/HiddifyCore.xcframework
+          test -f macos/Core/HiddifyCore.xcframework/macos-arm64/HiddifyCore.framework/HiddifyCore
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Build macOS Debug technical preview
+        run: |
+          set -euo pipefail
+          bash macos/scripts/generate-xcode-project.sh
+          xcodebuild -project macos/VetrOFF.xcodeproj \
+            -scheme VetrOFF -configuration Debug \
+            -derivedDataPath "$RUNNER_TEMP/VetrOFFDerived" \
+            -destination 'generic/platform=macOS' \
+            ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
+          test -d "$RUNNER_TEMP/VetrOFFDerived/Build/Products/Debug/VetrOFF.app"
+
+      - name: Create and verify one macOS DMG
+        run: |
+          set -euo pipefail
+          bash macos/scripts/package-dmg.sh \
+            "$RUNNER_TEMP/VetrOFFDerived/Build/Products/Debug/VetrOFF.app" \
+            "dist/VetrOFF-macOS-arm64.dmg"
+          test "$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')" = 1
+
+      - name: Resolve immutable preview tag
+        id: metadata
+        run: echo "tag=macos-preview-${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish exactly one DMG to GitHub Releases
+        uses: softprops/action-gh-release@v3.0.3
+        with:
+          tag_name: ${{ steps.metadata.outputs.tag }}
+          name: VetrOFF macOS ARM64 — technical preview
+          target_commitish: ${{ github.sha }}
+          prerelease: true
+          make_latest: false
+          fail_on_unmatched_files: true
+          files: dist/VetrOFF-macOS-arm64.dmg
+          body: |
+            Нативная экспериментальная сборка VetrOFF для macOS 14+ / Apple Silicon.
+
+            **Один установочный файл:** VetrOFF-macOS-arm64.dmg.
+            Откройте DMG и перенесите VetrOFF.app в Applications.
+
+            **Важно:** эта сборка не подписана Apple Developer ID и не
+            нотариализована. Она предназначена для проверки интерфейса,
+            архитектуры и упаковки. VPN Network Extension требует корректной
+            подписи Apple и разрешений, поэтому работоспособность VPN в этом
+            DMG не гарантируется. Не используйте его для защиты трафика.
+            Режим Release с работающим VPN остаётся заблокирован до
+            испытаний на физическом Mac.
+
+            Код сборки: ${{ github.sha }}.
