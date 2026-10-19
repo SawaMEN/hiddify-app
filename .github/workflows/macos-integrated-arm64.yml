@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - feat/macos-stage3-release
+      - feat/macos-stage2-profiles
+      - fix/macos-stage1-tun-teardown
       - fix/macos-route-safety
       - feat/macos-swift-arm64
     paths:
@@ -14,7 +16,6 @@ on:
       - "macos/Integration/CoreSmoke.swift"
       - "macos/scripts/generate-xcode-project.sh"
       - ".github/workflows/macos-integrated-arm64.yml"
-      - "macos/scripts/generate-xcode-project.sh"
   workflow_dispatch:
 
 permissions:
@@ -57,6 +58,20 @@ jobs:
           mkdir -p macos/Core/HiddifyCore.xcframework
           gh run download "$RUN_ID" --repo "${{ github.repository }}" --name "$ARTIFACT_NAME" --dir macos/Core/HiddifyCore.xcframework
           test -d macos/Core/HiddifyCore.xcframework/macos-arm64/HiddifyCore.framework
+      - name: Run native Go profile preflight regression smoke
+        run: |
+          set -euo pipefail
+          FW="macos/Core/HiddifyCore.xcframework/macos-arm64/HiddifyCore.framework"
+          test -f "$FW/HiddifyCore"
+          xcrun swiftc -target arm64-apple-macos14.0 \
+            -F "$(dirname "$FW")" -framework HiddifyCore \
+            -framework AppKit -framework CoreText \
+            -framework UniformTypeIdentifiers -framework SystemConfiguration \
+            -framework Network -framework CoreServices -framework ApplicationServices \
+            -framework Carbon -framework Security -lresolv -lbsm \
+            -o "$RUNNER_TEMP/vetroff-profile-smoke" \
+            macos/Integration/CoreSmoke.swift
+          "$RUNNER_TEMP/vetroff-profile-smoke"
       - name: Install native project generator
         run: brew install xcodegen
       - name: Compile real Go ↔ Swift Network Extension

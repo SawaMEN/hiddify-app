@@ -315,6 +315,79 @@ packet-tunnel entitlements for both app and extension, notarization,
 and signed-Mac traffic acceptance tests. Production tagged releases do not
 publish this unsigned preview.
 
+## Signed macOS stage-1 device build
+
+`APPLE_TEAM_ID=<10-character-team-id> bash macos/scripts/build-signed-debug.sh`
+creates a **locally signed Debug** app from the pinned in-process Go
+XCFramework. It verifies code signatures and required Network Extension
+and shared Keychain entitlements for **both** binaries, failing if the
+Apple Developer Team has not provisioned the capabilities. After the
+preflight passes it creates one local signed Debug DMG at
+`macos/build/VetrOFF-macOS-arm64-signed-debug.dmg`.
+
+This script requires a configured Apple Developer account on an actual
+Apple Silicon Mac. It does not download private signing keys or upload
+credentials. No unsigned CI DMG is a substitute for a signed device test.
+The Production Release VPN gate stays disabled until the on-device
+`macos/ON_DEVICE_TESTING.md` matrix passes.
+
+
+## Stage 2 — native subscriptions and server selection (experimental)
+
+- `ProfileSource` identifies line-separated URI bundles (VLESS, VMess,
+  Trojan, Shadowsocks, Hysteria2, TUIC, Naïve and more) without attempting
+  to decode protocol secrets or TLS configuration in Swift. Parsing and
+  validation are **still performed by the pinned Go core** at connection.
+- HTTPS subscription URLs are downloaded from the app through an ephemeral
+  `URLSession` (30s resource timeout). Redirects must remain HTTPS and may
+  not target localhost/private textual IPs. Downloaded files and decoded
+  payloads are capped at 8 MiB before reading them into memory. Supports
+  plain, Base64-wrapped link bundles, JSON and Clash YAML.
+- The original subscription address, cached content and active server
+  (unaltered URI) are separate entries in the *shared signed Keychain*;
+  the SwiftUI menu shows only server indexes and schemes, never passwords.
+  Repeated refreshes retain the last usable content when download fails.
+- Debug-mode `PacketTunnelProvider` now resolves the **active** source
+  directly from Keychain using the existing opaque profile UUID. A
+  subscription must be refreshed before it becomes connectable.
+- JSON/YAML multi-outbound policies currently go unchanged to Go (no
+  fabricated independent server picker). Only plain URI lists expose
+  per-server selection. Automatic refresh is checked when the app launches and once per hour
+  while it stays open (only when the VPN is stopped); subscriptions older
+  than 12 hours are refreshed. Refresh never runs after the app exits.
+  Cross-origin HTTPS redirects are rejected to avoid disclosing signed
+  subscription URLs to a second hostname. Go-based profile
+  preflight, latency measurements and full format compatibility are still
+  future work. These features do not unlock Release VPN.
+
+### Stage-2 Go-native profile preflight and TCP reachability
+
+The pinned Go core already exposes cancellation-aware
+`MobileBeginProfileValidation`, `MobileValidateProfile`,
+`MobileCancelProfileValidation`, and `MobileFinishProfileValidation`.
+The Network Extension's `NativeProfilePreflight` (stage-1 PR #83)
+invokes these on the serialized startup worker **before MobileSetup and
+macOS VPN route installation**, and a Stop request cancels any pending
+validation. No user-supplied config or parser error containing private
+URI data is logged by the Swift preflight layer.
+
+The stage-2 integration smoke test uses the pinned XCFramework to check
+Go accepts a nonsecret example proxy and rejects malformed input.
+The ordinary UI still performs format classification only because the
+Go runtime is intentionally linked inside the extension, not also into
+the main UI process. A standalone import-time Go validator is not
+claimed. The remaining physical-device tests must confirm this
+preflight path rejects invalid profiles while the system route table
+remains unchanged.
+
+The server list offers an on-demand **TCP port reachability** test for
+supported stream transports. It is not authenticated protocol latency,
+end-to-end VPN responsiveness or a throughput benchmark. UDP-first
+transports (Hysteria2, TUIC and Naïve QUIC) are deliberately excluded
+rather than showing a misleading TCP timing. Each test is bounded to
+five seconds and has no persistent credential-bearing output.
+
+
 ## Stage 3: signed distribution, notarization, updates
 
 The protected GitHub Actions workflow `macos-signed-dmg.yml` creates a
