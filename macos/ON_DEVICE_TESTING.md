@@ -24,12 +24,26 @@ for measuring resident Go memory and behavior under memory pressure.
    open macos/VetrOFF.xcodeproj
    ```
 
-4. Set your own Apple Developer Team and provisioning for both
+4. For a signed local Debug build, configure Xcode with your Apple
+   Developer account and the packet-tunnel/keychain capabilities; then run:
+
+   ```sh
+   APPLE_TEAM_ID=YOURTEAMID bash macos/scripts/build-signed-debug.sh
+   ```
+
+   If Xcode must fetch a provisioning profile, opt in with
+   `VETROFF_ALLOW_PROVISIONING_UPDATES=1`. The script verifies that
+   **both** the app and the embedded extension have valid code signatures,
+   the packet-tunnel entitlement and matching provisioned Keychain groups.
+   It stops before any VPN test if they do not match. This is a local
+   developer build, not an installable public release.
+
+5. Set your own Apple Developer Team and provisioning for both
    `VetrOFF` and `PacketTunnel`. Both must have Network Extension
    packet-tunnel entitlement and the **same**
    `app.vetroff.client.macos.shared` Keychain group with the correct
    Team ID prefix. These identifiers must match the installed app.
-5. Build/run the integrated **Debug** scheme, not the UI-only version.
+6. Build/run the integrated **Debug** scheme, not the UI-only version.
    After granting VPN permission, install one JSON profile using the
    interface, select it and use **Тестировать VPN (Debug)**.
 
