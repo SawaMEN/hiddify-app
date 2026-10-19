@@ -94,4 +94,26 @@ final class ProfileSourceTests: XCTestCase {
         XCTAssertTrue(ProfileSource.servers(in: links.joined(separator: "\n")).isEmpty)
     }
 
+    func testSelectionSurvivesSubscriptionNodeReorder() {
+        let old = "vless://old@example.com:443#Old"
+        let selected = "trojan://pw@example.net:443#Selected"
+        let next = "vless://new@example.org:443#New"
+        let servers = ProfileSource.servers(in: [next, old, selected].joined(separator: "\n"))
+        XCTAssertEqual(ProfileSource.preservingSelection(in: servers, previousURI: selected), 2)
+        XCTAssertEqual(ProfileSource.preservingSelection(in: servers, previousURI: "missing"), 0)
+        XCTAssertNil(ProfileSource.preservingSelection(in: [], previousURI: selected))
+    }
+
+    func testFriendlyFragmentLabelsDoNotExposeCredentials() {
+        let server = ProfileSource.servers(
+            in: "trojan://secret@example.net:443#Europe%20One"
+        ).first!
+        XCTAssertEqual(server.title, "Europe One · TROJAN")
+        XCTAssertFalse(server.title.contains("secret"))
+        let unsafe = ProfileSource.servers(
+            in: "trojan://secret@example.net:443#token%3Dsecret"
+        ).first!
+        XCTAssertEqual(unsafe.title, "Сервер 1 · TROJAN")
+    }
+
 }

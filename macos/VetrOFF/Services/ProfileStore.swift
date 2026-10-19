@@ -124,9 +124,11 @@ final class ProfileStore {
         let url = try ProfileVault.source(id: id)
         let content = try await SubscriptionDownloader.fetch(url)
         let servers = ProfileSource.servers(in: content)
-        let previousIndex = profiles[position].selectedServerIndex ?? 0
-        let selectedIndex = servers.indices.contains(previousIndex) ? previousIndex : 0
-        let effective = servers.isEmpty ? content : servers[selectedIndex].rawURI
+        let oldActive = try? ProfileVault.connectableSource(id: id)
+        let selectedIndex = ProfileSource.preservingSelection(
+            in: servers, previousURI: oldActive
+        )
+        let effective = selectedIndex.map { servers[$0].rawURI } ?? content
 
         // The prior working profile remains intact if downloading/decoding
         // fails. Only validated, bounded content is stored in Keychain.
@@ -135,10 +137,22 @@ final class ProfileStore {
 
         var next = profiles
         next[position].lastRefreshedAt = Date()
-        next[position].selectedServerIndex = servers.isEmpty ? nil : selectedIndex
+        next[position].selectedServerIndex = selectedIndex
         try persist(next)
         profiles = next
         serverLists[id] = servers
+    }
+
+    /// Refresh on launch only if stale; explicit user refresh is still
+    /// available. Failed updates retain the last known-good Keychain cache.
+    func refreshStaleSubscriptions(maxAge: TimeInterval = 12 * 60 * 60) async {
+        let stale = profiles.filter {
+            $0.format == .subscriptionURL &&
+            ($0.lastRefreshedAt.map { Date().timeIntervalSince($0) > maxAge } ?? true)
+        }
+        for record in stale where !refreshing.contains(record.id) {
+            try? await refresh(record.id)
+        }
     }
 
     func delete(_ id: UUID) throws {

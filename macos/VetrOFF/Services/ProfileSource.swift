@@ -44,7 +44,23 @@ struct ProfileServer: Identifiable, Equatable, Sendable {
     var id: Int { index }
 
     /// UI must never expose host credentials or complete subscription URLs.
-    var title: String { "Сервер \(index + 1) · \(scheme.uppercased())" }
+    var title: String {
+        // URI fragments commonly contain user-friendly names. Never display
+        // raw host, credentials or query text as fallback node labels.
+        if let marker = rawURI.lastIndex(of: "#") {
+            let encoded = String(rawURI[rawURI.index(after: marker)...])
+            let decoded = encoded.removingPercentEncoding ?? encoded
+            let safe = decoded.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !safe.isEmpty && safe.count <= 48 &&
+                !safe.contains("://") && !safe.contains("@") &&
+                !safe.contains("?") && !safe.contains("&") &&
+                !safe.contains("=") && !safe.contains("/") &&
+                !safe.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) {
+                return "\(safe) · \(scheme.uppercased())"
+            }
+        }
+        return "Сервер \(index + 1) · \(scheme.uppercased())"
+    }
 }
 
 enum ProfileSource {
@@ -111,6 +127,16 @@ enum ProfileSource {
             result.append(ProfileServer(index: result.count, scheme: scheme, rawURI: line))
         }
         return result
+    }
+
+    /// Refreshes may reorder nodes. Preserve the actual selected URI, not
+    /// an array position that would silently switch the VPN to a new server.
+    static func preservingSelection(
+        in servers: [ProfileServer], previousURI: String?
+    ) -> Int? {
+        guard !servers.isEmpty else { return nil }
+        guard let previousURI else { return 0 }
+        return servers.firstIndex(where: { $0.rawURI == previousURI }) ?? 0
     }
 
     static func decodeSubscription(_ data: Data) throws -> String {

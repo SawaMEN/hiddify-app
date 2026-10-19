@@ -64,7 +64,12 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 760, minHeight: 520)
-        .task { await vpn.load() }
+        .task {
+            await vpn.load()
+            if !vpn.canStop {
+                await profiles.refreshStaleSubscriptions()
+            }
+        }
         .sheet(isPresented: $showPasteSheet) { importSheet }
         .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json, .plainText]) { result in
             do {
