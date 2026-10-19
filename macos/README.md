@@ -276,3 +276,22 @@ the sing-box log path is set to `/dev/null`. This path is opt-in only;
 Android and other core starts retain their original persistence behavior.
 The signed-device acceptance test must still check stderr and operating
 system diagnostic logs for inadvertent secrets.
+
+### Fail-closed full-tunnel route validation
+
+The native NetworkExtension mapper now requires **both** IPv4 and IPv6
+address families for a managed full-tunnel start. If Go supplied only one
+family, the extension fails startup instead of silently routing the other
+family over the physical interface. This is deliberately conservative:
+an IPv4-only full-tunnel profile will not connect until its IPv6 block or
+a safe single-stack policy is explicitly implemented and verified.
+
+When Go provides explicit included subnet routes, the `0.0.0.0/0` and
+`::/0` default routes remain present in full-tunnel mode; explicit
+subnets no longer accidentally replace the default route. Already
+provided defaults are not duplicated.
+
+The default-interface monitor filters out utun and loopback, checks
+`NWPath.status`, and accepts only interfaces of types that the
+current path can use. It is still not a substitute for signed-device
+verification of the effective route table.
