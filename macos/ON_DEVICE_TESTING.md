@@ -135,3 +135,19 @@ over the physical adapter and that reconnect cleans up both families.
   These must be rejected, with no credential-bearing URL in diagnostics.
 - Confirm JSON and Clash YAML are passed *whole* to the Go parser. They
   do **not** get a misleading Swift-only outbound selection UI.
+
+## Go-native preflight / manual TCP probe (stage 2)
+
+- Try an intentionally invalid URI and an invalid JSON outbound in
+  signed Debug mode. The Go parser must reject them **before** the
+  extension installs either IPv4 or IPv6 routes. No password or
+  subscription URL should appear in system diagnostics.
+- Stop while Go validation is pending. The validation ID must be
+  cancelled; the core must not subsequently start and no routes
+  must remain.
+- For a TCP-based URI, run the **TCP-проверка** button and verify that
+  the displayed number measures socket establishment only.
+- For Hysteria2/TUIC/Naïve QUIC, the TCP button must be unavailable;
+  testing TCP would not prove the UDP protocol is working.
+- Check both reachable and deliberately closed TCP ports. No probe
+  must continue indefinitely or persist a token in user defaults.

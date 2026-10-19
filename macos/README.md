@@ -342,3 +342,30 @@ publish this unsigned preview.
   subscription URLs to a second hostname. Go-based profile
   preflight, latency measurements and full format compatibility are still
   future work. These features do not unlock Release VPN.
+
+### Stage-2 Go-native profile preflight and TCP reachability
+
+The pinned Go core already exposes cancellation-aware
+`MobileBeginProfileValidation`, `MobileValidateProfile`,
+`MobileCancelProfileValidation`, and `MobileFinishProfileValidation`.
+The Network Extension's `NativeProfilePreflight` (stage-1 PR #83)
+invokes these on the serialized startup worker **before MobileSetup and
+macOS VPN route installation**, and a Stop request cancels any pending
+validation. No user-supplied config or parser error containing private
+URI data is logged by the Swift preflight layer.
+
+The stage-2 integration smoke test uses the pinned XCFramework to check
+Go accepts a nonsecret example proxy and rejects malformed input.
+The ordinary UI still performs format classification only because the
+Go runtime is intentionally linked inside the extension, not also into
+the main UI process. A standalone import-time Go validator is not
+claimed. The remaining physical-device tests must confirm this
+preflight path rejects invalid profiles while the system route table
+remains unchanged.
+
+The server list offers an on-demand **TCP port reachability** test for
+supported stream transports. It is not authenticated protocol latency,
+end-to-end VPN responsiveness or a throughput benchmark. UDP-first
+transports (Hysteria2, TUIC and Naïve QUIC) are deliberately excluded
+rather than showing a misleading TCP timing. Each test is bounded to
+five seconds and has no persistent credential-bearing output.
