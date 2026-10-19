@@ -81,7 +81,15 @@ URI серверов, пароли и настоящие токены подпи
 имеется документ с результатами реальных испытаний, можно вручную
 запустить `distribution=public-preview`,
 `acceptance_commit=<текущий SHA>` и
-`acceptance_report_url=https://github.com/...`.
+`acceptance_report_url=https://github.com/SawaMEN/hiddify-app/issues/<NUMBER>`.
+
+Отчёт должен быть отдельным GitHub Issue **этого репозитория**,
+содержать точный SHA тестируемого коммита и получить метку
+`macos-device-accepted` только после проверки TCP, UDP, DNS,
+IPv4/IPv6, маршрутов, сна/пробуждения и повторных подключений.
+Защищённый workflow проверяет существование issue, SHA, метку и
+одобрение Environment `macos-signing`. Он не может самостоятельно
+подтвердить реальные VPN-пакеты.
 
 Workflow отклонит другую ветку, неверный SHA, отсутствующий отчёт
 либо незавершённые PR #83/#84. После одобрения окружения он
