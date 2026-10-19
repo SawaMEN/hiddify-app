@@ -4,23 +4,26 @@ import Foundation
 #if canImport(HiddifyCore)
 import HiddifyCore
 
-/// Exactly one in-process Go service instance belongs to the extension.
-/// No Flutter, separate helper daemon, or localhost proxy is involved.
+/// The extension owns exactly one Go service and an ordered macOS settings
+/// teardown. No Flutter, helper daemon or per-packet Swift proxy is involved.
 final class NativeTunnelEngine: @unchecked Sendable {
     private let queue = DispatchQueue(label: "app.vetroff.client.macos.core", qos: .userInitiated)
     private let tunnel: NEPacketTunnelProvider
     private let lifecycle = TunnelLifecycle()
 
-    // Accessed only from queue (except the locked lifecycle).
+    // These fields are accessed ONLY from the serial worker queue.
     private var platform: CorePlatformInterface?
+    private var settingsCoordinator: TunnelSettingsCoordinator?
+    private var setupAttempted = false
+    private var teardownInProgress = false
+    private var failedStart: (completion: NativeCompletion, error: Error)?
+    private var stopCallbacks: [NativeCompletion] = []
 
     init(tunnel: NEPacketTunnelProvider) {
         self.tunnel = tunnel
     }
 
-    var diagnosticLifecycleState: String {
-        lifecycle.snapshot.rawValue
-    }
+    var diagnosticLifecycleState: String { lifecycle.snapshot.rawValue }
 
     func start(profileContent: String, completion: @escaping (Error?) -> Void) {
         let finished = NativeCompletion(completion)
@@ -32,9 +35,14 @@ final class NativeTunnelEngine: @unchecked Sendable {
         }
 
         queue.async { [self] in
-            var attemptedSetup = false
             do {
                 try lifecycle.checkStarting()
+
+                let coordinator = TunnelSettingsCoordinator { [tunnel] settings, handler in
+                    tunnel.setTunnelNetworkSettings(settings, completionHandler: handler)
+                }
+                settingsCoordinator = coordinator
+
                 let support = FileManager.default.urls(
                     for: .applicationSupportDirectory,
                     in: .userDomainMask
@@ -51,14 +59,17 @@ final class NativeTunnelEngine: @unchecked Sendable {
                 options.listen = "127.0.0.1:0"
                 options.secret = ""
                 options.debug = false
-                options.mode = 0 // hcore.SetupMode_OLD: no gRPC command server.
+                options.mode = 0 // hcore.SetupMode_OLD; no gRPC command server.
                 options.memoryLimit = 192 * 1024 * 1024
                 options.fixAndroidStack = false
 
-                let callback = CorePlatformInterface(tunnel: tunnel, lifecycle: lifecycle)
+                let callback = CorePlatformInterface(
+                    settingsCoordinator: coordinator, lifecycle: lifecycle
+                )
                 platform = callback
                 try lifecycle.checkStarting()
-                attemptedSetup = true
+                setupAttempted = true
+
                 var setupError: NSError?
                 guard MobileSetup(options, callback, &setupError) else {
                     throw setupError ?? NSError(domain: "VetrOFF.Go", code: 1)
@@ -68,59 +79,92 @@ final class NativeTunnelEngine: @unchecked Sendable {
                 guard MobileStartPacketTunnel(profileContent, &startError) else {
                     throw startError ?? NSError(domain: "VetrOFF.Go", code: 2)
                 }
-                // The mobile core defaults to EnableTun=false. Even if Go
-                // reports success, NetworkExtension must NOT report connected
-                // unless the synchronous OpenTun callback returned a real FD.
                 guard callback.hasOpenedTunnel else {
                     throw NSError(
                         domain: "app.vetroff.client.macos.PacketTunnel",
                         code: 8,
                         userInfo: [NSLocalizedDescriptionKey:
-                            "Go core started without opening the macOS TUN interface."]
+                            "Go core returned success without opening a macOS TUN interface."]
                     )
                 }
-                try lifecycle.didStart() // A stop during Go startup wins.
+                try lifecycle.didStart()
                 finished.call(nil)
             } catch {
-                if attemptedSetup {
-                    var stopError: NSError?
-                    _ = MobileStop(&stopError)
-                }
-                platform?.reset()
-                platform = nil
-                // Explicitly release routes even when setup failed halfway.
-                // Stay in 'stopping' until macOS confirms route cleanup.
-                // Otherwise a new start could race a late nil-settings callback.
-                _ = lifecycle.requestStop()
-                tunnel.setTunnelNetworkSettings(nil) { [self] _ in
-                    lifecycle.finish()
-                    finished.call(error)
-                }
+                failedStart = (finished, error)
+                beginTeardown()
             }
         }
     }
 
     func stop(completion: @escaping () -> Void) {
         let finished = NativeCompletion { _ in completion() }
-        // Signal cancellation *before* waiting behind the Go start worker.
-        let shouldStop = lifecycle.requestStop()
+        // Cancels synchronous Go/OpenTun startup without waiting on the worker.
+        _ = lifecycle.requestStop()
         queue.async { [self] in
-            if shouldStop {
-                var stopError: NSError?
-                _ = MobileStop(&stopError)
-            }
-            platform?.reset()
-            platform = nil
-            if shouldStop {
-                tunnel.setTunnelNetworkSettings(nil) { [self] _ in
-                    lifecycle.finish()
-                    finished.call(nil)
-                }
+            stopCallbacks.append(finished)
+            if teardownInProgress { return }
+            if lifecycle.snapshot == .idle {
+                finishStops()
             } else {
-                // Already idle, or the failed-start cleanup owns route removal.
-                finished.call(nil)
+                beginTeardown()
             }
         }
+    }
+
+    private func beginTeardown() {
+        guard !teardownInProgress else { return }
+        teardownInProgress = true
+        _ = lifecycle.requestStop()
+
+        if setupAttempted {
+            var error: NSError?
+            _ = MobileStop(&error)
+            setupAttempted = false
+        }
+        platform?.reset()
+        platform = nil
+
+        let cleared: (Error?) -> Void = { [self] error in
+            queue.async { [self] in
+                guard teardownInProgress else { return }
+                // A failed settings removal MUST NOT make the service idle:
+                // no retry may start until macOS has cleared old routes.
+                if error == nil {
+                    lifecycle.finish()
+                }
+                teardownInProgress = false
+                settingsCoordinator = nil
+                if let failedStart {
+                    self.failedStart = nil
+                    failedStart.completion.call(failedStart.error)
+                }
+                finishStops()
+            }
+        }
+
+        if let settingsCoordinator {
+            settingsCoordinator.clear(completion: cleared)
+        } else {
+            tunnel.setTunnelNetworkSettings(nil, completionHandler: cleared)
+        }
+
+        // NetworkExtension should always call the removal completion, but a
+        // stalled OS callback must not block provider shutdown indefinitely.
+        // The lifecycle deliberately remains "stopping" until real cleanup.
+        queue.asyncAfter(deadline: .now() + .seconds(30)) { [self] in
+            guard teardownInProgress else { return }
+            if let failedStart {
+                self.failedStart = nil
+                failedStart.completion.call(failedStart.error)
+            }
+            finishStops()
+        }
+    }
+
+    private func finishStops() {
+        let callbacks = stopCallbacks
+        stopCallbacks.removeAll()
+        for callback in callbacks { callback.call(nil) }
     }
 }
 
