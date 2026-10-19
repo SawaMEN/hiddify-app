@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - fix/macos-route-safety
+      - fix/macos-stage1-tun-teardown
       - feat/macos-swift-arm64
     paths:
       - "macos/PacketTunnel/**"

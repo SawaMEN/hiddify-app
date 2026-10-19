@@ -12,7 +12,7 @@ for measuring resident Go memory and behavior under memory pressure.
 
 1. Download the latest successful
    [macOS Native Core Build](https://github.com/SawaMEN/hiddify-app/actions/workflows/macos-core-arm64.yml)
-   artifact `HiddifyCore-macos-arm64-experiment`.
+   artifact `HiddifyCore-macos-37ed16781062`.
 2. Extract its contents into
    `macos/Core/HiddifyCore.xcframework/`; the resulting folder must
    contain the `macos-arm64/HiddifyCore.framework` slice.
@@ -120,3 +120,25 @@ remain present even if the Go TUN options include custom included
 networks. Missing IPv4 or IPv6 TUN addresses must reject the connection
 rather than report connected. Confirm that dual-stack leak checks work
 over the physical adapter and that reconnect cleans up both families.
+
+## Startup/stop timing validation (stage 1)
+
+After signing with an eligible Apple Developer team, exercise these
+cases while observing the in-app Network Extension diagnostic state:
+
+- Cancel while the first `setTunnelNetworkSettings(settings)` call is
+  still pending. The later OS callback must be followed by **exactly one**
+  `setTunnelNetworkSettings(nil)`; never report a connected tunnel.
+- Cancel after `OpenTun` times out (20 s). A late OS network-settings
+  callback must not restore routes after cleanup.
+- Submit repeated stop events while a teardown is pending: Go must stop
+  once, all stop completions must eventually fire and a new start must
+  remain blocked until macOS acknowledges clearing routes.
+- If OS settings removal fails or does not return, a restart in the same
+  extension must fail closed. A 30 s watchdog returns outstanding provider
+  completion handlers but does **not** claim that routes were removed.
+- Run 50 connect/cancel/reconnect cycles, including Wi-Fi changes, sleep,
+  IPv6 and DNS capture. Record observations without profile secrets.
+
+The CI tests simulate out-of-order apply and removal callbacks; they
+cannot validate actual macOS utun packet delivery or provisioning.
