@@ -267,6 +267,41 @@ class BoxService(
         }
     }
 
+    /**
+     * A port can become occupied after the preflight socket check but before Go binds
+     * it. Retry only that specific error, after closing the failed native start.
+     * This is called under lifecycleMutex, so no second app-owned setup races us.
+     */
+    private suspend fun startWithGrpcPortFallback(
+        cleanupFailedAttempt: suspend () -> Unit,
+        setup: suspend () -> Unit,
+    ) {
+        for (attempt in 1..3) {
+            if (destroyed || stopRequested || !Settings.connectionDesired)
+                throw CancellationException("VPN startup cancelled")
+            try {
+                setup()
+                return
+            } catch (error: Exception) {
+                if (attempt == 3 || !com.hiddify.hiddify.nativecore.NativeControlPortPolicy.isBindConflict(error))
+                    throw error
+
+                try {
+                    cleanupFailedAttempt()
+                } catch (cleanupError: Exception) {
+                    // Never start a replacement if the previous runtime may still own its port.
+                    error.addSuppressed(cleanupError)
+                    throw error
+                }
+
+                val oldPort = Settings.grpcServiceModePort
+                val newPort = Settings.prepareGrpcServicePort(excludedPorts = setOf(oldPort))
+                com.hiddify.hiddify.utils.GrpcClientProvider.resetConnections()
+                Log.w(TAG, "Local core port $oldPort was taken during setup; retrying on $newPort")
+            }
+        }
+    }
+
     private suspend fun startService() {
         NativeStatsFeed.reset(); com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
         try {
@@ -348,7 +383,10 @@ class BoxService(
             if (Settings.privacyUseRoot) {
                 rootActive = true
                 NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STARTING_CORE)
-                com.hiddify.hiddify.privacy.RootCore.start(service)
+                startWithGrpcPortFallback(
+                    cleanupFailedAttempt = { com.hiddify.hiddify.privacy.RootCore.stop() },
+                    setup = { com.hiddify.hiddify.privacy.RootCore.start(service) },
+                )
                 if (!Settings.connectionDesired || stopRequested) {
                     finishCancelledStart("cancelled during root setup")
                     return
@@ -368,7 +406,10 @@ class BoxService(
 
                 try {
                     NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.SETTING_UP_CORE)
-                    Mobile.setup(
+                    startWithGrpcPortFallback(
+                        cleanupFailedAttempt = { Mobile.close(4L) },
+                    ) {
+                        Mobile.setup(
                         SetupOptions().also {
                             val memoryClass = (service.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager).memoryClass
                             it.memoryLimit = memoryClass.coerceIn(128, 512).toLong() * 1024L * 1024L
@@ -383,7 +424,8 @@ class BoxService(
                             it.debug = Settings.debugMode
                         },
                         platformInterface,
-                    )
+                        )
+                    }
                     if (destroyed) return
                 } catch (e: Exception) {
                     // setup() can fail after allocating native state. Always make a best-effort close
