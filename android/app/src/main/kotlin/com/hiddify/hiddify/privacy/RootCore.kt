@@ -88,14 +88,27 @@ object RootCore {
         process = child
         Thread {
             try {
+                var portConflict = false
                 child.inputStream.bufferedReader().useLines { lines ->
-                    lines.forEach { line -> if (line == "HC_ROOT_READY") ready.complete(Unit) }
+                    lines.forEach { line ->
+                        if (line == "HC_ROOT_READY") ready.complete(Unit)
+                        // Only keep the error category; never put logs or credentials in the UI.
+                        if (line.contains("address already in use", ignoreCase = true) ||
+                            line.contains("EADDRINUSE", ignoreCase = true)) portConflict = true
+                    }
                 }
-                if (!ready.isCompleted) ready.completeExceptionally(IllegalStateException("Root companion exited before initialization; check root permission and kernel support"))
+                if (!ready.isCompleted) ready.completeExceptionally(IllegalStateException(
+                    if (portConflict) "Root gRPC listen failed: address already in use"
+                    else "Root companion exited before initialization; check root permission and kernel support",
+                ))
             } catch (error: Exception) { if (!ready.isCompleted) ready.completeExceptionally(error) }
         }.apply { isDaemon = true; start() }
         try { withTimeout(30_000) { ready.await() } }
-        catch (error: Exception) { stop(); throw error }
+        catch (error: Exception) {
+            // Preserve the startup reason even if the child exited nonzero and cleanup fails.
+            try { stop() } catch (cleanupError: Exception) { error.addSuppressed(cleanupError) }
+            throw error
+        }
         finally { envelope.delete() }
     }
 
