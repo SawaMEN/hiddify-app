@@ -410,20 +410,20 @@ class BoxService(
                         cleanupFailedAttempt = { Mobile.close(4L) },
                     ) {
                         Mobile.setup(
-                        SetupOptions().also {
-                            val memoryClass = (service.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager).memoryClass
-                            it.memoryLimit = memoryClass.coerceIn(128, 512).toLong() * 1024L * 1024L
-                            it.basePath = Settings.baseDir
-                            it.workingDir = Settings.workingDir
-                            it.tempDir = Settings.tempDir
-                            // Required by the Go runtime on every supported Android version.
-                            it.fixAndroidStack = true
-                            it.mode = 4L
-                            it.listen = "127.0.0.1:${Settings.grpcServiceModePort}"
-                            it.secret = Settings.grpcAuthToken
-                            it.debug = Settings.debugMode
-                        },
-                        platformInterface,
+                            SetupOptions().also {
+                                val memoryClass = (service.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager).memoryClass
+                                it.memoryLimit = memoryClass.coerceIn(128, 512).toLong() * 1024L * 1024L
+                                it.basePath = Settings.baseDir
+                                it.workingDir = Settings.workingDir
+                                it.tempDir = Settings.tempDir
+                                // Required by the Go runtime on every supported Android version.
+                                it.fixAndroidStack = true
+                                it.mode = 4L
+                                it.listen = "127.0.0.1:${Settings.grpcServiceModePort}"
+                                it.secret = Settings.grpcAuthToken
+                                it.debug = Settings.debugMode
+                            },
+                            platformInterface,
                         )
                     }
                     if (destroyed) return
