@@ -89,12 +89,15 @@ object RootCore {
         Thread {
             try {
                 var portConflict = false
+                val controlEndpoint = "127.0.0.1:${Settings.grpcServiceModePort}"
                 child.inputStream.bufferedReader().useLines { lines ->
                     lines.forEach { line ->
                         if (line == "HC_ROOT_READY") ready.complete(Unit)
-                        // Only keep the error category; never put logs or credentials in the UI.
-                        if (line.contains("address already in use", ignoreCase = true) ||
-                            line.contains("EADDRINUSE", ignoreCase = true)) portConflict = true
+                        // Only classify a collision with the local control port, not
+                        // unrelated listener failures. Do not expose raw helper logs.
+                        if (line.contains(controlEndpoint) &&
+                            (line.contains("address already in use", ignoreCase = true) ||
+                             line.contains("EADDRINUSE", ignoreCase = true))) portConflict = true
                     }
                 }
                 if (!ready.isCompleted) ready.completeExceptionally(IllegalStateException(
