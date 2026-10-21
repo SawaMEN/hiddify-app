@@ -16,6 +16,24 @@ import kotlinx.coroutines.flow.update
 
 internal data class NativeOutboundUpdate(val group: NativeOutboundGroup? = null, val error: String? = null, val session: Long = 0)
 
+/**
+ * Short-lived transport failures after a valid snapshot are recoverable by reopening
+ * the stream. Show a warning after three consecutive failures; do not hide a real
+ * first-load failure or a non-transport error.
+ */
+internal fun shouldReportOutboundsStreamError(
+    hasSnapshot: Boolean,
+    consecutiveFailures: Int,
+    message: String,
+): Boolean {
+    if (!hasSnapshot || consecutiveFailures >= 3) return true
+    val normalized = message.lowercase(java.util.Locale.ROOT)
+    val interruptedGrpc = normalized.contains("grpc transport failure") &&
+        normalized.contains("grpc-status=null")
+    val normalStreamEnd = normalized.contains("proxy updates stream closed")
+    return !interruptedGrpc && !normalStreamEnd
+}
+
 /** One primary-group stream shared by the list and foreground ranking. */
 @OptIn(ExperimentalCoroutinesApi::class)
 internal object NativePrimaryOutboundsFeed {
@@ -26,17 +44,22 @@ internal object NativePrimaryOutboundsFeed {
         flow {
             emit(NativeOutboundUpdate(session = session))
             var failures = 0
+            var hasSnapshot = false
             while (true) {
                 try {
                     NativeOutboundsRepository().watchPrimary().collect { group ->
                         failures = 0
+                        if (group != null) hasSnapshot = true
                         emit(NativeOutboundUpdate(group, session = session))
                     }
                     throw java.io.IOException("Proxy updates stream closed")
                 } catch (cancelled: CancellationException) { throw cancelled }
                   catch (error: Exception) {
                     failures = (failures + 1).coerceAtMost(4)
-                    emit(NativeOutboundUpdate(error = error.message ?: "Proxy updates are unavailable", session = session))
+                    val description = error.message ?: "Proxy updates are unavailable"
+                    if (shouldReportOutboundsStreamError(hasSnapshot, failures, description)) {
+                        emit(NativeOutboundUpdate(error = description, session = session))
+                    }
                     delay((1000L shl (failures - 1)).coerceAtMost(8000))
                 }
             }
