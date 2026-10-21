@@ -50,6 +50,16 @@ object GrpcClientProvider {
             return cachedDiagnosticsClient!!
         }
 
+    /** Discard HTTP/2 connections to a stopped/replaced in-process core. */
+    @Synchronized
+    fun resetConnections() {
+        cachedClient = null
+        cachedPort = -1
+        cachedDiagnosticsClient = null
+        cachedDiagnosticsPort = -1
+        okHttpClient.connectionPool.evictAll()
+    }
+
     private var cachedPort = -1
     private var cachedClient: GrpcClient? = null
     val grpcClient: GrpcClient
