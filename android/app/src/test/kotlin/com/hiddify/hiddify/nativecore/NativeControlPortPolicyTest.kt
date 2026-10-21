@@ -36,4 +36,29 @@ class NativeControlPortPolicyTest {
             )
         }
     }
+
+    @Test fun excludesPortTakenBetweenPreflightAndBind() {
+        val candidates = mutableListOf(32000, 32001)
+        assertEquals(32001, NativeControlPortPolicy.select(
+            current = 32000, frontPort = 17078,
+            isAvailable = { true },
+            allocateEphemeral = { candidates.removeAt(0) },
+            excludedPorts = setOf(32000),
+        ))
+    }
+
+    @Test fun retriesOnlyPortBindConflicts() {
+        assertEquals(true, NativeControlPortPolicy.isBindConflict(
+            IllegalStateException("listen tcp 127.0.0.1:32000: bind: address already in use"),
+        ))
+        assertEquals(true, NativeControlPortPolicy.isBindConflict(
+            IllegalStateException("setup failed", IllegalStateException("EADDRINUSE")),
+        ))
+        assertEquals(false, NativeControlPortPolicy.isBindConflict(
+            IllegalStateException("failed to open database AppSettings.db/LOCK: permission denied"),
+        ))
+        assertEquals(false, NativeControlPortPolicy.isBindConflict(
+            IllegalStateException("UNAUTHENTICATED"),
+        ))
+    }
 }
