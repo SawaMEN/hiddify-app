@@ -65,14 +65,19 @@ class BoxService(
 
             com.hiddify.hiddify.nativecore.NativeCoreLibrary.ensureLoaded()
 
-            val baseDir = Application.application.filesDir.apply { mkdirs() }
-            workingDir = (Application.application.getExternalFilesDir(null) ?: File(baseDir, "working")).apply { mkdirs() }
-            val tempDir = Application.application.cacheDir.apply { mkdirs() }
+            // The Go LevelDB under workingDir/data needs reliable file locks. External app
+            // storage (FUSE/scoped storage) is not suitable, even if canWrite() succeeds.
+            // Use a separate private directory for non-root mode. Root mode already has
+            // its own filesDir/root-core directory, with no shared database files.
+            val baseDir = Application.application.filesDir.canonicalFile.apply { mkdirs() }
+            workingDir = File(baseDir, "core-working").apply { mkdirs() }
+            val tempDir = Application.application.cacheDir.canonicalFile.apply { mkdirs() }
 
-            // Tile/boot startup can precede the activity. Never pass "./" to gomobile.
-            if (Settings.baseDir.isBlank() || Settings.baseDir == "./") Settings.baseDir = baseDir.path
-            if (Settings.workingDir.isBlank() || Settings.workingDir == "./") Settings.workingDir = workingDir.path
-            if (Settings.tempDir.isBlank() || Settings.tempDir == "./") Settings.tempDir = tempDir.path
+            // Migrate legacy persisted paths on every first setup. Profile metadata is
+            // stored separately; do not delete the old external working directory.
+            Settings.baseDir = baseDir.path
+            Settings.workingDir = workingDir.path
+            Settings.tempDir = tempDir.path
 
             Log.d(TAG, "base dir: ${Settings.baseDir}")
             Log.d(TAG, "working dir: ${Settings.workingDir}")
@@ -335,6 +340,9 @@ class BoxService(
                 finishCancelledStart("cancelled before native setup")
                 return
             }
+            // Called only while no core is active. Avoid the old globally shared 17079
+            // default and rotate an occupied per-install port before starting the server.
+            Settings.prepareGrpcServicePort()
             coreOwner = this
             DefaultNetworkMonitor.start()
             if (Settings.privacyUseRoot) {
@@ -746,22 +754,27 @@ class BoxService(
     private suspend fun closeCore() {
         NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STOPPING_CORE)
         rootMonitor?.cancel(); rootMonitor = null
-        if (rootActive) {
-            com.hiddify.hiddify.privacy.RootCore.stop()
-            rootActive = false
-        } else {
-            try { Mobile.close(4L) } catch (firstError: Exception) {
-                // Go closes the control server even when Stop returns a teardown error. A second
-                // idempotent close can release ownership instead of waiting for a bound service
-                // to be destroyed (stopSelf alone does not destroy a service still bound by UI).
-                Log.w(TAG, "retrying native close after teardown error", firstError)
-                try { Mobile.close(4L) } catch (retryError: Exception) {
-                    firstError.addSuppressed(retryError)
-                    throw firstError
+        try {
+            if (rootActive) {
+                com.hiddify.hiddify.privacy.RootCore.stop()
+                rootActive = false
+            } else {
+                try { Mobile.close(4L) } catch (firstError: Exception) {
+                    // Go closes the control server even when Stop returns a teardown error. A second
+                    // idempotent close can release ownership instead of waiting for a bound service
+                    // to be destroyed (stopSelf alone does not destroy a service still bound by UI).
+                    Log.w(TAG, "retrying native close after teardown error", firstError)
+                    try { Mobile.close(4L) } catch (retryError: Exception) {
+                        firstError.addSuppressed(retryError)
+                        throw firstError
+                    }
                 }
             }
+            NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STOPPED)
+        } finally {
+            // Connections to the previous server must not survive a core restart.
+            com.hiddify.hiddify.utils.GrpcClientProvider.resetConnections()
         }
-        NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STOPPED)
     }
 
     /** Probe through the core before accepting a built-in WARP endpoint. Stop between attempts,
