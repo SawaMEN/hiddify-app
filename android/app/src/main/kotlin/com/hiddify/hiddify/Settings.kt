@@ -134,11 +134,12 @@ object Settings {
      * prevent setup. Call immediately before Mobile.setup()/RootCore.start().
      */
     @Synchronized
-    fun prepareGrpcServicePort(): Int {
+    fun prepareGrpcServicePort(excludedPorts: Set<Int> = emptySet()): Int {
         val localHost = java.net.InetAddress.getByName("127.0.0.1")
         val selected = com.hiddify.hiddify.nativecore.NativeControlPortPolicy.select(
             current = grpcServiceModePort,
             frontPort = grpcFrontPort,
+            excludedPorts = excludedPorts,
             isAvailable = { port ->
                 runCatching { java.net.ServerSocket(port, 1, localHost).use { true } }
                     .getOrDefault(false)
