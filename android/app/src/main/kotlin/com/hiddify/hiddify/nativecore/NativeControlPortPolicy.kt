@@ -9,15 +9,31 @@ internal object NativeControlPortPolicy {
         frontPort: Int,
         isAvailable: (Int) -> Boolean,
         allocateEphemeral: () -> Int,
+        excludedPorts: Set<Int> = emptySet(),
     ): Int {
-        if (current in 1024..65535 && current != LEGACY_PORT &&
-            current != frontPort && isAvailable(current)) return current
+        fun acceptable(port: Int): Boolean =
+            port in 1024..65535 && port != LEGACY_PORT &&
+                port != frontPort && port !in excludedPorts
+
+        if (acceptable(current) && isAvailable(current)) return current
 
         repeat(16) {
             val next = allocateEphemeral()
-            if (next in 1024..65535 && next != LEGACY_PORT &&
-                next != frontPort && isAvailable(next)) return next
+            if (acceptable(next) && isAvailable(next)) return next
         }
         error("Unable to allocate a free local gRPC control port")
+    }
+
+    /** Retry only the specific EADDRINUSE bind race, never authentication or DB failures. */
+    fun isBindConflict(error: Throwable): Boolean {
+        var cause: Throwable? = error
+        val seen = HashSet<Throwable>()
+        while (cause != null && seen.add(cause)) {
+            val message = cause.message.orEmpty().lowercase(java.util.Locale.ROOT)
+            if (message.contains("address already in use") ||
+                message.contains("eaddrinuse")) return true
+            cause = cause.cause
+        }
+        return false
     }
 }
