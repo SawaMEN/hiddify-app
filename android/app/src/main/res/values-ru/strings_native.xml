@@ -724,7 +724,7 @@
     <string name="native_privacy_proxy_mode_notice">Сейчас выбран режим прокси. Маршрутизация приложений и параметры VPN-сети Android в нём не действуют. Для переключения режима отключите текущее подключение.</string>
     <string name="native_subscription_updates_channel">Обновления подписок</string>
     <string name="native_subscription_updates_count">Обновлено подписок: %1$d</string>
-    <string name="native_subscription_updates_reconnecting">Применяются новые серверы, VPN переподключается</string>
+    <string name="native_subscription_updates_reconnecting">Применяются новые серверы; VPN по возможности остаётся подключённым</string>
     <string name="native_subscription_updates_pending">Для применения активной подписки требуется переподключение</string>
     <string name="native_subscription_updates_saved">Изменения сохранены, VPN-соединение не прерывалось</string>
     <string name="native_profile_updated">Подписка «%1$s» обновлена</string>
