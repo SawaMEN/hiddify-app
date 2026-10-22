@@ -5,7 +5,7 @@ import java.io.InputStream
 import java.io.PushbackInputStream
 import java.util.zip.ZipInputStream
 
-internal data class NativeArchiveProfile(val name: String, val content: String)
+data class NativeArchiveProfile(val name: String, val content: String)
 internal data class NativeProfileDocuments(val archive: Boolean, val profiles: List<NativeArchiveProfile>)
 
 /**
