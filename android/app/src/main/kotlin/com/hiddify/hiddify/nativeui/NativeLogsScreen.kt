@@ -104,7 +104,7 @@ fun NativeLogsScreen(
                 Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else SelectionContainer(Modifier.weight(1f)) {
             LazyColumn(Modifier.fillMaxSize(), reverseLayout = true) {
-                itemsIndexed(lines.asReversed(), key = { index, line -> "$index:${line.hashCode()}" }) { _, line ->
+                itemsIndexed(lines.asReversed(), key = { index, line -> "$index:${line.hashCode()}" }) { index, line ->
                     val entry = remember(line) { NativeLogPresentation.entry(line) }
                     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
                         if (entry.level != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -113,7 +113,7 @@ fun NativeLogsScreen(
                         }
                         Text(entry.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
                     }
-                    if (line != lines.firstOrNull()) HorizontalDivider(Modifier.padding(horizontal = 16.dp),
+                    if (index != lines.lastIndex) HorizontalDivider(Modifier.padding(horizontal = 16.dp),
                         color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
