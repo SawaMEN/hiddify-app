@@ -15,10 +15,14 @@ object NativeLogPresentation {
         return Entry(clean.substring(match.range.last + 1).trim(), level, match.groupValues[1].ifEmpty { null })
     }
     fun level(line: String): String? = entry(line).level
-    fun visible(lines: List<String>, query: String, level: String?): List<String> =
-        lines.asSequence().map(::clean).filter {
-            val entry = entry(it)
-            entry.message.contains(query) && (level == null || entry.level == null ||
-                ordered.indexOf(entry.level) >= ordered.indexOf(level))
+    fun visible(lines: List<String>, query: String, level: String?): List<String> {
+        val term = query.trim()
+        val minimum = level?.let(ordered::indexOf)?.takeIf { it >= 0 }
+        return lines.asSequence().map(::clean).filter { line ->
+            val entry = entry(line)
+            // Case-insensitive filtering also matches timestamps and the source prefix.
+            (term.isEmpty() || line.contains(term, ignoreCase = true)) &&
+                (minimum == null || entry.level == null || ordered.indexOf(entry.level) >= minimum)
         }.toList()
+    }
 }
