@@ -314,7 +314,8 @@ class NativeProfileRepository(private val context: Context) {
     }
 
     fun refreshRemote(id: String, cancellation: NativeProfileImportCancellation? = null,
-        onChanged: ((Boolean) -> Unit)? = null): NativeProfile {
+        onChanged: ((Boolean) -> Unit)? = null,
+        onConfigChanged: ((Boolean) -> Unit)? = null): NativeProfile {
         cancellation?.ensureActive()
         val profile =
             openDatabase().use { db -> getById(db, id) ?: error("Profile not found") }
@@ -324,9 +325,14 @@ class NativeProfileRepository(private val context: Context) {
             metadata = listOf(value.name, value.updateIntervalSeconds, value.upload, value.download,
                 value.total, value.expire, value.webPageUrl, value.supportUrl),
         )
-        val before = if (onChanged != null) snapshot(profile) else null
+        val before = if (onChanged != null || onConfigChanged != null) snapshot(profile) else null
         val refreshed = importRemote(profile.url, existingId = profile.id, existingOverride = profile.userOverride, cancellation = cancellation)
-        if (onChanged != null) onChanged(before != snapshot(refreshed))
+        if (before != null) {
+            val after = snapshot(refreshed)
+            onChanged?.invoke(before != after)
+            // Quota/expiry and other response headers do not alter the running tunnel.
+            onConfigChanged?.invoke(before.content != after.content)
+        }
         return refreshed
     }
 
