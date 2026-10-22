@@ -45,7 +45,10 @@ import com.hiddify.hiddify.nativeprofile.NativeProfileImportCancellation
 import com.hiddify.hiddify.nativeprofile.runNativeProfileRefresh
 import com.hiddify.hiddify.nativeprofile.refreshNativeProfileBatch
 import com.hiddify.hiddify.nativeprofile.NativeProfileRepository
-import com.hiddify.hiddify.nativeprofile.NativeSubscriptionUpdateNotifier
+import com.hiddify.hiddify.nativeprofile.NativeProfileRefreshFeedback
+import com.hiddify.hiddify.nativeprofile.NativeProfileRefreshMotionPolicy
+import com.hiddify.hiddify.nativeprofile.NativeProfileRefreshPhase
+import com.hiddify.hiddify.nativeui.NativeSubscriptionBanner
 import com.hiddify.hiddify.nativelog.NativeLogRepository
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
 import com.hiddify.hiddify.nativecore.NativeChainOptions
@@ -116,6 +119,29 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private var profileImportDecision: CompletableDeferred<Boolean>? = null
     private val profileSelectionRevision = mutableStateOf(0)
     private val busyProfileId = mutableStateOf<String?>(null)
+    private val refreshFeedback = mutableStateOf<NativeProfileRefreshFeedback?>(null)
+    private val subscriptionBanner = mutableStateOf<NativeSubscriptionBanner?>(null)
+    private var subscriptionBannerCounter = 0L
+    private var deferredSubscriptionBanner: NativeSubscriptionBanner? = null
+
+    private fun showSubscriptionPopup(message: String, kind: NativeSubscriptionBanner.Kind) {
+        val event = NativeSubscriptionBanner(++subscriptionBannerCounter, message, kind)
+        if (nativeForeground) subscriptionBanner.value = event
+        else deferredSubscriptionBanner = event
+    }
+
+    private fun dismissSubscriptionPopup(revision: Long) {
+        if (subscriptionBanner.value?.revision == revision) subscriptionBanner.value = null
+    }
+
+    private fun setRefreshFeedback(id: String, phase: NativeProfileRefreshPhase) {
+        val event = NativeProfileRefreshFeedback(id, phase)
+        refreshFeedback.value = event
+        if (phase != NativeProfileRefreshPhase.UPDATING) lifecycleScope.launch {
+            delay(2200)
+            if (refreshFeedback.value === event) refreshFeedback.value = null
+        }
+    }
     private val ipVisibilitySession by lazy { androidx.lifecycle.ViewModelProvider(this)[com.hiddify.hiddify.nativeui.NativeIpVisibilitySession::class.java] }
     private val editorSession by lazy { androidx.lifecycle.ViewModelProvider(this)[com.hiddify.hiddify.nativeprofile.NativeProfileEditorSession::class.java] }
     private var profileEditorId: String? = null
@@ -488,6 +514,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onConfirmProfileImport = { profileImportDecision?.complete(it) },
                 profileSelectionRevision = profileSelectionRevision.value,
                 busyProfileId = busyProfileId.value,
+                refreshFeedback = refreshFeedback.value,
+                subscriptionBanner = subscriptionBanner.value,
+                onDismissSubscriptionBanner = ::dismissSubscriptionPopup,
                 profileEditor = profileEditor.value,
                 editorSession = editorSession,
                 profileEditorLoadFailed = profileEditorLoadFailed.value,
@@ -621,6 +650,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     override fun onStart() {
         super.onStart()
         nativeForeground = true
+        deferredSubscriptionBanner?.let { subscriptionBanner.value = it; deferredSubscriptionBanner = null }
         NativeAppUpdates.onForeground()
         refreshProfileSnapshot()
         refreshSettingsSnapshot()
@@ -675,6 +705,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     override fun onStop() {
         NativeAppUpdates.onBackground()
         nativeForeground = false
+        subscriptionBanner.value?.let { deferredSubscriptionBanner = it }
+        subscriptionBanner.value = null
         smartSelectionJob?.cancel()
         smartSelectionJob = null
         stopHealthMonitor()
@@ -1260,12 +1292,15 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         // Only the active profile's actual configuration bytes justify a reconnect.
         val restarted = if (activeConfigurationChanged) reconnectAfterSubscriptionChange() else false
         if (changedNames.isNotEmpty()) {
-            val delivered = NativeSubscriptionUpdateNotifier.show(applicationContext, changedNames,
-                restartingVpn = restarted, reconnectPending = activeConfigurationChanged && !restarted)
-            if (!delivered && nativeForeground) {
-                Toast.makeText(this, getString(R.string.native_subscription_updates_count,
-                    changedNames.size), Toast.LENGTH_LONG).show()
-            }
+            val statusText = getString(when {
+                restarted -> R.string.native_subscription_updates_reconnecting
+                activeConfigurationChanged -> R.string.native_subscription_updates_pending
+                else -> R.string.native_subscription_updates_saved
+            })
+            showSubscriptionPopup(
+                getString(R.string.native_subscription_updates_count, changedNames.size) + ". " + statusText,
+                NativeSubscriptionBanner.Kind.SUCCESS,
+            )
         }
     }
 
@@ -1305,15 +1340,21 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun refreshRemoteProfile(profile: NativeProfile) {
-        if (!profile.isRemote) return
+        if (!profile.isRemote || busyProfileId.value != null) return
         var changed = false
         var configChanged = false
         var active = false
+        setRefreshFeedback(profile.id, NativeProfileRefreshPhase.UPDATING)
         runProfileOperation(profile.id, requireDisconnected = false, onSuccess = {
-            Toast.makeText(this, getString(if (changed) R.string.native_profile_updated
-                else R.string.native_profile_unchanged, profile.name), Toast.LENGTH_LONG).show()
+            setRefreshFeedback(profile.id, NativeProfileRefreshPhase.SUCCESS)
+            showSubscriptionPopup(
+                getString(if (changed) R.string.native_profile_updated
+                    else R.string.native_profile_unchanged, profile.name),
+                if (changed) NativeSubscriptionBanner.Kind.SUCCESS else NativeSubscriptionBanner.Kind.INFO,
+            )
             if (active && configChanged) reconnectAfterSubscriptionChange()
-        }, failureMessage = { error ->
+        }, popupOnFailure = true, failureMessage = { error ->
+            setRefreshFeedback(profile.id, NativeProfileRefreshPhase.FAILURE)
             getString(R.string.native_profile_refresh_failed, profile.name, error.message ?: error.javaClass.simpleName)
         }) {
             runNativeProfileRefresh { cancellation ->
@@ -1325,16 +1366,21 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun refreshAllRemoteProfiles() {
+        if (busyProfileId.value != null) return
         val remoteIds = profiles.value.filter { it.isRemote }.map { it.id }
         if (remoteIds.isEmpty()) return
         var updated = 0
         var failed = 0
         var activeConfigurationChanged = false
+        setRefreshFeedback(NativeProfileRefreshMotionPolicy.UPDATE_ALL_ID, NativeProfileRefreshPhase.UPDATING)
         runProfileOperation("update-all", requireDisconnected = false, onSuccess = {
-            Toast.makeText(this, getString(R.string.native_profiles_refresh_result,
-                updated, remoteIds.size - updated), Toast.LENGTH_LONG).show()
+            setRefreshFeedback(NativeProfileRefreshMotionPolicy.UPDATE_ALL_ID, NativeProfileRefreshPhase.SUCCESS)
+            showSubscriptionPopup(getString(R.string.native_profiles_refresh_result,
+                updated, remoteIds.size - updated),
+                if (updated > 0) NativeSubscriptionBanner.Kind.SUCCESS else NativeSubscriptionBanner.Kind.INFO)
             if (activeConfigurationChanged) reconnectAfterSubscriptionChange()
-        }, failureMessage = { error ->
+        }, popupOnFailure = true, failureMessage = { error ->
+            setRefreshFeedback(NativeProfileRefreshMotionPolicy.UPDATE_ALL_ID, NativeProfileRefreshPhase.FAILURE)
             // Some profiles may have updated successfully before a later download failed.
             // Do not leave a changed active profile unapplied just because the batch is partial.
             if (activeConfigurationChanged) reconnectAfterSubscriptionChange()
@@ -1458,6 +1504,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         failureMessage: ((Exception) -> String)? = null,
         stopBeforeDeletingId: String? = null,
         importCancellation: NativeProfileImportCancellation? = null,
+        popupOnFailure: Boolean = false,
         operation: suspend () -> Unit,
     ) {
         if (busyProfileId.value != null) return
@@ -1521,7 +1568,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     profileRepository.synchronizeActiveProfile()
                     profileRepository.listProfiles()
                 } } }.onSuccess { profiles.value = it; profilesLoadFailed.value = false; refreshProfileSnapshot() }
-                errorMessage.value = failureMessage?.invoke(error) ?: error.message ?: error.javaClass.simpleName
+                val description = failureMessage?.invoke(error) ?: error.message ?: error.javaClass.simpleName
+                if (popupOnFailure) showSubscriptionPopup(description, NativeSubscriptionBanner.Kind.ERROR)
+                else errorMessage.value = description
             } finally {
                 profileImportCancellation = null
                 busyProfileId.value = null
