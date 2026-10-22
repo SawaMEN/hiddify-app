@@ -1226,12 +1226,12 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     val due = profileRepository.dueRemoteProfileIds()
                     if (due.isEmpty()) return@withLock null
                     refreshNativeProfileBatch(due, { id ->
-                        var changed = false
                         var configChanged = false
                         val profile = refreshRemoteCancellable(id,
-                            onChanged = { changed = it },
                             onConfigChanged = { configChanged = it })
-                        if (changed) changedNames += profile.name
+                        // Quota and expiry may change every 15 minutes; do not notify
+                        // about telemetry-only updates or interrupt the VPN for them.
+                        if (configChanged) changedNames += profile.name
                         if (profile.active && configChanged) activeConfigurationChanged = true
                     }) { id, error ->
                         Log.w(TAG, "automatic profile update failed for $id", error)
