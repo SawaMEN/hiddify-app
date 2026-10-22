@@ -48,6 +48,7 @@ import com.hiddify.hiddify.nativelog.NativeLogRepository
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
 import com.hiddify.hiddify.nativecore.NativeChainOptions
 import com.hiddify.hiddify.nativecore.NativeChainRepository
+import com.hiddify.hiddify.nativecore.NativeCoreControl
 import com.hiddify.hiddify.nativecore.NativeOutboundGroup
 import com.hiddify.hiddify.nativecore.NativeOutboundsRepository
 import com.hiddify.hiddify.nativecore.NativeSettingsTransferRepository
@@ -1273,7 +1274,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             requiresReconnect.value = true
             return false
         }
-        reconnectWithSavedSettings()
+        // Try a zero-downtime Go HotReload first. The existing managed stop/start path
+        // remains the fallback for incompatible configurations or RPC failures.
+        reconnectWithSavedSettings(preferHotReload = true)
         return true
     }
 
@@ -2367,18 +2370,53 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
-    private fun reconnectWithSavedSettings() {
+    private fun reconnectWithSavedSettings(preferHotReload: Boolean = false) {
         if (reconnectBusy.value) return
         reconnectBusy.value = true
         clearRecoveryIndicator()
         reconnectJob = lifecycleScope.launch {
             try {
-                BoxService.stop(preserveIntent = true)
-                withTimeout(30_000) {
-                    while (serviceStatus.value != Status.Stopped || BoxService.hasActiveCore()) delay(100)
+                val hotReloadApplied = if (preferHotReload) {
+                    withContext(Dispatchers.IO) {
+                        BoxService.withNativeLifecycle {
+                            if (!Settings.connectionDesired || !BoxService.isStarted()) {
+                                false
+                            } else {
+                                try {
+                                    NativeCoreControl.hotReloadActiveProfile()
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (error: Exception) {
+                                    // A failed hot reload does not tear down the current Go service.
+                                    // An older core without this RPC also reaches the fallback.
+                                    Log.w(TAG, "Hot reload unavailable; falling back to managed reconnect", error)
+                                    false
+                                }
+                            }
+                        }
+                    }
+                } else false
+
+                if (hotReloadApplied && Settings.connectionDesired && BoxService.isStarted()) {
+                    // The tunnel is still connected; refresh the server list without replacing TUN.
+                    Settings.nativeAppliedQuickSettings = Settings.quickSettingsSignature(applicationContext)
+                    Settings.nativeReconnectRequired = false
+                    requiresReconnect.value = false
+                    com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
+                } else if (Settings.connectionDesired && (!preferHotReload || serviceStatus.value == Status.Started)) {
+                    BoxService.stop(preserveIntent = true)
+                    withTimeout(30_000) {
+                        while (serviceStatus.value != Status.Stopped || BoxService.hasActiveCore()) delay(100)
+                    }
+                    // Never resurrect the VPN after the user has pressed Disconnect.
+                    if (!Settings.connectionDesired) return@launch
+                    connection.reconnect()
+                    requestStart()
+                } else if (preferHotReload && Settings.connectionDesired) {
+                    // Startup is still in progress; apply changes on the next stable reconnect.
+                    Settings.nativeReconnectRequired = true
+                    requiresReconnect.value = true
                 }
-                connection.reconnect()
-                requestStart()
             } catch (timeout: kotlinx.coroutines.TimeoutCancellationException) {
                 Settings.connectionDesired = false
                 errorMessage.value = getString(R.string.native_connection_stop_timeout)
