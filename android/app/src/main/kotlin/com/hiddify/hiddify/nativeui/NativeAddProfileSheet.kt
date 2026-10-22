@@ -23,6 +23,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativeprofile.NativeProfileTransfer
+import com.hiddify.hiddify.nativeprofile.NativeProfileArchive
+import com.hiddify.hiddify.nativeprofile.NativeArchiveProfile
 import com.hiddify.hiddify.nativeprofile.NativeQrImages
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -38,6 +40,7 @@ internal fun NativeAddProfileSheet(
     onCancelImport: () -> Unit,
     onDismiss: () -> Unit,
     onImport: (String, String?, Int?, Boolean, com.hiddify.hiddify.nativeprofile.NativeSubscriptionRequestOptions?) -> Unit,
+    onImportArchive: (List<NativeArchiveProfile>) -> Unit,
     onImportFree: (com.hiddify.hiddify.nativeprofile.NativeFreeProfile, String) -> Unit,
 ) {
     val context = LocalContext.current
@@ -77,13 +80,15 @@ internal fun NativeAddProfileSheet(
                     val text = withContext(Dispatchers.IO) {
                         qrImage = context.contentResolver.getType(uri)?.startsWith("image/") == true
                         if (qrImage) {
-                            NativeQrImages.read(context.contentResolver, uri)
+                            com.hiddify.hiddify.nativeprofile.NativeProfileDocuments(false,
+                                listOf(NativeArchiveProfile("", NativeQrImages.read(context.contentResolver, uri))))
                         } else {
-                            context.contentResolver.openInputStream(uri)?.use(NativeProfileTransfer::readText)
+                            context.contentResolver.openInputStream(uri)?.use(NativeProfileArchive::read)
                                 ?: throw java.io.FileNotFoundException()
                         }
                     }
-                    importSource(text)
+                    if (text.archive) onImportArchive(text.profiles)
+                    else importSource(text.profiles.single().content)
                 } catch (error: CancellationException) {
                     throw error
                 } catch (error: Exception) {
@@ -107,7 +112,8 @@ internal fun NativeAddProfileSheet(
     }
     fun chooseFile() {
         try {
-            filePicker.launch(arrayOf("text/*", "application/json", "application/octet-stream", "image/*"))
+            filePicker.launch(arrayOf("text/*", "application/json", "application/zip",
+                "application/x-zip-compressed", "application/octet-stream", "image/*"))
         } catch (error: Exception) {
             importError = context.getString(R.string.native_profile_file_read_failed,
                 error.message ?: error.javaClass.simpleName)
