@@ -12,6 +12,7 @@ enum CoreStates {
   STARTING = 1;
   STARTED = 2;
   STOPPING = 3;
+  HOT_RELOADING = 4;
 }
 
 enum MessageType {
@@ -30,6 +31,7 @@ enum MessageType {
   ERROR_PARSING_CONFIG = 12;
   ERROR_READING_CONFIG = 13;
   ERROR_EXTENSION = 14;
+  HOT_RELOAD_FAILED = 15;
 }
 
 message CoreInfoResponse {
