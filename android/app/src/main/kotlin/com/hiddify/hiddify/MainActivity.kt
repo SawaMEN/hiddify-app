@@ -630,7 +630,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         // A new foreground session must open a fresh gRPC stream even if the stale
         // HTTP/2 channel never delivered an end/error event.
         if (serviceStatus.value == Status.Started || BoxService.isStarted()) {
-            com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
+            com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset(preserveSnapshot = true)
             com.hiddify.hiddify.nativecore.NativeStatsFeed.reset()
         }
         if (serviceStatus.value == Status.Started) refreshOutbounds(showError = false)
