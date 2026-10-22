@@ -14,13 +14,26 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
-internal data class NativeOutboundUpdate(val group: NativeOutboundGroup? = null, val error: String? = null, val session: Long = 0)
-
 /** One primary-group stream shared by the list and foreground ranking. */
 @OptIn(ExperimentalCoroutinesApi::class)
 internal object NativePrimaryOutboundsFeed {
     private val generation = MutableStateFlow(0L)
-    fun reset() { generation.update { it + 1 } }
+    @Volatile private var lastValidGroup: NativeOutboundGroup? = null
+
+    /** On real core restarts, drop the cached list. On UI resume keep it for first paint. */
+    @Synchronized
+    fun reset(preserveSnapshot: Boolean = false) {
+        if (!preserveSnapshot) lastValidGroup = null
+        generation.update { it + 1 }
+    }
+
+    @Synchronized
+    private fun keepCurrentSnapshot(session: Long, group: NativeOutboundGroup?) {
+        // A cancelled old coroutine must never repopulate the cache after core restart.
+        if (session == generation.value) lastValidGroup = group
+    }
+
+    fun lastKnownGroup(): NativeOutboundGroup? = lastValidGroup
     fun isCurrent(update: NativeOutboundUpdate): Boolean = update.session == generation.value
     val updates = generation.flatMapLatest { session ->
         flow {
@@ -31,8 +44,9 @@ internal object NativePrimaryOutboundsFeed {
                 try {
                     NativeOutboundsRepository().watchPrimary().collect { group ->
                         failures = 0
-                        if (group != null) hasSnapshot = true
-                        emit(NativeOutboundUpdate(group, session = session))
+                        hasSnapshot = true
+                        keepCurrentSnapshot(session, group)
+                        emit(NativeOutboundUpdate(group, session = session, snapshot = true))
                     }
                     throw java.io.IOException("Proxy updates stream closed")
                 } catch (cancelled: CancellationException) { throw cancelled }

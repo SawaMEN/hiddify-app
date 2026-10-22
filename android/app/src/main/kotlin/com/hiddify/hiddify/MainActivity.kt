@@ -626,6 +626,13 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         // onStart owns initial synchronization; onCreate must not queue a read cancelled here.
         refreshProfiles(syncActive = true)
         refreshPerApp()
+        // Android may suspend the foreground observer while VPN continues running.
+        // A new foreground session must open a fresh gRPC stream even if the stale
+        // HTTP/2 channel never delivered an end/error event.
+        if (serviceStatus.value == Status.Started || BoxService.isStarted()) {
+            com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset(preserveSnapshot = true)
+            com.hiddify.hiddify.nativecore.NativeStatsFeed.reset()
+        }
         if (serviceStatus.value == Status.Started) refreshOutbounds(showError = false)
         startProfileUpdateLoop()
         startLogRefreshLoop()
@@ -682,7 +689,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         statsRefreshJob = null
         activeOutboundRefreshJob?.cancel()
         activeOutboundRefreshJob = null
-        activeOutbound.value = null
+        // The foreground observer is gone, not the VPN. Keep the last outbound
+        // until a new reading arrives or the service actually disconnects.
         cancelOutboundRequest()
         connection.disconnect()
         super.onStop()
@@ -3005,6 +3013,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     serviceStatus.value, status, Settings.connectionDesired)) homeConnectionFailed.value = true
             if (serviceStatus.value != status) resetTrafficStats()
             if (status == Status.Started && serviceStatus.value != status) pingSession++
+            // Clear cached selection only on a true core transition, never on a UI pause.
+            if (status != Status.Started && serviceStatus.value == Status.Started) activeOutbound.value = null
             serviceStatus.value = status
             if (status != Status.Started) cancelOutboundRequest()
             if (startResult == false) {
