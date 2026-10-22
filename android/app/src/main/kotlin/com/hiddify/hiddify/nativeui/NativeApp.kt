@@ -1199,18 +1199,8 @@ private fun ConnectionCard(
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(buttonSize + 44.dp)
-                .drawWithCache {
-                    val halo = Brush.radialGradient(
-                        0f to Color.Transparent,
-                        0.80f to stateColor.copy(alpha = 0.10f),
-                        0.90f to stateColor.copy(alpha = 0.36f),
-                        1f to Color.Transparent,
-                        radius = size.minDimension / 2f,
-                    )
-                    onDrawBehind { drawCircle(halo) }
-                }
-                // One subtle accent ripple on an actual Starting -> Started
-                // transition. Draw-only invalidation avoids per-frame layout work.
+                // No persistent ring, border or halo around the connection button.
+                // The only surrounding effect is the one-shot successful-connect ripple.
                 .drawBehind {
                     val progress = successRipple.value
                     if (motion && progress < 1f) {
@@ -1220,9 +1210,7 @@ private fun ConnectionCard(
                             style = Stroke(width = (3f - progress).dp.toPx()),
                         )
                     }
-                }
-                .background(stateColor.copy(alpha = 0.10f), CircleShape)
-                .border(1.dp, stateColor.copy(alpha = 0.24f), CircleShape),
+                },
                 contentAlignment = Alignment.Center) {
                 androidx.compose.material3.Button(
                     onClick = {
@@ -1256,17 +1244,6 @@ private fun ConnectionCard(
                             Text(caption, style = MaterialTheme.typography.titleMedium,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         }
-                    }
-                }
-                if (transitioning) {
-                    if (motion) {
-                        CircularProgressIndicator(Modifier.size(buttonSize + 14.dp),
-                            strokeWidth = 3.dp, color = stateColor)
-                    } else {
-                        // Android "Remove animations" and accessibility states:
-                        // communicate pending work without starting an infinite animator.
-                        Box(Modifier.size(buttonSize + 14.dp)
-                            .border(3.dp, stateColor.copy(alpha = 0.65f), CircleShape))
                     }
                 }
             }

@@ -49,6 +49,7 @@ import com.hiddify.hiddify.nativeprofile.NativeProfileRefreshFeedback
 import com.hiddify.hiddify.nativeprofile.NativeProfileRefreshMotionPolicy
 import com.hiddify.hiddify.nativeprofile.NativeProfileRefreshPhase
 import com.hiddify.hiddify.nativeui.NativeSubscriptionBanner
+import com.hiddify.hiddify.nativeui.NativeSubscriptionPopupPolicy
 import com.hiddify.hiddify.nativelog.NativeLogRepository
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
 import com.hiddify.hiddify.nativecore.NativeChainOptions
@@ -131,7 +132,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     }
 
     private fun dismissSubscriptionPopup(revision: Long) {
-        if (subscriptionBanner.value?.revision == revision) subscriptionBanner.value = null
+        subscriptionBanner.value = NativeSubscriptionPopupPolicy.dismiss(subscriptionBanner.value, revision)
     }
 
     private fun setRefreshFeedback(id: String, phase: NativeProfileRefreshPhase) {
@@ -705,7 +706,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     override fun onStop() {
         NativeAppUpdates.onBackground()
         nativeForeground = false
-        subscriptionBanner.value?.let { deferredSubscriptionBanner = it }
+        // Don't resurrect a popup the user already saw when the app resumes.
+        // Only a refresh completed while already backgrounded is deferred.
         subscriptionBanner.value = null
         smartSelectionJob?.cancel()
         smartSelectionJob = null
