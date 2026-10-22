@@ -27,6 +27,7 @@ import androidx.compose.ui.semantics.Role
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativecore.NativeOutbound
 import com.hiddify.hiddify.nativecore.NativeOutboundGroup
+import com.hiddify.hiddify.nativecore.NativeOutboundsPresentationPolicy
 import com.hiddify.hiddify.nativecore.presentNativeOutbounds
 import com.hiddify.hiddify.nativepreferences.NativeOutboundSort
 
@@ -53,20 +54,19 @@ internal fun NativeOutboundsScreen(
     }
     val motion = LocalNativeMotionEnabled.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    var group by remember { mutableStateOf<NativeOutboundGroup?>(null) }
-    var loading by remember { mutableStateOf(connected) }
-    var failure by remember { mutableStateOf<String?>(null) }
+    var presentation by remember { mutableStateOf(NativeOutboundsPresentationPolicy.initial(connected)) }
+    val group = presentation.group
+    val failure = presentation.error
+    val loading = presentation.loading
     var retry by remember { mutableIntStateOf(0) }
     LaunchedEffect(lifecycleOwner, connected, retry) {
-        group = null; failure = null; loading = connected
+        presentation = if (!connected) NativeOutboundsPresentationPolicy.initial(false)
+            else NativeOutboundsPresentationPolicy.resubscribing(presentation)
         if (retry > 0) com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
         if (connected) lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.updates.collect { update ->
                 if (!com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.isCurrent(update)) return@collect
-                if (update.group == null && update.error == null) group = null
-                update.group?.let { group = it }
-                failure = update.error
-                loading = group == null && update.error == null
+                presentation = NativeOutboundsPresentationPolicy.received(presentation, update)
             }
         }
     }
