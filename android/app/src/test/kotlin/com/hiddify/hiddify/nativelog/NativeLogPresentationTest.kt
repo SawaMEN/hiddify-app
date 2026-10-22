@@ -12,9 +12,25 @@ class NativeLogPresentationTest {
         assertEquals(listOf("ERROR connection failed", "WARN disconnected", "unstructured line"),
             NativeLogPresentation.visible(lines, "", "WARN"))
         assertEquals(listOf("ERROR connection failed"), NativeLogPresentation.visible(lines, "connection", "INFO"))
-        assertTrue(NativeLogPresentation.visible(lines, "CONNECTION", null).isEmpty())
-        assertTrue(NativeLogPresentation.visible(lines, " connection ", null).isEmpty())
+        assertEquals(listOf("ERROR connection failed"), NativeLogPresentation.visible(lines, "CONNECTION", null))
+        assertEquals(listOf("ERROR connection failed"), NativeLogPresentation.visible(lines, " connection ", null))
     }
+    @Test fun logSearchMatchesTimestampsAndSourceWithoutCaseSensitivity() {
+        val lines = listOf("[Box.LOG] 2026-10-22 14:30:11 INFO connected",
+            "[app.log] 2026-10-22 14:31:00 WARN retry")
+        assertEquals(lines.take(1), NativeLogPresentation.visible(lines, "BOX.log", null))
+        assertEquals(lines.drop(1), NativeLogPresentation.visible(lines, "14:31:00", null))
+        assertEquals(lines.drop(1), NativeLogPresentation.visible(lines, " warn ", "WARN"))
+    }
+
+    @Test fun severityPreferenceRestoresOnlyKnownLevels() {
+        assertNull(NativeLogFilterPolicy.restore(null))
+        assertNull(NativeLogFilterPolicy.restore("connection@private-host"))
+        assertEquals("ERROR", NativeLogFilterPolicy.restore("error"))
+        assertEquals("WARN", NativeLogFilterPolicy.restore("WARN"))
+        assertNull(NativeLogFilterPolicy.restore(""))
+    }
+
     @Test fun severityWordsInsideTheMessageAreNotAHeader() {
         assertNull(NativeLogPresentation.level("request body contains ERROR but completed successfully"))
         assertEquals("WARN", NativeLogPresentation.level("[box.log] WARNING network unavailable"))
