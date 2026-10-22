@@ -1186,7 +1186,8 @@ private fun ConnectionCard(
     }, animationSpec = tween(animationDuration), label = "connectionContentColor")
     // Grow the circle with system text size so the action remains readable.
     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        val buttonSize = minOf((176 * LocalDensity.current.fontScale.coerceIn(1f, 1.6f)).dp, maxWidth - 20.dp)
+        // Reserve space for the motion halo even at large system font sizes.
+        val buttonSize = minOf((176 * LocalDensity.current.fontScale.coerceIn(1f, 1.6f)).dp, maxWidth - 48.dp)
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(buttonSize + 44.dp)
