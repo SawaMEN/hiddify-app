@@ -9,11 +9,14 @@ object NativeRoutingTokens {
             require(it.size <= 256) { "Too many routing entries" }
         }
 
-    fun parse(text: String, domain: Boolean): List<String> = (if (domain) text.lowercase() else text)
+    // Domain normalization must be independent of the device locale (notably tr_TR).
+    fun parse(text: String, domain: Boolean): List<String> =
+        (if (domain) text.lowercase(java.util.Locale.ROOT) else text)
         .split(Regex("[\\s,;]+"))
         .map { if (domain) it.trim('.').removePrefix("*.") else it }
         .filter { it.isNotBlank() }
-        .map { if (domain) java.net.IDN.toASCII(it, java.net.IDN.USE_STD3_ASCII_RULES).lowercase() else it }
+        .map { if (domain) java.net.IDN.toASCII(it, java.net.IDN.USE_STD3_ASCII_RULES)
+            .lowercase(java.util.Locale.ROOT) else it }
         .filter { it.isNotBlank() }
         .distinct()
         .also { values ->
