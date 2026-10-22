@@ -18,7 +18,15 @@ import kotlinx.coroutines.flow.update
 @OptIn(ExperimentalCoroutinesApi::class)
 internal object NativePrimaryOutboundsFeed {
     private val generation = MutableStateFlow(0L)
-    fun reset() { generation.update { it + 1 } }
+    @Volatile private var lastValidGroup: NativeOutboundGroup? = null
+
+    /** On real core restarts, drop the cached list. On UI resume keep it for first paint. */
+    fun reset(preserveSnapshot: Boolean = false) {
+        if (!preserveSnapshot) lastValidGroup = null
+        generation.update { it + 1 }
+    }
+
+    fun lastKnownGroup(): NativeOutboundGroup? = lastValidGroup
     fun isCurrent(update: NativeOutboundUpdate): Boolean = update.session == generation.value
     val updates = generation.flatMapLatest { session ->
         flow {
@@ -29,7 +37,8 @@ internal object NativePrimaryOutboundsFeed {
                 try {
                     NativeOutboundsRepository().watchPrimary().collect { group ->
                         failures = 0
-                        if (group != null) hasSnapshot = true
+                        hasSnapshot = true
+                        if (session == generation.value) lastValidGroup = group
                         emit(NativeOutboundUpdate(group, session = session, snapshot = true))
                     }
                     throw java.io.IOException("Proxy updates stream closed")
