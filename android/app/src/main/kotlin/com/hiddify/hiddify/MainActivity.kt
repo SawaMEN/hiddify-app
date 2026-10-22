@@ -1324,6 +1324,9 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 updated, remoteIds.size - updated), Toast.LENGTH_LONG).show()
             if (activeConfigurationChanged) reconnectAfterSubscriptionChange()
         }, failureMessage = { error ->
+            // Some profiles may have updated successfully before a later download failed.
+            // Do not leave a changed active profile unapplied just because the batch is partial.
+            if (activeConfigurationChanged) reconnectAfterSubscriptionChange()
             getString(R.string.native_profiles_refresh_failed, failed.takeIf { it > 0 } ?: remoteIds.size,
                 remoteIds.size, error.message ?: error.javaClass.simpleName)
         }) {
