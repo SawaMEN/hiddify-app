@@ -23,7 +23,14 @@ internal object NativeProfileArchive {
     fun read(input: InputStream): NativeProfileDocuments {
         val source = PushbackInputStream(input.buffered(), 4)
         val magic = ByteArray(4)
-        val count = source.read(magic)
+        var count = 0
+        // Content providers may return fewer than four bytes per read.
+        while (count < magic.size) {
+            val received = source.read(magic, count, magic.size - count)
+            if (received < 0) break
+            if (received == 0) continue
+            count += received
+        }
         if (count > 0) source.unread(magic, 0, count)
         if (count != 4 || magic[0] != 'P'.code.toByte() || magic[1] != 'K'.code.toByte() ||
             !(magic[2] == 3.toByte() && magic[3] == 4.toByte() ||
