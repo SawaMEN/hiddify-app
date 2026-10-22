@@ -43,6 +43,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativediagnostics/NativeDiagnosticEndpoint.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileImportCancellation.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileRefresh.kt'
+            include 'com/hiddify/hiddify/nativeprofile/NativeProfileRefreshFeedback.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileValidation.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeImportSummary.kt'
             include 'com/hiddify/hiddify/nativeprofile/OlcRtcShareLink.kt'
