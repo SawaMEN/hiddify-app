@@ -1421,6 +1421,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     rawInput = file.content, name = file.name, cancellation = cancellation)
                 confirmProfileImport(prepared, cancellation)
                 profileRepository.commitPrepared(prepared, cancellation)
+                cancellation.finishArchiveEntry()
             }
         }
     }
