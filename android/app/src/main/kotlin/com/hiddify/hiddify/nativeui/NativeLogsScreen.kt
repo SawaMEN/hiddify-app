@@ -8,12 +8,14 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativelog.NativeLogPresentation
+import com.hiddify.hiddify.nativelog.NativeLogFilterPolicy
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
 
 @Composable
@@ -32,8 +34,23 @@ fun NativeLogsScreen(
         pollingChanged(!paused)
         onDispose { pollingChanged(false) }
     }
+    // Only the severity survives a cold start. Never persist free-form search:
+    // log queries can include private subscription identifiers and credentials.
+    val context = LocalContext.current
+    val logPreferences = remember(context) {
+        context.getSharedPreferences(NativeLogFilterPolicy.PREFERENCE_FILE, android.content.Context.MODE_PRIVATE)
+    }
     var query by rememberSaveable(stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
-    var level by rememberSaveable { mutableStateOf<String?>(null) }
+    var level by rememberSaveable { mutableStateOf(
+        NativeLogFilterPolicy.restore(logPreferences.getString(NativeLogFilterPolicy.LEVEL_KEY, null))
+    ) }
+    fun changeLevel(next: String?) {
+        level = next
+        logPreferences.edit().apply {
+            if (next == null) remove(NativeLogFilterPolicy.LEVEL_KEY)
+            else putString(NativeLogFilterPolicy.LEVEL_KEY, next)
+        }.apply()
+    }
     var sharingOpen by remember { mutableStateOf(false) }
     var levelsOpen by remember { mutableStateOf(false) }
     var frozen by remember { mutableStateOf(snapshot) }
@@ -75,9 +92,9 @@ fun NativeLogsScreen(
                 }
                 DropdownMenu(levelsOpen, { levelsOpen = false }) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.native_logs_all)) },
-                        onClick = { level = null; levelsOpen = false })
+                        onClick = { changeLevel(null); levelsOpen = false })
                     NativeLogPresentation.levels.forEach { choice ->
-                        DropdownMenuItem(text = { Text(choice) }, onClick = { level = choice; levelsOpen = false })
+                        DropdownMenuItem(text = { Text(choice) }, onClick = { changeLevel(choice); levelsOpen = false })
                     }
                 }
             }
@@ -87,7 +104,7 @@ fun NativeLogsScreen(
                 Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else SelectionContainer(Modifier.weight(1f)) {
             LazyColumn(Modifier.fillMaxSize(), reverseLayout = true) {
-                itemsIndexed(lines.asReversed(), key = { index, line -> "$index:${line.hashCode()}" }) { _, line ->
+                itemsIndexed(lines.asReversed(), key = { index, line -> "$index:${line.hashCode()}" }) { index, line ->
                     val entry = remember(line) { NativeLogPresentation.entry(line) }
                     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
                         if (entry.level != null) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -96,7 +113,7 @@ fun NativeLogsScreen(
                         }
                         Text(entry.message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
                     }
-                    if (line != lines.firstOrNull()) HorizontalDivider(Modifier.padding(horizontal = 16.dp),
+                    if (index != lines.lastIndex) HorizontalDivider(Modifier.padding(horizontal = 16.dp),
                         color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }

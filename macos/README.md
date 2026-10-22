@@ -18,7 +18,7 @@ Implemented:
 
 Still requiring on-device verification or implementation:
 - Signed runtime test with real TCP/UDP packets and IPv4/IPv6/DNS leak checks.
-- Subscription URL fetching/refresh and full format/profile compatibility.
+- Full subscription/protocol compatibility (HTTPS subscription fetching and foreground refresh are implemented, but the Go-core runtime acceptance matrix remains unverified).
 - Fail-safe DNS and IPv6 behavior, default-interface changes, sleep/wake.
 - Production signing, distribution, notarization and complete test coverage.
 
@@ -96,6 +96,14 @@ signing and explicit macOS VPN permission.
   sharing instead of silently presenting unsupported toggles.
 - Preserve license notices and review distribution obligations before
   packaging releases.
+
+## Stage 4 subscription reliability
+
+- HTTPS subscriptions are downloaded only while macOS app is open and the VPN is not active. The 12-hour stale rule and in-app hourly scheduler do **not** guarantee background refresh after quitting.
+- The subscription envelope accepts standard and URL-safe unpadded Base64 and strictly rejects unexpected characters; decoded content remains limited to recognized JSON/YAML/URI configurations.
+- A byte-identical subscription refresh updates the last-checked time without rewriting shared-Keychain payloads or changing the selected node. A changed subscription preserves the selected URI when still available.
+- Manual refresh explicitly reports whether configuration content changed. Downloads and server details are not logged.
+- The Release VPN connection remains disabled until a signed physical Apple Silicon Mac passes packet-flow and DNS/IPv6 safety tests. A successful unsigned CI build is not a working installer or proof of tunnel connectivity.
 
 ## Native profile and system integration milestone
 

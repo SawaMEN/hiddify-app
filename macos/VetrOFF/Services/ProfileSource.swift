@@ -148,12 +148,28 @@ enum ProfileSource {
         // Decode only if the resulting payload is recognizable; do not
         // silently reinterpret malformed data as one arbitrary URI.
         let compact = content.components(separatedBy: .whitespacesAndNewlines).joined()
-        guard compact.utf8.count <= maxBytes * 2,
-              let decoded = Data(base64Encoded: compact, options: .ignoreUnknownCharacters),
+        // Match Android's URL-safe, unpadded Base64 subscriptions, without
+        // ignoring arbitrary characters that could corrupt credentials.
+        var standard = compact.replacingOccurrences(of: "-", with: "+")
+            .replacingOccurrences(of: "_", with: "/")
+        let alphabet = CharacterSet(charactersIn:
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=")
+        guard !standard.isEmpty, standard.utf8.count <= maxBytes * 2,
+              standard.unicodeScalars.allSatisfy({ alphabet.contains($0) }),
+              standard.count % 4 != 1
+        else { throw ProfileSourceError.invalidSubscription }
+        standard += String(repeating: "=", count: (4 - standard.count % 4) % 4)
+        guard let decoded = Data(base64Encoded: standard),
               let plaintext = try? decodeUTF8(decoded),
               let kind = try? classify(plaintext), kind != .subscriptionURL
         else { throw ProfileSourceError.invalidSubscription }
         return plaintext
+    }
+
+    /// Avoid rewriting the shared Keychain for a byte-identical downloaded config.
+    /// A successful freshness check can update metadata without touching tunnel secrets.
+    static func subscriptionContentChanged(previous: String?, downloaded: String) -> Bool {
+        previous != downloaded
     }
 
     static func decodeUTF8(_ data: Data) throws -> String {
