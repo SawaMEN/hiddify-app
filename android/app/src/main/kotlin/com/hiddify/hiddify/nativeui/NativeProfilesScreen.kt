@@ -48,7 +48,6 @@ internal fun NativeProfilesSheet(
 fun NativeProfilesScreen(
     profiles: List<NativeProfile>,
     busyProfileId: String?,
-    refreshFeedback: NativeProfileRefreshFeedback? = null,
     onBack: () -> Unit,
     onAdd: () -> Unit,
     onSelect: (NativeProfile) -> Unit,
@@ -65,6 +64,7 @@ fun NativeProfilesScreen(
     ascending: Boolean = false,
     onSort: (Boolean, Boolean) -> Unit = { _, _ -> },
     isSheet: Boolean = false,
+    refreshFeedback: NativeProfileRefreshFeedback? = null,
 ) {
     // Save IDs instead of stale profile objects; resolve dialogs from the refreshed snapshot.
     var shareId by rememberSaveable { mutableStateOf<String?>(null) }
