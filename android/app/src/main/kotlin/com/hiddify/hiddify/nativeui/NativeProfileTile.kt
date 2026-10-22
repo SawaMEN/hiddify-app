@@ -1,5 +1,7 @@
 package com.hiddify.hiddify.nativeui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
@@ -21,6 +23,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativeprofile.NativeProfile
+import com.hiddify.hiddify.nativeprofile.NativeProfileRefreshFeedback
+import com.hiddify.hiddify.nativeprofile.NativeProfileRefreshMotionPolicy
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
@@ -35,6 +39,7 @@ internal fun NativeProfileTile(
     profile: NativeProfile,
     isMain: Boolean = false,
     busy: Boolean,
+    refreshFeedback: NativeProfileRefreshFeedback? = null,
     onClick: () -> Unit,
     onRefresh: () -> Unit,
     onEdit: () -> Unit = {},
@@ -44,12 +49,20 @@ internal fun NativeProfileTile(
 ) {
     var menuOpen by rememberSaveable(profile.id) { mutableStateOf(false) }
     val scheme = MaterialTheme.colorScheme
+    val phase = NativeProfileRefreshMotionPolicy.phaseFor(profile.id, refreshFeedback)
+    val fade = tween<androidx.compose.ui.graphics.Color>(if (LocalNativeMotionEnabled.current) 230 else 0)
+    val tileColor by animateColorAsState(
+        if (profile.active) androidx.compose.ui.graphics.lerp(scheme.surfaceContainerLow, scheme.primaryContainer, 0.45f)
+        else scheme.surfaceContainerLow, fade, label = "profile tile color")
+    val borderColor by animateColorAsState(
+        if (profile.active) scheme.primary.copy(alpha = 0.45f) else scheme.outlineVariant.copy(alpha = 0.45f),
+        fade, label = "profile tile border")
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
-        color = if (profile.active) androidx.compose.ui.graphics.lerp(scheme.surfaceContainerLow, scheme.primaryContainer, 0.45f) else scheme.surfaceContainerLow,
+        color = tileColor,
         contentColor = scheme.onSurface,
-        border = BorderStroke(1.dp, if (profile.active) scheme.primary.copy(alpha = 0.45f) else scheme.outlineVariant.copy(alpha = 0.45f)),
+        border = BorderStroke(1.dp, borderColor),
         shadowElevation = 2.dp,
     ) {
         Row(Modifier.heightIn(min = 64.dp).padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -57,11 +70,14 @@ internal fun NativeProfileTile(
                 Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                     if (isMain) {
                         IconButton(onClick = onRefresh, enabled = !busy) {
-                            Icon(painterResource(R.drawable.native_profile_update), stringResource(R.string.native_profile_update))
+                            Box(Modifier.semantics { contentDescription = profile.name }) {
+                                NativeRefreshMotionIcon(phase)
+                            }
                         }
                     } else {
                         IconButton(onClick = { menuOpen = true }, enabled = !busy) {
-                            Icon(painterResource(R.drawable.native_more), stringResource(R.string.native_profile_actions))
+                            if (phase != null) NativeRefreshMotionIcon(phase)
+                            else Icon(painterResource(R.drawable.native_more), stringResource(R.string.native_profile_actions))
                         }
                         DropdownMenu(expanded = menuOpen && !busy, onDismissRequest = { menuOpen = false }) {
                             if (profile.isRemote) DropdownMenuItem(
@@ -122,7 +138,11 @@ private fun NativeProfileSubscriptionInfo(profile: NativeProfile) {
     val totalText = formatter.format(total / 1_073_741_824.0) + " GiB"
     val trafficLabel = stringResource(R.string.native_subscription_traffic_semantics, consumedText, totalText)
     Spacer(Modifier.height(4.dp))
-    LinearProgressIndicator(progress = { ratio }, modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(16.dp)))
+    val displayRatio by androidx.compose.animation.core.animateFloatAsState(
+        ratio, tween(if (LocalNativeMotionEnabled.current) 420 else 0),
+        label = "subscription traffic ratio")
+    LinearProgressIndicator(progress = { displayRatio },
+        modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(16.dp)))
     Spacer(Modifier.height(4.dp))
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(if (total > 10L * 1_099_511_627_776L) "∞ GiB" else "$consumedText / $totalText",
