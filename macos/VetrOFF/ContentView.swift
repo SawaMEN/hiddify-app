@@ -260,7 +260,12 @@ struct ContentView: View {
                                 Button(profiles.refreshing.contains(profile.id) ? "Обновление…" : "Обновить") {
                                     Task {
                                         do {
-                                            try await profiles.refresh(profile.id)
+                                            let changed = try await profiles.refresh(profile.id)
+                                            // Manual refresh should have explicit feedback even
+                                            // when the server returned identical configuration.
+                                            showMessage = changed
+                                                ? "Подписка обновлена. Новая конфигурация сохранена."
+                                                : "Подписка проверена. Изменений нет."
                                         } catch {
                                             showMessage = error.localizedDescription
                                         }
