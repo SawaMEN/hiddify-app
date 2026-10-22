@@ -126,4 +126,24 @@ class NativeProfileRefreshTest {
     @Test fun emptyBatchDoesNoWork() = runBlocking {
         assertEquals(0, refreshNativeProfileBatch(emptyList(), { fail("Unexpected refresh") }) { _, _ -> fail("Unexpected failure") })
     }
+
+    @Test fun subscriptionChangeIsSilentWhenResponseIsIdentical() {
+        assertEquals(NativeSubscriptionRefreshChange(false, false),
+            classifySubscriptionRefresh("server-a", "server-a", listOf("name", 100L), listOf("name", 100L)))
+    }
+
+    @Test fun quotaAndExpiryChangesDoNotRequireVpnReconnect() {
+        assertEquals(NativeSubscriptionRefreshChange(true, false),
+            classifySubscriptionRefresh("server-a", "server-a", listOf(100L, "expiry-1"), listOf(200L, "expiry-2")))
+    }
+
+    @Test fun serverChangesRequireVpnReconnect() {
+        assertEquals(NativeSubscriptionRefreshChange(true, true),
+            classifySubscriptionRefresh("server-a", "server-b", listOf(100L), listOf(100L)))
+    }
+
+    @Test fun configurationAndQuotaChangesAreBothDetected() {
+        assertEquals(NativeSubscriptionRefreshChange(true, true),
+            classifySubscriptionRefresh("server-a", "server-b", listOf(100L), listOf(200L)))
+    }
 }
