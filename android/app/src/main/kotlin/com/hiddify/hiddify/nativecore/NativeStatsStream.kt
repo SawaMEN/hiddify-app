@@ -30,17 +30,34 @@ internal class NativeStatsStream(
     val snapshots = session.flatMapLatest { generation ->
         flow {
             val meter = NativeTrafficRateMeter()
+            var lastGood: NativeSystemStats? = null
             emit(NativeSystemStats())
             while (true) {
                 if (!connected()) {
                     meter.reset()
+                    lastGood = null
                     emit(NativeSystemStats())
                 } else {
-                    val stats = try { load() } catch (cancelled: CancellationException) {
+                    val stats = try {
+                        load()
+                    } catch (cancelled: CancellationException) {
                         throw cancelled
-                    } catch (_: Exception) { NativeSystemStats() }
+                    } catch (_: Exception) {
+                        // A temporary HTTP/2/gRPC failure is not a VPN disconnect.
+                        // Retain the last known counters, but mark rates unavailable
+                        // and re-baseline the next successful sample to avoid spikes.
+                        meter.reset()
+                        val stale = lastGood?.copy(speedAvailable = false, uplink = 0, downlink = 0)
+                        currentCoroutineContext().ensureActive()
+                        if (stale != null && generation == session.value && connected()) emit(stale)
+                        null
+                    }
                     currentCoroutineContext().ensureActive()
-                    if (generation == session.value && connected()) emit(meter.sample(stats, clock()))
+                    if (stats != null && generation == session.value && connected()) {
+                        val sampled = meter.sample(stats, clock())
+                        lastGood = sampled
+                        emit(sampled)
+                    }
                 }
                 delay(intervalMillis)
             }
