@@ -70,7 +70,8 @@ internal fun NativeProfileTile(
                 Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                     if (isMain) {
                         IconButton(onClick = onRefresh, enabled = !busy) {
-                            Box(Modifier.semantics { contentDescription = profile.name }) {
+                            val updateLabel = stringResource(R.string.native_profile_update)
+                            Box(Modifier.semantics { contentDescription = updateLabel }) {
                                 NativeRefreshMotionIcon(phase)
                             }
                         }
