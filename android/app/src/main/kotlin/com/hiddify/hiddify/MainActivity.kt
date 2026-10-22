@@ -43,6 +43,7 @@ import com.hiddify.hiddify.nativeprofile.NativeProfileImportCancellation
 import com.hiddify.hiddify.nativeprofile.runNativeProfileRefresh
 import com.hiddify.hiddify.nativeprofile.refreshNativeProfileBatch
 import com.hiddify.hiddify.nativeprofile.NativeProfileRepository
+import com.hiddify.hiddify.nativeprofile.NativeSubscriptionUpdateNotifier
 import com.hiddify.hiddify.nativelog.NativeLogRepository
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
 import com.hiddify.hiddify.nativecore.NativeChainOptions
@@ -1217,12 +1218,22 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private suspend fun updateDueProfiles() {
         if (busyProfileId.value != null || profileEditorBusy.value) return
+        val changedNames = mutableListOf<String>()
+        var activeConfigurationChanged = false
         val loaded =
             withContext(Dispatchers.IO) {
                 profileOperationMutex.withLock {
                     val due = profileRepository.dueRemoteProfileIds()
                     if (due.isEmpty()) return@withLock null
-                    refreshNativeProfileBatch(due, { refreshRemoteCancellable(it) }) { id, error ->
+                    refreshNativeProfileBatch(due, { id ->
+                        var changed = false
+                        var configChanged = false
+                        val profile = refreshRemoteCancellable(id,
+                            onChanged = { changed = it },
+                            onConfigChanged = { configChanged = it })
+                        if (changed) changedNames += profile.name
+                        if (profile.active && configChanged) activeConfigurationChanged = true
+                    }) { id, error ->
                         Log.w(TAG, "automatic profile update failed for $id", error)
                     }
                     // Reload after attempted updates: a failure can occur after a committed DB write.
@@ -1233,11 +1244,38 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         profiles.value = loaded
         refreshProfileSnapshot()
         coreChangesSaved()
+        // Subscription metadata updates are visible without restarting the running VPN.
+        // Only the active profile's actual configuration bytes justify a reconnect.
+        val restarted = if (activeConfigurationChanged) reconnectAfterSubscriptionChange() else false
+        if (changedNames.isNotEmpty()) {
+            val delivered = NativeSubscriptionUpdateNotifier.show(applicationContext, changedNames,
+                restartingVpn = restarted, reconnectPending = activeConfigurationChanged && !restarted)
+            if (!delivered && nativeForeground) {
+                Toast.makeText(this, getString(R.string.native_subscription_updates_count,
+                    changedNames.size), Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
-    private suspend fun refreshRemoteCancellable(id: String): NativeProfile = runNativeProfileRefresh(
+    private suspend fun refreshRemoteCancellable(
+        id: String,
+        onChanged: ((Boolean) -> Unit)? = null,
+        onConfigChanged: ((Boolean) -> Unit)? = null,
+    ): NativeProfile = runNativeProfileRefresh(
         onCancellationFailure = { Log.w(TAG, "Native subscription cancellation failed", it) },
-    ) { cancellation -> profileRepository.refreshRemote(id, cancellation) }
+    ) { cancellation -> profileRepository.refreshRemote(id, cancellation, onChanged, onConfigChanged) }
+
+    /** Invoke on Main only after the repository has committed its new configuration. */
+    private fun reconnectAfterSubscriptionChange(): Boolean {
+        if (!Settings.connectionDesired || serviceStatus.value != Status.Started) return false
+        if (reconnectBusy.value || nativeStartPending || pendingStartAfterVpnPermission) {
+            Settings.nativeReconnectRequired = true
+            requiresReconnect.value = true
+            return false
+        }
+        reconnectWithSavedSettings()
+        return true
+    }
 
     private fun selectProfile(profile: NativeProfile) {
         runProfileOperation(profile.id, requireDisconnected = true,
@@ -1255,14 +1293,19 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun refreshRemoteProfile(profile: NativeProfile) {
         if (!profile.isRemote) return
         var changed = false
+        var configChanged = false
+        var active = false
         runProfileOperation(profile.id, requireDisconnected = false, onSuccess = {
             Toast.makeText(this, getString(if (changed) R.string.native_profile_updated
                 else R.string.native_profile_unchanged, profile.name), Toast.LENGTH_LONG).show()
+            if (active && configChanged) reconnectAfterSubscriptionChange()
         }, failureMessage = { error ->
             getString(R.string.native_profile_refresh_failed, profile.name, error.message ?: error.javaClass.simpleName)
         }) {
             runNativeProfileRefresh { cancellation ->
-                profileRepository.refreshRemote(profile.id, cancellation) { changed = it }
+                profileRepository.refreshRemote(profile.id, cancellation,
+                    onChanged = { changed = it },
+                    onConfigChanged = { configChanged = it }).also { active = it.active }
             }
         }
     }
@@ -1272,9 +1315,11 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         if (remoteIds.isEmpty()) return
         var updated = 0
         var failed = 0
+        var activeConfigurationChanged = false
         runProfileOperation("update-all", requireDisconnected = false, onSuccess = {
             Toast.makeText(this, getString(R.string.native_profiles_refresh_result,
                 updated, remoteIds.size - updated), Toast.LENGTH_LONG).show()
+            if (activeConfigurationChanged) reconnectAfterSubscriptionChange()
         }, failureMessage = { error ->
             getString(R.string.native_profiles_refresh_failed, failed.takeIf { it > 0 } ?: remoteIds.size,
                 remoteIds.size, error.message ?: error.javaClass.simpleName)
@@ -1282,7 +1327,11 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             val failures = mutableListOf<String>()
             refreshNativeProfileBatch(remoteIds, { id ->
                 runNativeProfileRefresh { cancellation ->
-                    profileRepository.refreshRemote(id, cancellation) { if (it) updated++ }
+                    var configChanged = false
+                    val refreshed = profileRepository.refreshRemote(id, cancellation,
+                        onChanged = { if (it) updated++ },
+                        onConfigChanged = { configChanged = it })
+                    if (refreshed.active && configChanged) activeConfigurationChanged = true
                 }
             }) { _, error ->
                 failed++
