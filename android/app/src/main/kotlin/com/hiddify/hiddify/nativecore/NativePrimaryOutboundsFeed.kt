@@ -21,9 +21,16 @@ internal object NativePrimaryOutboundsFeed {
     @Volatile private var lastValidGroup: NativeOutboundGroup? = null
 
     /** On real core restarts, drop the cached list. On UI resume keep it for first paint. */
+    @Synchronized
     fun reset(preserveSnapshot: Boolean = false) {
         if (!preserveSnapshot) lastValidGroup = null
         generation.update { it + 1 }
+    }
+
+    @Synchronized
+    private fun keepCurrentSnapshot(session: Long, group: NativeOutboundGroup?) {
+        // A cancelled old coroutine must never repopulate the cache after core restart.
+        if (session == generation.value) lastValidGroup = group
     }
 
     fun lastKnownGroup(): NativeOutboundGroup? = lastValidGroup
@@ -38,7 +45,7 @@ internal object NativePrimaryOutboundsFeed {
                     NativeOutboundsRepository().watchPrimary().collect { group ->
                         failures = 0
                         hasSnapshot = true
-                        if (session == generation.value) lastValidGroup = group
+                        keepCurrentSnapshot(session, group)
                         emit(NativeOutboundUpdate(group, session = session, snapshot = true))
                     }
                     throw java.io.IOException("Proxy updates stream closed")
