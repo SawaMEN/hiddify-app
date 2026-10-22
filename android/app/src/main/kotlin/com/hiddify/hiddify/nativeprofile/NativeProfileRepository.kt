@@ -440,7 +440,7 @@ class NativeProfileRepository(private val context: Context) {
             .filter { it.isRemote && !userOverrideAutoUpdateDisabled(it.userOverride) }
             .filter { profile ->
                 NativeSubscriptionMetadata.isUpdateDue(profile.lastUpdate,
-                    profile.updateIntervalSeconds ?: NativeSubscriptionMetadata.DEFAULT_AUTO_UPDATE_SECONDS, now)
+                    NativeSubscriptionMetadata.effectiveUpdateIntervalSeconds(profile.updateIntervalSeconds), now)
             }
             .map { it.id }
             .toList()
