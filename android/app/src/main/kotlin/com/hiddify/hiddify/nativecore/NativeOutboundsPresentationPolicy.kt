@@ -6,6 +6,14 @@ package com.hiddify.hiddify.nativecore
  *
  * This pure reducer is shared by Android Compose and JVM regression tests.
  */
+internal data class NativeOutboundUpdate(
+    val group: NativeOutboundGroup? = null,
+    val error: String? = null,
+    val session: Long = 0,
+    /** True even when the core explicitly returned an empty server group. */
+    val snapshot: Boolean = false,
+)
+
 internal data class NativeOutboundsPresentationState(
     val group: NativeOutboundGroup? = null,
     val error: String? = null,
