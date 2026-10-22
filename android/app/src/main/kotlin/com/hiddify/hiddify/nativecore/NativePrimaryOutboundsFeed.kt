@@ -14,14 +14,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
-internal data class NativeOutboundUpdate(
-    val group: NativeOutboundGroup? = null,
-    val error: String? = null,
-    val session: Long = 0,
-    /** True even when the core explicitly returned an empty server group. */
-    val snapshot: Boolean = false,
-)
-
 /** One primary-group stream shared by the list and foreground ranking. */
 @OptIn(ExperimentalCoroutinesApi::class)
 internal object NativePrimaryOutboundsFeed {
