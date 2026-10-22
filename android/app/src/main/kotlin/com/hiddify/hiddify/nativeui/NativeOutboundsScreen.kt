@@ -54,7 +54,13 @@ internal fun NativeOutboundsScreen(
     }
     val motion = LocalNativeMotionEnabled.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    var presentation by remember { mutableStateOf(NativeOutboundsPresentationPolicy.initial(connected)) }
+    var presentation by remember { mutableStateOf(
+        NativeOutboundsPresentationPolicy.initial(connected).let { initial ->
+            if (connected) com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.lastKnownGroup()
+                ?.let { cached -> initial.copy(group = cached, loading = false) } ?: initial
+            else initial
+        },
+    ) }
     val group = presentation.group
     val failure = presentation.error
     val loading = presentation.loading
