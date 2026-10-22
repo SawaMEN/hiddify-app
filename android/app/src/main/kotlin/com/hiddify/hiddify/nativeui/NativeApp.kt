@@ -2,12 +2,19 @@ package com.hiddify.hiddify.nativeui
 
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.semantics.stateDescription
@@ -83,6 +90,7 @@ import com.hiddify.hiddify.privacy.NativeRegionalOptions
 import com.hiddify.hiddify.privacy.NativeTrafficFilters
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativeconnection.NativeConnectionPresentation
+import com.hiddify.hiddify.nativeconnection.NativeConnectionMotionPolicy
 import com.hiddify.hiddify.nativeconnection.NativeConnectionTone
 import com.hiddify.hiddify.constant.Status
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
@@ -199,6 +207,9 @@ fun NativeApp(
     onConfirmProfileImport: (Boolean) -> Unit,
     profileSelectionRevision: Int,
     busyProfileId: String?,
+    refreshFeedback: com.hiddify.hiddify.nativeprofile.NativeProfileRefreshFeedback? = null,
+    subscriptionBanner: NativeSubscriptionBanner? = null,
+    onDismissSubscriptionBanner: (Long) -> Unit = {},
     profileEditor: NativeProfileEditor?,
     editorSession: com.hiddify.hiddify.nativeprofile.NativeProfileEditorSession,
     profileEditorLoadFailed: Boolean,
@@ -452,6 +463,7 @@ fun NativeApp(
                                     NativeProfilesScreen(
                                         profiles = profiles,
                                         busyProfileId = busyProfileId,
+                                        refreshFeedback = refreshFeedback,
                                         onBack = { goBack() },
                                         onAdd = { addProfileOpen = true },
                                         onSelect = ::selectProfileWithNotice,
@@ -750,6 +762,7 @@ fun NativeApp(
                                         profilesLoading = profilesLoading,
                                         profilesLoadFailed = profilesLoadFailed, onRetryProfiles = onRetryProfiles,
                                         busyProfileId = busyProfileId,
+                                        refreshFeedback = refreshFeedback,
                                         onRefreshProfile = onRefreshProfile,
                                         onAddProfile = { addProfileOpen = true },
                                         systemStats = systemStats,
@@ -826,6 +839,7 @@ fun NativeApp(
         }
         if (profilesSheetOpen) {
             NativeProfilesSheet(profiles = profiles, busyProfileId = busyProfileId,
+                refreshFeedback = refreshFeedback,
                 loading = profilesLoading, loadFailed = profilesLoadFailed,
                 sortByName = profileSortByName, ascending = profileSortAscending,
                 onSort = { byName, ascending -> profileSortByName = byName; profileSortAscending = ascending },
@@ -883,6 +897,7 @@ fun NativeApp(
                 text = { Text(errorMessage) },
             )
         }
+        NativeSubscriptionPopup(subscriptionBanner, onDismissSubscriptionBanner)
     }
 }
 
@@ -919,6 +934,7 @@ private fun HomeScreen(
     profilesLoadFailed: Boolean = false,
     onRetryProfiles: () -> Unit = {},
     busyProfileId: String? = null,
+    refreshFeedback: com.hiddify.hiddify.nativeprofile.NativeProfileRefreshFeedback? = null,
     onRefreshProfile: (NativeProfile) -> Unit = {},
     onAddProfile: () -> Unit = {},
     systemStats: NativeSystemStats,
@@ -1011,7 +1027,7 @@ private fun HomeScreen(
                             NativeTextButton(onClick = onRetryProfiles) { Text(stringResource(R.string.native_profiles_retry)) }
                         }
                         activeProfile != null -> NativeProfileTile(profile = activeProfile, isMain = true,
-                            busy = busyProfileId != null,
+                            busy = busyProfileId != null, refreshFeedback = refreshFeedback,
                             onClick = onOpenProfiles, onRefresh = { onRefreshProfile(activeProfile) })
                         else -> Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically) {
@@ -1127,7 +1143,24 @@ private fun ConnectionCard(
     reconnectBusy: Boolean = false,
     failed: Boolean = false,
 ) {
-    val transitioning = status == Status.Starting || status == Status.Stopping || reconnectBusy || recovering
+    val transitioning = NativeConnectionMotionPolicy.showProgress(status, recovering, reconnectBusy)
+    val motion = LocalNativeMotionEnabled.current
+    val successRipple = remember { Animatable(1f) }
+    // Initial observation is deliberately the actual status: opening an already
+    // connected app must not replay a fake successful-connect celebration.
+    var previousObservedStatus by remember { mutableStateOf(status) }
+    LaunchedEffect(status, recovering, reconnectBusy, failed, requiresReconnect, motion) {
+        val celebrate = NativeConnectionMotionPolicy.shouldCelebrate(
+            previousObservedStatus, status, motion, recovering, reconnectBusy, failed, requiresReconnect
+        )
+        previousObservedStatus = status
+        if (celebrate) {
+            successRipple.snapTo(0f)
+            successRipple.animateTo(1f, tween(850, easing = FastOutSlowInEasing))
+        } else {
+            successRipple.snapTo(1f)
+        }
+    }
     val tone = NativeConnectionPresentation.tone(status, recovering, reconnectBusy, failed, requiresReconnect)
     val showError = tone == NativeConnectionTone.FAILED
     val label = stringResource(if (reconnectBusy || recovering) R.string.native_status_starting else if (showError) R.string.native_status_failed else if (status == Status.Started && (requiresReconnect || failed)) R.string.native_quick_reconnect else when (status) {
@@ -1145,7 +1178,12 @@ private fun ConnectionCard(
     val scheme = MaterialTheme.colorScheme
     val enabled = !reconnectBusy && (recovering || status != Status.Stopping)
     val view = LocalView.current
-    val animationDuration = if (LocalNativeMotionEnabled.current) 300 else 0
+    val animationDuration = if (motion) 300 else 0
+    val buttonScale by animateFloatAsState(
+        if (motion && transitioning) 0.975f else 1f,
+        tween(if (motion) 240 else 0, easing = FastOutSlowInEasing),
+        label = "connection button emphasis",
+    )
     val stateColor by animateColorAsState(connectionAccent(status, recovering, reconnectBusy, failed, requiresReconnect),
         animationSpec = tween(animationDuration), label = "connectionColor")
     val contentColor by animateColorAsState(when {
@@ -1156,10 +1194,11 @@ private fun ConnectionCard(
     }, animationSpec = tween(animationDuration), label = "connectionContentColor")
     // Grow the circle with system text size so the action remains readable.
     BoxWithConstraints(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        val buttonSize = minOf((176 * LocalDensity.current.fontScale.coerceIn(1f, 1.6f)).dp, maxWidth - 20.dp)
+        // Reserve space for the motion halo even at large system font sizes.
+        val buttonSize = minOf((176 * LocalDensity.current.fontScale.coerceIn(1f, 1.6f)).dp, maxWidth - 48.dp)
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(buttonSize + 20.dp)
+            Box(Modifier.size(buttonSize + 44.dp)
                 .drawWithCache {
                     val halo = Brush.radialGradient(
                         0f to Color.Transparent,
@@ -1170,6 +1209,18 @@ private fun ConnectionCard(
                     )
                     onDrawBehind { drawCircle(halo) }
                 }
+                // One subtle accent ripple on an actual Starting -> Started
+                // transition. Draw-only invalidation avoids per-frame layout work.
+                .drawBehind {
+                    val progress = successRipple.value
+                    if (motion && progress < 1f) {
+                        drawCircle(
+                            color = stateColor.copy(alpha = (1f - progress) * 0.54f),
+                            radius = buttonSize.toPx() / 2f + (8 + 14 * progress).dp.toPx(),
+                            style = Stroke(width = (3f - progress).dp.toPx()),
+                        )
+                    }
+                }
                 .background(stateColor.copy(alpha = 0.10f), CircleShape)
                 .border(1.dp, stateColor.copy(alpha = 0.24f), CircleShape),
                 contentAlignment = Alignment.Center) {
@@ -1178,7 +1229,10 @@ private fun ConnectionCard(
                         if (hapticFeedback) view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
                         onToggleConnection()
                     }, enabled = enabled,
-                    modifier = Modifier.size(buttonSize).semantics {
+                    modifier = Modifier.size(buttonSize).graphicsLayer {
+                        scaleX = buttonScale
+                        scaleY = buttonScale
+                    }.semantics {
                         contentDescription = actionLabel
                         stateDescription = label
                     },
@@ -1192,19 +1246,37 @@ private fun ConnectionCard(
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Icon(painterResource(if (showError) R.drawable.privacy_error else R.drawable.home_power),
-                            null, Modifier.size(48.dp))
-                        Text(actionLabel, style = MaterialTheme.typography.titleMedium,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        Crossfade(targetState = showError, animationSpec = tween(if (motion) 220 else 0),
+                            label = "VetrOFF connection icon") { isError ->
+                            Icon(painterResource(if (isError) R.drawable.privacy_error else R.drawable.home_power),
+                                null, Modifier.size(48.dp))
+                        }
+                        Crossfade(targetState = actionLabel, animationSpec = tween(if (motion) 180 else 0),
+                            label = "VetrOFF action") { caption ->
+                            Text(caption, style = MaterialTheme.typography.titleMedium,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        }
                     }
                 }
-                if (transitioning) CircularProgressIndicator(Modifier.size(buttonSize + 12.dp),
-                    strokeWidth = 3.dp, color = stateColor)
+                if (transitioning) {
+                    if (motion) {
+                        CircularProgressIndicator(Modifier.size(buttonSize + 14.dp),
+                            strokeWidth = 3.dp, color = stateColor)
+                    } else {
+                        // Android "Remove animations" and accessibility states:
+                        // communicate pending work without starting an infinite animator.
+                        Box(Modifier.size(buttonSize + 14.dp)
+                            .border(3.dp, stateColor.copy(alpha = 0.65f), CircleShape))
+                    }
+                }
             }
-            Text(label, Modifier.heightIn(min = 28.dp).semantics { liveRegion = LiveRegionMode.Polite },
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (showError) scheme.error else scheme.onSurfaceVariant,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Crossfade(targetState = label, animationSpec = tween(if (motion) 180 else 0),
+                label = "VetrOFF connection status") { shown ->
+                Text(shown, Modifier.heightIn(min = 28.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (showError) scheme.error else scheme.onSurfaceVariant,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
         }
     }
 }

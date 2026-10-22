@@ -16,6 +16,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativeprofile.NativeProfile
+import com.hiddify.hiddify.nativeprofile.NativeProfileRefreshFeedback
+import com.hiddify.hiddify.nativeprofile.NativeProfileRefreshMotionPolicy
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -23,7 +25,8 @@ import java.time.ZoneId
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun NativeProfilesSheet(
-    profiles: List<NativeProfile>, busyProfileId: String?, loading: Boolean, loadFailed: Boolean,
+    profiles: List<NativeProfile>, busyProfileId: String?, refreshFeedback: NativeProfileRefreshFeedback? = null,
+    loading: Boolean, loadFailed: Boolean,
     sortByName: Boolean, ascending: Boolean, onSort: (Boolean, Boolean) -> Unit,
     onDismiss: () -> Unit, onRetry: () -> Unit, onUpdateAll: () -> Unit,
     onSelect: (NativeProfile) -> Unit, onDelete: (NativeProfile) -> Unit,
@@ -36,7 +39,7 @@ internal fun NativeProfilesSheet(
     NativeModalSheet(onDismissRequest = onDismiss, sheetMaxWidth = 456.dp) {
         NativeProfilesScreen(profiles, busyProfileId, onDismiss, {}, onSelect, onDelete, onRefresh,
             onEdit, onCopyConfig, onExportConfig, loading, loadFailed, onRetry, onUpdateAll,
-            sortByName, ascending, onSort, isSheet = true)
+            sortByName, ascending, onSort, isSheet = true, refreshFeedback = refreshFeedback)
     }
 }
 
@@ -61,6 +64,7 @@ fun NativeProfilesScreen(
     ascending: Boolean = false,
     onSort: (Boolean, Boolean) -> Unit = { _, _ -> },
     isSheet: Boolean = false,
+    refreshFeedback: NativeProfileRefreshFeedback? = null,
 ) {
     // Save IDs instead of stale profile objects; resolve dialogs from the refreshed snapshot.
     var shareId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -68,6 +72,8 @@ fun NativeProfilesScreen(
     val motion = LocalNativeMotionEnabled.current
     var sortOpen by rememberSaveable { mutableStateOf(false) }
     val busy = busyProfileId != null
+    val bulkPhase = NativeProfileRefreshMotionPolicy.phaseFor(
+        NativeProfileRefreshMotionPolicy.UPDATE_ALL_ID, refreshFeedback)
     val sorted = remember(profiles, sortByName, ascending) {
         val comparator = if (sortByName) compareBy<NativeProfile> { it.name }
             else compareBy<NativeProfile> { profileUpdateEpoch(it.lastUpdate) }
@@ -88,7 +94,7 @@ fun NativeProfilesScreen(
             else -> LazyColumn(modifier, contentPadding = PaddingValues(start = 12.dp, top = 12.dp,
                 end = 12.dp, bottom = if (isSheet) 12.dp else 84.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(sorted, key = { it.id }) { profile ->
-                    NativeProfileTile(profile, modifier = Modifier.animateItem(fadeInSpec = if (motion) androidx.compose.animation.core.tween(160) else null, placementSpec = if (motion) androidx.compose.animation.core.tween(220) else null, fadeOutSpec = if (motion) androidx.compose.animation.core.tween(120) else null), busy = busy, onShare = { shareId = profile.id },
+                    NativeProfileTile(profile, refreshFeedback = refreshFeedback, modifier = Modifier.animateItem(fadeInSpec = if (motion) androidx.compose.animation.core.tween(160) else null, placementSpec = if (motion) androidx.compose.animation.core.tween(220) else null, fadeOutSpec = if (motion) androidx.compose.animation.core.tween(120) else null), busy = busy, onShare = { shareId = profile.id },
                         onClick = { onSelect(profile) }, onDelete = { deleteId = profile.id },
                         onRefresh = { onRefresh(profile) }, onEdit = { onEdit(profile) })
                 }
@@ -106,7 +112,7 @@ fun NativeProfilesScreen(
                     Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.native_profiles_sort))
                 }
                 Button(onClick = onUpdateAll, enabled = !busy && !loading && !loadFailed && profiles.any { it.isRemote }) {
-                    Icon(painterResource(R.drawable.native_profile_update), null, Modifier.size(18.dp))
+                    NativeRefreshMotionIcon(bulkPhase)
                     Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.native_profiles_update_all))
                 }
             }
@@ -117,7 +123,7 @@ fun NativeProfilesScreen(
                 IconButton(onClick = onBack) { Icon(painterResource(R.drawable.native_back_arrow), stringResource(R.string.native_back)) }
                 Text(stringResource(R.string.native_profiles), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
                 IconButton(onClick = onUpdateAll, enabled = !busy && !loading && !loadFailed && profiles.any { it.isRemote }) {
-                    Icon(painterResource(R.drawable.native_profile_update), stringResource(R.string.native_profiles_update_all))
+                    NativeRefreshMotionIcon(bulkPhase)
                 }
                 IconButton(onClick = { sortOpen = true }) { Icon(painterResource(R.drawable.native_sort), stringResource(R.string.native_profiles_sort)) }
                 Spacer(Modifier.width(8.dp))

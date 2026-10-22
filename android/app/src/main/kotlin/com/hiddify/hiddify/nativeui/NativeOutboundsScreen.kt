@@ -1,5 +1,7 @@
 package com.hiddify.hiddify.nativeui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -176,9 +178,22 @@ private fun OutboundTile(outbound: NativeOutbound, selected: Boolean, selectable
     onSelect: () -> Unit, onInfo: () -> Unit, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
     val dark = scheme.background.luminance() < .5f
+    val duration = if (LocalNativeMotionEnabled.current) 220 else 0
+    val selectedSurface by animateColorAsState(
+        if (selected) scheme.primaryContainer else Color.Transparent,
+        tween(duration), label = "selected proxy background",
+    )
+    val titleColor by animateColorAsState(
+        if (selected) scheme.primary else scheme.onSurface,
+        tween(duration), label = "selected proxy title",
+    )
+    val subtitleColor by animateColorAsState(
+        if (selected) scheme.primary else scheme.onSurfaceVariant,
+        tween(duration), label = "selected proxy subtitle",
+    )
     NativeSurface(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().heightIn(min = 80.dp)
-            .background(if (selected) scheme.primaryContainer else Color.Transparent)
+            .background(selectedSurface)
             .semantics { this.selected = selected }
             .combinedClickable(role = Role.RadioButton, onClick = { if (selectable) onSelect() }, onLongClick = onInfo)
             .padding(horizontal = 16.dp, vertical = 14.dp),
@@ -188,10 +203,10 @@ private fun OutboundTile(outbound: NativeOutbound, selected: Boolean, selectable
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(outbound.name, style = MaterialTheme.typography.bodyLarge,
-                    color = if (selected) scheme.primary else scheme.onSurface, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    color = titleColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(outbound.type + if (outbound.isGroup) " (${outbound.selectedChild.orEmpty().trim()})" else "",
                     style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    color = if (selected) scheme.primary else scheme.onSurfaceVariant)
+                    color = subtitleColor)
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 if (outbound.delayMs != 0) Text(if (outbound.delayMs > 65000) "×" else outbound.delayMs.toString(),
