@@ -128,6 +128,35 @@ object Settings {
     val grpcFrontPort get() = getInt("local_control_front_port", 17078).takeIf { it in 1..65535 } ?: 17078
     val grpcBackPort get() = getInt("local_control_back_port", 17079).takeIf { it in 1..65535 && it != grpcFrontPort }
         ?: if (grpcFrontPort == 17079) 17078 else 17079
+    /**
+     * Pick a stable per-install localhost port while no core is running.
+     * A stale port from an earlier launch or another installed VPN must not
+     * prevent setup. Call immediately before Mobile.setup()/RootCore.start().
+     */
+    @Synchronized
+    fun prepareGrpcServicePort(excludedPorts: Set<Int> = emptySet()): Int {
+        val localHost = java.net.InetAddress.getByName("127.0.0.1")
+        val selected = com.hiddify.hiddify.nativecore.NativeControlPortPolicy.select(
+            current = grpcServiceModePort,
+            frontPort = grpcFrontPort,
+            excludedPorts = excludedPorts,
+            isAvailable = { port ->
+                runCatching { java.net.ServerSocket(port, 1, localHost).use { true } }
+                    .getOrDefault(false)
+            },
+            allocateEphemeral = {
+                java.net.ServerSocket(0, 1, localHost).use { it.localPort }
+            },
+        )
+        if (grpcServiceModePort != selected) {
+            check(preferences.edit().putInt(SettingsKey.GRPC_PORT, selected).commit()) {
+                "Could not persist local gRPC control port"
+            }
+            Log.i(TAG, "Selected private local control port: $selected")
+        }
+        return selected
+    }
+
     val grpcAuthToken: String
         @Synchronized get() {
             val saved = getString("local_control_token", "")

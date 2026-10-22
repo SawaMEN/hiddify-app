@@ -26,17 +26,22 @@ internal object NativePrimaryOutboundsFeed {
         flow {
             emit(NativeOutboundUpdate(session = session))
             var failures = 0
+            var hasSnapshot = false
             while (true) {
                 try {
                     NativeOutboundsRepository().watchPrimary().collect { group ->
                         failures = 0
+                        if (group != null) hasSnapshot = true
                         emit(NativeOutboundUpdate(group, session = session))
                     }
                     throw java.io.IOException("Proxy updates stream closed")
                 } catch (cancelled: CancellationException) { throw cancelled }
                   catch (error: Exception) {
                     failures = (failures + 1).coerceAtMost(4)
-                    emit(NativeOutboundUpdate(error = error.message ?: "Proxy updates are unavailable", session = session))
+                    val description = error.message ?: "Proxy updates are unavailable"
+                    if (shouldReportOutboundsStreamError(hasSnapshot, failures, description)) {
+                        emit(NativeOutboundUpdate(error = description, session = session))
+                    }
                     delay((1000L shl (failures - 1)).coerceAtMost(8000))
                 }
             }

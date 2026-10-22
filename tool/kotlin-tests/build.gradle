@@ -48,6 +48,8 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeprofile/NativeQrCodec.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeJsonDocument.kt'
             include 'com/hiddify/hiddify/nativecore/NativeOutboundModels.kt'
+            include 'com/hiddify/hiddify/nativecore/NativeControlPortPolicy.kt'
+            include 'com/hiddify/hiddify/nativecore/NativeOutboundsStreamErrorPolicy.kt'
             include 'com/hiddify/hiddify/nativecore/NativeResponseChannel.kt'
             include 'com/hiddify/hiddify/nativecore/NativeLanSharingLink.kt'
             include 'com/hiddify/hiddify/nativecore/NativeGeneralOptions.kt'
