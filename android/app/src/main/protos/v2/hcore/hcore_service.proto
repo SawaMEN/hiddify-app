@@ -20,6 +20,9 @@ service Core {
   rpc StartService (StartRequest) returns (CoreInfoResponse);
   rpc Stop (hcommon.Empty) returns (CoreInfoResponse);
   rpc Restart (StartRequest) returns (CoreInfoResponse);
+  // Apply compatible configuration changes to the running core without dropping the VPN.
+  // On incompatible changes, the core keeps running and reports HOT_RELOAD_FAILED.
+  rpc HotReload (StartRequest) returns (CoreInfoResponse);
   rpc SelectOutbound (SelectOutboundRequest) returns (hcommon.Response);
   rpc UrlTest (UrlTestRequest) returns (hcommon.Response);
   rpc UrlTestActive (hcommon.Empty) returns (hcommon.Response);
