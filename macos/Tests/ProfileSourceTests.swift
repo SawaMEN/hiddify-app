@@ -67,6 +67,40 @@ final class ProfileSourceTests: XCTestCase {
         XCTAssertEqual(ProfileSource.servers(in: decoded).count, 2)
     }
 
+    func testURLSafeUnpaddedBase64SubscriptionDecodesLikeAndroid() throws {
+        let samples = (0..<4).map { pad in
+            "vless://uuid@example.org:443#\(String(repeating: "x", count: pad))🔒"
+        }
+        let original = try XCTUnwrap(samples.first {
+            let encoded = Data($0.utf8).base64EncodedString()
+            return encoded.contains("+") || encoded.contains("/")
+        })
+        let standard = Data(original.utf8).base64EncodedString()
+        let urlSafe = standard.replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+        let wrapped = urlSafe.enumerated().map { index, element in
+            index > 0 && index % 11 == 0 ? "\n\(element)" : String(element)
+        }.joined()
+        XCTAssertEqual(try ProfileSource.decodeSubscription(Data(wrapped.utf8)), original)
+    }
+
+    func testInvalidEnvelopeCharactersAreNeverIgnored() throws {
+        let original = "vless://uuid@example.org:443"
+        let encoded = Data(original.utf8).base64EncodedString()
+        XCTAssertThrowsError(try ProfileSource.decodeSubscription(Data((encoded + "!").utf8))) {
+            XCTAssertEqual($0 as? ProfileSourceError, .invalidSubscription)
+        }
+    }
+
+    func testSubscriptionChangeRequiresActualPayloadDifference() {
+        let current = "vless://uuid@example.org:443"
+        XCTAssertTrue(ProfileSource.subscriptionContentChanged(previous: nil, downloaded: current))
+        XCTAssertFalse(ProfileSource.subscriptionContentChanged(previous: current, downloaded: current))
+        XCTAssertTrue(ProfileSource.subscriptionContentChanged(previous: current,
+            downloaded: current + "\ntrojan://pass@example.org:443"))
+    }
+
     func testSubscriptionAcceptsClashYAMLAndJSON() throws {
         let yaml = "proxies:\n  - name: Node1\n    type: ss\n    server: example.org"
         XCTAssertEqual(try ProfileSource.classify(yaml), .yaml)
