@@ -15,6 +15,9 @@ object NativeSubscriptionMetadata {
 
     data class Usage(val upload: Long, val download: Long, val total: Long, val expireSeconds: Long)
 
+    fun effectiveUpdateIntervalSeconds(savedIntervalSeconds: Long?): Long =
+        savedIntervalSeconds?.takeIf { it > 0 } ?: DEFAULT_AUTO_UPDATE_SECONDS
+
     fun intervalSeconds(hours: Long?): Long? = hours
         ?.takeIf { it > 0 && it <= Long.MAX_VALUE / 3600L }
         ?.times(3600L)
