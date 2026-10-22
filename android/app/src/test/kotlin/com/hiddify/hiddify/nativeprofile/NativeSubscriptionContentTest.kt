@@ -44,4 +44,38 @@ class NativeSubscriptionContentTest {
         }
         assertEquals(0, downloads)
     }
+    @Test fun crlfAndCommentsSurviveNestedSubscriptionExpansion() {
+        val parent = "# profile-title: My servers\r\nvless://one\r\nhttps://example.org/nested\r\n"
+        val child = encode("trojan://child\nss://second")
+        assertEquals("# profile-title: My servers\r\nvless://one\r\ntrojan://child\nss://second\n",
+            NativeSubscriptionContent.expand(parent, { it.startsWith("https://") }, { child }))
+    }
+
+    @Test fun cancellationStopsBeforeTheNextNestedRequest() {
+        val downloads = mutableListOf<String>()
+        var checks = 0
+        assertThrows(kotlinx.coroutines.CancellationException::class.java) {
+            NativeSubscriptionContent.expand("https://example.org/first\nhttps://example.org/second",
+                { it.startsWith("https://") },
+                { url -> downloads += url; "vless://child" },
+                ensureActive = {
+                    if (++checks >= 2) throw kotlinx.coroutines.CancellationException("cancelled")
+                })
+        }
+        assertEquals(listOf("https://example.org/first"), downloads)
+    }
+
+    @Test fun failedNestedDownloadNeverReturnsPartiallyExpandedContent() {
+        val downloads = mutableListOf<String>()
+        assertThrows(IllegalStateException::class.java) {
+            NativeSubscriptionContent.expand("https://example.org/first\nhttps://example.org/second",
+                { it.startsWith("https://") }, { url ->
+                    downloads += url
+                    if (url.endsWith("second")) throw IllegalStateException("HTTP 502")
+                    "vless://child"
+                })
+        }
+        assertEquals(2, downloads.size)
+    }
+
 }
