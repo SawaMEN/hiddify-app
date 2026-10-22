@@ -207,6 +207,9 @@ fun NativeApp(
     onConfirmProfileImport: (Boolean) -> Unit,
     profileSelectionRevision: Int,
     busyProfileId: String?,
+    refreshFeedback: com.hiddify.hiddify.nativeprofile.NativeProfileRefreshFeedback? = null,
+    subscriptionBanner: NativeSubscriptionBanner? = null,
+    onDismissSubscriptionBanner: (Long) -> Unit = {},
     profileEditor: NativeProfileEditor?,
     editorSession: com.hiddify.hiddify.nativeprofile.NativeProfileEditorSession,
     profileEditorLoadFailed: Boolean,
@@ -460,6 +463,7 @@ fun NativeApp(
                                     NativeProfilesScreen(
                                         profiles = profiles,
                                         busyProfileId = busyProfileId,
+                                        refreshFeedback = refreshFeedback,
                                         onBack = { goBack() },
                                         onAdd = { addProfileOpen = true },
                                         onSelect = ::selectProfileWithNotice,
@@ -758,6 +762,7 @@ fun NativeApp(
                                         profilesLoading = profilesLoading,
                                         profilesLoadFailed = profilesLoadFailed, onRetryProfiles = onRetryProfiles,
                                         busyProfileId = busyProfileId,
+                                        refreshFeedback = refreshFeedback,
                                         onRefreshProfile = onRefreshProfile,
                                         onAddProfile = { addProfileOpen = true },
                                         systemStats = systemStats,
@@ -834,6 +839,7 @@ fun NativeApp(
         }
         if (profilesSheetOpen) {
             NativeProfilesSheet(profiles = profiles, busyProfileId = busyProfileId,
+                refreshFeedback = refreshFeedback,
                 loading = profilesLoading, loadFailed = profilesLoadFailed,
                 sortByName = profileSortByName, ascending = profileSortAscending,
                 onSort = { byName, ascending -> profileSortByName = byName; profileSortAscending = ascending },
@@ -891,6 +897,7 @@ fun NativeApp(
                 text = { Text(errorMessage) },
             )
         }
+        NativeSubscriptionPopup(subscriptionBanner, onDismissSubscriptionBanner)
     }
 }
 
@@ -927,6 +934,7 @@ private fun HomeScreen(
     profilesLoadFailed: Boolean = false,
     onRetryProfiles: () -> Unit = {},
     busyProfileId: String? = null,
+    refreshFeedback: com.hiddify.hiddify.nativeprofile.NativeProfileRefreshFeedback? = null,
     onRefreshProfile: (NativeProfile) -> Unit = {},
     onAddProfile: () -> Unit = {},
     systemStats: NativeSystemStats,
@@ -1019,7 +1027,7 @@ private fun HomeScreen(
                             NativeTextButton(onClick = onRetryProfiles) { Text(stringResource(R.string.native_profiles_retry)) }
                         }
                         activeProfile != null -> NativeProfileTile(profile = activeProfile, isMain = true,
-                            busy = busyProfileId != null,
+                            busy = busyProfileId != null, refreshFeedback = refreshFeedback,
                             onClick = onOpenProfiles, onRefresh = { onRefreshProfile(activeProfile) })
                         else -> Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 16.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically) {
