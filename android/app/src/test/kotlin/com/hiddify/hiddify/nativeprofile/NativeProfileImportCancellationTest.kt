@@ -86,4 +86,35 @@ class NativeProfileImportCancellationTest {
             }
         } finally { workers.shutdownNow() }
     }
+    @Test fun archiveCanConfirmAndCommitMultipleEntries() {
+        val token = NativeProfileImportCancellation()
+        repeat(3) {
+            token.attachRequest { fail("No cancellation requested") }
+            token.detachRequest()
+            token.beginCommit()
+            token.finishArchiveEntry()
+            token.ensureActive()
+        }
+    }
+
+    @Test fun cancellationDuringArchiveWriteIsDeferredUntilNextEntry() {
+        val token = NativeProfileImportCancellation()
+        token.beginCommit()
+        assertFalse(token.cancel())
+        // The in-flight transaction completes without aborting the atomic file/DB write.
+        token.ensureActive()
+        token.finishArchiveEntry()
+        assertThrows(CancellationException::class.java) { token.ensureActive() }
+        assertThrows(CancellationException::class.java) { token.beginCommit() }
+        assertFalse(token.cancel())
+    }
+
+    @Test fun cancellationBetweenArchiveEntriesPreventsNextCommit() {
+        val token = NativeProfileImportCancellation()
+        token.beginCommit()
+        token.finishArchiveEntry()
+        assertTrue(token.cancel())
+        assertThrows(CancellationException::class.java) { token.beginCommit() }
+    }
+
 }

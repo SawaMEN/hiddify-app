@@ -37,6 +37,8 @@ import com.hiddify.hiddify.nativediagnostics.NativeVpnProtection
 import com.hiddify.hiddify.nativeprofile.NativeProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileEditor
 import com.hiddify.hiddify.nativeprofile.NativeProfileTransfer
+import com.hiddify.hiddify.nativeprofile.NativeProfileArchive
+import com.hiddify.hiddify.nativeprofile.NativeArchiveProfile
 import com.hiddify.hiddify.nativeprofile.NativeImportSummary
 import com.hiddify.hiddify.nativeprofile.NativePreparedProfile
 import com.hiddify.hiddify.nativeprofile.NativeProfileImportCancellation
@@ -541,6 +543,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onSaveProfileEditor = ::saveProfileEditor,
                 onCancelProfileImport = ::cancelProfileImport,
                 onImportProfile = ::importProfile,
+                onImportArchive = ::importProfileArchive,
                 onImportFreeProfile = ::importFreeProfile,
                 onCopyProfileConfig = ::copyProfileConfig,
                 onExportProfileConfig = ::exportProfileConfig,
@@ -1402,6 +1405,27 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    /**
+     * ZIP files contain independent profiles. Validate each with the Go core and
+     * require the same explicit preview confirmation used by ordinary imports.
+     * No raw JSON/YAML concatenation and no filesystem extraction.
+     */
+    private fun importProfileArchive(files: List<NativeArchiveProfile>) {
+        if (files.isEmpty()) return
+        val cancellation = NativeProfileImportCancellation()
+        runProfileOperation(IMPORT_BUSY_ID, requireDisconnected = true, importCancellation = cancellation,
+            onSuccess = { profileImportRevision.value += 1 }) {
+            for (file in files) {
+                cancellation.ensureActive()
+                val prepared = profileRepository.prepareInput(
+                    rawInput = file.content, name = file.name, cancellation = cancellation)
+                confirmProfileImport(prepared, cancellation)
+                profileRepository.commitPrepared(prepared, cancellation)
+                cancellation.finishArchiveEntry()
+            }
+        }
+    }
+
     private suspend fun confirmProfileImport(
         prepared: NativePreparedProfile,
         cancellation: NativeProfileImportCancellation,
@@ -1620,17 +1644,18 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 withContext(Dispatchers.IO) {
                     runCatching {
                         contentResolver.openInputStream(uri)
-                            ?.use(NativeProfileTransfer::readText)
+                            ?.use(NativeProfileArchive::read)
                             ?: throw java.io.FileNotFoundException(uri.toString())
                     }
                 }
 
             result.fold(
-                onSuccess = { text ->
-                    if (text.isBlank()) {
+                onSuccess = { documents ->
+                    if (documents.archive) importProfileArchive(documents.profiles)
+                    else if (documents.profiles.single().content.isBlank()) {
                         errorMessage.value = getString(R.string.native_profile_file_empty)
                     } else {
-                        importProfile(text, null, null, false)
+                        importProfile(documents.profiles.single().content, null, null, false)
                     }
                 },
                 onFailure = { error ->

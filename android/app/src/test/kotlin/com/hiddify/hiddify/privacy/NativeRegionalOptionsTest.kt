@@ -133,4 +133,19 @@ class NativeRegionalOptionsTest {
         assertEquals(1400, root["mtu"].asInt)
     }
 
+    @Test fun domainNormalizationIsDeterministicOnTurkishDevices() {
+        val previous = java.util.Locale.getDefault()
+        try {
+            java.util.Locale.setDefault(java.util.Locale.forLanguageTag("tr-TR"))
+            assertEquals(listOf("instagram.com", "www.istanbul.example"),
+                NativeRoutingTokens.parse("INSTAGRAM.COM; WWW.ISTANBUL.EXAMPLE", true))
+            val saved = NativeRegionalOptions(directDomains = "INSTAGRAM.COM",
+                proxyDomains = "WWW.ISTANBUL.EXAMPLE").validated()
+            assertEquals("instagram.com", saved.directDomains)
+            assertEquals("www.istanbul.example", saved.proxyDomains)
+        } finally {
+            java.util.Locale.setDefault(previous)
+        }
+    }
+
 }
