@@ -725,6 +725,7 @@
     <string name="native_subscription_updates_channel">Subscription updates</string>
     <string name="native_subscription_updates_count">%1$d subscriptions updated</string>
     <string name="native_subscription_updates_reconnecting">Applying changed servers; VPN reconnecting</string>
+    <string name="native_subscription_updates_pending">Reconnect to apply the changed active subscription</string>
     <string name="native_subscription_updates_saved">Changes saved; the current VPN connection was not interrupted</string>
     <string name="native_profile_updated">Subscription “%1$s” updated</string>
     <string name="native_profile_refresh_failed">Could not update subscription “%1$s”.\n%2$s</string>
