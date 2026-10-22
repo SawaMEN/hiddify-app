@@ -1,6 +1,8 @@
 package com.hiddify.hiddify.nativecore
 
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import org.junit.Assert.*
@@ -48,6 +50,53 @@ class NativeStatsStreamTest {
             withTimeout(2000) { cancelled.await() }
         } finally { scope.cancel() }
     }
+    @Test fun transientGrpcFailureRetainsCountersAndResetsRateBaseline() = runBlocking {
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val collectorScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val updates = Channel<NativeSystemStats>(Channel.UNLIMITED)
+        val recovered = CompletableDeferred<Unit>()
+        val calls = AtomicInteger()
+        val time = AtomicLong(0)
+        try {
+            val stream = NativeStatsStream(scope, load = {
+                when (calls.incrementAndGet()) {
+                    1 -> NativeSystemStats(trafficAvailable = true, currentProfile = "active", downlinkTotal = 500)
+                    2 -> NativeSystemStats(trafficAvailable = true, currentProfile = "active", downlinkTotal = 600)
+                    3 -> throw IllegalStateException("gRPC transport failure")
+                    else -> {
+                        recovered.await()
+                        NativeSystemStats(trafficAvailable = true, currentProfile = "active", downlinkTotal = 700)
+                    }
+                }
+            }, connected = { true }, clock = { time.addAndGet(1000) }, intervalMillis = 30)
+            val collector = collectorScope.launch { stream.snapshots.collect { updates.send(it) } }
+            suspend fun until(predicate: (NativeSystemStats) -> Boolean): NativeSystemStats =
+                withTimeout(4000) {
+                    while (true) {
+                        val snapshot = updates.receive()
+                        if (predicate(snapshot)) return@withTimeout snapshot
+                    }
+                    @Suppress("UNREACHABLE_CODE")
+                    NativeSystemStats()
+                }
+            val normal = until { it.speedAvailable && it.downlinkTotal == 600L }
+            assertTrue(normal.downlink > 0)
+            val interrupted = until { it.downlinkTotal == 600L && !it.speedAvailable }
+            assertEquals("active", interrupted.currentProfile)
+            assertEquals(0L, interrupted.downlink)
+            recovered.complete(Unit)
+            val firstRecovered = until { it.downlinkTotal == 700L }
+            assertFalse(firstRecovered.speedAvailable)
+            assertEquals(0L, firstRecovered.downlink)
+            collector.cancelAndJoin()
+        } finally {
+            recovered.complete(Unit)
+            collectorScope.cancel()
+            scope.cancel()
+            updates.close()
+        }
+    }
+
     @Test fun resetRejectsLateResponseFromPreviousSession() = runBlocking {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val collectorScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
