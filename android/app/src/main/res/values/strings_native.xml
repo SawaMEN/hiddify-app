@@ -724,7 +724,7 @@
     <string name="native_privacy_proxy_mode_notice">Proxy mode is selected. App routing and Android VPN network settings do not apply in this mode. Disconnect the current connection before switching modes.</string>
     <string name="native_subscription_updates_channel">Subscription updates</string>
     <string name="native_subscription_updates_count">%1$d subscriptions updated</string>
-    <string name="native_subscription_updates_reconnecting">Applying changed servers; VPN reconnecting</string>
+    <string name="native_subscription_updates_reconnecting">Applying changed servers to VPN; connection stays up when possible</string>
     <string name="native_subscription_updates_pending">Reconnect to apply the changed active subscription</string>
     <string name="native_subscription_updates_saved">Changes saved; the current VPN connection was not interrupted</string>
     <string name="native_profile_updated">Subscription “%1$s” updated</string>
