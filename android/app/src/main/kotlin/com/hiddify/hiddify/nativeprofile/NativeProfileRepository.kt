@@ -329,9 +329,10 @@ class NativeProfileRepository(private val context: Context) {
         val refreshed = importRemote(profile.url, existingId = profile.id, existingOverride = profile.userOverride, cancellation = cancellation)
         if (before != null) {
             val after = snapshot(refreshed)
-            onChanged?.invoke(before != after)
+            val change = classifySubscriptionRefresh(before.content, after.content, before.metadata, after.metadata)
+            onChanged?.invoke(change.changed)
             // Quota/expiry and other response headers do not alter the running tunnel.
-            onConfigChanged?.invoke(before.content != after.content)
+            onConfigChanged?.invoke(change.configChanged)
         }
         return refreshed
     }
