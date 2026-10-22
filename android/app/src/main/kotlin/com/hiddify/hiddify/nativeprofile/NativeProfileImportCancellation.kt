@@ -7,12 +7,18 @@ class NativeProfileImportCancellation {
     private val lock = Any()
     private var cancelled = false
     private var committing = false
+    private var cancelAfterCommit = false
     private var cancelRequest: (() -> Unit)? = null
 
     fun cancel(): Boolean {
         val request = synchronized(lock) {
             // Once file/database replacement begins, let the existing transaction finish.
-            if (committing || cancelled) return false
+            // A multi-file archive must still stop before attempting the next entry.
+            if (committing) {
+                cancelAfterCommit = true
+                return false
+            }
+            if (cancelled) return false
             cancelled = true
             cancelRequest.also { cancelRequest = null }
         }
@@ -46,5 +52,18 @@ class NativeProfileImportCancellation {
         check(cancelRequest == null) { "Import request still attached" }
         check(!committing) { "Import already committing" }
         committing = true
+    }
+
+    /**
+     * Only archive imports call this after each completed atomic file/DB commit.
+     * Cancellation during the transaction is deferred until the next entry.
+     */
+    fun finishArchiveEntry() = synchronized(lock) {
+        check(committing) { "Profile entry was not committing" }
+        committing = false
+        if (cancelAfterCommit) {
+            cancelled = true
+            cancelAfterCommit = false
+        }
     }
 }
