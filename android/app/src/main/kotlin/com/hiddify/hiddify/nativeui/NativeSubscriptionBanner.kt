@@ -32,7 +32,7 @@ import com.hiddify.hiddify.R
 import kotlinx.coroutines.delay
 
 /** An app-only message. Subscription refreshes never enter the Android notification shade. */
-internal data class NativeSubscriptionBanner(
+data class NativeSubscriptionBanner(
     val revision: Long,
     val message: String,
     val kind: Kind,
