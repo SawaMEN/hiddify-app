@@ -29,6 +29,17 @@ class NativeProfileArchiveTest {
         assertEquals("{\"outbounds\": []}", result.profiles.single().content)
     }
 
+    @Test fun zipDetectionWorksWithShortReadsFromDocumentProvider() {
+        val bytes = archive("settings.json" to text("{\"proxy\":true}"))
+        val fragmented = object : ByteArrayInputStream(bytes) {
+            override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
+                super.read(buffer, offset, length.coerceAtMost(1))
+        }
+        val imported = NativeProfileArchive.read(fragmented)
+        assertTrue(imported.archive)
+        assertEquals("settings", imported.profiles.single().name)
+    }
+
     @Test fun importsEachSupportedFormatAsAnIndependentProfile() {
         val result = read(archive(
             "folder/config.json" to text("{\"outbounds\": []}"),
