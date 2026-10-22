@@ -109,7 +109,8 @@ final class ProfileStore {
         profiles = next
     }
 
-    func refresh(_ id: UUID) async throws {
+    @discardableResult
+    func refresh(_ id: UUID) async throws -> Bool {
         guard let position = profiles.firstIndex(where: { $0.id == id }) else {
             throw ProfileStoreError.notFound
         }
@@ -128,24 +129,34 @@ final class ProfileStore {
         guard let updatedPosition = profiles.firstIndex(where: { $0.id == id }) else {
             throw ProfileStoreError.notFound
         }
-        let servers = ProfileSource.servers(in: content)
+        let cached = try? ProfileVault.subscriptionCache(id: id)
         let oldActive = try? ProfileVault.connectableSource(id: id)
-        let selectedIndex = ProfileSource.preservingSelection(
-            in: servers, previousURI: oldActive
-        )
-        let effective = selectedIndex.map { servers[$0].rawURI } ?? content
+        let changed = ProfileSource.subscriptionContentChanged(previous: cached, downloaded: content)
+        let needsRepair = oldActive == nil
+        var selectedIndex = profiles[updatedPosition].selectedServerIndex
+        var updatedServers: [ProfileServer]? = nil
 
-        // The prior working profile remains intact if downloading/decoding
-        // fails. Only validated, bounded content is stored in Keychain.
-        try ProfileVault.saveSubscriptionCache(id: id, source: content)
-        try ProfileVault.saveActiveSource(id: id, source: effective)
+        if changed || needsRepair {
+            let servers = ProfileSource.servers(in: content)
+            selectedIndex = ProfileSource.preservingSelection(
+                in: servers, previousURI: oldActive
+            )
+            let effective = selectedIndex.map { servers[$0].rawURI } ?? content
+
+            // Failed download or validation never overwrites working credentials.
+            // Byte-identical refreshes avoid needless shared-Keychain writes.
+            try ProfileVault.saveSubscriptionCache(id: id, source: content)
+            try ProfileVault.saveActiveSource(id: id, source: effective)
+            updatedServers = servers
+        }
 
         var next = profiles
         next[updatedPosition].lastRefreshedAt = Date()
         next[updatedPosition].selectedServerIndex = selectedIndex
         try persist(next)
         profiles = next
-        serverLists[id] = servers
+        if let updatedServers { serverLists[id] = updatedServers }
+        return changed
     }
 
     /// Refresh on launch only if stale; explicit user refresh is still
