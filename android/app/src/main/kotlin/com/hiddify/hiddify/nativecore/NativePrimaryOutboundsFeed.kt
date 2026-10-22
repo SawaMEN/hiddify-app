@@ -14,7 +14,13 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
-internal data class NativeOutboundUpdate(val group: NativeOutboundGroup? = null, val error: String? = null, val session: Long = 0)
+internal data class NativeOutboundUpdate(
+    val group: NativeOutboundGroup? = null,
+    val error: String? = null,
+    val session: Long = 0,
+    /** True even when the core explicitly returned an empty server group. */
+    val snapshot: Boolean = false,
+)
 
 /** One primary-group stream shared by the list and foreground ranking. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -32,7 +38,7 @@ internal object NativePrimaryOutboundsFeed {
                     NativeOutboundsRepository().watchPrimary().collect { group ->
                         failures = 0
                         if (group != null) hasSnapshot = true
-                        emit(NativeOutboundUpdate(group, session = session))
+                        emit(NativeOutboundUpdate(group, session = session, snapshot = true))
                     }
                     throw java.io.IOException("Proxy updates stream closed")
                 } catch (cancelled: CancellationException) { throw cancelled }
