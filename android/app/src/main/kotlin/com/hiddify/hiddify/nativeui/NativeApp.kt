@@ -251,6 +251,7 @@ fun NativeApp(
     onSaveProfileEditor: (String, Boolean, Int?, String, com.hiddify.hiddify.nativeprofile.NativeProfileNetworkOptions) -> Unit,
     onCancelProfileImport: () -> Unit,
     onImportProfile: (String, String?, Int?, Boolean, com.hiddify.hiddify.nativeprofile.NativeSubscriptionRequestOptions?) -> Unit,
+    onImportArchive: (List<com.hiddify.hiddify.nativeprofile.NativeArchiveProfile>) -> Unit,
     onImportFreeProfile: (com.hiddify.hiddify.nativeprofile.NativeFreeProfile, String) -> Unit,
     onCopyProfileConfig: (NativeProfile) -> Unit,
     onExportProfileConfig: (NativeProfile) -> Unit,
@@ -847,6 +848,7 @@ fun NativeApp(
                 onCancelImport = onCancelProfileImport,
                 onDismiss = { addProfileOpen = false },
                 onImportFree = onImportFreeProfile,
+                onImportArchive = onImportArchive,
                 onImport = { raw, name, interval, disabled, request ->
                     onImportProfile(raw, name, interval, disabled, request)
                 },
