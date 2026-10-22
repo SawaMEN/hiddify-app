@@ -314,7 +314,8 @@ class NativeProfileRepository(private val context: Context) {
     }
 
     fun refreshRemote(id: String, cancellation: NativeProfileImportCancellation? = null,
-        onChanged: ((Boolean) -> Unit)? = null): NativeProfile {
+        onChanged: ((Boolean) -> Unit)? = null,
+        onConfigChanged: ((Boolean) -> Unit)? = null): NativeProfile {
         cancellation?.ensureActive()
         val profile =
             openDatabase().use { db -> getById(db, id) ?: error("Profile not found") }
@@ -324,9 +325,15 @@ class NativeProfileRepository(private val context: Context) {
             metadata = listOf(value.name, value.updateIntervalSeconds, value.upload, value.download,
                 value.total, value.expire, value.webPageUrl, value.supportUrl),
         )
-        val before = if (onChanged != null) snapshot(profile) else null
+        val before = if (onChanged != null || onConfigChanged != null) snapshot(profile) else null
         val refreshed = importRemote(profile.url, existingId = profile.id, existingOverride = profile.userOverride, cancellation = cancellation)
-        if (onChanged != null) onChanged(before != snapshot(refreshed))
+        if (before != null) {
+            val after = snapshot(refreshed)
+            val change = classifySubscriptionRefresh(before.content, after.content, before.metadata, after.metadata)
+            onChanged?.invoke(change.changed)
+            // Quota/expiry and other response headers do not alter the running tunnel.
+            onConfigChanged?.invoke(change.configChanged)
+        }
         return refreshed
     }
 
@@ -432,7 +439,8 @@ class NativeProfileRepository(private val context: Context) {
             .asSequence()
             .filter { it.isRemote && !userOverrideAutoUpdateDisabled(it.userOverride) }
             .filter { profile ->
-                NativeSubscriptionMetadata.isUpdateDue(profile.lastUpdate, profile.updateIntervalSeconds, now)
+                NativeSubscriptionMetadata.isUpdateDue(profile.lastUpdate,
+                    NativeSubscriptionMetadata.effectiveUpdateIntervalSeconds(profile.updateIntervalSeconds), now)
             }
             .map { it.id }
             .toList()

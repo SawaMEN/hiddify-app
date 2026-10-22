@@ -7,6 +7,17 @@ import org.junit.Test
 class NativeSubscriptionMetadataTest {
     private val now = LocalDateTime.parse("2026-10-08T12:00:00")
 
+    @Test fun autoIntervalFallsBackToForegroundSchedulerForHeaderlessSubscriptions() {
+        assertEquals(900L, NativeSubscriptionMetadata.effectiveUpdateIntervalSeconds(null))
+        assertEquals(900L, NativeSubscriptionMetadata.effectiveUpdateIntervalSeconds(0L))
+        assertEquals(3600L, NativeSubscriptionMetadata.effectiveUpdateIntervalSeconds(3600L))
+        val dueAfterFifteenMinutes = now.minusMinutes(15).toString()
+        assertTrue(NativeSubscriptionMetadata.isUpdateDue(dueAfterFifteenMinutes,
+            NativeSubscriptionMetadata.effectiveUpdateIntervalSeconds(null), now))
+        assertFalse(NativeSubscriptionMetadata.isUpdateDue(now.minusMinutes(14).toString(),
+            NativeSubscriptionMetadata.effectiveUpdateIntervalSeconds(null), now))
+    }
+
     @Test fun invalidIntervalsCannotWrapIntoNegativeSeconds() {
         assertNull(NativeSubscriptionMetadata.intervalSeconds(null))
         listOf(0L, -1L, Long.MAX_VALUE, Long.MAX_VALUE / 3600 + 1).forEach {

@@ -7,6 +7,22 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 
+/** Quota and expiry updates are user-visible but do not require restarting the VPN. */
+internal data class NativeSubscriptionRefreshChange(val changed: Boolean, val configChanged: Boolean)
+
+internal fun classifySubscriptionRefresh(
+    previousConfig: String?,
+    newConfig: String?,
+    previousMetadata: List<Any?>,
+    newMetadata: List<Any?>,
+): NativeSubscriptionRefreshChange {
+    val configChanged = previousConfig != newConfig
+    return NativeSubscriptionRefreshChange(
+        changed = configChanged || previousMetadata != newMetadata,
+        configChanged = configChanged,
+    )
+}
+
 /** Keep the cancellation waiter separate from blocking HTTP/JNI work, and join its cleanup. */
 internal suspend fun <T> runNativeProfileRefresh(
     onCancellationFailure: (Exception) -> Unit = {},

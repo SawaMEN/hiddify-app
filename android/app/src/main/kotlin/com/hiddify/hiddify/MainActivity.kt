@@ -43,10 +43,12 @@ import com.hiddify.hiddify.nativeprofile.NativeProfileImportCancellation
 import com.hiddify.hiddify.nativeprofile.runNativeProfileRefresh
 import com.hiddify.hiddify.nativeprofile.refreshNativeProfileBatch
 import com.hiddify.hiddify.nativeprofile.NativeProfileRepository
+import com.hiddify.hiddify.nativeprofile.NativeSubscriptionUpdateNotifier
 import com.hiddify.hiddify.nativelog.NativeLogRepository
 import com.hiddify.hiddify.nativelog.NativeLogSnapshot
 import com.hiddify.hiddify.nativecore.NativeChainOptions
 import com.hiddify.hiddify.nativecore.NativeChainRepository
+import com.hiddify.hiddify.nativecore.NativeCoreControl
 import com.hiddify.hiddify.nativecore.NativeOutboundGroup
 import com.hiddify.hiddify.nativecore.NativeOutboundsRepository
 import com.hiddify.hiddify.nativecore.NativeSettingsTransferRepository
@@ -1217,12 +1219,22 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
 
     private suspend fun updateDueProfiles() {
         if (busyProfileId.value != null || profileEditorBusy.value) return
+        val changedNames = mutableListOf<String>()
+        var activeConfigurationChanged = false
         val loaded =
             withContext(Dispatchers.IO) {
                 profileOperationMutex.withLock {
                     val due = profileRepository.dueRemoteProfileIds()
                     if (due.isEmpty()) return@withLock null
-                    refreshNativeProfileBatch(due, { refreshRemoteCancellable(it) }) { id, error ->
+                    refreshNativeProfileBatch(due, { id ->
+                        var configChanged = false
+                        val profile = refreshRemoteCancellable(id,
+                            onConfigChanged = { configChanged = it })
+                        // Quota and expiry may change every 15 minutes; do not notify
+                        // about telemetry-only updates or interrupt the VPN for them.
+                        if (configChanged) changedNames += profile.name
+                        if (profile.active && configChanged) activeConfigurationChanged = true
+                    }) { id, error ->
                         Log.w(TAG, "automatic profile update failed for $id", error)
                     }
                     // Reload after attempted updates: a failure can occur after a committed DB write.
@@ -1233,11 +1245,40 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         profiles.value = loaded
         refreshProfileSnapshot()
         coreChangesSaved()
+        // Subscription metadata updates are visible without restarting the running VPN.
+        // Only the active profile's actual configuration bytes justify a reconnect.
+        val restarted = if (activeConfigurationChanged) reconnectAfterSubscriptionChange() else false
+        if (changedNames.isNotEmpty()) {
+            val delivered = NativeSubscriptionUpdateNotifier.show(applicationContext, changedNames,
+                restartingVpn = restarted, reconnectPending = activeConfigurationChanged && !restarted)
+            if (!delivered && nativeForeground) {
+                Toast.makeText(this, getString(R.string.native_subscription_updates_count,
+                    changedNames.size), Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
-    private suspend fun refreshRemoteCancellable(id: String): NativeProfile = runNativeProfileRefresh(
+    private suspend fun refreshRemoteCancellable(
+        id: String,
+        onChanged: ((Boolean) -> Unit)? = null,
+        onConfigChanged: ((Boolean) -> Unit)? = null,
+    ): NativeProfile = runNativeProfileRefresh(
         onCancellationFailure = { Log.w(TAG, "Native subscription cancellation failed", it) },
-    ) { cancellation -> profileRepository.refreshRemote(id, cancellation) }
+    ) { cancellation -> profileRepository.refreshRemote(id, cancellation, onChanged, onConfigChanged) }
+
+    /** Invoke on Main only after the repository has committed its new configuration. */
+    private fun reconnectAfterSubscriptionChange(): Boolean {
+        if (!Settings.connectionDesired || serviceStatus.value != Status.Started) return false
+        if (reconnectBusy.value || nativeStartPending || pendingStartAfterVpnPermission) {
+            Settings.nativeReconnectRequired = true
+            requiresReconnect.value = true
+            return false
+        }
+        // Try a zero-downtime Go HotReload first. The existing managed stop/start path
+        // remains the fallback for incompatible configurations or RPC failures.
+        reconnectWithSavedSettings(preferHotReload = true)
+        return true
+    }
 
     private fun selectProfile(profile: NativeProfile) {
         runProfileOperation(profile.id, requireDisconnected = true,
@@ -1255,14 +1296,19 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun refreshRemoteProfile(profile: NativeProfile) {
         if (!profile.isRemote) return
         var changed = false
+        var configChanged = false
+        var active = false
         runProfileOperation(profile.id, requireDisconnected = false, onSuccess = {
             Toast.makeText(this, getString(if (changed) R.string.native_profile_updated
                 else R.string.native_profile_unchanged, profile.name), Toast.LENGTH_LONG).show()
+            if (active && configChanged) reconnectAfterSubscriptionChange()
         }, failureMessage = { error ->
             getString(R.string.native_profile_refresh_failed, profile.name, error.message ?: error.javaClass.simpleName)
         }) {
             runNativeProfileRefresh { cancellation ->
-                profileRepository.refreshRemote(profile.id, cancellation) { changed = it }
+                profileRepository.refreshRemote(profile.id, cancellation,
+                    onChanged = { changed = it },
+                    onConfigChanged = { configChanged = it }).also { active = it.active }
             }
         }
     }
@@ -1272,17 +1318,26 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         if (remoteIds.isEmpty()) return
         var updated = 0
         var failed = 0
+        var activeConfigurationChanged = false
         runProfileOperation("update-all", requireDisconnected = false, onSuccess = {
             Toast.makeText(this, getString(R.string.native_profiles_refresh_result,
                 updated, remoteIds.size - updated), Toast.LENGTH_LONG).show()
+            if (activeConfigurationChanged) reconnectAfterSubscriptionChange()
         }, failureMessage = { error ->
+            // Some profiles may have updated successfully before a later download failed.
+            // Do not leave a changed active profile unapplied just because the batch is partial.
+            if (activeConfigurationChanged) reconnectAfterSubscriptionChange()
             getString(R.string.native_profiles_refresh_failed, failed.takeIf { it > 0 } ?: remoteIds.size,
                 remoteIds.size, error.message ?: error.javaClass.simpleName)
         }) {
             val failures = mutableListOf<String>()
             refreshNativeProfileBatch(remoteIds, { id ->
                 runNativeProfileRefresh { cancellation ->
-                    profileRepository.refreshRemote(id, cancellation) { if (it) updated++ }
+                    var configChanged = false
+                    val refreshed = profileRepository.refreshRemote(id, cancellation,
+                        onChanged = { if (it) updated++ },
+                        onConfigChanged = { configChanged = it })
+                    if (refreshed.active && configChanged) activeConfigurationChanged = true
                 }
             }) { _, error ->
                 failed++
@@ -2318,18 +2373,53 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
-    private fun reconnectWithSavedSettings() {
+    private fun reconnectWithSavedSettings(preferHotReload: Boolean = false) {
         if (reconnectBusy.value) return
         reconnectBusy.value = true
         clearRecoveryIndicator()
         reconnectJob = lifecycleScope.launch {
             try {
-                BoxService.stop(preserveIntent = true)
-                withTimeout(30_000) {
-                    while (serviceStatus.value != Status.Stopped || BoxService.hasActiveCore()) delay(100)
+                val hotReloadApplied = if (preferHotReload) {
+                    withContext(Dispatchers.IO) {
+                        BoxService.withNativeLifecycle {
+                            if (!Settings.connectionDesired || !BoxService.isStarted()) {
+                                false
+                            } else {
+                                try {
+                                    NativeCoreControl.hotReloadActiveProfile()
+                                } catch (cancelled: CancellationException) {
+                                    throw cancelled
+                                } catch (error: Exception) {
+                                    // A failed hot reload does not tear down the current Go service.
+                                    // An older core without this RPC also reaches the fallback.
+                                    Log.w(TAG, "Hot reload unavailable; falling back to managed reconnect", error)
+                                    false
+                                }
+                            }
+                        }
+                    }
+                } else false
+
+                if (hotReloadApplied && Settings.connectionDesired && BoxService.isStarted()) {
+                    // The tunnel is still connected; refresh the server list without replacing TUN.
+                    Settings.nativeAppliedQuickSettings = Settings.quickSettingsSignature(applicationContext)
+                    Settings.nativeReconnectRequired = false
+                    requiresReconnect.value = false
+                    com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
+                } else if (Settings.connectionDesired && (!preferHotReload || serviceStatus.value == Status.Started)) {
+                    BoxService.stop(preserveIntent = true)
+                    withTimeout(30_000) {
+                        while (serviceStatus.value != Status.Stopped || BoxService.hasActiveCore()) delay(100)
+                    }
+                    // Never resurrect the VPN after the user has pressed Disconnect.
+                    if (!Settings.connectionDesired) return@launch
+                    connection.reconnect()
+                    requestStart()
+                } else if (preferHotReload && Settings.connectionDesired) {
+                    // Startup is still in progress; apply changes on the next stable reconnect.
+                    Settings.nativeReconnectRequired = true
+                    requiresReconnect.value = true
                 }
-                connection.reconnect()
-                requestStart()
             } catch (timeout: kotlinx.coroutines.TimeoutCancellationException) {
                 Settings.connectionDesired = false
                 errorMessage.value = getString(R.string.native_connection_stop_timeout)

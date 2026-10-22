@@ -7,10 +7,16 @@ import java.time.ZoneId
 
 /** Subscription headers are untrusted; invalid metadata must not break profile updates. */
 object NativeSubscriptionMetadata {
+    // Matching the foreground scheduler: profiles without an explicit/provider
+    // interval are checked once per 15 minutes while the application is visible.
+    const val DEFAULT_AUTO_UPDATE_SECONDS = 15L * 60L
     const val INFINITE_TRAFFIC = 1_099_511_627_776_001L
     const val INFINITE_EXPIRE_SECONDS = 92_233_720_368L
 
     data class Usage(val upload: Long, val download: Long, val total: Long, val expireSeconds: Long)
+
+    fun effectiveUpdateIntervalSeconds(savedIntervalSeconds: Long?): Long =
+        savedIntervalSeconds?.takeIf { it > 0 } ?: DEFAULT_AUTO_UPDATE_SECONDS
 
     fun intervalSeconds(hours: Long?): Long? = hours
         ?.takeIf { it > 0 && it <= Long.MAX_VALUE / 3600L }
