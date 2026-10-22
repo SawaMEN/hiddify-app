@@ -20,7 +20,7 @@ internal object NativeSubscriptionUpdateNotifier {
     private const val CHANNEL_ID = "subscription_updates"
     private const val NOTIFICATION_ID = 4103
 
-    fun show(context: Context, changedNames: List<String>, restartingVpn: Boolean): Boolean {
+    fun show(context: Context, changedNames: List<String>, restartingVpn: Boolean, reconnectPending: Boolean = false): Boolean {
         if (changedNames.isEmpty()) return false
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
@@ -43,8 +43,11 @@ internal object NativeSubscriptionUpdateNotifier {
             } else {
                 context.getString(R.string.native_subscription_updates_count, changedNames.size)
             }
-            val body = context.getString(if (restartingVpn) R.string.native_subscription_updates_reconnecting
-                else R.string.native_subscription_updates_saved)
+            val body = context.getString(when {
+                restartingVpn -> R.string.native_subscription_updates_reconnecting
+                reconnectPending -> R.string.native_subscription_updates_pending
+                else -> R.string.native_subscription_updates_saved
+            })
             val intent = PendingIntent.getActivity(context, 0,
                 Intent(context, MainActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP),
