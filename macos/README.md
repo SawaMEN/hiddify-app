@@ -1,416 +1,82 @@
-# VetrOFF macOS (native Apple Silicon)
+# VetrOFF Client for macOS
 
-This directory is an **independent Swift 6 / SwiftUI macOS client**.
-It does not build, replace or change the existing Android Kotlin client.
-The default scope is **macOS 14+ / arm64**.
+Native SwiftUI client for macOS 14+ on Apple Silicon. The original VetrOFF
+artwork, Dock icon, dark/light/system appearance, sidebar, connection panel,
+profiles and searchable server list are included. Android is independent.
 
-## Current stage: in-extension core integration (not traffic-verified)
+## Available workflows
 
-Implemented:
-- Native Swift 6 / SwiftUI ARM64 macOS app, menu bar and diagnostics.
-- Real Network Extension Packet Tunnel target with native Go/libbox
-  PlatformInterface callbacks, Go lifecycle management and utun descriptors.
-- Static XCFramework built from a pinned SawaMEN/hiddify-core revision,
-  linked inside the extension rather than in the SwiftUI app.
-- Native IPv4/IPv6/DNS/MTU settings, included/excluded routes, network
-  interface enumeration, Keychain-backed profiles and status diagnostics.
-- Cancellation-aware Go startup, stop cleanup and ARM64 CI compilation/tests.
+- Add a subscription from the home page, sidebar, toolbar or Command-N.
+- Paste HTTPS, `hiddify://import/`, `vetroff://import/`, server links,
+  Base64 subscriptions, JSON or Clash YAML. Command-Shift-V opens clipboard import.
+- Import a file, rename, export or delete a profile with confirmation.
+- Refresh one or all subscriptions, retain working data on download failure,
+  preserve the selected URI when a subscription is reordered.
+- Select a URI server, search nodes and run bounded TCP port reachability checks
+  for supported stream protocols. TCP checks are not VPN latency or speed tests.
+- Choose automatic refresh every 1/6/12/24 hours while the app is open and VPN
+  is off. This does not schedule work after the application exits.
+- Install the system VPN configuration and connect from a provisioned build
+  containing the native Go core; disconnect and switch profiles from the menu bar.
 
-Still requiring on-device verification or implementation:
-- Signed runtime test with real TCP/UDP packets and IPv4/IPv6/DNS leak checks.
-- Full subscription/protocol compatibility (HTTPS subscription fetching and foreground refresh are implemented, but the Go-core runtime acceptance matrix remains unverified).
-- Fail-safe DNS and IPv6 behavior, default-interface changes, sleep/wake.
-- Production signing, distribution, notarization and complete test coverage.
+JSON and YAML configurations are passed whole to the Go core. Listing their
+internal outbound groups, runtime traffic counters, per-app routing and Android
+free-profile generators are not implemented in the macOS UI. There are no
+placeholder switches or fabricated network statistics for those features.
 
-An integrated **Debug-only** client exposes an explicitly labelled manual
-connection test for local JSON profiles. The regular project and Release
-remain gated. A passing CI build is **not** evidence of a working VPN.
+## Keychain and distribution
 
-## Architecture
+The ad-hoc DMG can manage subscriptions using the host application's private
+login Keychain. It cannot run Network Extension without Apple's capabilities.
+A provisioned app and extension use the shared **data protection Keychain**;
+the host migrates private preview entries on access. The extension never falls
+back to application-only storage. Only profile metadata goes into UserDefaults;
+subscription URLs, credentials and configuration contents stay in Keychain.
+Export deliberately writes a user-selected plaintext file containing credentials.
 
-```text
-VetrOFF.app (SwiftUI; Swift 6)
-  └─ Native app services (Foundation / Keychain / NetworkExtension)
-       └─ NETunnelProviderManager
-            └─ PacketTunnel.appex (NEPacketTunnelProvider)
-                 └─ direct in-process Go/libbox bridge (no proxy daemon or gRPC hop)
-                      └─ SawaMEN/hiddify-core (sing-box-based protocol engine)
-```
+The core-integrated project defines `VETROFF_NATIVE_CORE` in both Debug and
+Release. Connect checks actual VPN and shared-Keychain entitlements; a no-core
+build or ad-hoc preview explains the missing capability. The extension validates
+configuration before installing routes and reports startup success only after
+Go opens TUN and network settings complete. A successful build is not proof of
+packet forwarding, DNS/IPv6 safety or sleep/wake reliability.
 
-A generated gomobile Objective-C bridge or an explicit C ABI is the one
-necessary language boundary for the Go engine; it is not a separate
-networking process. The engine **must run inside the extension** for
-system packet tunneling. Implement a tested `libbox.PlatformInterface`
-adapter for the native packet flow and socket protection; confirm
-packet forwarding on a signed test device before enabling Release controls.
+A usable VPN installer still requires Developer ID signing, separate app and
+extension provisioning profiles, Apple notarization and physical Mac acceptance.
+See [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) and
+[ON_DEVICE_TESTING.md](ON_DEVICE_TESTING.md). Never advertise the ad-hoc DMG as a
+working VPN installer. The public signed-release workflow retains its physical
+acceptance gate.
 
-The companion [SawaMEN/hiddify-core](https://github.com/SawaMEN/hiddify-core)
-can build a desktop C shared library or the **static macOS/arm64
-XCFramework used here**. The desktop C ABI alone does not provide the
-libbox platform callback required for a Network Extension. The pinned
-mobile-binding XCFramework is built and link-tested by GitHub Actions
-against the extension; physical-device operation is a separate gate.
+## Build and validation
 
-## Generate and build
-
-Requires a Mac running Xcode 16+ and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
-XcodeGen is a **build-time only** project generator; it adds no dependency
-to the compiled application.
+On a Mac with Xcode 16+ and XcodeGen:
 
 ```sh
 brew install xcodegen
-xcodegen generate --spec macos/project.yml --project macos
-xcodebuild -project macos/VetrOFF.xcodeproj \
-  -scheme VetrOFF -configuration Debug -destination 'generic/platform=macOS' \
-  ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build
+bash macos/scripts/generate-xcode-project.sh
+xcodebuild -project macos/VetrOFF.xcodeproj -scheme VetrOFF \
+  -configuration Debug -destination 'platform=macOS,arch=arm64' \
+  CODE_SIGNING_ALLOWED=NO test
 ```
 
-Unsigned CI builds validate compilation only. Running a real tunnel
-requires an Apple development team, proper Network Extension entitlements,
-signing and explicit macOS VPN permission.
+Without `macos/Core/HiddifyCore.xcframework` this builds the native UI and tests.
+With the pinned framework, the script links Go only into PacketTunnel, never
+into the main app process. A shared core performs protocol parsing and packet
+forwarding; Swift does not duplicate proxy stacks or use a localhost RPC hop.
+
+`macos-dmg.yml` builds one ARM64 DMG and launches the installed app. Its opt-in
+smoke test exercises actual private-Keychain profile add/read/select/rename/delete
+and checks that the SwiftUI window remains alive. Source tests cover import
+wrappers, token preservation, Base64, source formats, vault scope boundaries,
+subscription validation, routing and tunnel lifecycle. Device networking tests
+remain separate from these checks.
 
 ## Engineering rules
 
-1. Never edit, delete or reformat `android/`. macOS workflows must not
-   call Android build steps.
-2. The app UI is SwiftUI; use Foundation, Security and NetworkExtension
-   rather than Flutter, Dart, Kotlin or Electron.
-3. Keep the Go engine as the sole protocol implementation: no duplicate
-   Swift TLS/proxy stacks, no localhost RPC/proxy hop in the packet path.
-4. Do not report connected before `setTunnelNetworkSettings` succeeds
-   and the real packet-forwarding loop is active.
-5. Keep credentials out of UserDefaults, logs, process arguments and
-   plaintext shared containers; use Keychain and carefully scoped
-   extension sharing.
-6. Add connection, DNS leak, IPv6, sleep/wake, Wi-Fi transition, crash
-   recovery, cancellation and subscription compatibility tests before
-   the first release.
-7. Verify protocol/transport parity *against the pinned forked Go core*;
-   available build tags alone do not establish runtime support.
-
-### Compatibility targets
-
-- Preserve VetrOFF's regional routing, profile formats, server selection,
-  privacy options and diagnostics where macOS exposes suitable APIs.
-- Document platform-specific gaps such as Android per-app VPN and hotspot
-  sharing instead of silently presenting unsupported toggles.
-- Preserve license notices and review distribution obligations before
-  packaging releases.
-
-## Stage 4 subscription reliability
-
-- HTTPS subscriptions are downloaded only while macOS app is open and the VPN is not active. The 12-hour stale rule and in-app hourly scheduler do **not** guarantee background refresh after quitting.
-- The subscription envelope accepts standard and URL-safe unpadded Base64 and strictly rejects unexpected characters; decoded content remains limited to recognized JSON/YAML/URI configurations.
-- A byte-identical subscription refresh updates the last-checked time without rewriting shared-Keychain payloads or changing the selected node. A changed subscription preserves the selected URI when still available.
-- Manual refresh explicitly reports whether configuration content changed. Downloads and server details are not logged.
-- The Release VPN connection remains disabled until a signed physical Apple Silicon Mac passes packet-flow and DNS/IPv6 safety tests. A successful unsigned CI build is not a working installer or proof of tunnel connectivity.
-
-## Native profile and system integration milestone
-
-- `VPNController` can load existing matching `NETunnelProviderManager` entries,
-  install a single system VPN configuration and observe status changes.
-- `ProfileSource` currently validates **only** JSON structure or known URI
-  prefixes. It does not parse/convert subscriptions or prove core support.
-- `ProfileStore` stores only nonsecret metadata in UserDefaults. Raw URLs,
-  subscription tokens, JSON credentials and secrets live in Keychain.
-- The normal app / Release Connect button remains disabled. Only the
-  integrated Debug test exposes manual connection for JSON profiles.
-  Installing a VPN preference does not prove packet forwarding.
-- ARM64 CI builds and **executes** unit tests for source, routing,
-  diagnostics, cancellation and lifecycle behavior.
-
-Swift 6 strict concurrency: the Apple NetworkExtension SDK exposes some
-async Objective-C methods returning non-Sendable manager objects. The native
-controller uses `@preconcurrency import NetworkExtension` pending upstream
-SDK annotations; confinement to `@MainActor` is maintained throughout.
-
-## macOS menu bar and persistence
-
-The app and the menu bar share a single `VPNController` instance to avoid
-multiple independent connections or competing observers. The selected profile
-UUID persists in UserDefaults (the profile content remains in Keychain).
-The menu bar currently shows VPN status and permits disconnect; it does not
-claim the unavailable core is connected.
-
-The CI job runs (not just compiles) native Swift source-format tests on the
-ARM64 macOS runner. Network Extension signing and actual VPN traffic are
-separate physical-device acceptance gates.
-
-## Shared Keychain boundary
-
-Both signed targets (app and Packet Tunnel) request
-`$(AppIdentifierPrefix)app.vetroff.client.macos.shared` through
-`keychain-access-groups`. The Info.plist expands the same group for Keychain
-queries. Unsigned builds can compile but cannot exercise the shared Keychain:
-an Apple provisioning profile and real device test are required.
-
-The system tunnel start contract is an opaque `profileID` UUID only.
-The extension resolves credentials locally from Keychain. It intentionally
-refuses startup until the libbox packet engine is wired, and it never stores
-configuration secrets in Network Extension preferences or connect options.
-Existing experimental default-group Keychain items require an explicit
-migration; never assume they are readable under the shared group.
-
-## Verified direct native core smoke-test
-
-`macos/Integration/CoreSmoke.swift` imports the generated
-`HiddifyCore` Objective-C/Swift module and calls the forked
-`MobileTest()` function in-process. The separate core workflow now
-runs the resulting Apple Silicon executable after building the
-`macos/arm64` XCFramework and before uploading it. The core artifact
-is not bundled with the regular lightweight UI-only CI yet; no user
-tunnel connection is advertised by this smoke test.
-
-**Signing hardening:** The Keychain group is now read from the actual
-`keychain-access-groups` code-signing entitlement using the public Security
-framework, rather than assuming Xcode expands a value in Info.plist. A
-missing/unprovisioned group fails closed; neither target silently falls back
-to an unshared Keychain.
-
-### ARM64 core artifact optimization
-
-Native Core CI now builds only `macos/arm64`, with `-s -w`
-stripping unnecessary debug/linker symbols and `-macosversion=14.0`.
-This is a **build size** optimization, not a claim of runtime speed
-improvement. The heavy Go framework workflow runs only when its
-build script or workflow changes (or manually), rather than rerunning
-on every UI change in the draft PR.
-
-The core is a **static** XCFramework. A standalone Swift linker must also
-link the Apple frameworks used by Chromium/Cronet inside the core (AppKit,
-CoreText, Network, SystemConfiguration, UniformTypeIdentifiers, and related
-system frameworks) plus `libresolv`; Xcode must carry these linkage settings
-when the core becomes a target dependency. The smoke job verifies this list.
-
-## Optional direct in-extension Go linking
-
-Place the CI-built framework at `macos/Core/HiddifyCore.xcframework`
-(or symlink that path to the artifact), then run:
-
-```sh
-bash macos/scripts/generate-xcode-project.sh
-xcodebuild -project macos/VetrOFF.xcodeproj -scheme VetrOFF \
-  -configuration Debug -destination 'generic/platform=macOS' \
-  ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build
-```
-
-The generator adds the **static** HiddifyCore only to `PacketTunnel` and
-sets its required Apple framework linker flags. No Go runtime or additional
-networking process is linked into `VetrOFF.app` itself.
-
-`NativeCoreProbe` is compile-time optional; it tests that the bundled
-forked Go module can be reached from Swift. A working VPN connection still
-requires the callback adapter, native TUN file descriptor and real traffic
-verification before the disabled Connect button is unlocked.
-
-For Chromium/Cronet's macOS Mach audit-token APIs the static link must also
-include `libbsm` (`-lbsm`). This is a system library, not another process or
-runtime networking layer.
-
-## Native TUN routes
-
-The embedded libbox OpenTun callback now maps explicitly supplied IPv4/IPv6
-included and excluded routes into NetworkExtension without flattening them
-into unconditional default routes. If the Go engine requests auto-route but
-no explicit routes, it installs the protocol-family default route.
-This preserves the network-routing control plane and avoids per-packet
-Swift translation. macOS application-level routing rules need separate
-platform-specific design and testing; Android per-app rules are not copied.
-
-## Signing-only manual integration test
-
-The **integrated Xcode generator** adds the internal compile condition
-`VETROFF_NATIVE_CORE_TESTING` to the SwiftUI app. With `DEBUG` and that
-condition, the home screen permits an explicitly labelled **test** connection
-for local **JSON profiles only**. It passes the selected UUID through
-`NETunnelProviderManager.connection.startVPNTunnel(options:)`.
-
-The normal lightweight project and every Release configuration do **not**
-expose the test connection. The real Go OpenTun callback must return a valid
-utun descriptor after macOS network settings have been applied; failures
-are reported to NetworkExtension instead of claiming success.
-
-This is not an end-to-end-verified VPN. Install a signed macOS build with
-the Network Extension and shared Keychain entitlements on an actual Apple
-Silicon Mac, approve the VPN configuration, and independently validate
-TCP, UDP, DNS, IPv6, sleep/wake, network switches and leak behavior.
-
-## On-device diagnostics without an RPC daemon
-
-The Diagnostics screen uses Apple's built-in
-`NETunnelProviderSession.sendProviderMessage` / `handleAppMessage`
-channel. The extension accepts only the exact fixed `VETROFF_STATUS_V1`
-request and returns a version, whether the linked Go framework responds,
-and the in-process lifecycle state. It never returns profile contents,
-credentials, server addresses or subscription URLs.
-
-The `trafficVerified` flag intentionally remains false until a signed
-physical-Mac acceptance test proves actual packet forwarding. These
-diagnostics **do not** establish an active or private internet connection.
-
-## Next physical-Mac milestone
-
-Follow [ON_DEVICE_TESTING.md](ON_DEVICE_TESTING.md) on an Apple Silicon
-Mac to sign both targets, approve VPN permissions and explicitly measure
-packet routing, DNS/IPv6 behavior and sleep/wake. Do not mark the Release
-connection enabled until those results are reviewed.
-
-### macOS-specific forked Go TUN activation
-
-Pinned `hiddify-core` revision `37ed16781062332d2269e57d2bf1a85d6a4e2717` comes from
-[SawaMEN/hiddify-core PR #8](https://github.com/SawaMEN/hiddify-core/pull/8).
-The standard `mobile.Start` and default `EnableTun=false` remain unchanged
-for Android. The extension instead calls `MobileStartPacketTunnel`, which
-explicitly enables the TUN inbound, strict full routes and encrypted DNS
-bootstrap, while disabling local SOCKS/mixed/Clash listeners and system proxy.
-
-After Go returns, `NativeTunnelEngine` independently verifies that its
-`CorePlatformInterface.OpenTun` callback acquired a real utun FD. Returning
-success without the callback is treated as a failed connection. This is a
-required *startup invariant*, not proof that TCP/UDP forwarding works on a
-signed Mac.
-
-The core CI artifact now contains the pinned Go commit prefix in its filename.
-The integrated Swift-Go build refuses to download an artifact from the
-old revision, preventing a false-positive integration test.
-
-This opt-in Go entrypoint is guarded by `//go:build darwin` in the core
-fork so it is **excluded** from Android and Linux builds at compile time.
-
-The native Packet Tunnel uses a **non-persistent** hcore start context:
-the usual `lastStartRequestContent` database entry and
-`data/current-config.json` credential-bearing file are not written, and
-the sing-box log path is set to `/dev/null`. This path is opt-in only;
-Android and other core starts retain their original persistence behavior.
-The signed-device acceptance test must still check stderr and operating
-system diagnostic logs for inadvertent secrets.
-
-### Fail-closed full-tunnel route validation
-
-The native NetworkExtension mapper now requires **both** IPv4 and IPv6
-address families for a managed full-tunnel start. If Go supplied only one
-family, the extension fails startup instead of silently routing the other
-family over the physical interface. This is deliberately conservative:
-an IPv4-only full-tunnel profile will not connect until its IPv6 block or
-a safe single-stack policy is explicitly implemented and verified.
-
-When Go provides explicit included subnet routes, the `0.0.0.0/0` and
-`::/0` default routes remain present in full-tunnel mode; explicit
-subnets no longer accidentally replace the default route. Already
-provided defaults are not duplicated.
-
-The default-interface monitor filters out utun and loopback, checks
-`NWPath.status`, and accepts only interfaces of types that the
-current path can use. It is still not a substitute for signed-device
-verification of the effective route table.
-
-## Downloadable macOS developer-preview release
-
-The rolling [dev-latest release](https://github.com/SawaMEN/hiddify-app/releases/tag/dev-latest)
-contains exactly one Android APK and one `VetrOFF-macOS-arm64.dmg`.
-The shared release job waits for both builds; it uploads the pair before
-removing obsolete ZIPs, checksums, notices and superseded installers.
-
-`.github/workflows/macos-dmg.yml` builds the Release app with its pinned
-Go core and PacketTunnel.appex. `sign-preview.sh` applies ad-hoc signatures
-inside out, without unprovisioned Network Extension or shared Keychain
-entitlements. `package-dmg.sh` refuses an invalid bundle signature.
-`smoke-dmg-launch.sh` mounts the actual DMG, copies the app to a fresh
-installation folder and requires its SwiftUI main window to appear and
-its process to remain alive. A failed launch blocks release publication.
-
-This is still a technical UI preview, not a working VPN release. Ad-hoc
-signing does not provide Developer ID trust or notarization; Gatekeeper
-may require the user to explicitly approve opening the app in macOS
-Privacy & Security settings. VPN and shared Keychain capabilities require
-Apple signing/provisioning and physical Mac traffic acceptance. The
-separate protected signed-build workflow remains available for that work.
-
-## Signed macOS stage-1 device build
-
-`APPLE_TEAM_ID=<10-character-team-id> bash macos/scripts/build-signed-debug.sh`
-creates a **locally signed Debug** app from the pinned in-process Go
-XCFramework. It verifies code signatures and required Network Extension
-and shared Keychain entitlements for **both** binaries, failing if the
-Apple Developer Team has not provisioned the capabilities. After the
-preflight passes it creates one local signed Debug DMG at
-`macos/build/VetrOFF-macOS-arm64-signed-debug.dmg`.
-
-This script requires a configured Apple Developer account on an actual
-Apple Silicon Mac. It does not download private signing keys or upload
-credentials. No unsigned CI DMG is a substitute for a signed device test.
-The Production Release VPN gate stays disabled until the on-device
-`macos/ON_DEVICE_TESTING.md` matrix passes.
-
-
-## Stage 2 — native subscriptions and server selection (experimental)
-
-- `ProfileSource` identifies line-separated URI bundles (VLESS, VMess,
-  Trojan, Shadowsocks, Hysteria2, TUIC, Naïve and more) without attempting
-  to decode protocol secrets or TLS configuration in Swift. Parsing and
-  validation are **still performed by the pinned Go core** at connection.
-- HTTPS subscription URLs are downloaded from the app through an ephemeral
-  `URLSession` (30s resource timeout). Redirects must remain HTTPS and may
-  not target localhost/private textual IPs. Downloaded files and decoded
-  payloads are capped at 8 MiB before reading them into memory. Supports
-  plain, Base64-wrapped link bundles, JSON and Clash YAML.
-- The original subscription address, cached content and active server
-  (unaltered URI) are separate entries in the *shared signed Keychain*;
-  the SwiftUI menu shows only server indexes and schemes, never passwords.
-  Repeated refreshes retain the last usable content when download fails.
-- Debug-mode `PacketTunnelProvider` now resolves the **active** source
-  directly from Keychain using the existing opaque profile UUID. A
-  subscription must be refreshed before it becomes connectable.
-- JSON/YAML multi-outbound policies currently go unchanged to Go (no
-  fabricated independent server picker). Only plain URI lists expose
-  per-server selection. Automatic refresh is checked when the app launches and once per hour
-  while it stays open (only when the VPN is stopped); subscriptions older
-  than 12 hours are refreshed. Refresh never runs after the app exits.
-  Cross-origin HTTPS redirects are rejected to avoid disclosing signed
-  subscription URLs to a second hostname. Go-based profile
-  preflight, latency measurements and full format compatibility are still
-  future work. These features do not unlock Release VPN.
-
-### Stage-2 Go-native profile preflight and TCP reachability
-
-The pinned Go core already exposes cancellation-aware
-`MobileBeginProfileValidation`, `MobileValidateProfile`,
-`MobileCancelProfileValidation`, and `MobileFinishProfileValidation`.
-The Network Extension's `NativeProfilePreflight` (stage-1 PR #83)
-invokes these on the serialized startup worker **before MobileSetup and
-macOS VPN route installation**, and a Stop request cancels any pending
-validation. No user-supplied config or parser error containing private
-URI data is logged by the Swift preflight layer.
-
-The stage-2 integration smoke test uses the pinned XCFramework to check
-Go accepts a nonsecret example proxy and rejects malformed input.
-The ordinary UI still performs format classification only because the
-Go runtime is intentionally linked inside the extension, not also into
-the main UI process. A standalone import-time Go validator is not
-claimed. The remaining physical-device tests must confirm this
-preflight path rejects invalid profiles while the system route table
-remains unchanged.
-
-The server list offers an on-demand **TCP port reachability** test for
-supported stream transports. It is not authenticated protocol latency,
-end-to-end VPN responsiveness or a throughput benchmark. UDP-first
-transports (Hysteria2, TUIC and Naïve QUIC) are deliberately excluded
-rather than showing a misleading TCP timing. Each test is bounded to
-five seconds and has no persistent credential-bearing output.
-
-
-## Stage 3: signed distribution, notarization, updates
-
-The protected GitHub Actions workflow `macos-signed-dmg.yml` creates a
-single Developer ID-signed ARM64 disk image from the **Release** app and
-embedded PacketTunnel, with separate validated provisioning profiles.
-It enforces Apple notarization and staples the resulting ticket before
-publishing. Its default private-test mode does **not** create a public
-GitHub Release. Review `macos/RELEASE_CHECKLIST.md` to set up protected
-secrets and to complete physical-device acceptance.
-
-SwiftUI now offers an opt-in **check for signed macOS updates** action.
-It considers only newer semantic versions with exactly one matching DMG,
-and opens the corresponding repository release page — there is no
-background downloader or untrusted executable installer. The disabled
-Release VPN gate is unchanged.
+1. Keep changes scoped to macOS and its CI. Do not modify Android for macOS work.
+2. Use native SwiftUI, Foundation, Security and NetworkExtension.
+3. Keep secrets out of logs, defaults, diagnostics and Network Extension options.
+4. Trust system VPN status; never display simulated connection success or traffic.
+5. Preserve working profiles when imports or subscription downloads fail.
+6. Validate signed tunnel traffic, DNS, IPv6, reconnect and sleep/wake on a real Mac.

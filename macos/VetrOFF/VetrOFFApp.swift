@@ -11,10 +11,20 @@ struct VetrOFFApp: App {
     var body: some Scene {
         WindowGroup(id: "main") {
             ContentView(vpn: vpn, profiles: profiles)
-                .frame(minWidth: 760, minHeight: 520)
+                .frame(minWidth: 900, minHeight: 640)
         }
-        .defaultSize(width: 920, height: 640)
+        .defaultSize(width: 1100, height: 780)
         .windowResizability(.contentMinSize)
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("Добавить подписку…") {
+                    NotificationCenter.default.post(name: .clientAddProfile, object: nil)
+                }.keyboardShortcut("n")
+                Button("Импортировать из буфера…") {
+                    NotificationCenter.default.post(name: .clientImportClipboard, object: nil)
+                }.keyboardShortcut("v", modifiers: [.command, .shift])
+            }
+        }
 
         MenuBarExtra("VetrOFF", systemImage: "network") {
             VetrOFFMenuBar(vpn: vpn, profiles: profiles)
@@ -28,7 +38,6 @@ private struct VetrOFFMenuBar: View {
 
     @Environment(\.openWindow) private var openWindow
     @AppStorage("macos.selectedProfileID.v1") private var selectedProfileID = ""
-    @AppStorage("macos.autoRefreshSubscriptions") private var autoRefreshSubscriptions = true
 
     private var selectedID: UUID? { UUID(uuidString: selectedProfileID) }
 
@@ -55,8 +64,8 @@ private struct VetrOFFMenuBar: View {
 
         if let selectedID, vpn.isCoreReady, vpn.isInstalled,
            vpn.status == .disconnected,
-           profiles.isReadyForDebugConnect(selectedID) {
-            Button("Тестировать VPN (Debug)") {
+           profiles.isReadyForConnect(selectedID) {
+            Button("Подключить VPN") {
                 vpn.connect(profileID: selectedID)
             }
             .disabled(profiles.refreshing.contains(selectedID))
@@ -64,10 +73,10 @@ private struct VetrOFFMenuBar: View {
         if vpn.canStop {
             Button("Отключить VPN") { vpn.stop() }
         }
-        if autoRefreshSubscriptions && !vpn.canStop &&
+        if !vpn.canStop &&
             !profiles.profiles.filter({ $0.format == .subscriptionURL }).isEmpty {
             Button("Обновить подписки") {
-                Task { await profiles.refreshStaleSubscriptions(maxAge: 0) }
+                Task { await profiles.refreshStaleSubscriptions(maxAge: 0) { !vpn.canStop } }
             }
         }
         Divider()

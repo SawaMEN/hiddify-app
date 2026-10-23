@@ -64,6 +64,8 @@ jobs:
           test "$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')" = 1
 
       - name: Launch the application installed from the finished DMG
+        env:
+          VETROFF_SCREENSHOT_DIR: ${{ runner.temp }}/macos-screenshots
         run: bash macos/scripts/smoke-dmg-launch.sh dist/VetrOFF-macOS-arm64.dmg
 
       - name: Upload the single tested DMG for the shared release
@@ -73,3 +75,11 @@ jobs:
           path: dist/VetrOFF-macOS-arm64.dmg
           retention-days: 7
           if-no-files-found: error
+
+      - name: Upload native UI screenshot
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: macos-ui-screenshot
+          path: ${{ runner.temp }}/macos-screenshots
+          if-no-files-found: ignore

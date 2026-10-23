@@ -3,8 +3,8 @@ import Foundation
 import Observation
 import Security
 
-/// System VPN preferences only. The transport stays disabled until the
-/// in-extension libbox adapter has passed end-to-end packet tests.
+/// The system VPN status is authoritative. Only a core-integrated, correctly
+/// provisioned app can start the embedded Network Extension.
 @MainActor
 @Observable
 final class VPNController {
@@ -110,20 +110,36 @@ final class VPNController {
         refreshStatus()
     }
 
-    // Never start an unimplemented tunnel: reporting success would silently
-    // blackhole traffic. This gate is removed ONLY when the in-extension core
-    // lifecycle and packet forwarding are proven.
+    private var hasSharedKeychain: Bool {
+        guard let task = SecTaskCreateFromSelf(kCFAllocatorDefault),
+              let groups = SecTaskCopyValueForEntitlement(
+                task, "keychain-access-groups" as CFString, nil
+              ) as? [String] else { return false }
+        return groups.contains { $0.hasSuffix(".app.vetroff.client.macos.shared") }
+    }
+
     var isCoreReady: Bool {
-        #if DEBUG && VETROFF_NATIVE_CORE_TESTING
-        hasVPNEntitlement
+        #if VETROFF_NATIVE_CORE
+        hasVPNEntitlement && hasSharedKeychain
         #else
         false
         #endif
     }
 
+    var availabilityMessage: String? {
+        #if VETROFF_NATIVE_CORE
+        guard hasVPNEntitlement && hasSharedKeychain else {
+            return "Эта сборка позволяет управлять подписками. Для VPN установите подписанную сборку с разрешением Apple Network Extension."
+        }
+        return nil
+        #else
+        return "В этой сборке отсутствует сетевое ядро. Установите полную macOS-сборку VetrOFF для подключения VPN."
+        #endif
+    }
+
     func connect(profileID: UUID) {
         guard isCoreReady else {
-            errorMessage = "Подключение доступно только в подписанной тестовой сборке со встроенным Go-ядром."
+            errorMessage = availabilityMessage
             return
         }
         guard let manager, isInstalled else {
@@ -163,7 +179,7 @@ final class VPNController {
                 Task { @MainActor [weak self] in
                     if let reply {
                         let linked = reply.coreLinked ? "загружено" : "отсутствует"
-                        self?.diagnosticMessage = "Go: \(linked), стадия: \(reply.lifecycleState). Передача пакетов не подтверждена."
+                        self?.diagnosticMessage = "Go: \(linked), стадия: \(reply.lifecycleState)."
                     } else {
                         self?.diagnosticMessage = "Packet Tunnel не ответил на запрос диагностики."
                     }
