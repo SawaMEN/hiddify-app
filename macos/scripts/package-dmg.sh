@@ -18,7 +18,7 @@ fi
 APP_BIN="$APP/Contents/MacOS/VetrOFF"
 TUN_BIN="$APP/Contents/PlugIns/PacketTunnel.appex/Contents/MacOS/PacketTunnel"
 for binary in "$APP_BIN" "$TUN_BIN"; do
-    if [[ ! -f "$binary" ]]; then
+    if [[ ! -x "$binary" ]]; then
         echo "Missing expected macOS executable: $binary" >&2
         exit 1
     fi
@@ -36,6 +36,10 @@ if [[ "$(plutil -extract CFBundleIdentifier raw -o - "$APP/Contents/PlugIns/Pack
     echo "Unexpected PacketTunnel application identifier." >&2
     exit 1
 fi
+
+# An intact disk image is insufficient: reject unsigned or damaged bundles
+# before packaging. Preview signing and Developer ID signing happen upstream.
+codesign --verify --deep --strict --verbose=2 "$APP"
 
 mkdir -p "$(dirname "$OUTPUT")"
 OUTPUT="$(cd "$(dirname "$OUTPUT")" && pwd)/$(basename "$OUTPUT")"
