@@ -8,6 +8,12 @@ final class ProfileImportTests: XCTestCase {
         XCTAssertEqual(try ProfileImport.normalize("vetroff://import/" + source), source)
     }
 
+    func testShareLinkDisplayFragmentIsNotSentToSubscriptionServer() throws {
+        let address = "https://example.com/sub?token=a%2Fb%3D"
+        XCTAssertEqual(try ProfileImport.normalize(address + "#My%20subscription"), address)
+        XCTAssertEqual(try ProfileImport.normalize("hiddify://import/" + address + "#Name"), address)
+    }
+
     func testEncodedWrappedURL() throws {
         XCTAssertEqual(try ProfileImport.normalize(
             "hiddify://import/https%3A%2F%2Fexample.com%2Fsub%3Ftoken%3Dx"

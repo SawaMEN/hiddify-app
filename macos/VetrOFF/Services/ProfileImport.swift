@@ -15,11 +15,20 @@ enum ProfileImport {
             // A raw nested URL must retain its percent-encoded query token.
             let source = payload.lowercased().hasPrefix("https://")
                 ? payload : (payload.removingPercentEncoding ?? payload)
-            guard let target = URL(string: source) else { throw ProfileSourceError.invalidSubscription }
-            try SubscriptionDownloader.validate(target)
-            return source
+            return try subscriptionURL(source)
         }
-        if (try? ProfileSource.classify(text)) != nil { return text }
+        if let kind = try? ProfileSource.classify(text) {
+            return kind == .subscriptionURL ? try subscriptionURL(text) : text
+        }
         return try ProfileSource.decodeSubscription(Data(text.utf8))
+    }
+
+    private static func subscriptionURL(_ source: String) throws -> String {
+        // Share links may append a display name as #fragment. Fragments are
+        // not request data; remove only that suffix, preserving encoded tokens.
+        let address = String(source.prefix { $0 != "#" })
+        guard let url = URL(string: address) else { throw ProfileSourceError.invalidSubscription }
+        try SubscriptionDownloader.validate(url)
+        return address
     }
 }
