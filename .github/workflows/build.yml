@@ -1,4 +1,4 @@
-name: Build Android ARM64
+name: Build Android APK and macOS DMG
 
 on:
   workflow_call:
@@ -28,6 +28,13 @@ env:
   APK_NAME: "${{ inputs.channel == 'dev' && 'vetroff-Android-arm64-v8a-dev.apk' || 'vetroff-Android-arm64-v8a.apk' }}"
 
 jobs:
+  build-macos:
+    if: ${{ inputs.upload-artifact }}
+    uses: ./.github/workflows/macos-dmg.yml
+    permissions:
+      contents: read
+      actions: read
+
   analyze:
     if: ${{ inputs.run-checks }}
     runs-on: ubuntu-latest
@@ -273,12 +280,14 @@ jobs:
       - analyze
       - test
       - build-android-arm64
+      - build-macos
     if: >-
       ${{
         always() &&
         inputs.upload-artifact &&
         inputs.tag-name == 'draft' &&
         needs.build-android-arm64.result == 'success' &&
+        needs.build-macos.result == 'success' &&
         (needs.analyze.result == 'success' || needs.analyze.result == 'skipped') &&
         (needs.test.result == 'success' || needs.test.result == 'skipped')
       }}
@@ -298,12 +307,11 @@ jobs:
           name: android-arm64-v8a
           path: ./out
 
-      - name: Delete current draft assets
-        uses: 8Mi-Tech/delete-release-assets-action@71a740cf4364bc69448e0294b8abadffadfb3288
+      - name: Download tested macOS DMG
+        uses: actions/download-artifact@v8.0.1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: draft
-          deleteOnlyFromDrafts: false
+          name: macos-dmg
+          path: ./out
 
       - name: Prepare release message
         continue-on-error: true
@@ -315,23 +323,33 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: ./out/${{ env.APK_NAME }}
+          fail_on_unmatched_files: true
+          files: |
+            ./out/${{ env.APK_NAME }}
+            ./out/VetrOFF-macOS-arm64.dmg
           name: draft
           tag_name: draft
           body_path: ./release.md
           prerelease: true
+
+      - name: Keep exactly one APK and one DMG in draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 tool/prune_release_assets.py draft "$APK_NAME" VetrOFF-macOS-arm64.dmg
 
   upload-release:
     needs:
       - analyze
       - test
       - build-android-arm64
+      - build-macos
     if: >-
       ${{
         always() &&
         inputs.upload-artifact &&
         inputs.tag-name != 'draft' &&
         needs.build-android-arm64.result == 'success' &&
+        needs.build-macos.result == 'success' &&
         (needs.analyze.result == 'success' || needs.analyze.result == 'skipped') &&
         (needs.test.result == 'success' || needs.test.result == 'skipped')
       }}
@@ -347,6 +365,12 @@ jobs:
         uses: actions/download-artifact@v8.0.1
         with:
           name: android-arm64-v8a
+          path: ./out
+
+      - name: Download tested macOS DMG
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: macos-dmg
           path: ./out
 
       - name: Move rolling dev tag to current commit
@@ -377,17 +401,13 @@ jobs:
           tag_name: ${{ inputs.tag-name }}
           target_commitish: ${{ github.sha }}
           body_path: ./release.md
-          files: ./out/*.apk
+          fail_on_unmatched_files: true
+          files: |
+            ./out/${{ env.APK_NAME }}
+            ./out/VetrOFF-macOS-arm64.dmg
 
-      - name: Remove obsolete update feed assets from this release
+      - name: Keep exactly one APK and one DMG after both uploads succeeded
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TAG: ${{ inputs.tag-name }}
-        run: |
-          set -euo pipefail
-          asset_ids=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" \
-            --jq '.assets[] | select(.name == "SHA256SUMS" or .name == "update.json" or .name == "appcast.xml") | .id')
-          while IFS= read -r asset_id; do
-            [ -n "$asset_id" ] || continue
-            gh api --method DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$asset_id"
-          done <<< "$asset_ids"
+        run: python3 tool/prune_release_assets.py "$RELEASE_TAG" "$APK_NAME" VetrOFF-macOS-arm64.dmg

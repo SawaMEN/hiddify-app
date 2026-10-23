@@ -68,6 +68,13 @@ struct ContentView: View {
             }
         }
         .frame(minWidth: 760, minHeight: 520)
+        .onAppear {
+            // The packaging smoke test must observe an actual SwiftUI window,
+            // not just a surviving process that failed before drawing its UI.
+            if CommandLine.arguments.contains("--launch-smoke-test") {
+                FileHandle.standardOutput.write(Data("VETROFF_MAIN_WINDOW_READY\n".utf8))
+            }
+        }
         .task {
             await vpn.load()
             // Periodic refresh runs only while the app is open, and never

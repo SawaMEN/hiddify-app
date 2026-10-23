@@ -1,6 +1,7 @@
 import Foundation
 @preconcurrency import NetworkExtension
 import Observation
+import Security
 
 /// System VPN preferences only. The transport stays disabled until the
 /// in-extension libbox adapter has passed end-to-end packet tests.
@@ -37,7 +38,18 @@ final class VPNController {
         }
     }
 
+    private var hasVPNEntitlement: Bool {
+        guard let task = SecTaskCreateFromSelf(kCFAllocatorDefault),
+              let values = SecTaskCopyValueForEntitlement(
+                task, "com.apple.developer.networking.networkextension" as CFString, nil
+              ) as? [String] else { return false }
+        return values.contains("packet-tunnel-provider")
+    }
+
     func load() async {
+        // Ad-hoc previews can open the UI but cannot access VPN preferences.
+        // Do not show a permissions error on every launch of such a preview.
+        guard hasVPNEntitlement else { return }
         guard !isBusy else { return }
         isBusy = true
         defer { isBusy = false }
@@ -56,6 +68,10 @@ final class VPNController {
     }
 
     func install() async {
+        guard hasVPNEntitlement else {
+            errorMessage = "Для VPN нужна сборка с подписью Apple Developer ID и разрешением Network Extension."
+            return
+        }
         guard !isBusy else { return }
         isBusy = true
         defer { isBusy = false }
@@ -99,7 +115,7 @@ final class VPNController {
     // lifecycle and packet forwarding are proven.
     var isCoreReady: Bool {
         #if DEBUG && VETROFF_NATIVE_CORE_TESTING
-        true
+        hasVPNEntitlement
         #else
         false
         #endif

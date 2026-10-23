@@ -1,21 +1,16 @@
-name: Publish macOS ARM64 DMG Preview
+name: Build and launch-test macOS ARM64 DMG
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - ".github/workflows/macos-dmg.yml"
-      - "macos/scripts/package-dmg.sh"
+  workflow_call:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - "macos/**"
+      - ".github/workflows/macos-dmg.yml"
 
 permissions:
-  contents: write
+  contents: read
   actions: read
-
-concurrency:
-  group: macos-dmg-preview-${{ github.ref }}
-  cancel-in-progress: false
 
 jobs:
   macos-dmg:
@@ -46,51 +41,35 @@ jobs:
       - name: Install XcodeGen
         run: brew install xcodegen
 
-      - name: Build macOS Debug technical preview
+      - name: Build macOS Release technical preview
         run: |
           set -euo pipefail
           bash macos/scripts/generate-xcode-project.sh
           xcodebuild -project macos/VetrOFF.xcodeproj \
-            -scheme VetrOFF -configuration Debug \
+            -scheme VetrOFF -configuration Release \
             -derivedDataPath "$RUNNER_TEMP/VetrOFFDerived" \
             -destination 'generic/platform=macOS' \
             ARCHS=arm64 ONLY_ACTIVE_ARCH=NO CODE_SIGNING_ALLOWED=NO build
-          test -d "$RUNNER_TEMP/VetrOFFDerived/Build/Products/Debug/VetrOFF.app"
+          test -d "$RUNNER_TEMP/VetrOFFDerived/Build/Products/Release/VetrOFF.app"
+
+      - name: Ad-hoc sign the preview without unprovisioned capabilities
+        run: bash macos/scripts/sign-preview.sh "$RUNNER_TEMP/VetrOFFDerived/Build/Products/Release/VetrOFF.app"
 
       - name: Create and verify one macOS DMG
         run: |
           set -euo pipefail
           bash macos/scripts/package-dmg.sh \
-            "$RUNNER_TEMP/VetrOFFDerived/Build/Products/Debug/VetrOFF.app" \
+            "$RUNNER_TEMP/VetrOFFDerived/Build/Products/Release/VetrOFF.app" \
             "dist/VetrOFF-macOS-arm64.dmg"
           test "$(find dist -maxdepth 1 -type f | wc -l | tr -d ' ')" = 1
 
-      - name: Resolve immutable preview tag
-        id: metadata
-        run: echo "tag=macos-preview-${GITHUB_SHA:0:12}" >> "$GITHUB_OUTPUT"
+      - name: Launch the application installed from the finished DMG
+        run: bash macos/scripts/smoke-dmg-launch.sh dist/VetrOFF-macOS-arm64.dmg
 
-      - name: Publish exactly one DMG to GitHub Releases
-        uses: softprops/action-gh-release@v3.0.3
+      - name: Upload the single tested DMG for the shared release
+        uses: actions/upload-artifact@v7.0.1
         with:
-          tag_name: ${{ steps.metadata.outputs.tag }}
-          name: VetrOFF macOS ARM64 — technical preview
-          target_commitish: ${{ github.sha }}
-          prerelease: true
-          make_latest: false
-          fail_on_unmatched_files: true
-          files: dist/VetrOFF-macOS-arm64.dmg
-          body: |
-            Нативная экспериментальная сборка VetrOFF для macOS 14+ / Apple Silicon.
-
-            **Один установочный файл:** VetrOFF-macOS-arm64.dmg.
-            Откройте DMG и перенесите VetrOFF.app в Applications.
-
-            **Важно:** эта сборка не подписана Apple Developer ID и не
-            нотариализована. Она предназначена для проверки интерфейса,
-            архитектуры и упаковки. VPN Network Extension требует корректной
-            подписи Apple и разрешений, поэтому работоспособность VPN в этом
-            DMG не гарантируется. Не используйте его для защиты трафика.
-            Режим Release с работающим VPN остаётся заблокирован до
-            испытаний на физическом Mac.
-
-            Код сборки: ${{ github.sha }}.
+          name: macos-dmg
+          path: dist/VetrOFF-macOS-arm64.dmg
+          retention-days: 7
+          if-no-files-found: error

@@ -307,21 +307,24 @@ verification of the effective route table.
 ## Downloadable macOS developer-preview release
 
 The rolling [dev-latest release](https://github.com/SawaMEN/hiddify-app/releases/tag/dev-latest)
-now has a **macOS ARM64 unsigned developer-preview** publishing workflow:
-`.github/workflows/macos-preview-release.yml`. The CI job constructs
-`VetrOFF.app` plus its real `PacketTunnel.appex` using the pinned Go
-XCFramework and produces `VetrOFF-macOS-arm64-unsigned-preview.zip`, an
-associated SHA-256 checksum and a plain-text safety notice. The main-branch
-job appends these assets to the rolling development release without removing
-Android APKs. The ZIP is also attached to its workflow run.
+contains exactly one Android APK and one `VetrOFF-macOS-arm64.dmg`.
+The shared release job waits for both builds; it uploads the pair before
+removing obsolete ZIPs, checksums, notices and superseded installers.
 
-**Do not confuse this with a macOS production download.** The ZIP is
-unsigned and unnotarized; macOS Gatekeeper can block it, and a packet
-extension cannot be enabled without appropriate signing and provisioning.
-A proper downloadable VPN will require the owner's Apple Developer ID,
-packet-tunnel entitlements for both app and extension, notarization,
-and signed-Mac traffic acceptance tests. Production tagged releases do not
-publish this unsigned preview.
+`.github/workflows/macos-dmg.yml` builds the Release app with its pinned
+Go core and PacketTunnel.appex. `sign-preview.sh` applies ad-hoc signatures
+inside out, without unprovisioned Network Extension or shared Keychain
+entitlements. `package-dmg.sh` refuses an invalid bundle signature.
+`smoke-dmg-launch.sh` mounts the actual DMG, copies the app to a fresh
+installation folder and requires its SwiftUI main window to appear and
+its process to remain alive. A failed launch blocks release publication.
+
+This is still a technical UI preview, not a working VPN release. Ad-hoc
+signing does not provide Developer ID trust or notarization; Gatekeeper
+may require the user to explicitly approve opening the app in macOS
+Privacy & Security settings. VPN and shared Keychain capabilities require
+Apple signing/provisioning and physical Mac traffic acceptance. The
+separate protected signed-build workflow remains available for that work.
 
 ## Signed macOS stage-1 device build
 
