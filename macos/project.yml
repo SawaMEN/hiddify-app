@@ -28,6 +28,25 @@ targets:
       path: VetrOFF/Info.plist
     entitlements:
       path: VetrOFF/VetrOFF.entitlements
+    preBuildScripts:
+      - name: Prepare VetrOFF artwork
+        script: bash "$SRCROOT/scripts/prepare-assets.sh"
+        basedOnDependencyAnalysis: true
+        inputFiles:
+          - "$(SRCROOT)/scripts/prepare-assets.sh"
+          - "$(SRCROOT)/../assets/images/source/vetroff-launcher-mark.png"
+        outputFiles:
+          - "$(SRCROOT)/VetrOFF/Assets.xcassets/BrandMark.imageset/image.png"
+          - "$(SRCROOT)/VetrOFF/Assets.xcassets/AppIcon.appiconset/icon_16_1.png"
+          - "$(SRCROOT)/VetrOFF/Assets.xcassets/AppIcon.appiconset/icon_16_2.png"
+          - "$(SRCROOT)/VetrOFF/Assets.xcassets/AppIcon.appiconset/icon_32_1.png"
+          - "$(SRCROOT)/VetrOFF/Assets.xcassets/AppIcon.appiconset/icon_32_2.png"
+          - "$(SRCROOT)/VetrOFF/Assets.xcassets/AppIcon.appiconset/icon_128_1.png"
+          - "$(SRCROOT)/VetrOFF/Assets.xcassets/AppIcon.appiconset/icon_128_2.png"
+          - "$(SRCROOT)/VetrOFF/Assets.xcassets/AppIcon.appiconset/icon_256_1.png"
+          - "$(SRCROOT)/VetrOFF/Assets.xcassets/AppIcon.appiconset/icon_256_2.png"
+          - "$(SRCROOT)/VetrOFF/Assets.xcassets/AppIcon.appiconset/icon_512_1.png"
+          - "$(SRCROOT)/VetrOFF/Assets.xcassets/AppIcon.appiconset/icon_512_2.png"
     dependencies:
       - target: PacketTunnel
         embed: true
@@ -35,6 +54,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.vetroff.client.macos
         PRODUCT_NAME: VetrOFF
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_HARDENED_RUNTIME: YES
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: VetrOFF/Info.plist

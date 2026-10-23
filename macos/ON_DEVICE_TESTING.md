@@ -115,7 +115,7 @@ field is **by design** until a complete acceptance run succeeds.
   appear in UserDefaults, logs or provider messages.
 - DNS, IPv6 and split-routing agree with the selected policy.
 - Disconnect/cancellation cannot leave an orphaned VPN route.
-- Debug-only `VETROFF_NATIVE_CORE_TESTING` remains absent from Release.
+- `VETROFF_NATIVE_CORE` is present only when the Go framework is linked; Connect requires actual VPN and shared-Keychain signing entitlements in Debug and Release.
 - Signed app and extension pass notarization and Gatekeeper validation.
 
 **Do not remove the Release connection gate based only on CI success.**

@@ -5,6 +5,7 @@
     <key>keychain-access-groups</key>
     <array><string>$(AppIdentifierPrefix)app.vetroff.client.macos.shared</string></array>
     <key>com.apple.security.app-sandbox</key><true/>
+    <key>com.apple.security.files.user-selected.read-write</key><true/>
     <key>com.apple.security.network.client</key><true/>
     <key>com.apple.developer.networking.networkextension</key>
     <array><string>packet-tunnel-provider</string></array>

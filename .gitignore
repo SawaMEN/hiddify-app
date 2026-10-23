@@ -44,3 +44,7 @@ android/app/src/main/jniLibs/arm64-v8a/libhiddify-root.so
 
 # Only optional Go source regression tests materialize this ignored checkout.
 /hiddify-core/
+
+# Built from the repository artwork by macos/scripts/prepare-assets.sh
+macos/VetrOFF/Assets.xcassets/AppIcon.appiconset/*.png
+macos/VetrOFF/Assets.xcassets/BrandMark.imageset/image.png

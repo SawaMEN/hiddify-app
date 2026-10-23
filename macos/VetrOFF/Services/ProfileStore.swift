@@ -51,12 +51,13 @@ final class ProfileStore {
 
     @discardableResult
     func add(_ source: String, name: String? = nil) throws -> SavedProfile {
+        let source = try ProfileImport.normalize(source)
         let format = try ProfileSource.classify(source)
         let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines)
         let servers = format == .proxyURI ? ProfileSource.servers(in: source) : []
         let record = SavedProfile(
             id: UUID(),
-            name: (trimmed?.isEmpty == false ? trimmed! : "Профиль \(profiles.count + 1)"),
+            name: (trimmed?.isEmpty == false ? String(trimmed!.prefix(100)) : "Профиль \(profiles.count + 1)"),
             format: format,
             createdAt: Date(),
             lastRefreshedAt: nil,
@@ -79,13 +80,15 @@ final class ProfileStore {
         }
     }
 
-    func isReadyForDebugConnect(_ id: UUID) -> Bool {
+    func isReadyForConnect(_ id: UUID) -> Bool {
         guard let profile = profiles.first(where: { $0.id == id }) else { return false }
         if profile.format == .subscriptionURL {
             return profile.lastRefreshedAt != nil &&
                 (try? ProfileVault.connectableSource(id: id)) != nil
         }
-        return true
+        // Reading the effective source also migrates a preview's selected URI
+        // into the provisioned group before PacketTunnel tries to read it.
+        return (try? ProfileVault.connectableSource(id: id)) != nil
     }
 
     func servers(for id: UUID) -> [ProfileServer] { serverLists[id] ?? [] }
@@ -161,23 +164,39 @@ final class ProfileStore {
 
     /// Refresh on launch only if stale; explicit user refresh is still
     /// available. Failed updates retain the last known-good Keychain cache.
-    func refreshStaleSubscriptions(maxAge: TimeInterval = 12 * 60 * 60) async {
+    func refreshStaleSubscriptions(
+        maxAge: TimeInterval = 12 * 60 * 60,
+        shouldContinue: () -> Bool = { true }
+    ) async {
         let stale = profiles.filter {
             $0.format == .subscriptionURL &&
             ($0.lastRefreshedAt.map { Date().timeIntervalSince($0) > maxAge } ?? true)
         }
         for record in stale where !refreshing.contains(record.id) {
+            guard shouldContinue() else { break }
             try? await refresh(record.id)
         }
     }
 
     func delete(_ id: UUID) throws {
         guard !refreshing.contains(id) else { throw ProfileStoreError.refreshInProgress }
+        try ProfileVault.delete(id: id)
         let remaining = profiles.filter { $0.id != id }
         try persist(remaining)
         profiles = remaining
         serverLists.removeValue(forKey: id)
-        try ProfileVault.delete(id: id)
+    }
+
+    func rename(_ id: UUID, name: String) throws {
+        guard let index = profiles.firstIndex(where: { $0.id == id }) else {
+            throw ProfileStoreError.notFound
+        }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw ProfileSourceError.empty }
+        var next = profiles
+        next[index].name = String(trimmed.prefix(100))
+        try persist(next)
+        profiles = next
     }
 
     private func catalogSource(for record: SavedProfile) throws -> String {
