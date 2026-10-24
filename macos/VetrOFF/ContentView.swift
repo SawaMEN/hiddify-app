@@ -51,9 +51,11 @@ struct ContentView: View {
     let vpn: VPNController
     let profiles: ProfileStore
     @State private var page: Page = .home
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("macos.selectedProfileID.v1") private var selectedProfileID = ""
     @AppStorage("macos.autoRefreshSubscriptions") private var autoRefreshSubscriptions = true
     @AppStorage("macos.refreshHours") private var refreshHours = 12
+    @AppStorage("macos.autoConnect") private var autoConnect = false
     @AppStorage("macos.appearance") private var appearance = "dark"
     @State private var showImporter = false
     @State private var showImport = false
@@ -63,6 +65,7 @@ struct ContentView: View {
     @State private var showMessage: String?
     @State private var search = ""
     @State private var releaseChecker = MacOSReleaseChecker()
+    @State private var login = LoginItemController()
     @State private var pendingDelete: SavedProfile?
     @State private var renaming: SavedProfile?
     @State private var newName = ""
@@ -122,6 +125,10 @@ struct ContentView: View {
                 }
             }
             reconcileSelection()
+            login.refresh()
+            if autoConnect && !CommandLine.arguments.contains("--launch-smoke-test"),
+               let selectedID, vpn.isCoreReady, vpn.isInstalled, vpn.status == .disconnected,
+               profiles.isReadyForConnect(selectedID) { vpn.connect(profileID: selectedID) }
             while !Task.isCancelled {
                 if autoRefreshSubscriptions && !locked {
                     await profiles.refreshStaleSubscriptions(maxAge: Double(refreshHours) * 3600) { !locked }
@@ -129,6 +136,7 @@ struct ContentView: View {
                 do { try await Task.sleep(for: .seconds(60)) } catch { break }
             }
         }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { login.refresh() } }
         .onChange(of: profiles.profiles.map(\.id)) { _, _ in reconcileSelection() }
         .onOpenURL { url in beginImport(url.absoluteString) }
         .onReceive(NotificationCenter.default.publisher(for: .clientAddProfile)) { _ in beginImport() }
@@ -230,6 +238,12 @@ struct ContentView: View {
                         Spacer()
                         Label(vpn.statusText, systemImage: vpn.status == .connected ? "checkmark.shield.fill" : "shield")
                             .font(.caption.weight(.medium)).foregroundStyle(vpn.status == .connected ? ClientTheme.mint : .secondary)
+                    }
+                    if let start = vpn.connectedAt, vpn.status == .connected {
+                        TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                            Text("Подключено \(Int(max(0, timeline.date.timeIntervalSince(start))) / 3600):\(String(format: "%02d", Int(max(0, timeline.date.timeIntervalSince(start))) / 60 % 60)):\(String(format: "%02d", Int(max(0, timeline.date.timeIntervalSince(start))) % 60))")
+                                .font(.caption.monospacedDigit()).foregroundStyle(ClientTheme.mint)
+                        }
                     }
                     HStack(spacing: 22) {
                         VStack(alignment: .leading, spacing: 12) {
@@ -582,6 +596,22 @@ struct ContentView: View {
         VStack(spacing: 18) {
             ClientCard {
                 VStack(alignment: .leading, spacing: 16) {
+                    Label("Запуск приложения", systemImage: "power").font(.headline)
+                    Toggle("Открывать при входе в macOS", isOn: Binding(
+                        get: { login.enabled || login.needsApproval },
+                        set: { value in Task { await login.setEnabled(value) } }
+                    )).disabled(login.busy)
+                    if login.needsApproval {
+                        Button("Разрешить в настройках macOS") { login.openSettings() }
+                    }
+                    if let error = login.errorMessage { Text(error).font(.caption).foregroundStyle(.orange) }
+                    Toggle("Подключаться при запуске", isOn: $autoConnect)
+                    Text("Автоподключение использует выбранный профиль с сохранённой конфигурацией и требует доступного системного VPN.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            ClientCard {
+                VStack(alignment: .leading, spacing: 16) {
                     Label("Внешний вид", systemImage: "paintpalette").font(.headline)
                     Picker("Тема оформления", selection: $appearance) {
                         Text("Тёмная").tag("dark")
@@ -647,6 +677,15 @@ struct ContentView: View {
                 Button("Запросить состояние расширения") { vpn.queryTunnelDiagnostics() }.disabled(!vpn.canStop)
                 Text("Статус подключения получен от macOS. Доступность TCP-порта не подтверждает передачу трафика через VPN.")
                     .font(.caption).foregroundStyle(.secondary)
+                Divider()
+                Label("Журнал состояний", systemImage: "list.bullet.rectangle").font(.headline)
+                if vpn.events.isEmpty { Text("Событий пока нет").font(.caption).foregroundStyle(.secondary) }
+                ForEach(vpn.events.reversed()) { event in
+                    HStack {
+                        Text(event.date.formatted(date: .omitted, time: .standard)).foregroundStyle(.secondary)
+                        Text(event.message)
+                    }.font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                }
             }
         }
     }

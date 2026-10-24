@@ -13,6 +13,8 @@ final class VPNController {
     private(set) var status: NEVPNStatus = .invalid
     private(set) var isInstalled = false
     private(set) var isBusy = false
+    private(set) var connectedAt: Date?
+    private(set) var events: [VPNEvent] = []
     var errorMessage: String?
     private(set) var diagnosticMessage = "Статус ядра не запрашивался."
 
@@ -207,6 +209,19 @@ final class VPNController {
     }
 
     private func refreshStatus() {
-        status = manager?.connection.status ?? .invalid
+        let next = manager?.connection.status ?? .invalid
+        let changed = next != status
+        status = next
+        connectedAt = manager?.connection.connectedDate
+        if changed {
+            events.append(VPNEvent(date: Date(), message: statusText))
+            if events.count > 100 { events.removeFirst(events.count - 100) }
+        }
     }
+}
+
+struct VPNEvent: Identifiable {
+    let id = UUID()
+    let date: Date
+    let message: String
 }

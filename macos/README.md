@@ -14,6 +14,8 @@ profiles and searchable server list are included. Android is independent.
   preserve the selected URI when a subscription is reordered.
 - Select a URI server, search nodes and run bounded TCP port reachability checks
   for supported stream protocols. TCP checks are not VPN latency or speed tests.
+- Register native macOS login startup, optionally connect the saved profile on
+  launch, view the system connection duration and a bounded status-event journal.
 - Choose automatic refresh every 1/6/12/24 hours while the app is open and VPN
   is off. This does not schedule work after the application exits.
 - Install the system VPN configuration and connect from a provisioned build
