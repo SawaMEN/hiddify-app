@@ -434,7 +434,7 @@ struct ContentView: View {
                         ContentUnavailableView("Список серверов недоступен", systemImage: "network", description:
                             Text(selected.format == .subscriptionURL && selected.lastRefreshedAt == nil
                                  ? "Сначала обновите подписку на странице профилей."
-                                 : "Для JSON и Clash YAML используется целая конфигурация. Выбор внутренних групп пока недоступен."))
+                                 : "В конфигурации нет отдельных серверов. Проверьте источник профиля или выберите другой профиль."))
                         Button("Открыть профиль") { page = .profiles }
                     }
                 } else {
