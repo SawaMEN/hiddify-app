@@ -27,9 +27,8 @@ codesign --verify --deep --strict --verbose=2 "$APP"
 # Launch the bundle executable without relying on a pre-existing app instance.
 # This checks dyld, code signatures and SwiftUI initialization; Gatekeeper and
 # a working VPN still require Developer ID/notarization and physical Mac tests.
-PREVIEW_ARGS=()
-if [[ -n "${VETROFF_PREVIEW_PAGE:-}" ]]; then PREVIEW_ARGS+=("--preview-page=$VETROFF_PREVIEW_PAGE"); fi
-"$APP/Contents/MacOS/VetrOFF" --launch-smoke-test --profile-smoke-test "${PREVIEW_ARGS[@]}" > "$TEMP/launch.log" 2>&1 &
+"$APP/Contents/MacOS/VetrOFF" --launch-smoke-test --profile-smoke-test \
+    "--preview-page=${VETROFF_PREVIEW_PAGE:-home}" > "$TEMP/launch.log" 2>&1 &
 APP_PID=$!
 for attempt in $(seq 1 30); do
     if ! kill -0 "$APP_PID" 2>/dev/null; then
