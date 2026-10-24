@@ -27,7 +27,7 @@ final class ProfileImportTests: XCTestCase {
     }
 
     func testRejectsWrappedInsecureOrUnrelatedAction() {
-        for text in ["hiddify://import/http://example.com/sub", "vetroff://delete/all",
+        for text in ["hiddify://import/ftp://example.com/sub", "vetroff://delete/all",
                      "hiddify://import/https://localhost/sub"] {
             XCTAssertThrowsError(try ProfileImport.normalize(text))
         }

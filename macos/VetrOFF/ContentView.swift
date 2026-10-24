@@ -51,9 +51,11 @@ struct ContentView: View {
     let vpn: VPNController
     let profiles: ProfileStore
     @State private var page: Page = .home
+    @Environment(\.scenePhase) private var scenePhase
     @AppStorage("macos.selectedProfileID.v1") private var selectedProfileID = ""
     @AppStorage("macos.autoRefreshSubscriptions") private var autoRefreshSubscriptions = true
     @AppStorage("macos.refreshHours") private var refreshHours = 12
+    @AppStorage("macos.autoConnect") private var autoConnect = false
     @AppStorage("macos.appearance") private var appearance = "dark"
     @State private var showImporter = false
     @State private var showImport = false
@@ -63,9 +65,14 @@ struct ContentView: View {
     @State private var showMessage: String?
     @State private var search = ""
     @State private var releaseChecker = MacOSReleaseChecker()
+    @State private var login = LoginItemController()
     @State private var pendingDelete: SavedProfile?
     @State private var renaming: SavedProfile?
     @State private var newName = ""
+    @State private var editing: SavedProfile?
+    @State private var editText = ""
+    @State private var editError: String?
+    @State private var onlyAvailable = false
     @State private var exportDocument: ProfileExport?
     @State private var exportName = "profile"
     @State private var showExporter = false
@@ -96,13 +103,16 @@ struct ContentView: View {
                 }
             }
         }
-        .background(ClientTheme.background.opacity(appearance == "dark" ? 1 : 0))
-        .background(.background)
+        .background(ClientCanvas())
         .tint(ClientTheme.accent)
         .preferredColorScheme(appearance == "system" ? nil : (appearance == "light" ? .light : .dark))
-        .frame(minWidth: 900, minHeight: 640)
+        .frame(minWidth: 960, minHeight: 640)
         .onAppear {
+            if let argument = CommandLine.arguments.first(where: { $0.hasPrefix("--preview-page=") }),
+               let value = Page(rawValue: String(argument.dropFirst("--preview-page=".count))) { page = value }
+            if CommandLine.arguments.contains("--preview-import") { beginImport() }
             if CommandLine.arguments.contains("--launch-smoke-test") {
+                NSApp.activate(ignoringOtherApps: true)
                 FileHandle.standardOutput.write(Data("VETROFF_MAIN_WINDOW_READY\n".utf8))
             }
         }
@@ -115,6 +125,10 @@ struct ContentView: View {
                 }
             }
             reconcileSelection()
+            login.refresh()
+            if autoConnect && !CommandLine.arguments.contains("--launch-smoke-test"),
+               let selectedID, vpn.isCoreReady, vpn.isInstalled, vpn.status == .disconnected,
+               profiles.isReadyForConnect(selectedID) { vpn.connect(profileID: selectedID) }
             while !Task.isCancelled {
                 if autoRefreshSubscriptions && !locked {
                     await profiles.refreshStaleSubscriptions(maxAge: Double(refreshHours) * 3600) { !locked }
@@ -122,6 +136,7 @@ struct ContentView: View {
                 do { try await Task.sleep(for: .seconds(60)) } catch { break }
             }
         }
+        .onChange(of: scenePhase) { _, phase in if phase == .active { login.refresh() } }
         .onChange(of: profiles.profiles.map(\.id)) { _, _ in reconcileSelection() }
         .onOpenURL { url in beginImport(url.absoluteString) }
         .onReceive(NotificationCenter.default.publisher(for: .clientAddProfile)) { _ in beginImport() }
@@ -130,6 +145,7 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showImport) { importSheet }
         .sheet(item: $renaming) { profile in renameSheet(profile) }
+        .sheet(item: $editing) { profile in editSheet(profile) }
         .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json, .plainText, UTType(filenameExtension: "yaml") ?? .plainText, .data]) { result in
             do { try importFile(result.get()) }
             catch { showMessage = error.localizedDescription }
@@ -187,19 +203,19 @@ struct ContentView: View {
             Button { beginImport() } label: {
                 Label("Добавить подписку", systemImage: "plus.circle.fill")
                     .frame(maxWidth: .infinity).padding(.vertical, 8)
-            }.buttonStyle(.borderedProminent).disabled(locked)
+            }.buttonStyle(ClientPrimaryButton()).disabled(locked)
             HStack(spacing: 8) {
                 Circle().fill(vpn.status == .connected ? ClientTheme.mint : .secondary).frame(width: 7, height: 7)
                 Text(vpn.statusText).font(.caption).foregroundStyle(.secondary)
             }.padding(.top, 12)
         }
-        .padding(20).frame(width: 220).background(.ultraThinMaterial)
+        .frame(width: 200).padding(24).background(ClientTheme.surface.opacity(0.28))
     }
 
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 4) {
-                Text(currentPage.title).font(.system(size: 25, weight: .bold, design: .rounded))
+                Text(currentPage.title).font(.system(size: 28, weight: .bold, design: .rounded))
                 Text(currentPage.subtitle).font(.subheadline).foregroundStyle(.secondary)
             }
             Spacer()
@@ -209,48 +225,45 @@ struct ContentView: View {
             Button { beginImport() } label: { Image(systemName: "plus") }
                 .help("Добавить подписку или профиль (⌘N)").disabled(locked)
         }.padding(.horizontal, 28).padding(.vertical, 20)
-        .background(.ultraThinMaterial)
+        .background(.clear)
     }
 
     private var home: some View {
         VStack(spacing: 20) {
             ClientCard {
-                VStack(spacing: 18) {
+                VStack(alignment: .leading, spacing: 18) {
                     HStack {
-                        Label("VetrOFF Client", systemImage: "shield.lefthalf.filled").font(.headline)
+                        Text("VetrOFF / CONNECT").font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .tracking(3).foregroundStyle(ClientTheme.accent)
                         Spacer()
-                        Text(vpn.statusText).font(.caption.weight(.semibold))
-                            .foregroundStyle(vpn.status == .connected ? ClientTheme.mint : .secondary)
+                        Label(vpn.statusText, systemImage: vpn.status == .connected ? "checkmark.shield.fill" : "shield")
+                            .font(.caption.weight(.medium)).foregroundStyle(vpn.status == .connected ? ClientTheme.mint : .secondary)
                     }
-                    Button(action: toggleConnection) {
-                        ZStack {
-                            Circle().stroke(ClientTheme.accent.opacity(0.12), lineWidth: 16)
-                                .frame(width: 172, height: 172)
-                            Circle().fill(LinearGradient(colors: [ClientTheme.accent.opacity(0.22), ClientTheme.surface],
-                                                         startPoint: .topLeading, endPoint: .bottomTrailing))
-                                .frame(width: 148, height: 148)
-                            Circle().strokeBorder(ClientTheme.accent.opacity(0.65), lineWidth: 1)
-                                .frame(width: 148, height: 148)
-                            Image(systemName: "power").font(.system(size: 52, weight: .light))
-                                .foregroundStyle(vpn.status == .connected ? ClientTheme.mint : ClientTheme.accent)
-                        }.frame(width: 200, height: 200).contentShape(Circle())
-                    }.buttonStyle(.plain)
-                    .disabled(vpn.isBusy || vpn.status == .disconnecting)
-                    .accessibilityLabel(vpn.canStop ? "Отключить VPN" : "Подключить VPN")
-                    Text(vpn.canStop ? vpn.statusText : "Готовы к подключению?")
-                        .font(.title2.bold())
-                    Text(selected?.name ?? "Добавьте подписку и выберите сервер")
-                        .foregroundStyle(.secondary).lineLimit(2)
-                    Button(vpn.canStop ? "Отключить" : (selected == nil ? "Добавить подписку" : "Подключить"),
-                           action: toggleConnection)
-                        .buttonStyle(.borderedProminent).controlSize(.large)
-                        .disabled(vpn.isBusy || vpn.status == .disconnecting)
+                    if let start = vpn.connectedAt, vpn.status == .connected {
+                        TimelineView(.periodic(from: .now, by: 1)) { timeline in
+                            Text("Подключено \(Int(max(0, timeline.date.timeIntervalSince(start))) / 3600):\(String(format: "%02d", Int(max(0, timeline.date.timeIntervalSince(start))) / 60 % 60)):\(String(format: "%02d", Int(max(0, timeline.date.timeIntervalSince(start))) % 60))")
+                                .font(.caption.monospacedDigit()).foregroundStyle(ClientTheme.mint)
+                        }
+                    }
+                    HStack(spacing: 22) {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text(vpn.canStop ? vpn.statusText : "Ваше подключение.\nВаши правила.")
+                                .font(.system(size: 29, weight: .bold, design: .rounded))
+                            Text(selected?.name ?? "Добавьте подписку, выберите сервер и подключитесь.")
+                                .font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
+                            Button(vpn.canStop ? "Отключить" : (selected == nil ? "Добавить подписку" : "Подключить"), action: toggleConnection)
+                                .buttonStyle(ClientPrimaryButton())
+                                .disabled(vpn.isBusy || vpn.status == .disconnecting)
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                        ConnectionArtwork(connected: vpn.canStop,
+                                          busy: vpn.isBusy || vpn.status == .disconnecting, action: toggleConnection)
+                    }
                     if let issue = vpn.availabilityMessage {
-                        Label(issue, systemImage: "info.circle").font(.caption)
-                            .foregroundStyle(.secondary).frame(maxWidth: 500)
-                            .multilineTextAlignment(.center).textSelection(.enabled)
+                        Label(issue, systemImage: "info.circle").font(.caption2)
+                            .foregroundStyle(.secondary).textSelection(.enabled)
                     }
-                }.frame(maxWidth: .infinity).padding(.vertical, 8)
+                }
+
             }
             ClientCard {
                 HStack(spacing: 14) {
@@ -274,6 +287,7 @@ struct ContentView: View {
                         .disabled(selected == nil)
                 }
             }
+            if let selected { subscriptionDetails(selected) }
             HStack(spacing: 16) {
                 quickAction("Подписки", detail: "Профилей: \(profiles.profiles.count)", symbol: "square.stack.3d.up") { page = .profiles }
                 quickAction("Из буфера", detail: "Быстрый импорт", symbol: "doc.on.clipboard") {
@@ -348,6 +362,20 @@ struct ContentView: View {
                             .disabled(locked || busy)
                     }
                     Menu {
+                        Button("Изменить источник", systemImage: "doc.text") {
+                            do { editText = try profiles.source(for: profile.id); editError = nil; editing = profile }
+                            catch { showMessage = error.localizedDescription }
+                        }
+                        Button("Создать копию", systemImage: "doc.on.doc") {
+                            do {
+                                let copy = try profiles.duplicate(profile.id)
+                                if copy.format == .subscriptionURL { refresh(copy, notify: false) }
+                            } catch { showMessage = error.localizedDescription }
+                        }
+                        Button("Название из подписки", systemImage: "text.badge.checkmark") {
+                            do { try profiles.restoreAutomaticName(profile.id) }
+                            catch { showMessage = error.localizedDescription }
+                        }.disabled(profile.format != .subscriptionURL)
                         Button("Переименовать", systemImage: "pencil") { newName = profile.name; renaming = profile }
                         Button("Экспортировать…", systemImage: "square.and.arrow.up") { export(profile) }
                         Divider()
@@ -371,13 +399,17 @@ struct ContentView: View {
                             .disabled(locked || busy)
                     }
                 }
+                if let error = profiles.refreshErrors[profile.id] {
+                    Label(error, systemImage: "exclamationmark.circle").font(.caption).foregroundStyle(.orange)
+                }
+                subscriptionDetails(profile)
                 if !servers.isEmpty {
                     HStack {
                         Picker("Сервер", selection: Binding(
                             get: { profile.selectedServerIndex ?? 0 },
                             set: { selectServer(profile, index: $0) }
                         )) {
-                            ForEach(servers) { Text($0.title).tag($0.index) }
+                            ForEach(servers.filter(\.selectable)) { Text($0.title).tag($0.index) }
                         }.disabled(locked || busy)
                         Button { selectedProfileID = profile.id.uuidString; page = .servers; search = "" } label: {
                             Image(systemName: "list.bullet")
@@ -402,13 +434,17 @@ struct ContentView: View {
                         ContentUnavailableView("Список серверов недоступен", systemImage: "network", description:
                             Text(selected.format == .subscriptionURL && selected.lastRefreshedAt == nil
                                  ? "Сначала обновите подписку на странице профилей."
-                                 : "Для JSON и Clash YAML используется целая конфигурация. Выбор внутренних групп пока недоступен."))
+                                 : "В конфигурации нет отдельных серверов. Проверьте источник профиля или выберите другой профиль."))
                         Button("Открыть профиль") { page = .profiles }
                     }
                 } else {
-                    Text("Серверов: \(servers.count). TCP-проверка измеряет доступность порта, а не скорость VPN.")
-                        .font(.caption).foregroundStyle(.secondary)
-                    let filtered = servers.filter { search.isEmpty || $0.title.localizedCaseInsensitiveContains(search) }
+                    HStack {
+                        Text("Серверов: \(servers.count)").font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Toggle("Только доступные форматы", isOn: $onlyAvailable).toggleStyle(.checkbox).font(.caption)
+                    }
+                    Text("TCP-проверка измеряет доступность порта, а не скорость VPN.").font(.caption2).foregroundStyle(.secondary)
+                    let filtered = servers.filter { (!onlyAvailable || $0.selectable) && (search.isEmpty || $0.title.localizedCaseInsensitiveContains(search)) }
                     if filtered.isEmpty { ContentUnavailableView.search(text: search) }
                     LazyVStack(spacing: 10) {
                         ForEach(filtered) { server in serverRow(server, profile: selected) }
@@ -428,9 +464,15 @@ struct ContentView: View {
                 Button { selectServer(profile, index: server.index) } label: {
                     HStack(spacing: 12) {
                         ClientBadge(symbol: profile.selectedServerIndex == server.index ? "checkmark.circle.fill" : "globe")
-                        Text(server.title).font(.headline).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(server.title).font(.headline).lineLimit(2)
+                            if !server.selectable {
+                                Text("Недоступно в текущем ядре или требуется зависимая группа конфигурации")
+                                    .font(.caption2).foregroundStyle(.orange)
+                            }
+                        }.frame(maxWidth: .infinity, alignment: .leading)
                     }.contentShape(Rectangle())
-                }.buttonStyle(.plain).disabled(locked || profiles.refreshing.contains(profile.id))
+                }.buttonStyle(.plain).disabled(locked || profiles.refreshing.contains(profile.id) || !server.selectable)
                 VStack(alignment: .trailing, spacing: 5) {
                     Button(probing.contains(key) ? "Проверка…" : "Проверить TCP") { probe(server, profile: profile) }
                         .disabled(probing.contains(key) || TCPReachability.target(for: server) == nil)
@@ -446,11 +488,11 @@ struct ContentView: View {
                 ClientBadge(symbol: "link.badge.plus")
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Добавить подписку или профиль").font(.title2.bold())
-                    Text("HTTPS-ссылка, ссылки серверов, Base64, JSON или Clash YAML")
+                    Text("HTTP/HTTPS, ссылки серверов, Base64, JSON/JSONC, Clash YAML, WireGuard")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            TextField("Название (необязательно)", text: $draftName).textFieldStyle(.roundedBorder)
+            TextField("Название автоматически из подписки", text: $draftName).textFieldStyle(.roundedBorder)
             Text("Ссылка или конфигурация").font(.headline)
             TextEditor(text: $draftText).font(.system(.body, design: .monospaced))
                 .scrollContentBackground(.hidden).padding(10)
@@ -493,8 +535,81 @@ struct ContentView: View {
         }.padding(28).frame(width: 430)
     }
 
+    private func editSheet(_ profile: SavedProfile) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Источник: \(profile.name)").font(.title2.bold())
+            TextEditor(text: $editText).font(.system(.body, design: .monospaced))
+                .frame(height: 260).accessibilityLabel("Ссылка или конфигурация профиля")
+            if let editError { Text(editError).font(.caption).foregroundStyle(.orange) }
+            HStack {
+                Spacer()
+                Button("Отмена") { editing = nil }.keyboardShortcut(.cancelAction)
+                Button("Сохранить") {
+                    guard !locked else { return }
+                    do {
+                        try profiles.replace(profile.id, source: editText)
+                        editing = nil; editText = ""
+                        if let updated = profiles.profiles.first(where: { $0.id == profile.id }), updated.format == .subscriptionURL {
+                            refresh(updated, notify: false)
+                        }
+                    } catch { editError = error.localizedDescription }
+                }.buttonStyle(ClientPrimaryButton()).keyboardShortcut(.defaultAction).disabled(locked)
+            }
+        }.padding(28).frame(width: 650)
+    }
+
+    @ViewBuilder private func subscriptionDetails(_ profile: SavedProfile) -> some View {
+        if let data = profile.subscription {
+            VStack(alignment: .leading, spacing: 12) {
+                if let used = data.usedBytes {
+                    HStack {
+                        Label("Трафик подписки", systemImage: "arrow.up.arrow.down").font(.caption).foregroundStyle(.secondary)
+                        Spacer()
+                        Text("\(bytes(used)) / \(data.total.flatMap { $0 > 0 ? bytes($0) : nil } ?? "Без лимита")")
+                            .font(.caption.weight(.semibold)).monospacedDigit()
+                    }
+                    if let total = data.total, total > 0 {
+                        ProgressView(value: min(Double(used) / Double(total), 1)).tint(ClientTheme.mint)
+                    }
+                }
+                HStack {
+                    if let date = data.expiresAt {
+                        Label(date > Date() ? "До \(date.formatted(date: .abbreviated, time: .omitted))" : "Срок подписки истёк",
+                              systemImage: "calendar")
+                            .font(.caption).foregroundStyle(date > Date() ? Color.secondary : .orange)
+                    }
+                    Spacer()
+                    if let link = profiles.subscriptionLinks[profile.id]?.website, let url = URL(string: link) {
+                        Link("Личный кабинет", destination: url).font(.caption)
+                    }
+                    if let link = profiles.subscriptionLinks[profile.id]?.support, let url = URL(string: link) {
+                        Link("Поддержка", destination: url).font(.caption)
+                    }
+                }
+            }
+        }
+    }
+
+    private func bytes(_ value: Int64) -> String { ByteCountFormatter.string(fromByteCount: value, countStyle: .binary) }
+
     private var settings: some View {
         VStack(spacing: 18) {
+            ClientCard {
+                VStack(alignment: .leading, spacing: 16) {
+                    Label("Запуск приложения", systemImage: "power").font(.headline)
+                    Toggle("Открывать при входе в macOS", isOn: Binding(
+                        get: { login.enabled || login.needsApproval },
+                        set: { value in Task { await login.setEnabled(value) } }
+                    )).disabled(login.busy)
+                    if login.needsApproval {
+                        Button("Разрешить в настройках macOS") { login.openSettings() }
+                    }
+                    if let error = login.errorMessage { Text(error).font(.caption).foregroundStyle(.orange) }
+                    Toggle("Подключаться при запуске", isOn: $autoConnect)
+                    Text("Автоподключение использует выбранный профиль с сохранённой конфигурацией и требует доступного системного VPN.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
             ClientCard {
                 VStack(alignment: .leading, spacing: 16) {
                     Label("Внешний вид", systemImage: "paintpalette").font(.headline)
@@ -562,6 +677,15 @@ struct ContentView: View {
                 Button("Запросить состояние расширения") { vpn.queryTunnelDiagnostics() }.disabled(!vpn.canStop)
                 Text("Статус подключения получен от macOS. Доступность TCP-порта не подтверждает передачу трафика через VPN.")
                     .font(.caption).foregroundStyle(.secondary)
+                Divider()
+                Label("Журнал состояний", systemImage: "list.bullet.rectangle").font(.headline)
+                if vpn.events.isEmpty { Text("Событий пока нет").font(.caption).foregroundStyle(.secondary) }
+                ForEach(vpn.events.reversed()) { event in
+                    HStack {
+                        Text(event.date.formatted(date: .omitted, time: .standard)).foregroundStyle(.secondary)
+                        Text(event.message)
+                    }.font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                }
             }
         }
     }

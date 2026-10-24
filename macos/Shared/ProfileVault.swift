@@ -27,6 +27,7 @@ enum ProfileVault {
     private static let service = "app.vetroff.client.macos.profiles"
     private static let cacheService = service + ".subscription-cache"
     private static let activeService = service + ".active-source"
+    private static let metadataService = service + ".subscription-metadata"
 
     private static var signedGroup: String? {
         guard let task = SecTaskCreateFromSelf(kCFAllocatorDefault),
@@ -144,9 +145,21 @@ enum ProfileVault {
         }
     }
 
+    static func replaceSource(id: UUID, source: String, bundle: Bundle = .main) throws {
+        try put(id: id, content: source, slot: service, bundle: bundle)
+    }
+
+    static func saveMetadata(id: UUID, source: String, bundle: Bundle = .main) throws {
+        try put(id: id, content: source, slot: metadataService, bundle: bundle)
+    }
+
+    static func metadata(id: UUID, bundle: Bundle = .main) throws -> String {
+        try get(id: id, slot: metadataService, bundle: bundle)
+    }
+
     static func delete(id: UUID, bundle: Bundle = .main) throws {
         var firstError: OSStatus?
-        for slot in [service, cacheService, activeService] {
+        for slot in [service, cacheService, activeService, metadataService] {
             var queries = [try query(id, bundle: bundle, service: slot)]
             if signedGroup != nil && bundle.bundleIdentifier == ProfileVaultScope.applicationID {
                 queries.append(try query(id, bundle: bundle, service: slot, local: true))

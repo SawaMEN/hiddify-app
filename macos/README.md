@@ -14,15 +14,41 @@ profiles and searchable server list are included. Android is independent.
   preserve the selected URI when a subscription is reordered.
 - Select a URI server, search nodes and run bounded TCP port reachability checks
   for supported stream protocols. TCP checks are not VPN latency or speed tests.
+- Register native macOS login startup, optionally connect the saved profile on
+  launch, view the system connection duration and a bounded status-event journal.
 - Choose automatic refresh every 1/6/12/24 hours while the app is open and VPN
   is off. This does not schedule work after the application exits.
 - Install the system VPN configuration and connect from a provisioned build
   containing the native Go core; disconnect and switch profiles from the menu bar.
 
-JSON and YAML configurations are passed whole to the Go core. Listing their
-internal outbound groups, runtime traffic counters, per-app routing and Android
-free-profile generators are not implemented in the macOS UI. There are no
-placeholder switches or fabricated network statistics for those features.
+The importer supports the URI schemes of the pinned Go parser (including
+Snell, Mieru, TrustTunnel, FPTN, Psiphon and olcRTC), complete URI chains,
+Base64 envelopes, sing-box JSON/JSONC, arrays of complete configurations,
+Clash YAML and WireGuard/AmneziaWG INI. Protocol decoding and runtime validation
+remain in Go. Unknown schemes remain visible and cannot be selected; one unknown
+node does not discard the subscription's supported nodes. Configuration admission
+is not a claim that every server/transport has passed real-network acceptance.
+
+JSON/YAML node selection retains transitive dialer dependencies. A selected node
+uses the packet engine's DNS/routing policy; it does not apply an arbitrary
+imported full-system routing policy. Nodes depending on unresolved groups are
+shown as unavailable rather than losing the dependency silently.
+
+Names come from profile-title (plain or Base64), Content-Disposition or inline
+comments. A manually chosen name survives refresh; the profile menu can restore
+the provider name. Traffic and expiry from subscription-userinfo are provider
+quota information, not fabricated live tunnel counters. Provider website and
+support links are retained in Keychain. Source editing, duplication and per-profile
+refresh errors are available.
+
+HTTP/HTTPS subscriptions and public IP addresses are supported. TLS verification
+is never disabled, redirects cannot downgrade HTTPS to HTTP, and local addresses
+are rejected. Nested subscription expansion is bounded to 16 URLs, depth 2 and
+8 MiB with cycle detection. This URL validation is not a DNS-rebinding firewall.
+
+Native traffic counters, per-app routing and Android's generated free-profile
+services are not yet implemented in macOS. A real VPN still needs the provisioned
+Network Extension and physical-device tests described below.
 
 ## Keychain and distribution
 

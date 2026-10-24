@@ -14,6 +14,10 @@ settings:
     ARCHS: arm64
     ONLY_ACTIVE_ARCH: NO
     CODE_SIGN_STYLE: Automatic
+packages:
+  Yams:
+    url: https://github.com/jpsim/Yams.git
+    exactVersion: 5.4.0
 targets:
   VetrOFF:
     type: application
@@ -48,6 +52,7 @@ targets:
           - "$(SRCROOT)/VetrOFF/Assets.xcassets/AppIcon.appiconset/icon_512_1.png"
           - "$(SRCROOT)/VetrOFF/Assets.xcassets/AppIcon.appiconset/icon_512_2.png"
     dependencies:
+      - package: Yams
       - target: PacketTunnel
         embed: true
     settings:

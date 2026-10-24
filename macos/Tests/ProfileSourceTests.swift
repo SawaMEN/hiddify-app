@@ -55,8 +55,11 @@ final class ProfileSourceTests: XCTestCase {
 
     func testUnknownServerInBatchMustNotSilentlyDisappear() {
         let input = "vless://uuid@example.com\nunknown://secret@example.com"
-        XCTAssertThrowsError(try ProfileSource.classify(input))
-        XCTAssertTrue(ProfileSource.servers(in: input).isEmpty)
+        XCTAssertEqual(try? ProfileSource.classify(input), .proxyURI)
+        let nodes = ProfileSource.servers(in: input)
+        XCTAssertEqual(nodes.count, 2)
+        XCTAssertTrue(nodes[0].selectable)
+        XCTAssertFalse(nodes[1].selectable)
     }
 
     func testBase64SubscriptionDecodesAndKeepsLinks() throws {

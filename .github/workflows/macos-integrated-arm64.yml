@@ -16,6 +16,13 @@ on:
       - "macos/Integration/CoreSmoke.swift"
       - "macos/scripts/generate-xcode-project.sh"
       - ".github/workflows/macos-integrated-arm64.yml"
+  pull_request:
+    paths:
+      - "macos/Integration/CoreSmoke.swift"
+      - "macos/PacketTunnel/**"
+      - "macos/Shared/**"
+      - "macos/project.yml"
+      - ".github/workflows/macos-integrated-arm64.yml"
   workflow_dispatch:
 
 permissions:
