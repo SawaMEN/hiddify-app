@@ -19,7 +19,10 @@ enum ProfileJSONCatalog {
             guard array.count <= ProfileSource.maxServers else { return [] }
             return array.enumerated().map { index, document in
                 let type = document["type"] as? String ?? "json"
-                return ProfileServer(index: index, scheme: type, rawURI: encode(document) ?? content,
+                var effective = document
+                for key in ["remarks", "name", "ps"] { effective.removeValue(forKey: key) }
+                if document["outbounds"] != nil || document["endpoints"] != nil { effective.removeValue(forKey: "tag") }
+                return ProfileServer(index: index, scheme: type, rawURI: encode(effective) ?? content,
                     displayName: name(document) ?? "Конфигурация \(index + 1)",
                     isSupported: type == "json" || nativeTypes.contains(type))
             }
@@ -33,15 +36,24 @@ enum ProfileJSONCatalog {
             return [ProfileServer(index: 0, scheme: type, rawURI: content,
                 displayName: name(document), isSupported: nativeTypes.contains(type))]
         }
-        let nodes = all.filter { !utility.contains(($0["type"] as? String ?? "").lowercased()) }
+        let nodes = all.filter {
+            !utility.contains(($0["type"] as? String ?? "").lowercased()) && !($0["tag"] as? String ?? "").contains("§hide§")
+        }
         guard nodes.count <= ProfileSource.maxServers else { return [] }
-        return nodes.enumerated().map { index, node in
+        var result: [ProfileServer] = []
+        var catalogBytes = 0
+        for (index, node) in nodes.enumerated() {
             let type = node["type"] as? String ?? "json"
             let effective = isolate(node: node, document: document, all: all)
-            return ProfileServer(index: index, scheme: type, rawURI: effective ?? content,
+            catalogBytes += (effective ?? content).utf8.count
+            if catalogBytes > ProfileSource.maxBytes * 2 {
+                return [ProfileServer(index: 0, scheme: "json", rawURI: content, displayName: "Конфигурация целиком")]
+            }
+            result.append(ProfileServer(index: index, scheme: type, rawURI: effective ?? content,
                 displayName: name(node) ?? "Сервер \(index + 1)",
-                isSupported: nativeTypes.contains(type) && effective != nil)
+                isSupported: nativeTypes.contains(type) && effective != nil))
         }
+        return result
     }
 
     private static func name(_ node: [String: Any]) -> String? {
@@ -75,6 +87,7 @@ enum ProfileJSONCatalog {
             if let tag = dependency["tag"] as? String { mapping[tag] = "\(tag) §hide§" }
         }
         for index in included.indices {
+            for key in ["remarks", "name", "ps"] { included[index].removeValue(forKey: key) }
             if index > 0, let tag = included[index]["tag"] as? String { included[index]["tag"] = mapping[tag] }
             for key in ["detour", "dialer-proxy"] {
                 if let tag = included[index][key] as? String, let replacement = mapping[tag] { included[index][key] = replacement }

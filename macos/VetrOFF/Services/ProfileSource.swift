@@ -117,8 +117,8 @@ enum ProfileSource {
             return .json
         }
 
-        // Clash YAML is parsed by the Go core; Swift does not select its
-        // outbounds independently because dependencies would be lost.
+        // YAML metadata/selection is cataloged natively; protocol conversion
+        // remains in Go with the complete selected dependency graph.
         if text.split(separator: "\n").contains(where: {
             let line = $0.trimmingCharacters(in: .whitespaces)
             return line == "proxies:" || line.hasPrefix("proxies: ")

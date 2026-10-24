@@ -70,7 +70,7 @@ final class ProfileStore {
         let format = try ProfileSource.classify(source)
         let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines)
         let servers = format == .subscriptionURL ? [] : ProfileSource.servers(in: source)
-        let automaticTitle = SubscriptionMetadata.parse(content: source).title ?? linkName ?? servers.first?.displayName ?? servers.first?.title
+        let automaticTitle = SubscriptionMetadata.parse(content: source).title ?? linkName ?? servers.first(where: \.selectable)?.displayName ?? servers.first(where: \.selectable)?.title
         let selection = servers.firstIndex(where: \.selectable)
         let record = SavedProfile(
             id: UUID(),
@@ -243,7 +243,7 @@ final class ProfileStore {
         guard let index = profiles.firstIndex(where: { $0.id == id }) else { throw ProfileStoreError.notFound }
         var next = profiles
         next[index].automaticName = true
-        if let title = next[index].subscription?.title { next[index].name = title }
+        next[index].name = next[index].subscription?.title ?? serverLists[id]?.first(where: \.selectable)?.title ?? "Профиль"
         try persist(next); profiles = next
     }
 

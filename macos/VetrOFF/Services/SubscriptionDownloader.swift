@@ -69,7 +69,7 @@ enum SubscriptionDownloader {
         var seen = Set([source]), count = 0
         let expanded = try await expand(downloaded.content, depth: 0, seen: &seen, count: &count)
         let content = try ProfileSource.decodeSubscription(Data(expanded.utf8))
-        return SubscriptionPayload(content: content, metadata: downloaded.metadata)
+        return SubscriptionPayload(content: content, metadata: downloaded.metadata.fillingMissing(from: .parse(content: content)))
     }
 
     private static func expand(_ input: String, depth: Int, seen: inout Set<String>, count: inout Int) async throws -> String {

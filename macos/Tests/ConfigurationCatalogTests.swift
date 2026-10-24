@@ -34,6 +34,7 @@ final class ConfigurationCatalogTests: XCTestCase {
         XCTAssertEqual(nodes.count, 2)
         XCTAssertEqual(nodes[1].displayName, "Two")
         XCTAssertFalse(nodes[1].rawURI.contains("one.example"))
+        XCTAssertFalse(nodes[1].rawURI.contains("remarks"))
         let jsonc = "// generated\n{\"outbounds\":[{\"type\":\"socks\",\"server\":\"example.org\",\"server_port\":1080}],\"url\":\"https://example.org\"}"
         XCTAssertEqual(try ProfileSource.classify(jsonc), .json)
         XCTAssertEqual(ProfileSource.servers(in: jsonc).count, 1)

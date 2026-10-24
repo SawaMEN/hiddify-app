@@ -18,6 +18,13 @@ struct SubscriptionMetadata: Codable, Hashable, Sendable {
         return overflow ? Int64.max : value
     }
 
+    func fillingMissing(from fallback: Self) -> Self {
+        Self(title: title ?? fallback.title, upload: upload ?? fallback.upload,
+             download: download ?? fallback.download, total: total ?? fallback.total,
+             expiresAt: expiresAt ?? fallback.expiresAt, updateHours: updateHours ?? fallback.updateHours,
+             website: website ?? fallback.website, support: support ?? fallback.support)
+    }
+
     static func parse(headers: [String: String] = [:], content: String = "") -> Self {
         let allowed = Set(["profile-title", "content-disposition", "subscription-userinfo",
                            "profile-update-interval", "profile-web-page-url", "support-url"])
