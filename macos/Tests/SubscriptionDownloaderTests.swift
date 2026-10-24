@@ -6,8 +6,10 @@ final class SubscriptionDownloaderTests: XCTestCase {
         try SubscriptionDownloader.validate(URL(string: "https://subscription.example.org/api?token=hidden")!)
     }
 
-    func testRejectsCleartextHTTPAndCredentialURL() {
-        XCTAssertThrowsError(try SubscriptionDownloader.validate(URL(string: "http://example.org/")!))
+    func testAcceptsExplicitHTTPAndRejectsCredentialURL() throws {
+        try SubscriptionDownloader.validate(URL(string: "http://example.org/")!)
+        try SubscriptionDownloader.validate(URL(string: "https://8.8.8.8/sub")!)
+        try SubscriptionDownloader.validate(URL(string: "https://[2606:4700:4700::1111]/sub")!)
         XCTAssertThrowsError(try SubscriptionDownloader.validate(URL(string: "https://user:password@example.org/")!))
     }
 
