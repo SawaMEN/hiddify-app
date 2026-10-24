@@ -105,7 +105,11 @@ struct ContentView: View {
         .preferredColorScheme(appearance == "system" ? nil : (appearance == "light" ? .light : .dark))
         .frame(minWidth: 960, minHeight: 640)
         .onAppear {
+            if let argument = CommandLine.arguments.first(where: { $0.hasPrefix("--preview-page=") }),
+               let value = Page(rawValue: String(argument.dropFirst("--preview-page=".count))) { page = value }
+            if CommandLine.arguments.contains("--preview-import") { beginImport() }
             if CommandLine.arguments.contains("--launch-smoke-test") {
+                NSApp.activate(ignoringOtherApps: true)
                 FileHandle.standardOutput.write(Data("VETROFF_MAIN_WINDOW_READY\n".utf8))
             }
         }

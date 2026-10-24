@@ -30,11 +30,9 @@ enum ProfileYAMLCatalog {
                     included[i]["dialer-proxy"] = replacement
                 }
             }
-            var selected = root
-            selected["proxies"] = included
-            // Group references to unselected nodes cannot survive selection.
-            selected.removeValue(forKey: "proxy-groups")
-            selected.removeValue(forKey: "rules")
+            // Only proxy definitions enter the core's node converter. Do not
+            // duplicate unrelated rule sets and provider URLs for every node.
+            let selected: [String: Any] = ["proxies": included]
             let effective = try? Yams.dump(object: selected, sortKeys: true)
             return ProfileServer(index: index, scheme: node["type"] as? String ?? "yaml",
                 rawURI: effective ?? content, displayName: node["name"] as? String,

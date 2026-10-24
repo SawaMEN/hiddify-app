@@ -1,6 +1,6 @@
 import Foundation
 
-struct SubscriptionMetadata: Codable, Equatable, Sendable {
+struct SubscriptionMetadata: Codable, Hashable, Sendable {
     var title: String?
     var upload: Int64?
     var download: Int64?

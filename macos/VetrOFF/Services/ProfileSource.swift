@@ -108,7 +108,7 @@ enum ProfileSource {
         guard source.utf8.count <= maxBytes else { throw ProfileSourceError.tooLarge }
 
         if text.contains("[Interface]") && text.contains("[Peer]") { return .wireguard }
-        let jsonText = ["{", "[", "/"].contains(text.prefix(1)) ? stripJSONComments(text) : text
+        let jsonText = ["{", "[", "/"].contains(String(text.prefix(1))) ? stripJSONComments(text) : text
         if jsonText.first == "{" || jsonText.first == "[" {
             guard let bytes = jsonText.data(using: .utf8),
                   let object = try? JSONSerialization.jsonObject(with: bytes),

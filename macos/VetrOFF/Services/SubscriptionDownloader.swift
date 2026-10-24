@@ -54,7 +54,8 @@ enum SubscriptionDownloader {
             }
         } else if name.allSatisfy({ $0.isNumber || $0 == "." }) || name.hasPrefix("0x") {
             let parts = name.split(separator: ".").compactMap { UInt8($0) }
-            guard parts.count == 4, name.split(separator: ".").count == 4 else { throw SubscriptionDownloadError.privateHost }
+            guard parts.count == 4, name.split(separator: ".").count == 4,
+                  name.split(separator: ".").allSatisfy({ $0.count == 1 || !$0.hasPrefix("0") }) else { throw SubscriptionDownloadError.privateHost }
             let a = parts[0], b = parts[1]
             if a == 0 || a == 10 || a == 127 || a >= 224 || (a == 169 && b == 254) ||
                 (a == 172 && (16...31).contains(b)) || (a == 192 && b == 168) || (a == 100 && (64...127).contains(b)) {

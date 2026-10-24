@@ -66,7 +66,9 @@ jobs:
       - name: Launch the application installed from the finished DMG
         env:
           VETROFF_SCREENSHOT_DIR: ${{ runner.temp }}/macos-screenshots
-        run: bash macos/scripts/smoke-dmg-launch.sh dist/VetrOFF-macOS-arm64.dmg
+        run: |
+          bash macos/scripts/smoke-dmg-launch.sh dist/VetrOFF-macOS-arm64.dmg
+          VETROFF_PREVIEW_PAGE=profiles bash macos/scripts/smoke-dmg-launch.sh dist/VetrOFF-macOS-arm64.dmg
 
       - name: Upload the single tested DMG for the shared release
         uses: actions/upload-artifact@v7.0.1

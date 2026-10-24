@@ -12,7 +12,7 @@ enum ProfileJSONCatalog {
 
     static func servers(_ content: String) -> [ProfileServer]? {
         let prefix = content.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1)
-        guard ["{", "[", "/"].contains(prefix),
+        guard ["{", "[", "/"].contains(String(prefix)),
               let bytes = ProfileSource.stripJSONComments(content).data(using: .utf8),
               let value = try? JSONSerialization.jsonObject(with: bytes) else { return nil }
         if let array = value as? [[String: Any]] {
