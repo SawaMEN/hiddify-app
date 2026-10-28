@@ -4,6 +4,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeCommunityListsTest {
+    @Test fun searchMetadataAndOfflineCacheKeepDomainsBeyondTheThreePreviewEntries() {
+        val services = NativeCommunityLists.parse("""{"service":["first.example","second.example","third.example","searchable.example","last.example"]}""")
+        assertEquals(5, services.single().domains.size)
+        assertTrue(services.single().domains.any { it.contains("searchable", true) })
+        assertEquals(services, NativeCommunityLists.parse(NativeCommunityLists.encodeCache(services)))
+    }
+
+    @Test fun localCorrectionsDoNotEvictProviderDomainsFromSearchOrCache() {
+        val services = NativeCommunityLists.parse("""{"repo":["github.com","gitlab.com","bitbucket.org","registry.example"]}""")
+        assertEquals(listOf("docker.io", "github.com", "gitlab.com", "bitbucket.org", "registry.example"), services.single().domains)
+        assertEquals(services, NativeCommunityLists.parse(NativeCommunityLists.encodeCache(services)))
+    }
+
     @Test fun providerKeysAreSelectionsAndDomainsAreOnlySearchMetadata() {
         val services = NativeCommunityLists.parse("""{"copilot":["copilot.microsoft.com"],"youtube.com":["googlevideo.com","ytimg.com"]}""")
         assertEquals(listOf("copilot", "youtube.com"), services.map { it.id })

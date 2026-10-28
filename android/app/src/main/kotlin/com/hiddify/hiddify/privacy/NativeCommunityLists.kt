@@ -30,7 +30,8 @@ object NativeCommunityLists {
                 require(it.isJsonPrimitive && it.asJsonPrimitive.isString) { "Invalid service domain" }
                 it.asString.also { domain -> require(domain.length in 1..253 && domain.none(Char::isISOControl)) }
             }
-            NativeCommunityService(id, (extraDomains(id) + domains).distinct().take(3), group)
+            // Search and offline caches need the whole domain list. Limit only the UI preview.
+            NativeCommunityService(id, (extraDomains(id) + domains).distinct(), group)
         }.sortedBy { it.id.lowercase() }
     }
 
