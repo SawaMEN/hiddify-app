@@ -99,8 +99,11 @@ private fun NativeCommunityListsDialog(source: NativeCommunitySource, active: Bo
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(stringResource(R.string.native_community_category_hint), Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (catalogue?.cached == true) Text(stringResource(if (loading) R.string.native_community_refreshing_cache else R.string.native_community_cached), Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (catalogue?.cached == true) Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(if (loading) R.string.native_community_refreshing_cache else R.string.native_community_cached), Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (!loading) NativeTextButton(onClick = { attempt++ }) { Text(stringResource(R.string.native_profiles_retry)) }
+                }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
                     NativeTextButton(onClick = { all = true; selected = emptyList() }, enabled = enabled && catalogue != null) {
                         Text(stringResource(R.string.native_community_select_all))
@@ -170,7 +173,7 @@ private fun NativeCommunityListsDialog(source: NativeCommunitySource, active: Bo
                                         Text(when {
                                             service.id !in known -> stringResource(R.string.native_community_saved_service)
                                             service.domains.isEmpty() -> stringResource(R.string.native_community_network_service)
-                                            else -> service.domains.joinToString(", ")
+                                            else -> service.domains.take(3).joinToString(", ")
                                         }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
