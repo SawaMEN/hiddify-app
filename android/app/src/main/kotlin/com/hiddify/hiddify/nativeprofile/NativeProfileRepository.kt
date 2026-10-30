@@ -855,6 +855,7 @@ class NativeProfileRepository(private val context: Context) {
                     "fptn" -> "FPTN"
                     "openflux" -> "OpenFlux"
                     "pingtunnel" -> "PingTunnel"
+                    "vetroff" -> "VetrOFFProxy"
                     "shadowtls" -> "ShadowTLS"
                     "mieru", "mierus" -> "Mieru"
                     "warp" -> "WARP"
