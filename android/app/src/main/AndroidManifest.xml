@@ -93,6 +93,7 @@
                 <data android:scheme="openflux" />
                 <data android:scheme="pingtunnel" />
                 <data android:scheme="olcrtc" />
+                <data android:scheme="vetroff" />
                 <data android:scheme="mieru" />
                 <data android:scheme="mierus" />
                 <data android:scheme="tt" />
