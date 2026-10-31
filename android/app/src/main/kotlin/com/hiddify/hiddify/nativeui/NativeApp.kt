@@ -766,6 +766,7 @@ fun NativeApp(
                                         onRefreshProfile = onRefreshProfile,
                                         onAddProfile = { addProfileOpen = true },
                                         systemStats = systemStats,
+                                        chainOptions = chainOptions,
                                         activeOutbound = activeOutbound,
                                         outboundBusy = outboundBusyTag != null,
                                         outboundOperationRevision = outboundOperationRevision,
@@ -938,6 +939,7 @@ private fun HomeScreen(
     onRefreshProfile: (NativeProfile) -> Unit = {},
     onAddProfile: () -> Unit = {},
     systemStats: NativeSystemStats,
+    chainOptions: NativeChainOptions = NativeChainOptions(),
     activeOutbound: com.hiddify.hiddify.nativecore.NativeOutbound? = null,
     outboundBusy: Boolean = false,
     outboundOperationRevision: Int = 0,
@@ -1041,7 +1043,9 @@ private fun HomeScreen(
                 Column(Modifier.fillMaxWidth().padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 20.dp)) {
                     Column(Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally) {
-                        ConnectionCard(status = status, stats = systemStats, recovering = recoveryAttempt > 0, hapticFeedback = hapticFeedback,
+                        ConnectionCard(status = status, stats = systemStats, chainOptions = chainOptions,
+                            onOpenChainDiagnostics = onOpenDiagnostics,
+                            recovering = recoveryAttempt > 0, hapticFeedback = hapticFeedback,
                             requiresReconnect = requiresReconnect, reconnectBusy = reconnectBusy, failed = connectionFailed,
                             onToggleConnection = {
                                 if (status == Status.Stopped && !hasActiveProfile && !profilesLoading && !profilesLoadFailed) noProfileNotice = true
@@ -1137,6 +1141,8 @@ private fun connectionAccent(status: Status, recovering: Boolean, reconnectBusy:
 private fun ConnectionCard(
     status: Status,
     stats: NativeSystemStats,
+    chainOptions: NativeChainOptions,
+    onOpenChainDiagnostics: () -> Unit,
     recovering: Boolean,
     hapticFeedback: Boolean,
     onToggleConnection: () -> Unit,
@@ -1250,6 +1256,20 @@ private fun ConnectionCard(
                             Text(caption, style = MaterialTheme.typography.titleMedium,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         }
+                    }
+                }
+                // Configuration badge is deliberately not a "chain healthy" indicator:
+                // health must be checked by diagnostics, not inferred from VPN Started.
+                if (chainOptions.status != "off") {
+                    val extra = chainOptions.status == "extra_security"
+                    val stageLabel = stringResource(if (extra) R.string.native_chain_extra_security else R.string.native_chain_unblocker)
+                    IconButton(
+                        onClick = onOpenChainDiagnostics,
+                        modifier = Modifier.align(Alignment.TopStart)
+                            .semantics { contentDescription = stageLabel },
+                    ) {
+                        NativeChainMotionIcon(extraSecurity = extra, active = status == Status.Started && !showError,
+                            profileMode = (if (extra) chainOptions.extraMode else chainOptions.unblockerMode) == "profile")
                     }
                 }
             }
