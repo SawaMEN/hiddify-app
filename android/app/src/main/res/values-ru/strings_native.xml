@@ -760,4 +760,23 @@
     <string name="native_lan_lookup">Определение локального адреса прокси…</string>
     <string name="native_lan_local_only">Адрес доступен только на этом устройстве. QR-код на другом телефоне указал бы на него самого, поэтому QR-код не показывается.</string>
     <string name="native_lan_copy_local">Скопировать ссылку для этого устройства</string>
+    <string name="native_path_title">Путь подключения</string>
+    <string name="native_path_disclaimer">Показаны только подтверждённые данные. Запущенный VPN или пинг не доказывают работоспособность всей цепочки.</string>
+    <string name="native_path_vpn">VPN-туннель</string>
+    <string name="native_path_selected_proxy">Выбранный сервер</string>
+    <string name="native_path_internet">Проверка интернета через VPN</string>
+    <string name="native_path_chain">Дополнительный этап цепочки</string>
+    <string name="native_path_no_proxy">Сервер не выбран</string>
+    <string name="native_path_proxy_untested">Нет результата проверки задержки</string>
+    <string name="native_path_proxy_timeout">Последняя проверка задержки завершилась тайм-аутом</string>
+    <string name="native_path_proxy_delay">Последняя задержка: %1$d мс (не проверка трафика)</string>
+    <string name="native_path_probe_passed">HTTP-проверка через выбранный маршрут прошла успешно</string>
+    <string name="native_path_probe_failed">Последняя проверка не подтвердила доступность сети</string>
+    <string name="native_path_probe_running">Проверка подключения выполняется</string>
+    <string name="native_path_probe_unknown">Подключение пока не проверялось</string>
+    <string name="native_path_chain_configured">Настроен; исправность отдельного этапа не подтверждена</string>
+    <string name="native_path_chain_off">Не настроен</string>
+    <string name="native_path_full_diagnostics">Запустить полную диагностику</string>
+    <string name="native_path_test_proxy">Проверить задержку выбранного сервера</string>
+    <string name="native_path_chain_settings">Настройки цепочки</string>
 </resources>
