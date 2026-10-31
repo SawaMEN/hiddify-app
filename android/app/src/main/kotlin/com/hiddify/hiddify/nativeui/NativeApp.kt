@@ -779,6 +779,7 @@ fun NativeApp(
                                         onOpenProfiles = { profilesSheetOpen = true },
                                         onOpenSettings = { onRefreshWifiSharingDetails(); quickSettingsOpen = true },
                                         onOpenDiagnostics = { openPage(PAGE_DIAGNOSTICS) },
+                                        onOpenChainSettings = { openPage(PAGE_CHAIN) },
                                         onOpenOutbounds = {
                                             outboundsOpen = true
                                         },
@@ -953,11 +954,19 @@ private fun HomeScreen(
     onOpenSettings: () -> Unit,
     onOpenDiagnostics: () -> Unit,
     onOpenOutbounds: () -> Unit,
+    onOpenChainSettings: () -> Unit = {},
 ) {
     val updateAvailable = updateState?.showUpdateIndicator == true
     val versionLabel = if (updateAvailable) stringResource(R.string.native_about_update_available,
         updateState?.release?.version.orEmpty()) else stringResource(R.string.native_home_version)
     var noProfileNotice by rememberSaveable { mutableStateOf(false) }
+    var healthSheetOpen by rememberSaveable { mutableStateOf(false) }
+    if (healthSheetOpen) NativeConnectionHealthSheet(
+        status = status, health = internetHealth, outbound = activeOutbound, chain = chainOptions,
+        onDismiss = { healthSheetOpen = false },
+        onFullDiagnostics = onOpenDiagnostics, onTestSelected = onTestActive,
+        onChainSettings = onOpenChainSettings,
+    )
     if (noProfileNotice) AlertDialog(
         onDismissRequest = { noProfileNotice = false; onAddProfile() },
         title = { Text(stringResource(R.string.native_home_choose_profile)) },
@@ -1044,7 +1053,7 @@ private fun HomeScreen(
                     Column(Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally) {
                         ConnectionCard(status = status, stats = systemStats, chainOptions = chainOptions,
-                            onOpenChainDiagnostics = onOpenDiagnostics,
+                            onOpenChainDiagnostics = { healthSheetOpen = true },
                             recovering = recoveryAttempt > 0, hapticFeedback = hapticFeedback,
                             requiresReconnect = requiresReconnect, reconnectBusy = reconnectBusy, failed = connectionFailed,
                             onToggleConnection = {
@@ -1055,7 +1064,8 @@ private fun HomeScreen(
                         if (status == Status.Started && activeOutbound != null) {
                             NativeActiveProxyDelay(activeOutbound, outboundBusy, onTestActive)
                         }
-                        NativeTextButton(onClick = onOpenDiagnostics, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
+                        NativeTextButton(onClick = { healthSheetOpen = true },
+                            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
                             Text(if (recoveryAttempt > 0) stringResource(R.string.native_recovery_attempt, recoveryAttempt)
                                 else stringResource(if (status != Status.Started) R.string.native_home_health_stopped else when (internetHealth) {
                                     NativeInternetHealth.UNCHECKED -> R.string.native_health_unchecked
