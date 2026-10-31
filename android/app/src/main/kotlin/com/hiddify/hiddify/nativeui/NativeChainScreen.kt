@@ -169,14 +169,13 @@ fun NativeChainScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                     )
-                    OutlinedTextField(
-                        value = value.unblockerWarpNoiseMode,
-                        onValueChange = { value = value.copy(unblockerWarpNoiseMode = it) },
-                        label = { Text(stringResource(R.string.native_chain_noise_mode)) },
+                    ChoiceButton(
+                        title = stringResource(R.string.native_chain_noise_mode),
+                        selected = value.unblockerWarpNoiseMode,
+                        choices = com.hiddify.hiddify.nativecore.NativeWarpNoiseModes.choicesFor(value.unblockerWarpNoiseMode),
                         enabled = !busy,
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                    )
+                        label = { nativeWarpNoiseLabel(it) },
+                    ) { value = value.copy(unblockerWarpNoiseMode = it) }
                     OutlinedTextField(
                         value = value.unblockerWarpNoiseSize,
                         onValueChange = { value = value.copy(unblockerWarpNoiseSize = it) },
@@ -422,3 +421,20 @@ private fun chainModeLabel(value: String): String =
         "profile" -> stringResource(R.string.native_chain_profile_mode)
         else -> value
     }
+
+/** Localized upstream preset names with lossless fallback for existing custom modes. */
+@Composable
+private fun nativeWarpNoiseLabel(mode: String): String {
+    val label = when (mode) {
+        "m4" -> R.string.native_chain_noise_mode_m4
+        "random" -> R.string.native_chain_noise_mode_random
+        "quic" -> R.string.native_chain_noise_mode_quic
+        "quic-mimic" -> R.string.native_chain_noise_mode_quic_mimic
+        "dns" -> R.string.native_chain_noise_mode_dns
+        "dns-cloudflare" -> R.string.native_chain_noise_mode_dns_cloudflare
+        "sip" -> R.string.native_chain_noise_mode_sip
+        "stun" -> R.string.native_chain_noise_mode_stun
+        else -> return mode
+    }
+    return stringResource(label)
+}
