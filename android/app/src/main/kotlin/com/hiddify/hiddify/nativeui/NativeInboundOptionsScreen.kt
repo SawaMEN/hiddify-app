@@ -181,7 +181,7 @@ private fun NativeLanSharingPreference(options: NativeInboundOptions, wifiSharin
         Switch(wifiSharing || options.allowLan, onCheckedChange = onToggle, enabled = enabled && !wifiSharing)
     }
     if (qrPending) AlertDialog(
-        onDismissRequest = ::closeShare,
+        onDismissRequest = { closeShare() },
         title = { Text(stringResource(R.string.native_inbound_qr)) },
         text = {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -190,11 +190,11 @@ private fun NativeLanSharingPreference(options: NativeInboundOptions, wifiSharin
                 Text(stringResource(R.string.native_lan_lookup))
             }
         },
-        confirmButton = { NativeTextButton(onClick = ::closeShare) { Text(stringResource(android.R.string.cancel)) } },
+        confirmButton = { NativeTextButton(onClick = { closeShare() }) { Text(stringResource(android.R.string.cancel)) } },
     )
     localLink?.let { link ->
         AlertDialog(
-            onDismissRequest = ::closeShare,
+            onDismissRequest = { closeShare() },
             title = { Text(stringResource(R.string.native_inbound_lan)) },
             text = { Text(stringResource(R.string.native_lan_local_only)) },
             confirmButton = {
@@ -202,7 +202,7 @@ private fun NativeLanSharingPreference(options: NativeInboundOptions, wifiSharin
                     Text(stringResource(R.string.native_lan_copy_local))
                 }
             },
-            dismissButton = { NativeTextButton(onClick = ::closeShare) { Text(stringResource(android.R.string.cancel)) } },
+            dismissButton = { NativeTextButton(onClick = { closeShare() }) { Text(stringResource(android.R.string.cancel)) } },
         )
     }
     qrLink?.let { LanQrDialog(it) { closeShare() } }
