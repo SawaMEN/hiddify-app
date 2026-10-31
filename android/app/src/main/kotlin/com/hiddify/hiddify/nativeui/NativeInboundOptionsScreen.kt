@@ -204,5 +204,5 @@ private fun NativeLanSharingPreference(options: NativeInboundOptions, wifiSharin
             dismissButton = { NativeTextButton(onClick = ::closeShare) { Text(stringResource(android.R.string.cancel)) } },
         )
     }
-    qrLink?.let { LanQrDialog(it, onDismiss = ::closeShare) }
+    qrLink?.let { LanQrDialog(it) { closeShare() } }
 }
