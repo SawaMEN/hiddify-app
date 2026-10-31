@@ -1,6 +1,7 @@
 package com.hiddify.hiddify
 
 import com.hiddify.hiddify.nativecore.NativeOutbound
+import com.hiddify.hiddify.nativecore.nameWithDetour
 import com.hiddify.hiddify.nativecore.presentNativeOutbounds
 import com.hiddify.hiddify.nativepreferences.NativeOutboundSort
 import org.junit.Assert.*
@@ -17,6 +18,18 @@ class NativeOutboundPresentationTest {
         assertEquals(items, presentNativeOutbounds(items, "VLESS", NativeOutboundSort.UNSORTED))
         assertEquals(listOf("a"), presentNativeOutbounds(items, "A", NativeOutboundSort.UNSORTED).map { it.tag })
         assertTrue(presentNativeOutbounds(items, "Display", NativeOutboundSort.NAME).isEmpty())
+    }
+
+    @Test fun detourShowsOnlyUserProxyAndIsSearchable() {
+        val throughProxy = proxy("home").copy(detour = "Exit socks § 0")
+        val internal = proxy("hidden").copy(detour = "Unblocker · Psiphon §hide§")
+        val without = proxy("direct")
+        assertEquals("Display home → Exit socks", throughProxy.nameWithDetour())
+        assertEquals("Display hidden", internal.nameWithDetour())
+        assertEquals("Display direct", without.nameWithDetour())
+        val search = presentNativeOutbounds(listOf(throughProxy, internal, without), "Exit socks", NativeOutboundSort.UNSORTED)
+        assertEquals(listOf("home"), search.map { it.tag })
+        assertTrue(presentNativeOutbounds(listOf(internal), "Psiphon", NativeOutboundSort.UNSORTED).isEmpty())
     }
 
     @Test fun sortedModesKeepGroupsBeforeIndividualServers() {
