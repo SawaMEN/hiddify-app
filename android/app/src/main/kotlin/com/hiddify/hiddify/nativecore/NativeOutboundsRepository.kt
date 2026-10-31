@@ -72,6 +72,7 @@ class NativeOutboundsRepository {
         selectedChildTag = group_selected_tag,
         testTimestampMs = url_test_time?.toEpochMilli() ?: 0,
         secure = is_secure,
+        detour = detour,
         ipInfo = ipinfo?.let { info ->
             NativeOutboundIpInfo(info.ip, info.country_code, info.region, info.city,
                 info.asn, info.org, info.latitude, info.longitude, info.postal_code)
