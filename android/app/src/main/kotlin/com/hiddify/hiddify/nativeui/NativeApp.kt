@@ -1041,7 +1041,7 @@ private fun HomeScreen(
                 Column(Modifier.fillMaxWidth().padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 20.dp)) {
                     Column(Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally) {
-                        ConnectionCard(status = status, recovering = recoveryAttempt > 0, hapticFeedback = hapticFeedback,
+                        ConnectionCard(status = status, stats = systemStats, recovering = recoveryAttempt > 0, hapticFeedback = hapticFeedback,
                             requiresReconnect = requiresReconnect, reconnectBusy = reconnectBusy, failed = connectionFailed,
                             onToggleConnection = {
                                 if (status == Status.Stopped && !hasActiveProfile && !profilesLoading && !profilesLoadFailed) noProfileNotice = true
@@ -1136,6 +1136,7 @@ private fun connectionAccent(status: Status, recovering: Boolean, reconnectBusy:
 @Composable
 private fun ConnectionCard(
     status: Status,
+    stats: NativeSystemStats,
     recovering: Boolean,
     hapticFeedback: Boolean,
     onToggleConnection: () -> Unit,
@@ -1199,8 +1200,8 @@ private fun ConnectionCard(
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(buttonSize + 44.dp)
-                // No persistent ring, border or halo around the connection button.
-                // The only surrounding effect is the one-shot successful-connect ripple.
+                // No permanent halo when idle. The existing successful-connect ripple is
+                // intentionally separate from status/traffic motion and never fakes a success.
                 .drawBehind {
                     val progress = successRipple.value
                     if (motion && progress < 1f) {
@@ -1212,6 +1213,11 @@ private fun ConnectionCard(
                     }
                 },
                 contentAlignment = Alignment.Center) {
+                NativeConnectionMotionLayer(
+                    status = status, failed = failed || showError,
+                    downBytesPerSecond = if (stats.speedAvailable) stats.downlink else 0L,
+                    upBytesPerSecond = if (stats.speedAvailable) stats.uplink else 0L,
+                )
                 androidx.compose.material3.Button(
                     onClick = {
                         if (hapticFeedback) view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
