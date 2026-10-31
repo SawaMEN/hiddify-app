@@ -50,7 +50,7 @@ internal fun NativeChainMotionIcon(extraSecurity: Boolean, active: Boolean, prof
         val rotation = transition.animateFloat(
             initialValue = 0f,
             targetValue = 360f,
-            animationSpec = infiniteRepeatable(tween(2400, easing = LinearEasing), RepeatMode.Restart),
+            animationSpec = infiniteRepeatable(tween(if (extraSecurity) 2400 else 3000, easing = LinearEasing), RepeatMode.Restart),
             label = "chain icon rotation",
         )
         rotation.value
@@ -83,7 +83,8 @@ internal fun NativeChainMotionIcon(extraSecurity: Boolean, active: Boolean, prof
     } else {
         Canvas(
             Modifier.size(25.dp).graphicsLayer {
-                rotationZ = if (animated) degrees else 0f
+                // The unblocker key rocks instead of constantly spinning; the shield keeps its orbit.
+                rotationZ = if (animated) (kotlin.math.sin(degrees * PI / 180.0) * 24.0).toFloat() else 0f
             },
         ) {
             val unit = size.minDimension
@@ -96,6 +97,11 @@ internal fun NativeChainMotionIcon(extraSecurity: Boolean, active: Boolean, prof
                 strokeWidth = stroke * .85f, cap = StrokeCap.Round)
             drawLine(main, Offset(unit * .75f, unit * .74f), Offset(unit * .83f, unit * .65f),
                 strokeWidth = stroke * .85f, cap = StrokeCap.Round)
+            if (animated) {
+                val flash = kotlin.math.cos(degrees * PI / 180.0).toFloat().coerceAtLeast(0f)
+                drawCircle(Color.White.copy(alpha = flash * 0.65f), radius = unit * .08f,
+                    center = Offset(unit * .83f, unit * .65f))
+            }
         }
     }
 }

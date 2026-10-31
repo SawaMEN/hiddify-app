@@ -766,6 +766,7 @@ fun NativeApp(
                                         onRefreshProfile = onRefreshProfile,
                                         onAddProfile = { addProfileOpen = true },
                                         systemStats = systemStats,
+                                        chainOptions = chainOptions,
                                         activeOutbound = activeOutbound,
                                         outboundBusy = outboundBusyTag != null,
                                         outboundOperationRevision = outboundOperationRevision,
@@ -778,6 +779,7 @@ fun NativeApp(
                                         onOpenProfiles = { profilesSheetOpen = true },
                                         onOpenSettings = { onRefreshWifiSharingDetails(); quickSettingsOpen = true },
                                         onOpenDiagnostics = { openPage(PAGE_DIAGNOSTICS) },
+                                        onOpenChainSettings = { openPage(PAGE_CHAIN) },
                                         onOpenOutbounds = {
                                             outboundsOpen = true
                                         },
@@ -938,6 +940,7 @@ private fun HomeScreen(
     onRefreshProfile: (NativeProfile) -> Unit = {},
     onAddProfile: () -> Unit = {},
     systemStats: NativeSystemStats,
+    chainOptions: NativeChainOptions = NativeChainOptions(),
     activeOutbound: com.hiddify.hiddify.nativecore.NativeOutbound? = null,
     outboundBusy: Boolean = false,
     outboundOperationRevision: Int = 0,
@@ -951,11 +954,19 @@ private fun HomeScreen(
     onOpenSettings: () -> Unit,
     onOpenDiagnostics: () -> Unit,
     onOpenOutbounds: () -> Unit,
+    onOpenChainSettings: () -> Unit = {},
 ) {
     val updateAvailable = updateState?.showUpdateIndicator == true
     val versionLabel = if (updateAvailable) stringResource(R.string.native_about_update_available,
         updateState?.release?.version.orEmpty()) else stringResource(R.string.native_home_version)
     var noProfileNotice by rememberSaveable { mutableStateOf(false) }
+    var healthSheetOpen by rememberSaveable { mutableStateOf(false) }
+    if (healthSheetOpen) NativeConnectionHealthSheet(
+        status = status, health = internetHealth, outbound = activeOutbound, chain = chainOptions,
+        onDismiss = { healthSheetOpen = false },
+        onFullDiagnostics = onOpenDiagnostics, onTestSelected = onTestActive,
+        onChainSettings = onOpenChainSettings,
+    )
     if (noProfileNotice) AlertDialog(
         onDismissRequest = { noProfileNotice = false; onAddProfile() },
         title = { Text(stringResource(R.string.native_home_choose_profile)) },
@@ -1041,7 +1052,9 @@ private fun HomeScreen(
                 Column(Modifier.fillMaxWidth().padding(start = 20.dp, top = 16.dp, end = 20.dp, bottom = 20.dp)) {
                     Column(Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         horizontalAlignment = Alignment.CenterHorizontally) {
-                        ConnectionCard(status = status, recovering = recoveryAttempt > 0, hapticFeedback = hapticFeedback,
+                        ConnectionCard(status = status, stats = systemStats, chainOptions = chainOptions,
+                            onOpenChainDiagnostics = { healthSheetOpen = true },
+                            recovering = recoveryAttempt > 0, hapticFeedback = hapticFeedback,
                             requiresReconnect = requiresReconnect, reconnectBusy = reconnectBusy, failed = connectionFailed,
                             onToggleConnection = {
                                 if (status == Status.Stopped && !hasActiveProfile && !profilesLoading && !profilesLoadFailed) noProfileNotice = true
@@ -1051,7 +1064,8 @@ private fun HomeScreen(
                         if (status == Status.Started && activeOutbound != null) {
                             NativeActiveProxyDelay(activeOutbound, outboundBusy, onTestActive)
                         }
-                        NativeTextButton(onClick = onOpenDiagnostics, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
+                        NativeTextButton(onClick = { healthSheetOpen = true },
+                            modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
                             Text(if (recoveryAttempt > 0) stringResource(R.string.native_recovery_attempt, recoveryAttempt)
                                 else stringResource(if (status != Status.Started) R.string.native_home_health_stopped else when (internetHealth) {
                                     NativeInternetHealth.UNCHECKED -> R.string.native_health_unchecked
@@ -1136,6 +1150,9 @@ private fun connectionAccent(status: Status, recovering: Boolean, reconnectBusy:
 @Composable
 private fun ConnectionCard(
     status: Status,
+    stats: NativeSystemStats,
+    chainOptions: NativeChainOptions,
+    onOpenChainDiagnostics: () -> Unit,
     recovering: Boolean,
     hapticFeedback: Boolean,
     onToggleConnection: () -> Unit,
@@ -1199,8 +1216,8 @@ private fun ConnectionCard(
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(Modifier.size(buttonSize + 44.dp)
-                // No persistent ring, border or halo around the connection button.
-                // The only surrounding effect is the one-shot successful-connect ripple.
+                // No permanent halo when idle. The existing successful-connect ripple is
+                // intentionally separate from status/traffic motion and never fakes a success.
                 .drawBehind {
                     val progress = successRipple.value
                     if (motion && progress < 1f) {
@@ -1212,6 +1229,11 @@ private fun ConnectionCard(
                     }
                 },
                 contentAlignment = Alignment.Center) {
+                NativeConnectionMotionLayer(
+                    status = status, failed = failed || showError,
+                    downBytesPerSecond = if (stats.speedAvailable) stats.downlink else 0L,
+                    upBytesPerSecond = if (stats.speedAvailable) stats.uplink else 0L,
+                )
                 androidx.compose.material3.Button(
                     onClick = {
                         if (hapticFeedback) view.performHapticFeedback(android.view.HapticFeedbackConstants.KEYBOARD_TAP)
@@ -1244,6 +1266,20 @@ private fun ConnectionCard(
                             Text(caption, style = MaterialTheme.typography.titleMedium,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         }
+                    }
+                }
+                // Configuration badge is deliberately not a "chain healthy" indicator:
+                // health must be checked by diagnostics, not inferred from VPN Started.
+                if (chainOptions.status != "off") {
+                    val extra = chainOptions.status == "extra_security"
+                    val stageLabel = stringResource(if (extra) R.string.native_chain_extra_security else R.string.native_chain_unblocker)
+                    IconButton(
+                        onClick = onOpenChainDiagnostics,
+                        modifier = Modifier.align(Alignment.TopStart)
+                            .semantics { contentDescription = stageLabel },
+                    ) {
+                        NativeChainMotionIcon(extraSecurity = extra, active = status == Status.Started && !showError,
+                            profileMode = (if (extra) chainOptions.extraMode else chainOptions.unblockerMode) == "profile")
                     }
                 }
             }

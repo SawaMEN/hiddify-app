@@ -117,7 +117,7 @@ internal fun NativeActiveProxyFooter(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f).semantics { contentDescription = ipLabel }) {
                         if (ip.isNotBlank()) {
-                            Crossfade(visibility.visible, animationSpec = tween(200), label = "Active proxy IP") { visible ->
+                            Crossfade(visibility.visible, animationSpec = tween(if (LocalNativeMotionEnabled.current) 200 else 0), label = "Active proxy IP") { visible ->
                                 Text(if (visible) ip else obscureActiveIp(ip),
                                     Modifier.combinedClickable(onClick = {
                                         if (!visibility.visible && hapticFeedback) {

@@ -1,4 +1,5 @@
 import SwiftUI
+import NetworkExtension
 
 enum ClientTheme {
     static let accent = Color(red: 0.12, green: 0.83, blue: 0.97)
@@ -55,6 +56,8 @@ struct ClientBadge: View {
 }
 
 struct ClientPrimaryButton: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.font(.system(size: 13, weight: .bold, design: .rounded))
             .padding(.horizontal, 20).padding(.vertical, 12)
@@ -63,30 +66,97 @@ struct ClientPrimaryButton: ButtonStyle {
                                       startPoint: .topLeading, endPoint: .bottomTrailing),
                         in: RoundedRectangle(cornerRadius: 14))
             .opacity(configuration.isPressed ? 0.75 : 1)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.985 : 1)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: configuration.isPressed)
     }
 }
 
+/// Native SwiftUI motion designed for VetrOFF (not a Flutter widget).
+/// The system Network Extension is authoritative; a decorative glow never implies traffic.
 struct ConnectionArtwork: View {
-    let connected: Bool
+    let status: NEVPNStatus
     let busy: Bool
     let action: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var connected: Bool { status == .connected }
+    private var recovering: Bool { status == .reasserting }
+    private var pending: Bool { busy || status == .connecting || status == .disconnecting }
+    private var isAnimated: Bool {
+        !reduceMotion && scenePhase == .active && (pending || connected || recovering)
+    }
+
     var body: some View {
         Button(action: action) {
             ZStack {
-                Circle().fill(RadialGradient(colors: [ClientTheme.accent.opacity(0.16), .clear],
-                                             center: .center, startRadius: 25, endRadius: 110))
+                TimelineView(.animation(minimumInterval: 1.0 / 24.0, paused: !isAnimated)) { timeline in
+                    let phase = isAnimated
+                        ? timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 6) / 6
+                        : 0
+                    Canvas(opaque: false) { context, size in
+                        let center = CGPoint(x: size.width / 2, y: size.height / 2)
+                        let radius = min(size.width, size.height) * 0.365
+
+                        if pending {
+                            var progress = Path()
+                            progress.addArc(center: center, radius: radius,
+                                            startAngle: .degrees(phase * 360 - 90),
+                                            endAngle: .degrees(phase * 360 + 8),
+                                            clockwise: false)
+                            context.stroke(progress, with: .color(ClientTheme.accent.opacity(0.88)),
+                                           style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        } else if connected || recovering {
+                            // Low-cost orbital sparks. No live traffic statistics are available
+                            // from the macOS Network Extension, so don't fake rate-driven effects.
+                            for index in 0..<28 {
+                                let theta = Double(index) * (2 * .pi / 28) + phase * 2 * .pi * 0.16
+                                let flicker = 0.75 + 0.25 * sin(phase * 2 * .pi + Double(index))
+                                let reach = 5 + 7 * flicker
+                                let a = CGPoint(x: center.x + CGFloat(cos(theta)) * radius,
+                                                y: center.y + CGFloat(sin(theta)) * radius)
+                                let b = CGPoint(x: center.x + CGFloat(cos(theta)) * (radius + CGFloat(reach)),
+                                                y: center.y + CGFloat(sin(theta)) * (radius + CGFloat(reach)))
+                                var ray = Path()
+                                ray.move(to: a)
+                                ray.addLine(to: b)
+                                context.stroke(ray,
+                                    with: .color((recovering ? ClientTheme.violet : ClientTheme.mint)
+                                        .opacity(recovering ? 0.23 : 0.42 * flicker)),
+                                    style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
+                            }
+                        }
+                    }
+                    .accessibilityHidden(true)
+                }
+                Circle().fill(RadialGradient(
+                    colors: [(connected ? ClientTheme.mint : ClientTheme.accent).opacity(0.14), .clear],
+                    center: .center, startRadius: 18, endRadius: 110))
                 Circle().strokeBorder(ClientTheme.accent.opacity(0.10), lineWidth: 1).padding(3)
-                Circle().strokeBorder(AngularGradient(colors: [.clear, ClientTheme.accent.opacity(0.75),
-                    ClientTheme.violet.opacity(0.55), .clear], center: .center), lineWidth: 2).padding(18)
+                Circle().strokeBorder(AngularGradient(
+                    colors: [.clear, connected ? ClientTheme.mint : ClientTheme.accent,
+                             ClientTheme.violet.opacity(0.55), .clear],
+                    center: .center), lineWidth: 2).padding(18)
                 Image("BrandMark").resizable().scaledToFit().frame(width: 128, height: 128)
                     .shadow(color: ClientTheme.accent.opacity(0.18), radius: 20)
-                Image(systemName: "power").font(.system(size: 17, weight: .semibold))
+                Image(systemName: connected ? "checkmark" :
+                      (recovering ? "arrow.triangle.2.circlepath" :
+                      (pending ? "ellipsis" : "power")))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(connected ? ClientTheme.mint : ClientTheme.accent)
+                    .contentTransition(.symbolEffect(.replace))
                     .frame(width: 40, height: 40).background(ClientTheme.surface, in: Circle())
                     .overlay(Circle().strokeBorder(ClientTheme.accent.opacity(0.5)))
                     .offset(x: 60, y: 60)
-            }.frame(width: 208, height: 208).contentShape(Circle())
-        }.buttonStyle(.plain).disabled(busy)
+            }
+            .frame(width: 208, height: 208)
+            .contentShape(Circle())
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.28), value: status)
+        }
+        .buttonStyle(.plain).disabled(busy)
         .accessibilityLabel(connected ? "Отключить VPN" : "Подключить VPN")
+        .accessibilityValue(connected ? "Подключено" :
+            recovering ? "Восстановление сети" : pending ? "Подключение или отключение" : "Отключено")
     }
 }

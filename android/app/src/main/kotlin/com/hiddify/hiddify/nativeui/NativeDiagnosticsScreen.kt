@@ -1,6 +1,11 @@
 package com.hiddify.hiddify.nativeui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -27,6 +32,10 @@ fun NativeDiagnosticsScreen(snapshot: NativeDiagnosticSnapshot?, busy: Boolean, 
     var speedFailed by remember { mutableStateOf(false) }
     LaunchedEffect(connected, sessionKey) { speedJob?.cancel(); speedMbps = null; speedFailed = false }
     var previewOpen by remember { mutableStateOf(false) }
+    val motion = LocalNativeMotionEnabled.current
+    // Each completed run reveals its actual checks, never an optimistic fake status.
+    var revealChecks by remember(snapshot?.startedAt) { mutableStateOf(false) }
+    LaunchedEffect(snapshot?.startedAt, motion) { revealChecks = true }
     Column(Modifier.fillMaxSize()) {
         NativePageHeader(stringResource(R.string.native_diagnostics_title), onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp)) {
@@ -55,14 +64,45 @@ fun NativeDiagnosticsScreen(snapshot: NativeDiagnosticSnapshot?, busy: Boolean, 
             speedMbps?.let { Text(stringResource(R.string.native_speed_test_result, it), style = MaterialTheme.typography.titleLarge) }
             if (speedFailed) Text(stringResource(R.string.native_speed_test_failed), color = MaterialTheme.colorScheme.error)
             Spacer(Modifier.height(16.dp))
-            snapshot?.checks?.forEach { check ->
-                ListItem(headlineContent = { Text(stringResource(stageLabel(check.stage))) },
-                    supportingContent = { Text(stringResource(detailLabel(check.detail))) },
-                    trailingContent = { Text(stringResource(when (check.outcome) {
-                        NativeDiagnosticOutcome.PASSED -> R.string.native_diagnostics_passed
-                        NativeDiagnosticOutcome.FAILED -> R.string.native_diagnostics_failed
-                        NativeDiagnosticOutcome.SKIPPED -> R.string.native_diagnostics_skipped
-                    })) }, colors = ListItemDefaults.colors(containerColor = Color.Transparent))
+            snapshot?.checks?.forEachIndexed { index, check ->
+                androidx.compose.runtime.key(check.stage) {
+                    AnimatedVisibility(
+                        visible = revealChecks || !motion,
+                        enter = fadeIn(tween(if (motion) 220 else 0,
+                            delayMillis = if (motion) (index * 65).coerceAtMost(350) else 0)) +
+                            slideInVertically(
+                                animationSpec = tween(if (motion) 220 else 0,
+                                    delayMillis = if (motion) (index * 65).coerceAtMost(350) else 0),
+                                initialOffsetY = { it / 6 },
+                            ),
+                        exit = fadeOut(tween(if (motion) 120 else 0)),
+                    ) {
+                        val tone = when (check.outcome) {
+                            NativeDiagnosticOutcome.PASSED -> MaterialTheme.colorScheme.primary
+                            NativeDiagnosticOutcome.FAILED -> MaterialTheme.colorScheme.error
+                            NativeDiagnosticOutcome.SKIPPED -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                        ListItem(
+                            leadingContent = {
+                                Icon(painterResource(when (check.outcome) {
+                                    NativeDiagnosticOutcome.PASSED -> R.drawable.native_check
+                                    NativeDiagnosticOutcome.FAILED -> R.drawable.privacy_error
+                                    NativeDiagnosticOutcome.SKIPPED -> R.drawable.native_diagnostic_play
+                                }), null, Modifier.size(20.dp), tint = tone)
+                            },
+                            headlineContent = { Text(stringResource(stageLabel(check.stage))) },
+                            supportingContent = { Text(stringResource(detailLabel(check.detail))) },
+                            trailingContent = {
+                                Text(stringResource(when (check.outcome) {
+                                    NativeDiagnosticOutcome.PASSED -> R.string.native_diagnostics_passed
+                                    NativeDiagnosticOutcome.FAILED -> R.string.native_diagnostics_failed
+                                    NativeDiagnosticOutcome.SKIPPED -> R.string.native_diagnostics_skipped
+                                }), color = tone)
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        )
+                    }
+                }
             }
             Spacer(Modifier.height(16.dp))
             Text(stringResource(R.string.native_diagnostics_report_hint))

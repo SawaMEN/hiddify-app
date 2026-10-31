@@ -80,9 +80,27 @@ def check():
         raise ValueError('Standalone MainActivity/launcher is missing')
     if any('flutter' in node.get(android + 'name', '').lower() for node in application.findall('meta-data')):
         raise ValueError('Flutter embedding metadata remains')
+    # macOS is a separate, native SwiftUI/NetworkExtension target, not a Flutter runner.
+    # Never reject legacy preference keys (flutter.*): migration compatibility matters.
+    mac = ROOT / 'macos'
+    project = (mac / 'project.yml').read_text()
+    if 'path: VetrOFF' not in project or 'path: PacketTunnel' not in project:
+        raise ValueError('Native SwiftUI app or Network Extension target missing')
+    if 'Flutter' in project or 'flutter' in project:
+        raise ValueError('Flutter dependency in native macOS XcodeGen project')
+    swift_files = list((mac / 'VetrOFF').rglob('*.swift')) + list((mac / 'PacketTunnel').rglob('*.swift'))
+    if not swift_files:
+        raise ValueError('Native macOS Swift application is missing')
+    for path in swift_files:
+        source = path.read_text()
+        if re.search(r'^\\s*import\\s+(?:Flutter|FlutterMacOS)\\b', source, re.M):
+            raise ValueError(f'Flutter import in macOS native source: {path.relative_to(ROOT)}')
+    content = (mac / 'VetrOFF/ContentView.swift').read_text()
+    if 'import SwiftUI' not in content or 'struct ContentView: View' not in content:
+        raise ValueError('Native SwiftUI root screen missing')
     check_resources()
     version, build = declared_version()
-    print(f'Standalone Kotlin project: no Dart/Flutter runtime; resources OK; version {version}+{build}')
+    print(f'Native Kotlin/Compose + SwiftUI boundaries: no Flutter runtime; resources OK; version {version}+{build}')
 
 
 if __name__ == '__main__':

@@ -760,4 +760,23 @@
     <string name="native_lan_lookup">Finding local proxy address…</string>
     <string name="native_lan_local_only">The address is available only on this device. A QR code would connect another phone to itself, so it is not shown.</string>
     <string name="native_lan_copy_local">Copy same-device link</string>
+    <string name="native_path_title">Connection path</string>
+    <string name="native_path_disclaimer">Only verified signals are shown. A running VPN or a ping does not prove the entire chain is working.</string>
+    <string name="native_path_vpn">VPN tunnel</string>
+    <string name="native_path_selected_proxy">Selected server</string>
+    <string name="native_path_internet">Internet probe through VPN</string>
+    <string name="native_path_chain">Additional chain stage</string>
+    <string name="native_path_no_proxy">No server selected</string>
+    <string name="native_path_proxy_untested">No recent latency test</string>
+    <string name="native_path_proxy_timeout">Last latency test timed out</string>
+    <string name="native_path_proxy_delay">Last measured delay: %1$d ms (not a traffic check)</string>
+    <string name="native_path_probe_passed">A recent HTTP probe succeeded through the selected route</string>
+    <string name="native_path_probe_failed">Connectivity could not be confirmed by the last probe</string>
+    <string name="native_path_probe_running">Connectivity check is in progress</string>
+    <string name="native_path_probe_unknown">Connectivity has not yet been checked</string>
+    <string name="native_path_chain_configured">Configured; individual hop health is not verified</string>
+    <string name="native_path_chain_off">Not configured</string>
+    <string name="native_path_full_diagnostics">Run full diagnostics</string>
+    <string name="native_path_test_proxy">Test selected server latency</string>
+    <string name="native_path_chain_settings">Chain settings</string>
 </resources>
