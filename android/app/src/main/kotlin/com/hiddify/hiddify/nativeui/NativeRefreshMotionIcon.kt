@@ -1,6 +1,13 @@
 package com.hiddify.hiddify.nativeui
 
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -26,7 +33,12 @@ internal fun NativeRefreshMotionIcon(
     val motion = LocalNativeMotionEnabled.current
     val colors = MaterialTheme.colorScheme
     Box(modifier.size(22.dp), contentAlignment = Alignment.Center) {
-        Crossfade(targetState = phase, animationSpec = tween(if (motion) 190 else 0),
+        AnimatedContent(targetState = phase,
+            transitionSpec = {
+                if (!motion) EnterTransition.None togetherWith ExitTransition.None
+                else (fadeIn(tween(210)) + scaleIn(tween(210), initialScale = 0.85f)) togetherWith
+                    (fadeOut(tween(130)) + scaleOut(tween(130), targetScale = 0.92f))
+            },
             label = "Subscription update state") { shown ->
             when (shown) {
                 NativeProfileRefreshPhase.UPDATING ->
