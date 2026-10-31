@@ -16,27 +16,77 @@ jobs:
   macos-dmg:
     name: Build one VetrOFF-macOS-arm64.dmg
     runs-on: macos-15
-    timeout-minutes: 40
+    timeout-minutes: 75
     steps:
       - name: Checkout macOS application
         uses: actions/checkout@v4
 
-      - name: Fetch pinned ARM64 Go core
+      # The separately built core artifact expires; recover without manual intervention.
+      - name: Find reusable pinned ARM64 Go core
+        id: cached-core
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           ARTIFACT_NAME="HiddifyCore-macos-37ed16781062"
           RUN_ID="$(gh api "repos/${{ github.repository }}/actions/artifacts?name=$ARTIFACT_NAME&per_page=100" \
-            --jq '.artifacts | map(select(.expired == false)) | .[0].workflow_run.id // empty')"
-          if [[ -z "$RUN_ID" ]]; then
-            echo "::error::No pinned core framework is available; run macOS Native Core Build first."
-            exit 1
-          fi
+            --jq '[.artifacts[] | select(.expired == false and .name == "HiddifyCore-macos-37ed16781062")] | sort_by(.created_at) | reverse | .[0].workflow_run.id // empty')"
+          echo "run-id=$RUN_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Download reusable pinned core
+        if: ${{ steps.cached-core.outputs.run-id != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
           mkdir -p macos/Core/HiddifyCore.xcframework
-          gh run download "$RUN_ID" --repo "${{ github.repository }}" \
-            --name "$ARTIFACT_NAME" --dir macos/Core/HiddifyCore.xcframework
-          test -f macos/Core/HiddifyCore.xcframework/macos-arm64/HiddifyCore.framework/HiddifyCore
+          gh run download "${{ steps.cached-core.outputs.run-id }}" --repo "${{ github.repository }}" \
+            --name HiddifyCore-macos-37ed16781062 --dir macos/Core/HiddifyCore.xcframework
+
+      - name: Checkout pinned user core when artifact expired
+        if: ${{ steps.cached-core.outputs.run-id == '' }}
+        uses: actions/checkout@v4
+        with:
+          repository: SawaMEN/hiddify-core
+          ref: 37ed16781062332d2269e57d2bf1a85d6a4e2717
+          path: _build/hiddify-core
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Set up Go for core rebuild
+        if: ${{ steps.cached-core.outputs.run-id == '' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: _build/hiddify-core/go.mod
+          cache: false
+
+      - name: Rebuild pinned macOS core
+        if: ${{ steps.cached-core.outputs.run-id == '' }}
+        env:
+          VETROFF_CORE_DIR: ${{ github.workspace }}/_build/hiddify-core
+          VETROFF_CORE_OUT: ${{ github.workspace }}/_build/output
+          VETROFF_CORE_SHA: 37ed16781062332d2269e57d2bf1a85d6a4e2717
+        run: |
+          set -euo pipefail
+          bash macos/scripts/build-hiddify-core.sh
+          mkdir -p macos/Core
+          cp -R "$VETROFF_CORE_OUT/HiddifyCore.xcframework" macos/Core/
+
+      - name: Verify native framework
+        run: |
+          set -euo pipefail
+          CORE_BIN=macos/Core/HiddifyCore.xcframework/macos-arm64/HiddifyCore.framework/HiddifyCore
+          test -s "$CORE_BIN"
+          xcrun lipo -archs "$CORE_BIN" | grep -qw arm64
+
+      - name: Publish rebuilt framework for later workflows
+        if: ${{ steps.cached-core.outputs.run-id == '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: HiddifyCore-macos-37ed16781062
+          path: macos/Core/HiddifyCore.xcframework
+          retention-days: 30
+          if-no-files-found: error
 
       - name: Install XcodeGen
         run: brew install xcodegen
