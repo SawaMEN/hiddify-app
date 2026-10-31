@@ -18,7 +18,7 @@ data class NativeImportSummary(
             "http", "shadowtls", "anytls", "snell", "mieru", "warp", "psiphon", "openvpn",
             "openvpn-client", "openvpn-server", "openconnect", "tailscale", "tailcat", "cloudflared",
             "masque", "masque-client", "masque-server", "trusttunnel", "hiddify", "tunnel_client",
-            "tunnel_server", "hysteria2_legacy", "vpn", "tt", "mierus", "naive", "naive+https", "naive+quic", "socks5", "sudoku", "fptn", "openflux", "pingtunnel",
+            "tunnel_server", "hysteria2_legacy", "vpn", "tt", "mierus", "naive", "naive+https", "naive+quic", "socks5", "sudoku", "fptn", "openflux", "pingtunnel", "vetroff",
         )
         private val unavailable = mapOf(
             "vk-turn-proxy" to "VK TURN Proxy", "wingsv" to "VK TURN Proxy",
