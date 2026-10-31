@@ -787,4 +787,6 @@
     <string name="native_chain_noise_mode_dns_cloudflare">Cloudflare DNS</string>
     <string name="native_chain_noise_mode_sip">SIP</string>
     <string name="native_chain_noise_mode_stun">STUN</string>
+    <string name="native_path_warning_server">The last selected-server delay check timed out. The VPN may be connected but this route may not work.</string>
+    <string name="native_path_warning_internet">The latest Internet probe failed. The VPN is started, but Internet connectivity is not confirmed.</string>
 </resources>
