@@ -18,11 +18,11 @@ class NativeOutboundsRepository {
     private fun client(): CoreClient =
         GrpcClientProvider.grpcClient.create(CoreClient::class)
 
-    suspend fun load(): List<NativeOutboundGroup> {
+    suspend fun load(includeHidden: Boolean = false): List<NativeOutboundGroup> {
         val call = client().OutboundsInfo()
         call.timeout.timeout(8, java.util.concurrent.TimeUnit.SECONDS)
         val response = withNativeResponseChannel(Empty(), call::executeIn, call::cancel) { it.nativeFirstOrNull() }
-        return response?.items?.map { it.toNative(visibleOnly = true) }.orEmpty()
+        return response?.items?.map { it.toNative(visibleOnly = !includeHidden) }.orEmpty()
     }
 
     // Same RPC and first group/item as Dart's ActiveProxyNotifier; convert only that item.

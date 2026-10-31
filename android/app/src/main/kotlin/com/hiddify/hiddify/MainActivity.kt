@@ -753,7 +753,28 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         refreshVpnProtection()
         diagnosticJob = lifecycleScope.launch {
             try {
-                val activeTag = activeOutbound.value?.tag
+                // Snapshot the effective proxy reported by the running core;
+                // subscription tags are not always the same as displayed group tags.
+                val diagnosticOutbound = if (serviceStatus.value == Status.Started && activeOutbound.value == null) {
+                    try {
+                        withContext(Dispatchers.IO) { outboundsRepository.loadActive() }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        null
+                    }
+                } else activeOutbound.value
+                val activeTag = diagnosticOutbound?.tag
+                val availableOutbounds = if (serviceStatus.value == Status.Started &&
+                    diagnosticOutbound?.let { it.isGroup || it.host.isBlank() || it.port !in 1..65535 } == true) {
+                    try {
+                        withContext(Dispatchers.IO) { outboundsRepository.load(includeHidden = true).flatMap { it.items } }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        emptyList()
+                    }
+                } else emptyList()
                 val selected = profiles.value.firstOrNull { it.active }
                 val editor = withContext(Dispatchers.IO) {
                     profileOperationMutex.withLock { selected?.let { runCatching { profileRepository.loadEditor(it.id) }.getOrNull() } }
@@ -761,7 +782,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 val headers = editor?.profile?.populatedHeaders?.let {
                     runCatching { org.json.JSONObject(it).keys().asSequence().toSet() }.getOrDefault(emptySet())
                 }.orEmpty()
-                diagnosticSnapshot.value = diagnosticsRepository.run(editor?.content, headers, activeTag) { progress ->
+                diagnosticSnapshot.value = diagnosticsRepository.run(editor?.content, headers, activeTag, diagnosticOutbound, availableOutbounds) { progress ->
                     diagnosticSnapshot.value = progress
                     progress.checks.lastOrNull()?.takeIf { it.stage == com.hiddify.hiddify.nativediagnostics.NativeDiagnosticStage.TUNNEL }?.let {
                         internetHealth.value = when (it.outcome) {
