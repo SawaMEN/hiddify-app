@@ -4,6 +4,7 @@ import android.net.NetworkCapabilities
 import com.hiddify.core.api.v2.hcore.CoreClient
 import com.hiddify.core.api.v2.hcore.NetworkProbeRequest
 import com.hiddify.hiddify.Application
+import com.hiddify.hiddify.nativecore.NativeOutbound
 import com.hiddify.hiddify.bg.BoxService
 import com.hiddify.hiddify.utils.GrpcClientProvider
 import java.net.InetSocketAddress
@@ -33,7 +34,8 @@ class NativeDiagnosticsRepository {
         return NativeVpnProtection(values["alwaysOn"], values["lockdown"])
     }
 
-    suspend fun run(raw: String?, headers: Set<String>, activeTag: String?, onProgress: (NativeDiagnosticSnapshot) -> Unit): NativeDiagnosticSnapshot {
+    suspend fun run(raw: String?, headers: Set<String>, activeTag: String?,
+        activeOutbound: NativeOutbound? = null, onProgress: (NativeDiagnosticSnapshot) -> Unit): NativeDiagnosticSnapshot {
         val startedAt = Instant.now()
         val running = BoxService.isStarted()
         val testUrl = withContext(Dispatchers.IO) {
@@ -70,12 +72,17 @@ class NativeDiagnosticsRepository {
             if (dnsAvailable) NativeDiagnosticOutcome.PASSED else NativeDiagnosticOutcome.FAILED,
             if (dnsAvailable) NativeDiagnosticDetail.DNS_AVAILABLE else NativeDiagnosticDetail.DNS_UNAVAILABLE))
         val server = try {
-            val endpoint = raw?.let { NativeDiagnosticEndpoints.selected(NativeDiagnosticEndpoints.parse(it), activeTag) }
+            // The running core resolves selector groups and subscription format details.
+            // A stale or merely decorative outbound must never become a TCP target.
+            val endpoint = NativeDiagnosticEndpoints.resolve(
+                raw?.let(NativeDiagnosticEndpoints::parse).orEmpty(), activeTag,
+                activeOutbound.takeIf { running },
+            )
             when {
+                endpoint?.udp == true || NativeDiagnosticEndpoints.chained(raw.orEmpty(), headers) ->
+                    NativeDiagnosticCheck(NativeDiagnosticStage.SERVER, NativeDiagnosticOutcome.SKIPPED, NativeDiagnosticDetail.TRANSPORT_SKIPPED)
                 endpoint == null || endpoint.host.isBlank() || endpoint.port !in 1..65535 ->
                     NativeDiagnosticCheck(NativeDiagnosticStage.SERVER, NativeDiagnosticOutcome.SKIPPED, NativeDiagnosticDetail.NO_ENDPOINT)
-                endpoint.udp || NativeDiagnosticEndpoints.chained(raw.orEmpty(), headers) ->
-                    NativeDiagnosticCheck(NativeDiagnosticStage.SERVER, NativeDiagnosticOutcome.SKIPPED, NativeDiagnosticDetail.TRANSPORT_SKIPPED)
                 else -> {
                     val socket = Socket()
                     try {
