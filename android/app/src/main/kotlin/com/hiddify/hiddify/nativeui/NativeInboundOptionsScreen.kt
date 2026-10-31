@@ -109,6 +109,7 @@ private fun NativeLanSharingPreference(options: NativeInboundOptions, wifiSharin
     var shareRequest by remember { mutableIntStateOf(0) }
     fun closeShare() {
         shareRequest++
+        linkBusy = false
         qrPending = false
         qrLink = null
         localLink = null
