@@ -96,8 +96,6 @@ struct ConnectionArtwork: View {
                         let radius = min(size.width, size.height) * 0.365
 
                         if pending {
-                            let ring = CGRect(x: center.x - radius, y: center.y - radius,
-                                              width: radius * 2, height: radius * 2)
                             var progress = Path()
                             progress.addArc(center: center, radius: radius,
                                             startAngle: .degrees(phase * 360 - 90),
@@ -105,7 +103,6 @@ struct ConnectionArtwork: View {
                                             clockwise: false)
                             context.stroke(progress, with: .color(ClientTheme.accent.opacity(0.88)),
                                            style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                            _ = ring // Ring geometry remains bounded to the artwork.
                         } else if connected || recovering {
                             // Low-cost orbital sparks. No live traffic statistics are available
                             // from the macOS Network Extension, so don't fake rate-driven effects.
@@ -113,10 +110,10 @@ struct ConnectionArtwork: View {
                                 let theta = Double(index) * (2 * .pi / 28) + phase * 2 * .pi * 0.16
                                 let flicker = 0.75 + 0.25 * sin(phase * 2 * .pi + Double(index))
                                 let reach = 5 + 7 * flicker
-                                let a = CGPoint(x: center.x + cos(theta) * radius,
-                                                y: center.y + sin(theta) * radius)
-                                let b = CGPoint(x: center.x + cos(theta) * (radius + reach),
-                                                y: center.y + sin(theta) * (radius + reach))
+                                let a = CGPoint(x: center.x + CGFloat(cos(theta)) * radius,
+                                                y: center.y + CGFloat(sin(theta)) * radius)
+                                let b = CGPoint(x: center.x + CGFloat(cos(theta)) * (radius + CGFloat(reach)),
+                                                y: center.y + CGFloat(sin(theta)) * (radius + CGFloat(reach)))
                                 var ray = Path()
                                 ray.move(to: a)
                                 ray.addLine(to: b)
