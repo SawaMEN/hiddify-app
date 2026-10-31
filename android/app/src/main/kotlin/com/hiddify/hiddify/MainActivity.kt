@@ -755,7 +755,15 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
             try {
                 // Snapshot the effective proxy reported by the running core;
                 // subscription tags are not always the same as displayed group tags.
-                val diagnosticOutbound = activeOutbound.value
+                val diagnosticOutbound = if (serviceStatus.value == Status.Started && activeOutbound.value == null) {
+                    try {
+                        withContext(Dispatchers.IO) { outboundsRepository.loadActive() }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        null
+                    }
+                } else activeOutbound.value
                 val activeTag = diagnosticOutbound?.tag
                 val availableOutbounds = if (serviceStatus.value == Status.Started &&
                     diagnosticOutbound?.let { it.isGroup || it.host.isBlank() || it.port !in 1..65535 } == true) {
