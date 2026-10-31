@@ -2,6 +2,7 @@ package com.hiddify.hiddify.nativeui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -20,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,7 +66,10 @@ fun NativeChainScreen(
             ) { value = value.copy(status = it) }
         }
 
-        ChainSection(stringResource(R.string.native_chain_extra_security)) {
+        ChainSection(
+            stringResource(R.string.native_chain_extra_security),
+            icon = { NativeChainMotionIcon(extraSecurity = true, active = value.status == "extra_security", profileMode = value.extraMode == "profile") },
+        ) {
             ChoiceButton(
                 title = stringResource(R.string.native_chain_mode),
                 selected = value.extraMode,
@@ -120,7 +125,10 @@ fun NativeChainScreen(
             )
         }
 
-        ChainSection(stringResource(R.string.native_chain_unblocker)) {
+        ChainSection(
+            stringResource(R.string.native_chain_unblocker),
+            icon = { NativeChainMotionIcon(extraSecurity = false, active = value.status == "unblocker", profileMode = value.unblockerMode == "profile") },
+        ) {
             ChoiceButton(
                 title = stringResource(R.string.native_chain_mode),
                 selected = value.unblockerMode,
@@ -241,6 +249,7 @@ fun NativeChainScreen(
 @Composable
 private fun ChainSection(
     title: String,
+    icon: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -248,11 +257,18 @@ private fun ChainSection(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (icon != null) icon()
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+            }
             content()
         }
     }
