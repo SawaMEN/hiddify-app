@@ -8,6 +8,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.runtime.getValue
 import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -21,7 +22,6 @@ import com.hiddify.hiddify.constant.Status
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.ln
-import kotlin.math.max
 import kotlin.math.sin
 
 /**
@@ -42,20 +42,16 @@ internal fun NativeConnectionMotionLayer(
     val motion = LocalNativeMotionEnabled.current
     val connected = status == Status.Started && !failed
     val pending = status == Status.Starting || status == Status.Stopping
-    val down by androidx.compose.runtime.run {
-        animateFloatAsState(
+    val down by animateFloatAsState(
             if (connected && motion) nativeMotionTrafficLevel(downBytesPerSecond) else 0f,
             animationSpec = tween(if (motion) 900 else 0),
             label = "download illumination",
-        )
-    }
-    val up by androidx.compose.runtime.run {
-        animateFloatAsState(
+    )
+    val up by animateFloatAsState(
             if (connected && motion) nativeMotionTrafficLevel(upBytesPerSecond) else 0f,
             animationSpec = tween(if (motion) 900 else 0),
             label = "upload illumination",
-        )
-    }
+    )
     val running = motion && (pending || failed || (connected && (down > 0.001f || up > 0.001f)))
     // Conditional creation also cancels the frame clock on idle/background/reduced motion.
     val phase = if (running) {
