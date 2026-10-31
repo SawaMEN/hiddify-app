@@ -4,6 +4,22 @@ import java.net.URI
 
 /** Dart's SOCKS sharing URI, including encoded credentials and IPv6 authorities. */
 object NativeLanSharingLink {
+    /** A missing LAN address must never produce a QR that points to a different device. */
+    fun reachableHost(host: String?): String = host?.trim()?.takeIf { it.isNotEmpty() } ?: "127.0.0.1"
+
+    fun isLocalOnly(host: String): Boolean {
+        val value = host.trim().removeSurrounding("[", "]").lowercase(java.util.Locale.ROOT)
+        return value == "localhost" || value == "::1" ||
+            value.substringBefore('.').let { it == "127" && value.count { ch -> ch == '.' } == 3 }
+    }
+
+    /** Label the imported profile as LAN-only or same-device-only, matching upstream 5.2.x. */
+    fun named(host: String, port: Int, password: String): String {
+        val chosen = reachableHost(host)
+        val name = if (isLocalOnly(chosen)) "Localhost only" else "LAN only"
+        return create(chosen, port, password) + URI(null, null, name).toASCIIString()
+    }
+
     fun create(host: String, port: Int, password: String): String {
         val ip = host.trim().removeSurrounding("[", "]")
         require(ip.isNotEmpty() && ip.none { it.isWhitespace() || it.isISOControl() || it in "@/?#\\[]" }) {

@@ -2,9 +2,19 @@ package com.hiddify.hiddify.nativecore
 
 import com.hiddify.hiddify.nativepreferences.NativeOutboundSort
 
+/** Mirrors Hiddify 5.2: show only the user's detours, never internal chain helpers. */
+internal fun NativeOutbound.nameWithDetour(): String {
+    val hop = detour.trim()
+    if (hop.isBlank() || "§hide§" in hop) return name
+    val display = hop.substringBefore(" §").substringBefore("§").trim()
+    if (display.isEmpty() || display == tag || display == name) return name
+    return "$name → $display"
+}
+
 internal fun presentNativeOutbounds(items: List<NativeOutbound>, query: String, sort: NativeOutboundSort): List<NativeOutbound> {
     val filtered = if (query.isEmpty()) items else items.filter {
-        it.tag.contains(query, ignoreCase = true) || it.type.contains(query, ignoreCase = true)
+        it.tag.contains(query, ignoreCase = true) || it.type.contains(query, ignoreCase = true) ||
+            it.nameWithDetour().contains(query, ignoreCase = true)
     }
     if (sort == NativeOutboundSort.UNSORTED) return filtered
     return filtered.sortedWith(Comparator { a, b ->

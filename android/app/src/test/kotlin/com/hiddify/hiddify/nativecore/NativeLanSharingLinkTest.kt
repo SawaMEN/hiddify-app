@@ -28,6 +28,22 @@ class NativeLanSharingLinkTest {
         assertEquals(link, NativeLanSharingLink.create("2001:db8::1", 1080, "пароль🔐"))
     }
 
+    @Test fun shareProfileNameSurvivesUriAndLoopbackIsExplicit() {
+        val lan = NativeLanSharingLink.named("192.168.1.2", 1080, "пароль")
+        assertEquals("LAN only", URI(lan).fragment)
+        assertEquals("192.168.1.2", URI(lan).host)
+        assertEquals("hiddify:пароль", URI(lan).userInfo)
+
+        val fallback = NativeLanSharingLink.named("", 12334, "secret")
+        assertEquals("127.0.0.1", URI(fallback).host)
+        assertEquals("Localhost only", URI(fallback).fragment)
+        assertEquals("127.0.0.1", NativeLanSharingLink.reachableHost(null))
+        assertEquals("127.0.0.1", NativeLanSharingLink.reachableHost(" "))
+        assertEquals(true, NativeLanSharingLink.isLocalOnly("127.4.5.6"))
+        assertEquals(true, NativeLanSharingLink.isLocalOnly("[::1]"))
+        assertEquals(false, NativeLanSharingLink.isLocalOnly("192.168.1.2"))
+    }
+
     @Test fun invalidAddressesCannotInjectCredentialsPathsOrExtraAuthorities() {
         listOf("", "192.168.1.2@evil", "192.168.1.2/path", "192.168.1.2?query",
             "192.168.1.2#fragment", "192.168.1.2\\evil", "[2001:db8::1", "not:ipv6").forEach { host ->

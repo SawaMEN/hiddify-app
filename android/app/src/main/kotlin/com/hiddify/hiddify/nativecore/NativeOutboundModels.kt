@@ -23,6 +23,8 @@ data class NativeOutbound(
     val testTimestampMs: Long = 0,
     val secure: Boolean = false,
     val ipInfo: NativeOutboundIpInfo? = null,
+    /** Raw detour tag from the core; only show user-visible proxy hops. */
+    val detour: String = "",
 )
 
 data class NativeOutboundGroup(

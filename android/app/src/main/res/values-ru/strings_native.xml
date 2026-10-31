@@ -757,4 +757,7 @@
     <string name="native_update_cancel_download">Отменить загрузку</string>
     <string name="native_update_install_hint">Проверка выполняется автоматически примерно раз в 6 часов, когда Android разрешает фоновую работу. Установка откроет системное подтверждение Android.</string>
     <string name="native_update_install_unavailable">Android не удалось открыть установщик пакетов.</string>
+    <string name="native_lan_lookup">Определение локального адреса прокси…</string>
+    <string name="native_lan_local_only">Адрес доступен только на этом устройстве. QR-код на другом телефоне указал бы на него самого, поэтому QR-код не показывается.</string>
+    <string name="native_lan_copy_local">Скопировать ссылку для этого устройства</string>
 </resources>
