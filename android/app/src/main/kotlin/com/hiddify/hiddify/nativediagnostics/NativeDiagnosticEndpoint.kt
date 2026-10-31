@@ -129,7 +129,7 @@ internal object NativeDiagnosticEndpoints {
                 property.groupValues[1].length == itemIndent + 2) {
                 val key = property.groupValues[2]
                 if (key in setOf("name", "type", "server", "port")) {
-                    current[key] = unquote(property.groupValues[3])
+                    current?.set(key, unquote(property.groupValues[3]))
                 }
             }
         }
@@ -141,11 +141,31 @@ internal object NativeDiagnosticEndpoints {
      * This fixes group tags and Clash subscriptions whose names do not match core tags.
      * A selector or other group is not a TCP endpoint, even if it has a display name.
      */
-    fun resolve(endpoints: List<NativeDiagnosticEndpoint>, tag: String?, live: NativeOutbound?): NativeDiagnosticEndpoint? {
-        if (live != null && !live.isGroup &&
-            live.type.lowercase() !in utility &&
-            live.host.isNotBlank() && live.port in 1..65535) {
-            return NativeDiagnosticEndpoint(live.tag, live.type.lowercase(), live.host, live.port)
+    fun resolve(
+        endpoints: List<NativeDiagnosticEndpoint>,
+        tag: String?,
+        live: NativeOutbound?,
+        available: List<NativeOutbound> = emptyList(),
+    ): NativeDiagnosticEndpoint? {
+        // MainOutboundsInfo may represent a selector/group rather than the
+        // chosen remote node. Follow the explicitly selected child only; never
+        // guess a different server when a subscription contains many nodes.
+        var current = live
+        val visited = hashSetOf<String>()
+        repeat(8) {
+            val outbound = current ?: return@repeat
+            if (!outbound.isGroup && outbound.type.lowercase() !in utility &&
+                outbound.host.isNotBlank() && outbound.port in 1..65535) {
+                return NativeDiagnosticEndpoint(outbound.tag, outbound.type.lowercase(), outbound.host, outbound.port)
+            }
+            val nextTag = outbound.selectedChildTag?.takeIf { it.isNotBlank() } ?: return@repeat
+            if (!visited.add(nextTag)) return@repeat
+            val child = available.firstOrNull { it.tag == nextTag }
+            if (child == null) {
+                selected(endpoints, nextTag)?.let { return it }
+                return@repeat
+            }
+            current = child
         }
         return selected(endpoints, tag)
     }
