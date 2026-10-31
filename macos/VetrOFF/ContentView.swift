@@ -52,6 +52,7 @@ struct ContentView: View {
     let profiles: ProfileStore
     @State private var page: Page = .home
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @AppStorage("macos.selectedProfileID.v1") private var selectedProfileID = ""
     @AppStorage("macos.autoRefreshSubscriptions") private var autoRefreshSubscriptions = true
     @AppStorage("macos.refreshHours") private var refreshHours = 12
@@ -99,8 +100,12 @@ struct ContentView: View {
                         case .diagnostics: diagnostics
                         }
                     }
+                    .id(page)
+                    .transition(reduceMotion ? .identity :
+                        .opacity.combined(with: .offset(y: 8)))
                     .frame(maxWidth: 860).padding(28).frame(maxWidth: .infinity)
                 }
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.22), value: page)
             }
         }
         .background(ClientCanvas())
@@ -255,7 +260,7 @@ struct ContentView: View {
                                 .buttonStyle(ClientPrimaryButton())
                                 .disabled(vpn.isBusy || vpn.status == .disconnecting)
                         }.frame(maxWidth: .infinity, alignment: .leading)
-                        ConnectionArtwork(connected: vpn.canStop,
+                        ConnectionArtwork(status: vpn.status,
                                           busy: vpn.isBusy || vpn.status == .disconnecting, action: toggleConnection)
                     }
                     if let issue = vpn.availabilityMessage {
@@ -357,6 +362,7 @@ struct ContentView: View {
                     if selectedID == profile.id {
                         Label("Выбран", systemImage: "checkmark.circle.fill")
                             .font(.caption).foregroundStyle(ClientTheme.mint)
+                            .transition(reduceMotion ? .identity : .opacity.combined(with: .scale(scale: 0.9)))
                     } else {
                         Button("Выбрать") { selectedProfileID = profile.id.uuidString }
                             .disabled(locked || busy)
@@ -401,6 +407,7 @@ struct ContentView: View {
                 }
                 if let error = profiles.refreshErrors[profile.id] {
                     Label(error, systemImage: "exclamationmark.circle").font(.caption).foregroundStyle(.orange)
+                        .transition(reduceMotion ? .identity : .opacity)
                 }
                 subscriptionDetails(profile)
                 if !servers.isEmpty {
@@ -418,6 +425,8 @@ struct ContentView: View {
                 }
             }
         }
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: busy)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: selectedProfileID)
     }
 
     private var serverPage: some View {
@@ -570,6 +579,7 @@ struct ContentView: View {
                     }
                     if let total = data.total, total > 0 {
                         ProgressView(value: min(Double(used) / Double(total), 1)).tint(ClientTheme.mint)
+                            .animation(reduceMotion ? nil : .easeInOut(duration: 0.35), value: used)
                     }
                 }
                 HStack {
