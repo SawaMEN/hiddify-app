@@ -125,4 +125,37 @@ class NativeDiagnosticEndpointTest {
         assertEquals("ss.example", NativeDiagnosticEndpoints.parse(base64).single().host)
     }
 
+    @Test fun selectedGroupResolvesOnlyItsChosenChildNotAnUnrelatedNode() {
+        fun outbound(tag: String, host: String, port: Int, group: Boolean = false, child: String? = null) =
+            com.hiddify.hiddify.nativecore.NativeOutbound(
+                tag = tag, name = tag, type = if (group) "selector" else "trojan",
+                selected = true, visible = true, delayMs = 0, host = host,
+                port = port, upload = 0, download = 0, selectedChild = child,
+                isGroup = group, selectedChildTag = child
+            )
+        val first = outbound("first", "one.example", 443)
+        val second = outbound("second", "two.example", 8443)
+        val selector = outbound("main", "", 0, group = true, child = "second")
+        assertEquals(
+            NativeDiagnosticEndpoint("second", "trojan", "two.example", 8443),
+            NativeDiagnosticEndpoints.resolve(emptyList(), "main", selector, listOf(first, second)),
+        )
+        assertNull(NativeDiagnosticEndpoints.resolve(emptyList(), "main", selector, listOf(first)))
+        val cyclic = selector.copy(selectedChildTag = "main")
+        assertNull(NativeDiagnosticEndpoints.resolve(emptyList(), "main", cyclic, listOf(cyclic)))
+    }
+
+    @Test fun groupChildTagCanMatchConfiguredNodeWhenCoreOmitsHost() {
+        val selected = NativeDiagnosticEndpoints.parse(
+            """{"outbounds":[{"type":"vless","tag":"choice","server":"choice.example","server_port":443}]}"""
+        )
+        val group = com.hiddify.hiddify.nativecore.NativeOutbound(
+            tag = "select", name = "Selection", type = "selector",
+            selected = true, visible = true, delayMs = 0, host = "", port = 0,
+            upload = 0, download = 0, selectedChild = "choice", isGroup = true,
+            selectedChildTag = "choice",
+        )
+        assertEquals("choice.example", NativeDiagnosticEndpoints.resolve(selected, group.tag, group)?.host)
+    }
+
 }
