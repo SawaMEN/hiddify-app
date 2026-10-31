@@ -19,9 +19,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import com.hiddify.hiddify.constant.Status
+import com.hiddify.hiddify.nativeconnection.NativeMotionIntensity
 import kotlin.math.PI
 import kotlin.math.cos
-import kotlin.math.ln
 import kotlin.math.sin
 
 /**
@@ -43,12 +43,12 @@ internal fun NativeConnectionMotionLayer(
     val connected = status == Status.Started && !failed
     val pending = status == Status.Starting || status == Status.Stopping
     val down by animateFloatAsState(
-            if (connected && motion) nativeMotionTrafficLevel(downBytesPerSecond) else 0f,
+            if (connected && motion) NativeMotionIntensity.level(downBytesPerSecond) else 0f,
             animationSpec = tween(if (motion) 900 else 0),
             label = "download illumination",
     )
     val up by animateFloatAsState(
-            if (connected && motion) nativeMotionTrafficLevel(upBytesPerSecond) else 0f,
+            if (connected && motion) NativeMotionIntensity.level(upBytesPerSecond) else 0f,
             animationSpec = tween(if (motion) 900 else 0),
             label = "upload illumination",
     )
@@ -112,9 +112,3 @@ internal fun NativeConnectionMotionLayer(
     }
 }
 
-/** Bounded, finite and monotonic visual intensity (bytes/sec, not total bytes). */
-internal fun nativeMotionTrafficLevel(bytesPerSecond: Long): Float {
-    if (bytesPerSecond <= 0L) return 0f
-    val capped = bytesPerSecond.coerceAtMost(150_000L).toDouble()
-    return (ln(1.0 + capped) / ln(150_001.0)).toFloat().coerceIn(0f, 1f)
-}
