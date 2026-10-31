@@ -14,6 +14,12 @@ on:
       - "macos/**"
       - ".github/workflows/macos-arm64.yml"
 
+# Avoid building stale commits while newer native UI changes are queued.
+# A PR and its main-branch merge remain independent checks.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

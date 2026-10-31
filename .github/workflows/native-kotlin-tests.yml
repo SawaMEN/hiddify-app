@@ -25,6 +25,12 @@ on:
       - 'tool/checkout_stable_core_source.py'
       - 'tool/fetch_stable_android_core.py'
 
+# Avoid building stale commits while newer native UI changes are queued.
+# A PR and its main-branch merge remain independent checks.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 

@@ -105,6 +105,8 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeconnection/NativeConnectionPolicy.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeConnectionPresentation.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeConnectionMotionPolicy.kt'
+            include 'com/hiddify/hiddify/nativecore/NativeWarpNoiseModes.kt'
+            include 'com/hiddify/hiddify/nativeconnection/NativeConnectionPathPolicy.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeMotionIntensity.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeWarpStartupPolicy.kt'
             include 'com/hiddify/hiddify/nativeconnection/NativeWarpProbePolicy.kt'
