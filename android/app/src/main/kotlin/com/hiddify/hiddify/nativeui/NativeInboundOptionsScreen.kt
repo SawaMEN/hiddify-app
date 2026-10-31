@@ -27,6 +27,7 @@ import com.hiddify.hiddify.nativecore.NativeLanSharingLink
 import com.hiddify.hiddify.nativecore.NativeWifiSharingDetails
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** InboundOptionsPage's immediate preference editors, including independent port switches. */
 @Composable
@@ -102,21 +103,56 @@ private fun NativeLanSharingPreference(options: NativeInboundOptions, wifiSharin
     val scope = rememberCoroutineScope()
     val resolve by rememberUpdatedState(onResolve)
     var linkBusy by remember { mutableStateOf(false) }
+    var qrPending by remember { mutableStateOf(false) }
     var qrLink by remember { mutableStateOf<String?>(null) }
+    var localLink by remember { mutableStateOf<String?>(null) }
+    var shareRequest by remember { mutableIntStateOf(0) }
+    fun closeShare() {
+        shareRequest++
+        qrPending = false
+        qrLink = null
+        localLink = null
+    }
+    fun copyLink(link: String) {
+        context.getSystemService(ClipboardManager::class.java)
+            ?.setPrimaryClip(ClipData.newPlainText("LAN", link))
+        Toast.makeText(context, R.string.native_profile_copied, Toast.LENGTH_SHORT).show()
+    }
     fun share(qr: Boolean) {
         if (linkBusy) return
         linkBusy = true
+        val request = ++shareRequest
+        if (qr) {
+            // Open the dialog before network discovery; a slow LAN lookup cannot block the UI.
+            qrPending = true
+            qrLink = null
+            localLink = null
+        }
         scope.launch {
             try {
-                val current = resolve()
-                val link = NativeLanSharingLink.create(current.host, current.port, current.password)
-                if (qr) qrLink = link else {
-                    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("LAN", link))
-                    Toast.makeText(context, R.string.native_profile_copied, Toast.LENGTH_SHORT).show()
+                val current = try {
+                    withTimeoutOrNull(10_000) { resolve() }
+                } catch (cancelled: CancellationException) { throw cancelled }
+                  catch (_: Exception) { null }
+                // Core's own fallback when no interface is available is 127.0.0.1.
+                // It must never be displayed as a shareable QR to another device.
+                val host = NativeLanSharingLink.reachableHost(current?.host)
+                val link = NativeLanSharingLink.named(
+                    host, current?.port ?: options.mixedPort, current?.password ?: options.lanPassword,
+                )
+                if (request != shareRequest) return@launch
+                if (qr) {
+                    if (NativeLanSharingLink.isLocalOnly(host)) localLink = link else qrLink = link
+                } else copyLink(link)
+            } catch (cancelled: CancellationException) { throw cancelled }
+              catch (_: Exception) {
+                if (request == shareRequest) Toast.makeText(context, R.string.native_quick_lan_error, Toast.LENGTH_SHORT).show()
+            } finally {
+                if (request == shareRequest) {
+                    qrPending = false
+                    linkBusy = false
                 }
-            } catch (error: CancellationException) { throw error }
-            catch (_: Exception) { Toast.makeText(context, R.string.native_quick_lan_error, Toast.LENGTH_SHORT).show() }
-            finally { linkBusy = false }
+            }
         }
     }
     Row(Modifier.fillMaxWidth().clickable(enabled = enabled, role = Role.Button, onClick = onPassword)
@@ -143,5 +179,30 @@ private fun NativeLanSharingPreference(options: NativeInboundOptions, wifiSharin
         }
         Switch(wifiSharing || options.allowLan, onCheckedChange = onToggle, enabled = enabled && !wifiSharing)
     }
-    qrLink?.let { LanQrDialog(it) { qrLink = null } }
+    if (qrPending) AlertDialog(
+        onDismissRequest = ::closeShare,
+        title = { Text(stringResource(R.string.native_inbound_qr)) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                CircularProgressIndicator()
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.native_lan_lookup))
+            }
+        },
+        confirmButton = { NativeTextButton(onClick = ::closeShare) { Text(stringResource(android.R.string.cancel)) } },
+    )
+    localLink?.let { link ->
+        AlertDialog(
+            onDismissRequest = ::closeShare,
+            title = { Text(stringResource(R.string.native_inbound_lan)) },
+            text = { Text(stringResource(R.string.native_lan_local_only)) },
+            confirmButton = {
+                NativeTextButton(onClick = { copyLink(link); closeShare() }) {
+                    Text(stringResource(R.string.native_lan_copy_local))
+                }
+            },
+            dismissButton = { NativeTextButton(onClick = ::closeShare) { Text(stringResource(android.R.string.cancel)) } },
+        )
+    }
+    qrLink?.let { LanQrDialog(it, onDismiss = ::closeShare) }
 }
