@@ -30,6 +30,7 @@ import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativecore.NativeOutbound
 import com.hiddify.hiddify.nativecore.NativeOutboundGroup
 import com.hiddify.hiddify.nativecore.NativeOutboundsPresentationPolicy
+import com.hiddify.hiddify.nativecore.nameWithDetour
 import com.hiddify.hiddify.nativecore.presentNativeOutbounds
 import com.hiddify.hiddify.nativepreferences.NativeOutboundSort
 
@@ -68,8 +69,13 @@ internal fun NativeOutboundsScreen(
     val loading = presentation.loading
     var retry by remember { mutableIntStateOf(0) }
     LaunchedEffect(lifecycleOwner, connected, retry) {
-        presentation = if (!connected) NativeOutboundsPresentationPolicy.initial(false)
-            else NativeOutboundsPresentationPolicy.resubscribing(presentation)
+        // An explicit retry starts a fresh stream generation. Do not display a group
+        // from the previous generation under the new connection.
+        presentation = when {
+            !connected -> NativeOutboundsPresentationPolicy.initial(false)
+            retry > 0 -> NativeOutboundsPresentationPolicy.initial(true)
+            else -> NativeOutboundsPresentationPolicy.resubscribing(presentation)
+        }
         if (retry > 0) com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.reset()
         if (connected) lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
             com.hiddify.hiddify.nativecore.NativePrimaryOutboundsFeed.updates.collect { update ->
@@ -202,7 +208,7 @@ private fun OutboundTile(outbound: NativeOutbound, selected: Boolean, selectable
                 organization = outbound.ipInfo?.organization.orEmpty())
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(outbound.name, style = MaterialTheme.typography.bodyLarge,
+                Text(outbound.nameWithDetour(), style = MaterialTheme.typography.bodyLarge,
                     color = titleColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(outbound.type + if (outbound.isGroup) " (${outbound.selectedChild.orEmpty().trim()})" else "",
                     style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
