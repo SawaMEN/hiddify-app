@@ -56,6 +56,8 @@ struct ClientBadge: View {
 }
 
 struct ClientPrimaryButton: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label.font(.system(size: 13, weight: .bold, design: .rounded))
             .padding(.horizontal, 20).padding(.vertical, 12)
@@ -64,6 +66,8 @@ struct ClientPrimaryButton: ButtonStyle {
                                       startPoint: .topLeading, endPoint: .bottomTrailing),
                         in: RoundedRectangle(cornerRadius: 14))
             .opacity(configuration.isPressed ? 0.75 : 1)
+            .scaleEffect(configuration.isPressed && !reduceMotion ? 0.985 : 1)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: configuration.isPressed)
     }
 }
 
