@@ -760,7 +760,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 val availableOutbounds = if (serviceStatus.value == Status.Started &&
                     diagnosticOutbound?.let { it.isGroup || it.host.isBlank() || it.port !in 1..65535 } == true) {
                     try {
-                        withContext(Dispatchers.IO) { outboundsRepository.load().flatMap { it.items } }
+                        withContext(Dispatchers.IO) { outboundsRepository.load(includeHidden = true).flatMap { it.items } }
                     } catch (cancelled: CancellationException) {
                         throw cancelled
                     } catch (_: Exception) {
