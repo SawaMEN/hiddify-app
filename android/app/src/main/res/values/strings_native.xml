@@ -583,7 +583,7 @@
     <string name="native_diagnostics_server">Server TCP reachability</string>
     <string name="native_diagnostics_dns_hint">System DNS only; tunneled DNS is included in the VPN HTTP check</string>
     <string name="native_diagnostics_tcp_hint">TCP reachability only; this does not validate authentication or the VPN protocol</string>
-    <string name="native_diagnostics_no_endpoint">Server endpoint is unavailable in this profile format.</string>
+    <string name="native_diagnostics_no_endpoint">The selected server's TCP endpoint could not be identified. This check was skipped; it does not mean the VPN is broken.</string>
     <string name="native_diagnostics_transport_skipped">TCP reachability cannot validate UDP or a chained connection.</string>
     <string name="native_diagnostics_tunnel_hint">HTTP check through the local VPN proxy without direct fallback</string>
     <string name="native_editor_total">Total traffic</string>
