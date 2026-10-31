@@ -1,8 +1,10 @@
 package com.hiddify.hiddify.nativeui
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -11,6 +13,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
@@ -80,7 +83,26 @@ internal fun NativeActiveProxyFooter(
     }
     val ip = outbound.ipInfo?.ip.orEmpty()
     val ipLabel = stringResource(R.string.native_outbound_ip)
-    NativeSurface(Modifier.fillMaxWidth()) {
+    val colors = MaterialTheme.colorScheme
+    val motionDuration = if (LocalNativeMotionEnabled.current) 260 else 0
+    val cardColor by animateColorAsState(
+        targetValue = if (busy) lerp(colors.surfaceContainerLow, colors.primaryContainer, .28f)
+            else colors.surfaceContainerLow,
+        animationSpec = tween(motionDuration), label = "Active proxy surface",
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (busy) colors.primary.copy(alpha = .45f)
+            else colors.outlineVariant.copy(alpha = .45f),
+        animationSpec = tween(motionDuration), label = "Active proxy border",
+    )
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = cardColor,
+        contentColor = colors.onSurface,
+        border = BorderStroke(1.dp, borderColor),
+        shadowElevation = 2.dp,
+    ) {
         Row(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 8.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.clickable(enabled = !busy) { requestedAtRevision = operationRevision; inspectPending = true; onTest() }.padding(horizontal = 8.dp)) {
@@ -88,8 +110,10 @@ internal fun NativeActiveProxyFooter(
                     organization = outbound.ipInfo?.organization.orEmpty())
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(outbound.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold,
-                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Crossfade(outbound.name, animationSpec = tween(motionDuration), label = "Active proxy name") { name ->
+                    Text(name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.weight(1f).semantics { contentDescription = ipLabel }) {
                         if (ip.isNotBlank()) {
@@ -105,16 +129,34 @@ internal fun NativeActiveProxyFooter(
                                     style = MaterialTheme.typography.labelMedium.copy(textDirection = TextDirection.Ltr),
                                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
+                        } else if (busy) {
+                            // Only indicate a pending lookup while a real operation is running.
+                            Box(Modifier.size(width = 86.dp, height = 14.dp)
+                                .background(colors.onSurface.copy(alpha = .12f), RoundedCornerShape(7.dp)))
                         } else Text(stringResource(R.string.native_active_unknown_ip),
-                            Modifier.clickable(enabled = !busy, onClick = onTest).padding(horizontal = 2.dp),
+                            Modifier.clickable(enabled = true, onClick = onTest).padding(horizontal = 2.dp),
                             style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Spacer(Modifier.width(8.dp))
-                    Text(outbound.type, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Surface(shape = RoundedCornerShape(10.dp), color = colors.primary.copy(alpha = .11f)) {
+                        Text(outbound.type,
+                            Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = colors.primary,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
-            Icon(painterResource(R.drawable.settings_chevron), null, Modifier.padding(horizontal = 12.dp).size(24.dp))
+            if (busy) {
+                CircularProgressIndicator(
+                    modifier = Modifier.padding(horizontal = 12.dp).size(24.dp),
+                    strokeWidth = 2.dp,
+                    color = colors.primary,
+                )
+            } else {
+                Icon(painterResource(R.drawable.settings_chevron), null, Modifier.padding(horizontal = 12.dp).size(24.dp))
+            }
         }
     }
     if (inspecting) NativeOutboundInfoDialog(outbound, onDismiss = { inspecting = false })
