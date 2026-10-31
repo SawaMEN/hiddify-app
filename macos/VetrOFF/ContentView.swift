@@ -679,7 +679,11 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 16) {
                 Label("Состояние клиента", systemImage: "waveform.path.ecg").font(.headline)
                 LabeledContent("macOS", value: ProcessInfo.processInfo.operatingSystemVersionString)
-                LabeledContent("Системный VPN", value: vpn.statusText)
+                LabeledContent("Системный VPN") {
+                    Text(vpn.statusText)
+                        .contentTransition(.opacity)
+                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: vpn.status)
+                }
                 LabeledContent("Возможность запуска", value: vpn.availabilityMessage ?? "Ядро и разрешения доступны")
                 LabeledContent("Профили", value: "\(profiles.profiles.count)")
                 Divider()
