@@ -17,7 +17,8 @@ class NativeOutboundPresentationTest {
         assertEquals(items, presentNativeOutbounds(items, "", NativeOutboundSort.UNSORTED))
         assertEquals(items, presentNativeOutbounds(items, "VLESS", NativeOutboundSort.UNSORTED))
         assertEquals(listOf("a"), presentNativeOutbounds(items, "A", NativeOutboundSort.UNSORTED).map { it.tag })
-        assertTrue(presentNativeOutbounds(items, "Display", NativeOutboundSort.NAME).isEmpty())
+        assertEquals(listOf("B", "Z", "a"),
+            presentNativeOutbounds(items, "Display", NativeOutboundSort.NAME).map { it.tag })
     }
 
     @Test fun detourShowsOnlyUserProxyAndIsSearchable() {
