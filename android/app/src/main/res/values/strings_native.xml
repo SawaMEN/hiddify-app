@@ -757,4 +757,7 @@
     <string name="native_update_cancel_download">Cancel download</string>
     <string name="native_update_install_hint">Checks run automatically about every 6 hours when Android allows background work. Installation opens the Android confirmation screen.</string>
     <string name="native_update_install_unavailable">Android could not open the package installer.</string>
+    <string name="native_lan_lookup">Finding local proxy address…</string>
+    <string name="native_lan_local_only">The address is available only on this device. A QR code would connect another phone to itself, so it is not shown.</string>
+    <string name="native_lan_copy_local">Copy same-device link</string>
 </resources>
