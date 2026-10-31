@@ -85,6 +85,21 @@ class NativeImportSummaryTest {
         assertFalse(summary.toString().contains("example.org"))
     }
 
+    @Test fun vetroffShareLinksAreCountedWithoutReportingSecretsOrUnknownProtocols() {
+        val summary = NativeImportSummary.parse("vetroff://opaque-profile-token\nvetroff://opaque-profile-token")
+        assertEquals(2, summary.servers)
+        assertEquals(1, summary.duplicates)
+        assertEquals(0, summary.unknownTypes)
+        assertTrue(summary.unsupportedProtocols.isEmpty())
+        assertFalse(summary.toString().contains("opaque-profile-token"))
+        val json = NativeImportSummary.parse(
+            """{"outbounds":[{"type":"vetroff","tag":"VetrOFFProxy","link":"vetroff://opaque-profile-token"}]}"""
+        )
+        assertEquals(1, json.servers)
+        assertEquals(0, json.unknownTypes)
+        assertFalse(json.toString().contains("opaque-profile-token"))
+    }
+
     @Test fun base64SubscriptionsMatchTheirDecodedLinks() {
         val links = "trojan://secret@example.org:443#One\ntuic://secret@example.org:443#Two"
         val encoded = Base64.getUrlEncoder().withoutPadding().encodeToString(links.toByteArray())
