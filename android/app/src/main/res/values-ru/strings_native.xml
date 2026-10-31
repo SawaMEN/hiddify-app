@@ -787,4 +787,6 @@
     <string name="native_chain_noise_mode_dns_cloudflare">DNS Cloudflare</string>
     <string name="native_chain_noise_mode_sip">SIP</string>
     <string name="native_chain_noise_mode_stun">STUN</string>
+    <string name="native_path_warning_server">Проверка задержки выбранного сервера завершилась тайм-аутом. VPN может быть включён, но маршрут недоступен.</string>
+    <string name="native_path_warning_internet">Последняя проверка интернета не прошла. VPN запущен, но доступность интернета не подтверждена.</string>
 </resources>
