@@ -35,7 +35,8 @@ class NativeDiagnosticsRepository {
     }
 
     suspend fun run(raw: String?, headers: Set<String>, activeTag: String?,
-        activeOutbound: NativeOutbound? = null, onProgress: (NativeDiagnosticSnapshot) -> Unit): NativeDiagnosticSnapshot {
+        activeOutbound: NativeOutbound? = null, availableOutbounds: List<NativeOutbound> = emptyList(),
+        onProgress: (NativeDiagnosticSnapshot) -> Unit): NativeDiagnosticSnapshot {
         val startedAt = Instant.now()
         val running = BoxService.isStarted()
         val testUrl = withContext(Dispatchers.IO) {
@@ -77,6 +78,7 @@ class NativeDiagnosticsRepository {
             val endpoint = NativeDiagnosticEndpoints.resolve(
                 raw?.let(NativeDiagnosticEndpoints::parse).orEmpty(), activeTag,
                 activeOutbound.takeIf { running },
+                if (running) availableOutbounds else emptyList(),
             )
             when {
                 endpoint?.udp == true || NativeDiagnosticEndpoints.chained(raw.orEmpty(), headers) ->
