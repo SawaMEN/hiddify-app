@@ -16,7 +16,7 @@ class NativeOutboundPresentationTest {
         val items = listOf(proxy("Z"), proxy("a"), proxy("B"))
         assertEquals(items, presentNativeOutbounds(items, "", NativeOutboundSort.UNSORTED))
         assertEquals(items, presentNativeOutbounds(items, "VLESS", NativeOutboundSort.UNSORTED))
-        assertEquals(listOf("a"), presentNativeOutbounds(items, "A", NativeOutboundSort.UNSORTED).map { it.tag })
+        assertEquals(listOf("a"), presentNativeOutbounds(items, "Display a", NativeOutboundSort.UNSORTED).map { it.tag })
         assertEquals(listOf("B", "Z", "a"),
             presentNativeOutbounds(items, "Display", NativeOutboundSort.NAME).map { it.tag })
     }
