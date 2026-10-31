@@ -9,7 +9,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.runtime.getValue
-import androidx.compose.foundation.layout.matchParentSize
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -62,7 +62,7 @@ internal fun NativeConnectionMotionLayer(
     } else 0f
 
     val colors = MaterialTheme.colorScheme
-    Canvas(modifier.matchParentSize()) {
+    Canvas(modifier.fillMaxSize()) {
         if (!motion || (!pending && !failed && down < 0.001f && up < 0.001f)) return@Canvas
         val center = Offset(size.width / 2f, size.height / 2f)
         val diameter = size.minDimension
@@ -80,7 +80,7 @@ internal fun NativeConnectionMotionLayer(
                 start = (if (reverse) -1f else 1f) * phase * 360f - 90f,
                 sweep = if (reverse) -98f else 98f, width = diameter * 0.013f)
         } else if (failed) {
-            val alpha = 0.48f + 0.18f * sin(phase * 2f * PI).toFloat()
+            val alpha = 0.48f + 0.18f * sin(phase.toDouble() * 2.0 * PI).toFloat()
             arc(colors.error.copy(alpha = alpha), 15f, 54f, diameter * 0.012f)
             arc(colors.error.copy(alpha = alpha), 110f, 54f, diameter * 0.012f)
         } else if (connected) {
