@@ -84,6 +84,8 @@ import com.hiddify.hiddify.nativediagnostics.NativeVpnProtection
 import com.hiddify.hiddify.nativepreferences.NativeThemeMode
 import com.hiddify.hiddify.nativeconnection.NativeConnectionOptions
 import com.hiddify.hiddify.nativeconnection.NativeInternetHealth
+import com.hiddify.hiddify.nativeconnection.NativeConnectionPathPolicy
+import com.hiddify.hiddify.nativeconnection.NativeConnectionWarning
 import com.hiddify.hiddify.privacy.NativeRegionalAppKind
 import com.hiddify.hiddify.privacy.NativeRegionalAppSnapshot
 import com.hiddify.hiddify.privacy.NativeRegionalOptions
@@ -961,6 +963,11 @@ private fun HomeScreen(
         updateState?.release?.version.orEmpty()) else stringResource(R.string.native_home_version)
     var noProfileNotice by rememberSaveable { mutableStateOf(false) }
     var healthSheetOpen by rememberSaveable { mutableStateOf(false) }
+    val pathWarning = NativeConnectionPathPolicy.warning(
+        vpnStarted = status == Status.Started,
+        selectedServerDelayMs = activeOutbound?.delayMs,
+        health = internetHealth,
+    )
     if (healthSheetOpen) NativeConnectionHealthSheet(
         status = status, health = internetHealth, outbound = activeOutbound, chain = chainOptions,
         onDismiss = { healthSheetOpen = false },
@@ -1074,6 +1081,30 @@ private fun HomeScreen(
                                     NativeInternetHealth.UNAVAILABLE -> R.string.native_health_unavailable
                                     NativeInternetHealth.PROBE_FAILED -> R.string.native_health_probe_failed
                                 }), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        }
+                    }
+                    if (pathWarning != NativeConnectionWarning.NONE) {
+                        val warningText = stringResource(when (pathWarning) {
+                            NativeConnectionWarning.SELECTED_SERVER_TIMED_OUT -> R.string.native_path_warning_server
+                            NativeConnectionWarning.INTERNET_PROBE_FAILED -> R.string.native_path_warning_internet
+                            NativeConnectionWarning.NONE -> R.string.native_path_title
+                        })
+                        androidx.compose.material3.Surface(
+                            modifier = Modifier.fillMaxWidth().clickable(onClick = { healthSheetOpen = true }),
+                            color = MaterialTheme.colorScheme.errorContainer,
+                            shape = MaterialTheme.shapes.medium,
+                        ) {
+                            Row(Modifier.fillMaxWidth().padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Icon(painterResource(R.drawable.privacy_error), null,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer)
+                                Text(warningText, Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onErrorContainer)
+                                Icon(painterResource(R.drawable.native_chevron), null,
+                                    tint = MaterialTheme.colorScheme.onErrorContainer)
+                            }
                         }
                     }
                     if (status == Status.Started && activeOutbound != null) {
