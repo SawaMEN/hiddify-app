@@ -5,6 +5,7 @@ import com.hiddify.core.api.v2.hcore.CoreClient
 import com.hiddify.core.api.v2.hcore.NetworkProbeRequest
 import com.hiddify.hiddify.Application
 import com.hiddify.hiddify.nativecore.NativeOutbound
+import com.hiddify.hiddify.nativeconnection.NativeHealthEndpoints
 import com.hiddify.hiddify.bg.BoxService
 import com.hiddify.hiddify.utils.GrpcClientProvider
 import java.net.InetSocketAddress
@@ -20,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 class NativeDiagnosticsRepository {
     companion object {
@@ -119,20 +121,43 @@ class NativeDiagnosticsRepository {
     private fun client(): CoreClient =
         GrpcClientProvider.diagnosticsGrpcClient.create(CoreClient::class)
 
-    private suspend fun probe(url: String): NativeDiagnosticCheck = try {
-        val call = client().ProbeConnection()
-        call.timeout.timeout(32, TimeUnit.SECONDS)
-        val response = try { call.execute(NetworkProbeRequest(url = url)) } finally { call.cancel() }
-        val healthy = NativeProbePolicy.healthy(url, response.status_code)
-        NativeDiagnosticCheck(
+    /**
+     * Use the same independent HTTPS test targets as the service-owned monitor.
+     * Legacy/default HTTP test URLs can be useful for latency, but may be intercepted
+     * or redirected by captive portals; they must not be the only VPN health check.
+     * Total diagnostic budget is bounded even when several hosts are unreachable.
+     */
+    private suspend fun probe(url: String): NativeDiagnosticCheck {
+        val targets = NativeHealthEndpoints.urls(url)
+        val budget = 24L
+        var lastStatus: Int? = null
+        val succeeded = withTimeoutOrNull(budget * 1000L) {
+            for (target in targets) {
+                currentCoroutineContext().ensureActive()
+                try {
+                    val call = client().ProbeConnection()
+                    call.timeout.timeout((budget / targets.size).coerceAtLeast(6L), TimeUnit.SECONDS)
+                    val response = try {
+                        call.execute(NetworkProbeRequest(url = target))
+                    } finally {
+                        call.cancel()
+                    }
+                    lastStatus = response.status_code
+                    if (NativeProbePolicy.healthy(target, response.status_code)) return@withTimeoutOrNull true
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    // Try the next independent host; no single endpoint proves
+                    // that the selected VPN route has no Internet access.
+                }
+            }
+            false
+        } == true
+        return NativeDiagnosticCheck(
             NativeDiagnosticStage.TUNNEL,
-            if (healthy) NativeDiagnosticOutcome.PASSED else NativeDiagnosticOutcome.FAILED,
-            if (healthy) NativeDiagnosticDetail.PROBE_OK else NativeDiagnosticDetail.PROBE_FAILED,
-            response.status_code,
+            if (succeeded) NativeDiagnosticOutcome.PASSED else NativeDiagnosticOutcome.FAILED,
+            if (succeeded) NativeDiagnosticDetail.PROBE_OK else NativeDiagnosticDetail.PROBE_FAILED,
+            lastStatus,
         )
-    } catch (error: CancellationException) {
-        throw error
-    } catch (_: Exception) {
-        NativeDiagnosticCheck(NativeDiagnosticStage.TUNNEL, NativeDiagnosticOutcome.FAILED, NativeDiagnosticDetail.PROBE_FAILED)
     }
 }
