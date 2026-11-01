@@ -5,6 +5,7 @@ enum class NativeConnectionWarning {
     NONE,
     SELECTED_SERVER_TIMED_OUT,
     INTERNET_PROBE_FAILED,
+    INTERNET_PROBE_INCONCLUSIVE,
 }
 
 object NativeConnectionPathPolicy {
@@ -18,8 +19,11 @@ object NativeConnectionPathPolicy {
         if (selectedServerDelayMs != null && selectedServerDelayMs > 65_000) {
             return NativeConnectionWarning.SELECTED_SERVER_TIMED_OUT
         }
-        if (health == NativeInternetHealth.UNAVAILABLE || health == NativeInternetHealth.PROBE_FAILED) {
+        if (health == NativeInternetHealth.UNAVAILABLE) {
             return NativeConnectionWarning.INTERNET_PROBE_FAILED
+        }
+        if (health == NativeInternetHealth.PROBE_FAILED) {
+            return NativeConnectionWarning.INTERNET_PROBE_INCONCLUSIVE
         }
         return NativeConnectionWarning.NONE
     }
