@@ -23,7 +23,7 @@ class NativeConnectionPathPolicyTest {
     @Test fun failedProbeIsShownWithoutMisrepresentingUnverifiedChain() {
         assertEquals(NativeConnectionWarning.INTERNET_PROBE_FAILED,
             NativeConnectionPathPolicy.warning(true, 120, NativeInternetHealth.UNAVAILABLE))
-        assertEquals(NativeConnectionWarning.INTERNET_PROBE_FAILED,
+        assertEquals(NativeConnectionWarning.INTERNET_PROBE_INCONCLUSIVE,
             NativeConnectionPathPolicy.warning(true, null, NativeInternetHealth.PROBE_FAILED))
         assertEquals(NativeConnectionWarning.NONE,
             NativeConnectionPathPolicy.warning(true, 120, NativeInternetHealth.AVAILABLE))

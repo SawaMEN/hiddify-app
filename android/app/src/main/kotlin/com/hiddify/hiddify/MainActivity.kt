@@ -782,15 +782,11 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 val headers = editor?.profile?.populatedHeaders?.let {
                     runCatching { org.json.JSONObject(it).keys().asSequence().toSet() }.getOrDefault(emptySet())
                 }.orEmpty()
+                // Manual diagnostics are a one-off test, not a source of truth for
+                // the VPN-service health monitor. In particular, a single blocked
+                // test host must never overwrite the live state on Home.
                 diagnosticSnapshot.value = diagnosticsRepository.run(editor?.content, headers, activeTag, diagnosticOutbound, availableOutbounds) { progress ->
                     diagnosticSnapshot.value = progress
-                    progress.checks.lastOrNull()?.takeIf { it.stage == com.hiddify.hiddify.nativediagnostics.NativeDiagnosticStage.TUNNEL }?.let {
-                        internetHealth.value = when (it.outcome) {
-                            com.hiddify.hiddify.nativediagnostics.NativeDiagnosticOutcome.PASSED -> NativeInternetHealth.AVAILABLE
-                            com.hiddify.hiddify.nativediagnostics.NativeDiagnosticOutcome.FAILED -> NativeInternetHealth.PROBE_FAILED
-                            else -> NativeInternetHealth.UNCHECKED
-                        }
-                    }
                 }
             } catch (error: CancellationException) {
                 throw error

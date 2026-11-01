@@ -48,7 +48,8 @@ internal fun NativeConnectionHealthSheet(
     }
     val healthTone = when (health) {
         NativeInternetHealth.AVAILABLE -> HealthTone.GOOD
-        NativeInternetHealth.UNAVAILABLE, NativeInternetHealth.PROBE_FAILED -> HealthTone.ERROR
+        NativeInternetHealth.UNAVAILABLE -> HealthTone.ERROR
+        NativeInternetHealth.PROBE_FAILED -> HealthTone.UNKNOWN
         NativeInternetHealth.CHECKING -> HealthTone.PENDING
         NativeInternetHealth.UNCHECKED -> HealthTone.UNKNOWN
     }
@@ -65,7 +66,8 @@ internal fun NativeConnectionHealthSheet(
     }
     val healthDescription = stringResource(when (health) {
         NativeInternetHealth.AVAILABLE -> R.string.native_path_probe_passed
-        NativeInternetHealth.UNAVAILABLE, NativeInternetHealth.PROBE_FAILED -> R.string.native_path_probe_failed
+        NativeInternetHealth.UNAVAILABLE -> R.string.native_path_probe_failed
+        NativeInternetHealth.PROBE_FAILED -> R.string.native_path_probe_inconclusive
         NativeInternetHealth.CHECKING -> R.string.native_path_probe_running
         NativeInternetHealth.UNCHECKED -> R.string.native_path_probe_unknown
     })
