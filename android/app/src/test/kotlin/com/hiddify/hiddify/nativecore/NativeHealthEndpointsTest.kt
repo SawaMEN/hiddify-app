@@ -16,6 +16,13 @@ class NativeHealthEndpointsTest {
         assertEquals(3, urls.size)
         assertEquals(3, urls.map { java.net.URI(it).host }.distinct().size)
     }
+    @Test fun defaultLegacyHttpTestUrlUsesTwoIndependentHttpsTargets() {
+        val urls = NativeHealthEndpoints.urls("http://captive.apple.com/hotspot-detect.html")
+        assertEquals(2, urls.size)
+        assertTrue(urls.all { it.startsWith("https://") })
+        assertEquals(2, urls.map { java.net.URI(it).host }.distinct().size)
+    }
+
     @Test fun builtInEndpointIsNotDuplicated() {
         val url = "https://www.gstatic.com/generate_204"
         assertEquals(1, NativeHealthEndpoints.urls(url).count { it == url })
