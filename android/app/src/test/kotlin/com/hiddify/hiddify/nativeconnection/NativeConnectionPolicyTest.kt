@@ -93,6 +93,28 @@ class NativeHealthProbePolicyTest {
         assertEquals(60L, fresh.intervalSeconds)
     }
 
+    @Test fun firstFailedRoundDoesNotPublishFalseVpnOutage() {
+        val monitor = NativeHealthProbePolicy(false)
+        assertEquals(NativeInternetHealth.UNCHECKED, monitor.observedHealth())
+        monitor.record(false, 12_000)
+        assertEquals(NativeInternetHealth.UNCHECKED, monitor.observedHealth())
+        monitor.record(false, 12_000)
+        assertEquals(NativeInternetHealth.PROBE_FAILED, monitor.observedHealth())
+        monitor.record(true, 700)
+        assertEquals(NativeInternetHealth.AVAILABLE, monitor.observedHealth())
+        assertEquals(0, monitor.failures)
+    }
+
+    @Test fun healthySessionDoesNotInheritPreviousFailedProbeRound() {
+        val previous = NativeHealthProbePolicy(true)
+        repeat(3) { previous.record(false, 30_000) }
+        assertEquals(NativeInternetHealth.PROBE_FAILED, previous.observedHealth())
+        val next = NativeHealthProbePolicy(true)
+        assertEquals(NativeInternetHealth.UNCHECKED, next.observedHealth())
+        next.record(true, 250)
+        assertEquals(NativeInternetHealth.AVAILABLE, next.observedHealth())
+    }
+
     @Test fun invalidElapsedValuesCannotEscapeDeadlineLimits() {
         val policy = NativeHealthProbePolicy(true)
         repeat(3) { policy.record(true, -1) }
