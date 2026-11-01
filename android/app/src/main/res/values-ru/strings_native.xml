@@ -789,4 +789,6 @@
     <string name="native_chain_noise_mode_stun">STUN</string>
     <string name="native_path_warning_server">Проверка задержки выбранного сервера завершилась тайм-аутом. VPN может быть включён, но маршрут недоступен.</string>
     <string name="native_path_warning_internet">Последняя проверка интернета не прошла. VPN запущен, но доступность интернета не подтверждена.</string>
+    <string name="native_path_probe_inconclusive">Тестовые сайты не подтвердили доступ через VPN. Это не означает, что интернет через VPN недоступен.</string>
+    <string name="native_path_warning_probe_inconclusive">VPN запущен, но тестовые сайты не подтвердили доступ. Проверьте открытие сайта или повторите диагностику.</string>
 </resources>
