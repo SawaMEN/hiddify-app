@@ -759,7 +759,7 @@ class BoxService(
                 val started = android.os.SystemClock.elapsedRealtime()
                 val healthy = repository.probe(url, policy.timeoutSeconds)
                 policy.record(healthy, android.os.SystemClock.elapsedRealtime() - started)
-                NativeServiceState.health(if (healthy) NativeInternetHealth.AVAILABLE else NativeInternetHealth.PROBE_FAILED)
+                NativeServiceState.health(policy.observedHealth())
                 if (healthy) coreFailures = 0 else {
                     // Probe-site failure alone must never tear down a working VPN.
                     val responds = try { com.hiddify.hiddify.nativecore.NativeStatsRepository().load(); true }
