@@ -50,6 +50,18 @@ class NativeHealthProbePolicy(val adaptive: Boolean) {
         }
     val intervalSeconds: Long get() = if (adaptive && failures == 0) 60L else 30L
 
+    /**
+     * An isolated probe failure can be a blocked test host or transient DNS/TLS
+     * timeout; don't publish a negative VPN status until two full probe rounds
+     * fail consecutively. This is still not proof that all traffic is blocked.
+     */
+    fun observedHealth(): NativeInternetHealth = when {
+        failures >= 2 -> NativeInternetHealth.PROBE_FAILED
+        failures == 1 -> NativeInternetHealth.UNCHECKED
+        successes > 0 -> NativeInternetHealth.AVAILABLE
+        else -> NativeInternetHealth.UNCHECKED
+    }
+
     fun record(healthy: Boolean, elapsedMs: Long) {
         if (!healthy) {
             failures = (failures + 1).coerceAtMost(1_000_000)
