@@ -1087,23 +1087,29 @@ private fun HomeScreen(
                         val warningText = stringResource(when (pathWarning) {
                             NativeConnectionWarning.SELECTED_SERVER_TIMED_OUT -> R.string.native_path_warning_server
                             NativeConnectionWarning.INTERNET_PROBE_FAILED -> R.string.native_path_warning_internet
+                            NativeConnectionWarning.INTERNET_PROBE_INCONCLUSIVE -> R.string.native_path_warning_probe_inconclusive
                             NativeConnectionWarning.NONE -> R.string.native_path_title
                         })
+                        val inconclusive = pathWarning == NativeConnectionWarning.INTERNET_PROBE_INCONCLUSIVE
+                        val warningColor = if (inconclusive) MaterialTheme.colorScheme.surfaceVariant
+                            else MaterialTheme.colorScheme.errorContainer
+                        val contentColor = if (inconclusive) MaterialTheme.colorScheme.onSurfaceVariant
+                            else MaterialTheme.colorScheme.onErrorContainer
                         androidx.compose.material3.Surface(
                             modifier = Modifier.fillMaxWidth().clickable(onClick = { healthSheetOpen = true }),
-                            color = MaterialTheme.colorScheme.errorContainer,
+                            color = warningColor,
                             shape = MaterialTheme.shapes.medium,
                         ) {
                             Row(Modifier.fillMaxWidth().padding(16.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 Icon(painterResource(R.drawable.privacy_error), null,
-                                    tint = MaterialTheme.colorScheme.onErrorContainer)
+                                    tint = contentColor)
                                 Text(warningText, Modifier.weight(1f),
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onErrorContainer)
+                                    color = contentColor)
                                 Icon(painterResource(R.drawable.native_chevron), null,
-                                    tint = MaterialTheme.colorScheme.onErrorContainer)
+                                    tint = contentColor)
                             }
                         }
                     }
