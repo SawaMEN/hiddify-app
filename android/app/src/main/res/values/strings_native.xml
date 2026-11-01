@@ -789,4 +789,6 @@
     <string name="native_chain_noise_mode_stun">STUN</string>
     <string name="native_path_warning_server">The last selected-server delay check timed out. The VPN may be connected but this route may not work.</string>
     <string name="native_path_warning_internet">The latest Internet probe failed. The VPN is started, but Internet connectivity is not confirmed.</string>
+    <string name="native_path_probe_inconclusive">The test sites did not confirm VPN connectivity. This does not establish that Internet access through the VPN is unavailable.</string>
+    <string name="native_path_warning_probe_inconclusive">VPN is started, but test sites did not confirm Internet access. Try a website or another test.</string>
 </resources>
