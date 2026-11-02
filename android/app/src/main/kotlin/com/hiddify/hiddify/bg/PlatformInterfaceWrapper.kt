@@ -51,8 +51,6 @@ interface PlatformInterfaceWrapper : PlatformInterface {
         return -1
     }
 
-    override fun useProcFS(): Boolean = false
-
     override fun findConnectionOwner(
         ipProtocol: Int,
         sourceAddress: String,
