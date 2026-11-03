@@ -116,7 +116,7 @@ internal object NativeSettingsDocument {
             listeners += clashPort
         }
         require(listeners.distinct().size == listeners.size) { "Enabled listeners must use different ports" }
-        val mode = root.get("ipv6-mode")?.asString ?: "ipv4_only"
-        require(mode in setOf("", "ipv4_only") || (root.get("mtu")?.asInt ?: 9000) >= 1280) { "IPv6 requires an MTU of at least 1280" }
+        val mode = root.get("ipv6-mode")?.asString ?: "prefer_ipv4"
+        require(mode == "ipv4_only" || (root.get("mtu")?.asInt ?: 9000) >= 1280) { "IPv6 requires an MTU of at least 1280" }
     }
 }

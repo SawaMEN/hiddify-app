@@ -11,7 +11,7 @@ object NativePrivacySetup {
     private val fields = linkedMapOf(
         "handbookRouting" to ("handbook-routing" to false),
         "serviceMode" to ("service-mode" to "vpn"),
-        "ipv6Mode" to ("ipv6-mode" to "ipv4_only"),
+        "ipv6Mode" to ("ipv6-mode" to "prefer_ipv4"),
         "mtu" to ("mtu" to 9000L),
         "autoReconnect" to ("auto_reconnect" to true),
         "routingMode" to ("privacy-routing-mode" to "ru-bypass"),

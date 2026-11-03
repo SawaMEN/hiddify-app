@@ -17,6 +17,7 @@ class NativePrivacySetupTest {
         val restored = applied + NativePrivacySetup.restore(applied)
         assertFalse(NativePrivacySetup.canRestore(restored))
         assertEquals(9000L, restored["flutter.mtu"])
+        assertEquals("prefer_ipv4", restored["flutter.ipv6-mode"])
         assertEquals(false, restored["flutter.privacy-public-dns"])
         assertFalse(NativePrivacySetup.isConfigured(restored))
     }
