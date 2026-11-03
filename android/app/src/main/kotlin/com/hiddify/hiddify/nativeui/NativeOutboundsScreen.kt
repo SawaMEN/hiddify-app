@@ -88,7 +88,7 @@ internal fun NativeOutboundsScreen(
     }
     var query by rememberSaveable(stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
     val preferences = LocalContext.current.applicationContext.getSharedPreferences("FlutterSharedPreferences", android.content.Context.MODE_PRIVATE)
-    var signalStyle by remember { mutableStateOf(preferences.getString("flutter.proxies_ping_style", "number") == "signal") }
+    var signalStyle by remember { mutableStateOf((preferences.all["flutter.proxies_ping_style"] as? String) == "signal") }
     val toggleSignalStyle = {
         signalStyle = !signalStyle
         preferences.edit().putString("flutter.proxies_ping_style", if (signalStyle) "signal" else "number").apply()

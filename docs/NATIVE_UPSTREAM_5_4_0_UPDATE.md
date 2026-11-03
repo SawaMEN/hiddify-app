@@ -53,6 +53,12 @@ release-tag grammar; both immutable source hashes, stable publication, exact ass
 origin, archive checksum, member checksums, ARM64 ELF/AAR and manifest identity remain
 validated. Tests reject malformed suffixes, changed asset origins and mismatched commits.
 
+Source regression preparation downloads the selected transitive graph (`go mod download all`).
+Tests of disposable source checkouts use `-mod=mod`, as their injected routing contract and
+current stable source require Go's module-graph normalization. Existing versions and checksums
+are verified normally; no `go get` upgrade, checksum bypass, runtime fallback or binary change
+is performed. This repairs source-test setup, not VPN behavior.
+
 ## Validation
 
 - Native resource/boundary check and the existing 200-item source inventory.

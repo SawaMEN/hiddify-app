@@ -53,3 +53,5 @@ macos/VetrOFF/Assets.xcassets/BrandMark.imageset/image.png
 /tool/kotlin-tests/build/
 /tool/kotlin-tests/.kotlin/
 /android/app/src/main/jniLibs/
+
+/android/.kotlin/

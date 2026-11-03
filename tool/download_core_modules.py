@@ -18,7 +18,8 @@ TRANSIENT = re.compile(
 def download(directory, attempts=3):
     for attempt in range(1, attempts + 1):
         result = subprocess.run(
-            ['go', 'mod', 'download'], cwd=directory,
+            # Include the selected transitive graph, including package checksums.
+            ['go', 'mod', 'download', 'all'], cwd=directory,
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
         )
         print(result.stdout, end='', flush=True)

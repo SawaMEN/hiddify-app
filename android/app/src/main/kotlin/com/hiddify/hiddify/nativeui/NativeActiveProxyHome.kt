@@ -35,12 +35,13 @@ import com.hiddify.hiddify.nativecore.currentIpInfo
 @Composable
 internal fun NativeActiveProxyDelay(outbound: NativeOutbound, busy: Boolean, onTest: () -> Unit) {
     val state = outbound.rowState()
-    val timeout = state == NativeProxyRowState.PING_FAILED || state == NativeProxyRowState.FAILED
-    val description = stringResource(when {
-        timeout -> R.string.native_active_delay_timeout
-        outbound.delayMs <= 0 -> R.string.native_active_delay_testing
-        else -> R.string.native_active_delay_result
-    }, outbound.delayMs)
+    val timeout = state == NativeProxyRowState.PING_FAILED
+    val description = when (state) {
+        NativeProxyRowState.READY -> stringResource(R.string.native_active_delay_result, outbound.delayMs)
+        NativeProxyRowState.PING_FAILED -> stringResource(R.string.native_active_delay_timeout)
+        NativeProxyRowState.UNTESTED -> stringResource(R.string.native_active_delay_testing)
+        else -> stringResource(proxyStateLabel(state))
+    }
     val delayStyle = MaterialTheme.typography.titleMedium.toSpanStyle().copy(fontWeight = FontWeight.Bold)
     val delayText = if (timeout) stringResource(R.string.native_active_timeout) else outbound.delayMs.toString()
     Row(Modifier.semantics { contentDescription = description }
@@ -49,7 +50,9 @@ internal fun NativeActiveProxyDelay(outbound: NativeOutbound, busy: Boolean, onT
         Icon(painterResource(R.drawable.native_wifi_signal), null)
         if (state != NativeProxyRowState.READY && !timeout) {
             NativeAnimatedText(stringResource(proxyStateLabel(state)), "Active proxy status") {
-                Text(it, style = MaterialTheme.typography.bodyMedium)
+                Text(it, style = MaterialTheme.typography.bodyMedium,
+                    color = if (state == NativeProxyRowState.FAILED) MaterialTheme.colorScheme.error
+                        else LocalContentColor.current)
             }
         } else if (outbound.delayMs != 0 || timeout) {
             Text(buildAnnotatedString {
