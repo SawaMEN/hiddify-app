@@ -120,6 +120,12 @@ message OutboundInfo {
   int64 download = 16;
   string detour = 17;
   Status status = 18;
+  int64 upload_speed = 19;
+  bool upload_testing = 20;
+  int64 download_speed = 21;
+  bool download_testing = 22;
+  bool upload_speed_cached = 23;
+  bool download_speed_cached = 24;
 }
 
 message IpInfo {
@@ -272,3 +278,5 @@ message ExportDiagnosticsResponse {
   string path = 1;
   bytes content = 2;
 }
+
+message SpeedTestRequest { string tag = 1; int64 size = 2; }

@@ -70,6 +70,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativecore/NativeTrafficStats.kt'
             include 'com/hiddify/hiddify/nativecore/NativeStatsStream.kt'
             include 'com/hiddify/hiddify/nativecore/NativeSpeedSample.kt'
+            include 'com/hiddify/hiddify/nativecore/NativeProxySpeedPolicy.kt'
             include 'com/hiddify/hiddify/nativecore/NativeTunnelMtuPresets.kt'
             include 'com/hiddify/hiddify/nativecore/NativeOutboundPresentation.kt'
             include 'com/hiddify/hiddify/nativepreferences/NativeOutboundSort.kt'

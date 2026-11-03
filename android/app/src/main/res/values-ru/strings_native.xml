@@ -808,4 +808,19 @@
     <string name="native_crash_offer_open">Открыть журнал</string>
     <string name="native_logs_share_diagnostics">Экспорт архива диагностики</string>
     <string name="native_ipv6_preference_note">Предпочтение IPv4/IPv6 задаёт, какое семейство адресов пробовать первым. Режимы только IPv4 или IPv6 сохранены для существующих настроек приватности.</string>
+    <string name="native_proxy_speed_test">Тест скорости серверов</string>
+    <string name="native_proxy_download_speed">Скорость загрузки</string>
+    <string name="native_proxy_upload_speed">Скорость отдачи</string>
+    <string name="native_proxy_speed_both">Загрузка и отдача</string>
+    <string name="native_proxy_speed_testing">Проверка…</string>
+    <string name="native_proxy_speed_failed">Ошибка</string>
+    <string name="native_proxy_speed_cached">Прошлый запуск</string>
+    <string name="native_proxy_speed_budget">Серверов: %1$d · до %2$d МБ тестовых данных</string>
+    <string name="native_proxy_speed_budget_note">Тест использует ваше подключение и мобильный трафик. Служебные данные могут увеличить расход. Результаты появятся в списке.</string>
+    <string name="native_proxy_speed_direction">Направление</string>
+    <string name="native_proxy_speed_size">На сервер в каждом направлении</string>
+    <string name="native_proxy_speed_count">Самых быстрых серверов</string>
+    <string name="native_proxy_all">Все</string>
+    <string name="native_proxy_speed_start">Начать тест</string>
+    <string name="native_proxy_speed_clear">Очистить результаты тестов</string>
 </resources>

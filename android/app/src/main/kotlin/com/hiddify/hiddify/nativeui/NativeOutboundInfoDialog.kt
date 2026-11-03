@@ -73,6 +73,7 @@ internal fun NativeOutboundInfoDialog(outbound: NativeOutbound, onDismiss: () ->
                     }
                     InfoRow(R.string.native_outbound_postal, info.postalCode)
                 }
+                NativeProxySpeedBadge(outbound)
                 InfoRow(R.string.native_outbound_upload, outboundBytes(outbound.upload, locale))
                 InfoRow(R.string.native_outbound_download, outboundBytes(outbound.download, locale))
                 InfoRow(R.string.native_outbound_selected, if (outbound.selected) yes else no)

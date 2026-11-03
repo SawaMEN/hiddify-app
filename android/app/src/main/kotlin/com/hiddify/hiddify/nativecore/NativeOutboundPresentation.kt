@@ -27,6 +27,8 @@ internal fun presentNativeOutbounds(items: List<NativeOutbound>, query: String, 
                 b.delayMs == 0 -> -1
                 else -> a.delayMs.compareTo(b.delayMs)
             }
+            NativeOutboundSort.DOWNLOAD -> NativeProxySpeedPolicy.compareRates(a.downloadSpeed, b.downloadSpeed)
+            NativeOutboundSort.UPLOAD -> NativeProxySpeedPolicy.compareRates(a.uploadSpeed, b.uploadSpeed)
             NativeOutboundSort.USAGE -> java.lang.Long.compareUnsigned(traffic(b), traffic(a))
             NativeOutboundSort.UNSORTED -> 0
         }
