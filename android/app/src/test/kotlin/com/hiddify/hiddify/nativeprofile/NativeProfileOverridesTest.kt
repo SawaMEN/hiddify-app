@@ -4,6 +4,22 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeProfileOverridesTest {
+    @Test fun extraSecurityRetainsOwnDnsRegardlessOfWhichLayerEnablesIt() {
+        for (own in listOf("off", "extra_security")) {
+            val base = """{"chain-status":"$own","remote-dns-address":"https://own.example/dns-query"}"""
+            val merged = NativeJsonDocument.parse(NativeProfileOverrides.apply(base,
+                """{"remote-dns-address":"https://subscription.example/dns-query"}""",
+                """{"enableWarp":true}""")).asJsonObject
+            assertEquals("https://own.example/dns-query", merged.get("remote-dns-address").asString)
+        }
+        val noChain = NativeJsonDocument.parse(NativeProfileOverrides.apply("{}",
+            """{"remote-dns-address":"https://subscription.example/dns-query"}""", null)).asJsonObject
+        assertEquals("https://subscription.example/dns-query", noChain.get("remote-dns-address").asString)
+        val absentDefault = NativeJsonDocument.parse(NativeProfileOverrides.apply("{}",
+            """{"remote-dns-address":"https://subscription.example/dns-query","enable-warp":true}""", null)).asJsonObject
+        assertFalse(absentDefault.has("remote-dns-address"))
+    }
+
     @Test fun nullAndInvalidFlagHeadersCannotCrashProfileStartup() {
         listOf("null", "[]", "{}", "42", "false").forEach { value ->
             val headers = """{"enable-warp":$value,"enable-fragment":$value}"""

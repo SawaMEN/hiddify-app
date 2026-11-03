@@ -28,10 +28,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativecore.NativeOutbound
+import com.hiddify.hiddify.nativecore.rowState
+import com.hiddify.hiddify.nativecore.NativeProxyRowState
+import com.hiddify.hiddify.nativecore.currentIpInfo
 
 @Composable
 internal fun NativeActiveProxyDelay(outbound: NativeOutbound, busy: Boolean, onTest: () -> Unit) {
-    val timeout = outbound.delayMs > 65000
+    val state = outbound.rowState()
+    val timeout = state == NativeProxyRowState.PING_FAILED || state == NativeProxyRowState.FAILED
     val description = stringResource(when {
         timeout -> R.string.native_active_delay_timeout
         outbound.delayMs <= 0 -> R.string.native_active_delay_testing
@@ -43,7 +47,11 @@ internal fun NativeActiveProxyDelay(outbound: NativeOutbound, busy: Boolean, onT
         .clickable(enabled = !busy, onClick = onTest).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Icon(painterResource(R.drawable.native_wifi_signal), null)
-        if (outbound.delayMs > 0) {
+        if (state != NativeProxyRowState.READY && !timeout) {
+            NativeAnimatedText(stringResource(proxyStateLabel(state)), "Active proxy status") {
+                Text(it, style = MaterialTheme.typography.bodyMedium)
+            }
+        } else if (outbound.delayMs != 0 || timeout) {
             Text(buildAnnotatedString {
                 withStyle(delayStyle) {
                     append(delayText)
@@ -81,7 +89,7 @@ internal fun NativeActiveProxyFooter(
             inspectPending = false; inspecting = true
         }
     }
-    val ip = outbound.ipInfo?.ip.orEmpty()
+    val ip = outbound.currentIpInfo()?.ip.orEmpty()
     val ipLabel = stringResource(R.string.native_outbound_ip)
     val colors = MaterialTheme.colorScheme
     val motionDuration = if (LocalNativeMotionEnabled.current) 260 else 0
@@ -106,8 +114,8 @@ internal fun NativeActiveProxyFooter(
         Row(Modifier.fillMaxWidth().clickable(onClick = onOpen).padding(horizontal = 8.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.clickable(enabled = !busy) { requestedAtRevision = operationRevision; inspectPending = true; onTest() }.padding(horizontal = 8.dp)) {
-                NativeOutboundCountryBadge(outbound.ipInfo?.countryCode.orEmpty(), size = 48.dp,
-                    organization = outbound.ipInfo?.organization.orEmpty())
+                NativeOutboundCountryBadge(outbound.currentIpInfo()?.countryCode.orEmpty(), size = 48.dp,
+                    organization = outbound.currentIpInfo()?.organization.orEmpty())
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Crossfade(outbound.name, animationSpec = tween(motionDuration), label = "Active proxy name") { name ->

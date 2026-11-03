@@ -383,7 +383,6 @@
     <string name="native_outbound_type">Type</string>
     <string name="native_outbound_test_time">Last test</string>
     <string name="native_outbound_test_delay">Delay</string>
-    <string name="native_outbound_test_failed">Test failed</string>
     <string name="native_outbound_ip">IP address</string>
     <string name="native_outbound_country">Country code</string>
     <string name="native_outbound_region">Region</string>
@@ -791,4 +790,22 @@
     <string name="native_path_warning_internet">The latest Internet probe failed. The VPN is started, but Internet connectivity is not confirmed.</string>
     <string name="native_path_probe_inconclusive">The test sites did not confirm VPN connectivity. This does not establish that Internet access through the VPN is unavailable.</string>
     <string name="native_path_warning_probe_inconclusive">VPN is started, but test sites did not confirm Internet access. Try a website or another test.</string>
+    <string name="native_proxy_ready">Ready</string>
+    <string name="native_proxy_untested">Not tested</string>
+    <string name="native_proxy_ping_failed">No response</string>
+    <string name="native_proxy_connecting">Connecting</string>
+    <string name="native_proxy_registering">Registering</string>
+    <string name="native_proxy_searching">Searching</string>
+    <string name="native_proxy_reconnecting">Reconnecting</string>
+    <string name="native_proxy_failed">Failed</string>
+    <string name="native_proxy_signal_style">Signal style</string>
+    <string name="native_proxy_status">Status</string>
+    <string name="native_chain_step_waiting">Waiting for the preceding step</string>
+    <string name="native_chain_step_slow">Taking longer than usual</string>
+    <string name="native_switch_to_fastest">Switch to fastest</string>
+    <string name="native_crash_offer_title">Previous app crash</string>
+    <string name="native_crash_offer_text">A local crash report is available in the logs. You can review it and choose whether to share it.</string>
+    <string name="native_crash_offer_open">Open logs</string>
+    <string name="native_logs_share_diagnostics">Export diagnostic archive</string>
+    <string name="native_ipv6_preference_note">IPv4/IPv6 preference chooses which address family to try first. Single-family modes remain available for existing privacy configurations.</string>
 </resources>

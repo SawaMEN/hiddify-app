@@ -22,6 +22,9 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativecore.NativeOutbound
+import com.hiddify.hiddify.nativecore.rowState
+import com.hiddify.hiddify.nativecore.typeWithoutStatus
+import com.hiddify.hiddify.nativecore.currentIpInfo
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -39,14 +42,16 @@ internal fun NativeOutboundInfoDialog(outbound: NativeOutbound, onDismiss: () ->
             Column(Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 InfoRow(R.string.native_outbound_full_tag, outbound.tag)
-                InfoRow(R.string.native_outbound_type, outbound.type)
+                InfoRow(R.string.native_outbound_type, outbound.typeWithoutStatus())
+                InfoRow(R.string.native_proxy_status, stringResource(proxyStateLabel(outbound.rowState())))
                 if (outbound.testTimestampMs > 0) InfoRow(R.string.native_outbound_test_time,
                     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())
                         .format(Instant.ofEpochMilli(outbound.testTimestampMs)))
                 InfoRow(R.string.native_outbound_test_delay,
-                    if (outbound.delayMs > 65000) stringResource(R.string.native_outbound_test_failed)
-                    else stringResource(R.string.native_outbounds_delay, outbound.delayMs))
-                outbound.ipInfo?.let { info ->
+                    if (outbound.rowState() == com.hiddify.hiddify.nativecore.NativeProxyRowState.READY)
+                        stringResource(R.string.native_outbounds_delay, outbound.delayMs)
+                    else stringResource(proxyStateLabel(outbound.rowState())))
+                outbound.currentIpInfo()?.let { info ->
                     InfoRow(R.string.native_outbound_ip, info.ip)
                     InfoRow(R.string.native_outbound_country, info.countryCode)
                     InfoRow(R.string.native_outbound_region, info.region)

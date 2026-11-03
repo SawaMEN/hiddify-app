@@ -16,8 +16,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.flow.collect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import com.hiddify.hiddify.nativecore.typeWithoutStatus
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.OutlinedTextField
@@ -28,6 +29,7 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.Role
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.nativecore.NativeOutbound
+import com.hiddify.hiddify.nativecore.currentIpInfo
 import com.hiddify.hiddify.nativecore.NativeOutboundGroup
 import com.hiddify.hiddify.nativecore.NativeOutboundsPresentationPolicy
 import com.hiddify.hiddify.nativecore.nameWithDetour
@@ -85,6 +87,12 @@ internal fun NativeOutboundsScreen(
         }
     }
     var query by rememberSaveable(stateSaver = NativeStringDraftSaver) { mutableStateOf("") }
+    val preferences = LocalContext.current.applicationContext.getSharedPreferences("FlutterSharedPreferences", android.content.Context.MODE_PRIVATE)
+    var signalStyle by remember { mutableStateOf(preferences.getString("flutter.proxies_ping_style", "number") == "signal") }
+    val toggleSignalStyle = {
+        signalStyle = !signalStyle
+        preferences.edit().putString("flutter.proxies_ping_style", if (signalStyle) "signal" else "number").apply()
+    }
     var sortOpen by remember { mutableStateOf(false) }
     var detailsTag by rememberSaveable { mutableStateOf<String?>(null) }
     val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
@@ -108,6 +116,10 @@ internal fun NativeOutboundsScreen(
                         Icon(painterResource(R.drawable.native_outbound_sort), stringResource(R.string.native_outbounds_sort))
                     }
                     DropdownMenu(expanded = sortOpen, onDismissRequest = { sortOpen = false }) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.native_proxy_signal_style)) },
+                            trailingIcon = { Checkbox(signalStyle, onCheckedChange = null) },
+                            onClick = { toggleSignalStyle(); sortOpen = false })
+                        HorizontalDivider()
                         NativeOutboundSort.entries.forEach { mode ->
                             DropdownMenuItem(text = { Text(stringResource(sortTitle(mode))) },
                                 onClick = { sortOpen = false; onChangeSort(mode) }, enabled = !smartSelectionBusy)
@@ -161,6 +173,8 @@ internal fun NativeOutboundsScreen(
                             OutboundTile(outbound, group?.selectedTag == outbound.tag,
                                 group?.selectable == true && busyTag == null && !smartSelectionBusy,
                                 { group?.let { onSelect(it.tag, outbound.tag) } }, { detailsTag = outbound.tag },
+                                signalStyle = signalStyle, testEnabled = busyTag == null && !smartSelectionBusy,
+                                onTest = { onTest(outbound.tag) }, onToggleStyle = toggleSignalStyle,
                                 modifier = Modifier.animateItem(fadeInSpec = if (motion) androidx.compose.animation.core.tween(160) else null, placementSpec = if (motion && !gridState.isScrollInProgress) androidx.compose.animation.core.tween(220) else null, fadeOutSpec = if (motion) androidx.compose.animation.core.tween(120) else null))
                         }
                     }
@@ -181,9 +195,9 @@ internal fun NativeOutboundsScreen(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun OutboundTile(outbound: NativeOutbound, selected: Boolean, selectable: Boolean,
-    onSelect: () -> Unit, onInfo: () -> Unit, modifier: Modifier = Modifier) {
+    onSelect: () -> Unit, onInfo: () -> Unit, signalStyle: Boolean, testEnabled: Boolean,
+    onTest: () -> Unit, onToggleStyle: () -> Unit, modifier: Modifier = Modifier) {
     val scheme = MaterialTheme.colorScheme
-    val dark = scheme.background.luminance() < .5f
     val duration = if (LocalNativeMotionEnabled.current) 220 else 0
     val selectedSurface by animateColorAsState(
         if (selected) scheme.primaryContainer else Color.Transparent,
@@ -204,25 +218,17 @@ private fun OutboundTile(outbound: NativeOutbound, selected: Boolean, selectable
             .combinedClickable(role = Role.RadioButton, onClick = { if (selectable) onSelect() }, onLongClick = onInfo)
             .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically) {
-            NativeOutboundCountryBadge(outbound.ipInfo?.countryCode.orEmpty(),
-                organization = outbound.ipInfo?.organization.orEmpty())
+            NativeOutboundCountryBadge(outbound.currentIpInfo()?.countryCode.orEmpty(),
+                organization = outbound.currentIpInfo()?.organization.orEmpty())
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(outbound.nameWithDetour(), style = MaterialTheme.typography.bodyLarge,
                     color = titleColor, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(outbound.type + if (outbound.isGroup) " (${outbound.selectedChild.orEmpty().trim()})" else "",
+                Text(outbound.typeWithoutStatus() + if (outbound.isGroup) " (${outbound.selectedChild.orEmpty().trim()})" else "",
                     style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     color = subtitleColor)
             }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                if (outbound.delayMs != 0) Text(if (outbound.delayMs > 65000) "×" else outbound.delayMs.toString(),
-                    style = MaterialTheme.typography.bodyMedium, color = when {
-                        outbound.delayMs < 800 -> if (dark) Color(0xFF8BC34A) else Color(0xFF4CAF50)
-                        outbound.delayMs < 1500 -> if (dark) Color(0xFFFF9800) else Color(0xFFFF6E40)
-                        else -> if (dark) Color(0xFFFF5252) else Color(0xFFF44336)
-                    })
-                if (outbound.download > 0) Text("⬩", style = MaterialTheme.typography.bodySmall)
-            }
+            NativeProxyStatusIndicator(outbound, signalStyle, testEnabled, onTest, onToggleStyle)
         }
     }
 }

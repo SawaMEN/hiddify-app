@@ -280,6 +280,7 @@ fun NativeApp(
     onDismissPerAppImport: () -> Unit,
     onClearLogs: () -> Unit,
     onShareLogs: (Boolean) -> Unit,
+    onShareCoreDiagnostics: () -> Unit,
     onSaveChainOptions: (NativeChainOptions) -> Unit,
     onSelectOutbound: (String, String) -> Unit,
     onTestOutbound: (String) -> Unit,
@@ -385,6 +386,7 @@ fun NativeApp(
 
     NativeAppTheme(themeMode, accentColor) {
         NativeBackground {
+            NativeCrashOffer(onOpenLogs = { openPage(PAGE_LOGS) })
             var navigationBarHeight by remember { mutableStateOf(80.dp) }
             val density = LocalDensity.current
             Box(
@@ -533,7 +535,7 @@ fun NativeApp(
                                         onClear = onClearLogs,
                                         sharingEnabled = settingsState.debugMode,
                                         onPollingChanged = onLogVisibilityChange,
-                                        onShare = onShareLogs,
+                                        onShare = onShareLogs, onShareDiagnostics = onShareCoreDiagnostics,
                                     )
 
                                 PAGE_WIFI_GUIDE ->
@@ -774,7 +776,8 @@ fun NativeApp(
                                         outboundOperationRevision = outboundOperationRevision,
                                         requiresReconnect = requiresReconnect,
                                         reconnectBusy = reconnectBusy,
-                                        onTestActive = { onTestOutbound("") },
+                                        onTestActive = { onTestOutbound(activeOutbound?.tag.orEmpty()) },
+                                        onSwitchToLowest = { activeOutbound?.takeIf { it.offerLowest }?.let { onSelectOutbound(it.mainGroupTag, "lowest") } },
                                         ipVisibilitySession = ipVisibilitySession,
                                         hapticFeedback = generalPreferences.hapticFeedback,
                                         onToggleConnection = onToggleConnection,
@@ -957,6 +960,7 @@ private fun HomeScreen(
     onOpenDiagnostics: () -> Unit,
     onOpenOutbounds: () -> Unit,
     onOpenChainSettings: () -> Unit = {},
+    onSwitchToLowest: () -> Unit = {},
 ) {
     val updateAvailable = updateState?.showUpdateIndicator == true
     val versionLabel = if (updateAvailable) stringResource(R.string.native_about_update_available,
@@ -966,13 +970,14 @@ private fun HomeScreen(
     val pathWarning = NativeConnectionPathPolicy.warning(
         vpnStarted = status == Status.Started,
         selectedServerDelayMs = activeOutbound?.delayMs,
+        selectedServerStatus = activeOutbound?.status,
         health = internetHealth,
     )
     if (healthSheetOpen) NativeConnectionHealthSheet(
         status = status, health = internetHealth, outbound = activeOutbound, chain = chainOptions,
         onDismiss = { healthSheetOpen = false },
         onFullDiagnostics = onOpenDiagnostics, onTestSelected = onTestActive,
-        onChainSettings = onOpenChainSettings,
+        onChainSettings = onOpenChainSettings, onSwitchToLowest = onSwitchToLowest,
     )
     if (noProfileNotice) AlertDialog(
         onDismissRequest = { noProfileNotice = false; onAddProfile() },
@@ -1070,6 +1075,10 @@ private fun HomeScreen(
                         Spacer(Modifier.height(12.dp))
                         if (status == Status.Started && activeOutbound != null) {
                             NativeActiveProxyDelay(activeOutbound, outboundBusy, onTestActive)
+                            if (activeOutbound.offerLowest) NativeTextButton(onClick = onSwitchToLowest,
+                                enabled = !outboundBusy && !reconnectBusy) {
+                                Text(stringResource(R.string.native_switch_to_fastest))
+                            }
                         }
                         NativeTextButton(onClick = { healthSheetOpen = true },
                             modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) {
@@ -1267,7 +1276,7 @@ private fun ConnectionCard(
                 },
                 contentAlignment = Alignment.Center) {
                 NativeConnectionMotionLayer(
-                    status = status, failed = failed || showError,
+                    status = status, failed = failed || showError, transitioning = transitioning,
                     downBytesPerSecond = if (stats.speedAvailable) stats.downlink else 0L,
                     upBytesPerSecond = if (stats.speedAvailable) stats.uplink else 0L,
                 )
@@ -1298,8 +1307,7 @@ private fun ConnectionCard(
                             Icon(painterResource(if (isError) R.drawable.privacy_error else R.drawable.home_power),
                                 null, Modifier.size(48.dp))
                         }
-                        Crossfade(targetState = actionLabel, animationSpec = tween(if (motion) 180 else 0),
-                            label = "VetrOFF action") { caption ->
+                        NativeAnimatedText(text = actionLabel, label = "VetrOFF action") { caption ->
                             Text(caption, style = MaterialTheme.typography.titleMedium,
                                 textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                         }
@@ -1320,8 +1328,7 @@ private fun ConnectionCard(
                     }
                 }
             }
-            Crossfade(targetState = label, animationSpec = tween(if (motion) 180 else 0),
-                label = "VetrOFF connection status") { shown ->
+            NativeAnimatedText(text = label, label = "VetrOFF connection status") { shown ->
                 Text(shown, Modifier.heightIn(min = 28.dp).semantics { liveRegion = LiveRegionMode.Polite },
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (showError) scheme.error else scheme.onSurfaceVariant,

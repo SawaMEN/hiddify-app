@@ -45,16 +45,16 @@ internal fun NativeChainMotionIcon(extraSecurity: Boolean, active: Boolean, prof
         else -> Color(0xFFFF8A3D)
     }
     val animated = active && LocalNativeMotionEnabled.current
-    val degrees = if (animated) {
+    val degrees: androidx.compose.runtime.State<Float> = if (animated) {
         val transition = rememberInfiniteTransition(label = "chain status icon")
         val rotation = transition.animateFloat(
             initialValue = 0f,
             targetValue = 360f,
-            animationSpec = infiniteRepeatable(tween(if (extraSecurity) 2400 else 3000, easing = LinearEasing), RepeatMode.Restart),
+            animationSpec = infiniteRepeatable(tween(if (extraSecurity) 4200 else 5200, easing = LinearEasing), RepeatMode.Restart),
             label = "chain icon rotation",
         )
-        rotation.value
-    } else 0f
+        rotation
+    } else androidx.compose.runtime.rememberUpdatedState(0f)
 
     if (extraSecurity) {
         Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
@@ -63,7 +63,7 @@ internal fun NativeChainMotionIcon(extraSecurity: Boolean, active: Boolean, prof
                 Canvas(Modifier.matchParentSize()) {
                     val center = Offset(size.width / 2f, size.height / 2f)
                     for (trail in 3 downTo 0) {
-                        val radians = (degrees - trail * 11f) * PI / 180.0
+                        val radians = (degrees.value - trail * 11f) * PI / 180.0
                         val depth = sin(radians)
                         val front = depth >= 0.0
                         val dot = Offset(
@@ -84,7 +84,7 @@ internal fun NativeChainMotionIcon(extraSecurity: Boolean, active: Boolean, prof
         Canvas(
             Modifier.size(25.dp).graphicsLayer {
                 // The unblocker key rocks instead of constantly spinning; the shield keeps its orbit.
-                rotationZ = if (animated) (kotlin.math.sin(degrees * PI / 180.0) * 24.0).toFloat() else 0f
+                rotationZ = if (animated) (kotlin.math.sin(degrees.value * PI / 180.0) * 10.0).toFloat() else 0f
             },
         ) {
             val unit = size.minDimension
@@ -98,7 +98,7 @@ internal fun NativeChainMotionIcon(extraSecurity: Boolean, active: Boolean, prof
             drawLine(main, Offset(unit * .75f, unit * .74f), Offset(unit * .83f, unit * .65f),
                 strokeWidth = stroke * .85f, cap = StrokeCap.Round)
             if (animated) {
-                val flash = kotlin.math.cos(degrees * PI / 180.0).toFloat().coerceAtLeast(0f)
+                val flash = kotlin.math.cos(degrees.value * PI / 180.0).toFloat().coerceAtLeast(0f)
                 drawCircle(Color.White.copy(alpha = flash * 0.65f), radius = unit * .08f,
                     center = Offset(unit * .83f, unit * .65f))
             }

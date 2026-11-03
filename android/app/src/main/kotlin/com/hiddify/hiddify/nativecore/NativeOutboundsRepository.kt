@@ -30,7 +30,9 @@ class NativeOutboundsRepository {
         val call = client().MainOutboundsInfo()
         call.timeout.timeout(8, java.util.concurrent.TimeUnit.SECONDS)
         val response = withNativeResponseChannel(Empty(), call::executeIn, call::cancel) { it.nativeFirstOrNull() }
-        return response?.items?.firstOrNull()?.items?.firstOrNull()?.toNative()
+        return response?.let { snapshot ->
+            activeNativeOutbound(snapshot.items.map { it.toNative(visibleOnly = false) }, snapshot.chain_hop?.toNative())
+        }
     }
 
     /** A scoped, cancellable stream shared by the sheet and automatic ranking. */
@@ -73,9 +75,10 @@ class NativeOutboundsRepository {
         testTimestampMs = url_test_time?.toEpochMilli() ?: 0,
         secure = is_secure,
         detour = detour,
+        status = NativeOutboundStatus.fromValue(status.value),
         ipInfo = ipinfo?.let { info ->
             NativeOutboundIpInfo(info.ip, info.country_code, info.region, info.city,
-                info.asn, info.org, info.latitude, info.longitude, info.postal_code)
+                info.asn, info.org, info.latitude, info.longitude, info.postal_code, info.from_cache)
         },
     )
 

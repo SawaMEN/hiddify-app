@@ -89,6 +89,16 @@ message SystemInfo {
   string current_profile = 11;
 }
 
+// Wire-compatible with upstream 5.4; absent fields retain legacy behavior.
+enum Status {
+  READY = 0;
+  CONNECTING = 1;
+  RECONNECTING = 2;
+  SEARCHING = 3;
+  FAILED = 4;
+  REGISTERING = 5;
+}
+
 message OutboundInfo {
   string tag = 1;
   string type = 2;
@@ -107,6 +117,7 @@ message OutboundInfo {
   int64 upload = 15;
   int64 download = 16;
   string detour = 17;
+  Status status = 18;
 }
 
 message IpInfo {
@@ -119,6 +130,7 @@ message IpInfo {
     double latitude = 7 [json_name = "latitude"];            // The latitude (optional).
     double longitude = 8 [json_name = "longitude"];          // The longitude (optional).
     string postal_code = 9 [json_name = "postal_code"];      // The postal code (optional).
+    bool from_cache = 10 [json_name = "from_cache"];
 }
 message OutboundGroup {
   string tag = 1;
@@ -131,6 +143,7 @@ message OutboundGroup {
 }
 message OutboundGroupList{
   repeated OutboundGroup items = 1;
+  optional OutboundInfo chain_hop = 2;
 }
 
 message WarpAccount {
@@ -239,3 +252,21 @@ message LANIPResponse {
 // Diagnostics use the selected outbound without exposing a local proxy listener.
 message NetworkProbeRequest { string url = 1; int64 download_bytes = 2; }
 message NetworkProbeResponse { int32 status_code = 1; int64 download_bytes = 2; int64 transfer_nanos = 3; }
+
+// Upstream 5.4 diagnostic reports. The core scrubs addresses and secrets on export.
+message CrashReport {
+  string name = 1;
+  string crashed_at = 2;
+  string source = 3;
+  bool is_crash = 4;
+}
+message CrashReportList { repeated CrashReport reports = 1; }
+message ExportDiagnosticsRequest {
+  string destination_path = 1;
+  map<string, bytes> extra_files = 2;
+  bool include_content = 3 [json_name = "inline"];
+}
+message ExportDiagnosticsResponse {
+  string path = 1;
+  bytes content = 2;
+}

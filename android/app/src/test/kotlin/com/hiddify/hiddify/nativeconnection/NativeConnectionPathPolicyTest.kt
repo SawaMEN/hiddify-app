@@ -4,6 +4,15 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class NativeConnectionPathPolicyTest {
+    @Test fun currentCoreFailureWinsOverAnOldSuccessfulPingWhileConnectingDoesNotReuseAnOldTimeout() {
+        assertEquals(NativeConnectionWarning.SELECTED_SERVER_TIMED_OUT,
+            NativeConnectionPathPolicy.warning(true, 100, NativeInternetHealth.AVAILABLE,
+                com.hiddify.hiddify.nativecore.NativeOutboundStatus.FAILED))
+        assertEquals(NativeConnectionWarning.NONE,
+            NativeConnectionPathPolicy.warning(true, 65001, NativeInternetHealth.AVAILABLE,
+                com.hiddify.hiddify.nativecore.NativeOutboundStatus.CONNECTING))
+    }
+
     @Test fun noSyntheticFailureWhenDisconnectedOrUntested() {
         assertEquals(NativeConnectionWarning.NONE,
             NativeConnectionPathPolicy.warning(false, 65001, NativeInternetHealth.UNAVAILABLE))

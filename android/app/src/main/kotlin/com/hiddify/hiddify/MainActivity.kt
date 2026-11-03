@@ -588,7 +588,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onConfirmPerAppImport = ::confirmPerAppImport,
                 onDismissPerAppImport = { pendingPerAppImport.value = null },
                 onClearLogs = ::clearLogs,
-                onShareLogs = ::shareLogs,
+                onShareLogs = { shareLogs(it) },
+                onShareCoreDiagnostics = { shareLogs(app = false, diagnostics = true) },
                 onSaveChainOptions = ::saveChainOptions,
                 onSelectOutbound = ::selectOutbound,
                 onTestOutbound = ::testOutbound,
@@ -872,16 +873,19 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
-    private fun shareLogs(app: Boolean) {
+    private fun shareLogs(app: Boolean, diagnostics: Boolean = false) {
         if (logBusy.value) return
         logBusy.value = true
         lifecycleScope.launch {
             try {
-                val file = withContext(Dispatchers.IO) { logRepository.export(app) }
+                val file = withContext(Dispatchers.IO) {
+                    if (diagnostics) com.hiddify.hiddify.nativelog.NativeCoreDiagnostics.export(this@MainActivity)
+                    else logRepository.export(app)
+                }
                 val uri = androidx.core.content.FileProvider.getUriForFile(this@MainActivity,
                     "$packageName.privacy.files", file)
                 startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
+                    type = if (diagnostics) "application/zip" else "text/plain"
                     putExtra(Intent.EXTRA_STREAM, uri)
                     clipData = ClipData.newRawUri(file.name, uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

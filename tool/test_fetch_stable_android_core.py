@@ -1,6 +1,7 @@
 import importlib.util
 import pathlib
 import unittest
+import json
 from unittest.mock import patch
 
 file = pathlib.Path(__file__).with_name("fetch_stable_android_core.py")
@@ -10,6 +11,26 @@ spec.loader.exec_module(module)
 
 
 class StableAndroidCoreTests(unittest.TestCase):
+    def test_accepts_current_stable_suffix_without_weakening_asset_origin(self):
+        tag = "sawamen-5f41161b08df-0f8a9b74c5a5-mask1-ciphers1"
+        release = {"tag_name": tag, "draft": False, "prerelease": False, "published_at": "2026-11-03",
+                   "assets": [{"name": name, "browser_download_url": f"{module.REPO}/releases/download/{tag}/{name}"}
+                              for name in (module.ASSET, module.ASSET + ".sha256")]}
+        with patch.object(module, "download", return_value=json.dumps(release).encode()):
+            self.assertEqual(tag, module.latest()[0]["tag_name"])
+        release["assets"][0]["browser_download_url"] = "https://example.org/kernel.tar.gz"
+        with patch.object(module, "download", return_value=json.dumps(release).encode()):
+            with self.assertRaisesRegex(ValueError, "Untrusted"):
+                module.latest()
+
+    def test_rejects_malformed_source_tag(self):
+        for tag in ["sawamen-main-latest", "sawamen-abcdef012345-abcdef012345-mask1/evil",
+                    "sawamen-abcdef012345-abcdef012345-mask1--ciphers1"]:
+            release = {"tag_name": tag, "draft": False, "prerelease": False, "published_at": "2026-11-03"}
+            with patch.object(module, "download", return_value=json.dumps(release).encode()):
+                with self.assertRaisesRegex(ValueError, "Unexpected"):
+                    module.latest()
+
     def test_rejects_prerelease(self):
         with patch.object(module, "download", return_value=b'{"tag_name":"sawamen-abcdef012345-abcdef012345-panel8","prerelease":true,"draft":false,"published_at":"2026-10-13"}'):
             with self.assertRaisesRegex(ValueError, "not stable"):

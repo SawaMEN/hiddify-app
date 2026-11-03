@@ -55,7 +55,7 @@ internal object NativeCoreOptionsProjection {
         NativeGeneralOptionField.entries.forEach { putDefault(root, it.storageKey, it.value(general)) }
         NativeDnsOptionField.entries.forEach { putDefault(root, it.storageKey, it.value(dns)) }
         mapOf("mixed-port" to 12334, "direct-port" to 12337, "mtu" to 9000,
-            "tun-implementation" to "gvisor", "strict-route" to true).forEach { (key, value) -> putDefault(root, key, value) }
+            "tun-implementation" to "gvisor", "strict-route" to true, "ipv6-mode" to "prefer_ipv4").forEach { (key, value) -> putDefault(root, key, value) }
         val tricks = root.get("tls-tricks")?.takeIf { it.isJsonObject }?.asJsonObject ?: JsonObject()
         NativeTlsOptionField.entries.forEach { putDefault(tricks, it.coreKey, it.value(tls)) }
         root.add("tls-tricks", tricks)

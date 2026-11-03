@@ -9,6 +9,16 @@ from checkout_stable_core_source import identity
 
 
 class StableSourceTests(unittest.TestCase):
+    def test_current_release_suffix_still_requires_matching_commit(self):
+        release = {"tag_name": "sawamen-5f41161b08df-0f8a9b74c5a5-mask1-ciphers1",
+                   "target_commitish": "5f41161b08df" + "1" * 28}
+        with patch("checkout_stable_core_source.latest", return_value=(release, {})):
+            self.assertEqual(release["target_commitish"], identity(False)[1])
+        release["target_commitish"] = "a" * 40
+        with patch("checkout_stable_core_source.latest", return_value=(release, {})):
+            with self.assertRaisesRegex(ValueError, "disagree"):
+                identity(False)
+
     def test_latest_release_selects_matching_source(self):
         release = {
             "tag_name": "sawamen-123456abcdef-abcdefabcdef-panel8",

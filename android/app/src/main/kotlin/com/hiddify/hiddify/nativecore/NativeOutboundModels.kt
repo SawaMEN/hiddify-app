@@ -4,6 +4,7 @@ data class NativeOutboundIpInfo(
     val ip: String = "", val countryCode: String = "", val region: String = "", val city: String = "",
     val asn: Int = 0, val organization: String = "", val latitude: Double = 0.0, val longitude: Double = 0.0,
     val postalCode: String = "",
+    val fromCache: Boolean = false,
 )
 
 data class NativeOutbound(
@@ -25,6 +26,11 @@ data class NativeOutbound(
     val ipInfo: NativeOutboundIpInfo? = null,
     /** Raw detour tag from the core; only show user-visible proxy hops. */
     val detour: String = "",
+    val status: NativeOutboundStatus = NativeOutboundStatus.READY,
+    /** Active-path metadata comes from the same MainOutboundsInfo message. */
+    val chainHop: NativeOutbound? = null,
+    val mainGroupTag: String = "",
+    val offerLowest: Boolean = false,
 )
 
 data class NativeOutboundGroup(
