@@ -13,6 +13,8 @@ enum CoreStates {
   STARTED = 2;
   STOPPING = 3;
   HOT_RELOADING = 4;
+  WAITING = 5;
+  NO_AVAILABLE_PROXIES = 6;
 }
 
 enum MessageType {

@@ -5,16 +5,16 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NativeHotReloadPolicyTest {
-    @Test fun successfulReloadMustLeaveCoreStarted() {
-        assertTrue(NativeHotReloadPolicy.applied(messageEmpty = true, coreStarted = true))
+    @Test fun successfulReloadMayBeRunningWithoutReachableProxies() {
+        for (state in listOf(2, 5, 6)) assertTrue(NativeHotReloadPolicy.applied(true, state))
     }
-
-    @Test fun anIncompatibleTunChangeRequiresManagedReconnect() {
-        assertFalse(NativeHotReloadPolicy.applied(messageEmpty = false, coreStarted = true))
+    @Test fun incompatibleSettingsRequireReconnectEvenIfTheOldServiceIsRunning() {
+        for (state in listOf(2, 5, 6)) assertFalse(NativeHotReloadPolicy.applied(false, state))
     }
-
-    @Test fun stoppedOrTransitioningCoreDoesNotCountAsApplied() {
-        assertFalse(NativeHotReloadPolicy.applied(messageEmpty = true, coreStarted = false))
-        assertFalse(NativeHotReloadPolicy.applied(messageEmpty = false, coreStarted = false))
+    @Test fun stoppedTransitioningAndUnknownStatesCannotConfirmAppliedSettings() {
+        for (state in listOf(-1, 0, 1, 3, 4, 7, Int.MAX_VALUE)) {
+            assertFalse(NativeHotReloadPolicy.applied(true, state))
+            assertFalse(NativeHotReloadPolicy.applied(false, state))
+        }
     }
 }

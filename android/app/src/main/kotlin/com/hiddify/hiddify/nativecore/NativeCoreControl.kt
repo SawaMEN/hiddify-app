@@ -3,7 +3,6 @@ package com.hiddify.hiddify.nativecore
 import com.hiddify.core.api.v2.hcore.ChangeHiddifySettingsRequest
 import com.hiddify.core.api.v2.hcore.CoreClient
 import com.hiddify.core.api.v2.hcore.MessageType
-import com.hiddify.core.api.v2.hcore.CoreStates
 import com.hiddify.core.api.v2.hcore.StartRequest
 import com.hiddify.hiddify.Settings
 import com.hiddify.hiddify.constant.ServiceMode
@@ -61,7 +60,7 @@ object NativeCoreControl {
         }
         return NativeHotReloadPolicy.applied(
             messageEmpty = response.message_type == MessageType.EMPTY,
-            coreStarted = response.core_state == CoreStates.STARTED,
+            coreState = response.core_state.value,
         )
     }
 

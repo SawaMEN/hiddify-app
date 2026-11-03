@@ -159,28 +159,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: make android-apk-prepare
 
-      - name: Checkout matching source only for Go regression tests
-        if: ${{ inputs.run-tests }}
-        run: python3 tool/checkout_stable_core_source.py --provenance
-
-      - name: Setup Go for optional source tests
-        if: ${{ inputs.run-tests }}
-        uses: actions/setup-go@v7.0.0
-        with:
-          go-version-file: hiddify-core/go.mod
-          cache-dependency-path: |
-            hiddify-core/go.sum
-            hiddify-core/hiddify-sing-box/go.sum
-
-      - name: Install Android routing contract for the bundled stable core
-        if: ${{ inputs.run-tests }}
-        run: cp tool/core-tests/android_routing_contract_test.go hiddify-core/v2/config/android_client_routing_contract_test.go
-
-      - name: Check core privacy and adaptive connection policies
-        if: ${{ inputs.run-tests }}
-        working-directory: hiddify-core
-        run: go test -mod=mod -ldflags=-checklinkname=0 -tags with_quic,with_utls,with_gvisor,with_wireguard,with_clash_api ./v2/config ./v2/hcore ./platform/mobile
-
+      # The independent Native core race regressions workflow validates source contracts.
+      # Keep the APK build independent so core-source test failures remain visible there
+      # without hiding Kotlin/API compilation failures in this job.
       - name: Build standalone Kotlin Android ARM64 APK
         working-directory: android
         run: ./gradlew :app:assembleRelease --console=plain

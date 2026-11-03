@@ -29,6 +29,11 @@ generated files must not be merged into the native application.
 | Settings reconnect | Existing native stop/rebind lifecycle is retained; the Flutter Windows/Linux two-toggle workaround does not apply. |
 | Core streaming | Existing native cancellation, generation guards, conflated snapshots and disconnected stream-error policy are retained. |
 
+Hot reload now accepts all successful running lifecycle states (`STARTED`, `WAITING`,
+`NO_AVAILABLE_PROXIES`), without confusing a pending ping with a failed configuration update.
+The independently reported core-source regression check remains required; it is no longer
+duplicated as an APK compilation prerequisite.
+
 ## Compatibility and limits
 
 The fork's core source at `5f41161` already merges upstream 5.4.0 and retains custom
