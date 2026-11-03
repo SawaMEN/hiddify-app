@@ -383,7 +383,6 @@
     <string name="native_outbound_type">Тип</string>
     <string name="native_outbound_test_time">Последняя проверка</string>
     <string name="native_outbound_test_delay">Задержка</string>
-    <string name="native_outbound_test_failed">Проверка не пройдена</string>
     <string name="native_outbound_ip">IP-адрес</string>
     <string name="native_outbound_country">Код страны</string>
     <string name="native_outbound_region">Регион</string>
@@ -787,8 +786,26 @@
     <string name="native_chain_noise_mode_dns_cloudflare">DNS Cloudflare</string>
     <string name="native_chain_noise_mode_sip">SIP</string>
     <string name="native_chain_noise_mode_stun">STUN</string>
-    <string name="native_path_warning_server">Проверка задержки выбранного сервера завершилась тайм-аутом. VPN может быть включён, но маршрут недоступен.</string>
+    <string name="native_path_warning_server">Выбранный сервер завершил подключение с ошибкой или не ответил на проверку. VPN может быть подключён, но этот маршрут может не работать.</string>
     <string name="native_path_warning_internet">Последняя проверка интернета не прошла. VPN запущен, но доступность интернета не подтверждена.</string>
     <string name="native_path_probe_inconclusive">Тестовые сайты не подтвердили доступ через VPN. Это не означает, что интернет через VPN недоступен.</string>
     <string name="native_path_warning_probe_inconclusive">VPN запущен, но тестовые сайты не подтвердили доступ. Проверьте открытие сайта или повторите диагностику.</string>
+    <string name="native_proxy_ready">Готов</string>
+    <string name="native_proxy_untested">Не проверен</string>
+    <string name="native_proxy_ping_failed">Нет ответа</string>
+    <string name="native_proxy_connecting">Подключение</string>
+    <string name="native_proxy_registering">Регистрация</string>
+    <string name="native_proxy_searching">Поиск</string>
+    <string name="native_proxy_reconnecting">Переподключение</string>
+    <string name="native_proxy_failed">Ошибка</string>
+    <string name="native_proxy_signal_style">Индикатор сигнала</string>
+    <string name="native_proxy_status">Состояние</string>
+    <string name="native_chain_step_waiting">Ожидание предыдущего этапа</string>
+    <string name="native_chain_step_slow">Подключение занимает больше времени</string>
+    <string name="native_switch_to_fastest">Переключиться на самый быстрый</string>
+    <string name="native_crash_offer_title">Предыдущий сбой приложения</string>
+    <string name="native_crash_offer_text">В журнале доступен локальный отчёт о сбое. Вы можете просмотреть его и решить, нужно ли им поделиться.</string>
+    <string name="native_crash_offer_open">Открыть журнал</string>
+    <string name="native_logs_share_diagnostics">Экспорт архива диагностики</string>
+    <string name="native_ipv6_preference_note">Предпочтение IPv4/IPv6 задаёт, какое семейство адресов пробовать первым. Режимы только IPv4 или IPv6 сохранены для существующих настроек приватности.</string>
 </resources>

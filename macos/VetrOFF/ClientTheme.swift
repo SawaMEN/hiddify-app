@@ -99,32 +99,31 @@ struct ConnectionArtwork: View {
                         let center = CGPoint(x: size.width / 2, y: size.height / 2)
                         let radius = min(size.width, size.height) * 0.365
 
-                        if pending {
+                        if pending || recovering {
                             var progress = Path()
                             progress.addArc(center: center, radius: radius,
-                                            startAngle: .degrees(phase * 360 - 90),
-                                            endAngle: .degrees(phase * 360 + 8),
-                                            clockwise: false)
+                                            startAngle: .degrees((status == .disconnecting ? -1 : 1) * phase * 360 - 90),
+                                            endAngle: .degrees((status == .disconnecting ? -1 : 1) * phase * 360 + 8),
+                                            clockwise: status == .disconnecting)
                             context.stroke(progress, with: .color(ClientTheme.accent.opacity(0.88)),
                                            style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                        } else if connected || recovering {
-                            // Low-cost orbital sparks. No live traffic statistics are available
-                            // from the macOS Network Extension, so don't fake rate-driven effects.
-                            for index in 0..<28 {
-                                let theta = Double(index) * (2 * .pi / 28) + phase * 2 * .pi * 0.16
-                                let flicker = 0.75 + 0.25 * sin(phase * 2 * .pi + Double(index))
-                                let reach = 5 + 7 * flicker
-                                let a = CGPoint(x: center.x + CGFloat(cos(theta)) * radius,
-                                                y: center.y + CGFloat(sin(theta)) * radius)
-                                let b = CGPoint(x: center.x + CGFloat(cos(theta)) * (radius + CGFloat(reach)),
-                                                y: center.y + CGFloat(sin(theta)) * (radius + CGFloat(reach)))
-                                var ray = Path()
-                                ray.move(to: a)
-                                ray.addLine(to: b)
-                                context.stroke(ray,
-                                    with: .color((recovering ? ClientTheme.violet : ClientTheme.mint)
-                                        .opacity(recovering ? 0.23 : 0.42 * flicker)),
-                                    style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
+                        } else if connected {
+                            // A status ornament, not invented traffic telemetry. Both orbit and
+                            // opacity close exactly at the six-second TimelineView boundary.
+                            for channel in 0..<2 {
+                                let direction = channel == 0 ? 1.0 : -1.0
+                                let angle = phase * 360 * direction + Double(channel) * 180 - 90
+                                for trail in (0..<6).reversed() {
+                                    var orbit = Path()
+                                    orbit.addArc(center: center, radius: radius + CGFloat(channel) * 5,
+                                                 startAngle: .degrees(angle - direction * Double(trail) * 9),
+                                                 endAngle: .degrees(angle - direction * Double(trail) * 9 + direction * 68),
+                                                 clockwise: direction < 0)
+                                    context.stroke(orbit,
+                                        with: .color((channel == 0 ? ClientTheme.mint : ClientTheme.violet)
+                                            .opacity(0.05 + Double(5 - trail) * 0.035)),
+                                        style: StrokeStyle(lineWidth: 2.2, lineCap: .round))
+                                }
                             }
                         }
                     }
@@ -145,7 +144,7 @@ struct ConnectionArtwork: View {
                       (pending ? "ellipsis" : "power")))
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(connected ? ClientTheme.mint : ClientTheme.accent)
-                    .contentTransition(.symbolEffect(.replace))
+                    .contentTransition(reduceMotion ? .identity : .symbolEffect(.replace))
                     .frame(width: 40, height: 40).background(ClientTheme.surface, in: Circle())
                     .overlay(Circle().strokeBorder(ClientTheme.accent.opacity(0.5)))
                     .offset(x: 60, y: 60)

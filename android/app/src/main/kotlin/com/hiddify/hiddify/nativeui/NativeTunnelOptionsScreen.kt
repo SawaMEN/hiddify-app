@@ -58,6 +58,8 @@ internal fun NativeTunnelOptionsScreen(options: NativeTunnelOptions?, busy: Bool
                 !busy, R.drawable.native_dns) { editor = "ipv6" }
             NativePreferenceValueRow(R.string.native_core_mtu, mtu, !busy, R.drawable.native_route) { input = mtu; editor = "mtu" }
         }
+        Text(stringResource(R.string.native_ipv6_preference_note), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(stringResource(R.string.native_tunnel_summary), style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(stringResource(if (canSave) R.string.native_settings_reconnect_note else R.string.native_tunnel_disconnect),

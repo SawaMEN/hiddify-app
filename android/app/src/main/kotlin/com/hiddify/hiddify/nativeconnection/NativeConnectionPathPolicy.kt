@@ -1,5 +1,7 @@
 package com.hiddify.hiddify.nativeconnection
 
+import com.hiddify.hiddify.nativecore.NativeOutboundStatus
+
 /** Pure display policy: a core that is started does not guarantee that a chosen route works. */
 enum class NativeConnectionWarning {
     NONE,
@@ -14,9 +16,12 @@ object NativeConnectionPathPolicy {
         vpnStarted: Boolean,
         selectedServerDelayMs: Int?,
         health: NativeInternetHealth,
+        selectedServerStatus: NativeOutboundStatus? = NativeOutboundStatus.READY,
     ): NativeConnectionWarning {
         if (!vpnStarted) return NativeConnectionWarning.NONE
-        if (selectedServerDelayMs != null && selectedServerDelayMs > 65_000) {
+        if (selectedServerStatus == NativeOutboundStatus.FAILED ||
+            (selectedServerStatus == NativeOutboundStatus.READY && selectedServerDelayMs != null &&
+                (selectedServerDelayMs > 65_000 || selectedServerDelayMs < 0))) {
             return NativeConnectionWarning.SELECTED_SERVER_TIMED_OUT
         }
         if (health == NativeInternetHealth.UNAVAILABLE) {

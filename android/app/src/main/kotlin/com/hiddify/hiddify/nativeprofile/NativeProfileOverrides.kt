@@ -69,7 +69,14 @@ object NativeProfileOverrides {
                 else target.add(key, value.deepCopy())
             }
         }
+        val ownRemoteDns = root.get("remote-dns-address")?.deepCopy()
         merge(root, resolve(headers, userOverride))
+        // Upstream 5.4: a subscription resolver is not necessarily reachable through
+        // extra security. Apply this after merging, including profile-enabled chains.
+        if (root.get("chain-status")?.asString == "extra_security") {
+            if (ownRemoteDns == null) root.remove("remote-dns-address")
+            else root.add("remote-dns-address", ownRemoteDns)
+        }
         return root.toString()
     }
 }

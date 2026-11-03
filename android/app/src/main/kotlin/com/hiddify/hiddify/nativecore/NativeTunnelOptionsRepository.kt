@@ -3,7 +3,7 @@ package com.hiddify.hiddify.nativecore
 import android.content.Context
 import org.json.JSONObject
 
-data class NativeTunnelOptions(val ipv6Mode: String = "ipv4_only", val mtu: Int = 9000) {
+data class NativeTunnelOptions(val ipv6Mode: String = "prefer_ipv4", val mtu: Int = 9000) {
     fun validated(): NativeTunnelOptions {
         require(ipv6Mode in modes) { "Invalid IPv6 mode" }
         // Preserve legacy IPv4 MTUs supported by Dart and VPNService; IPv6 requires at least 1280.
@@ -20,9 +20,9 @@ class NativeTunnelOptionsRepository(context: Context) {
     fun load(): NativeTunnelOptions {
         val values = preferences.all
         val root = root(values)
-        val stored = (root.opt("ipv6-mode") as? String) ?: (values["flutter.ipv6-mode"] as? String) ?: "ipv4_only"
+        val stored = (root.opt("ipv6-mode") as? String) ?: (values["flutter.ipv6-mode"] as? String) ?: "prefer_ipv4"
         // The previous native two-state switch wrote 'auto' when enabling IPv6.
-        val mode = if (stored == "auto") "prefer_ipv4" else stored.takeIf { it in NativeTunnelOptions.modes } ?: "ipv4_only"
+        val mode = if (stored == "auto") "prefer_ipv4" else stored.takeIf { it in NativeTunnelOptions.modes } ?: "prefer_ipv4"
         val mtu = ((root.opt("mtu") as? Number) ?: (values["flutter.mtu"] as? Number))?.toLong()
             ?.takeIf { it in 576L..65535L }?.toInt() ?: 9000
         return NativeTunnelOptions(mode, mtu.coerceAtLeast(if (mode == "ipv4_only") 576 else 1280))

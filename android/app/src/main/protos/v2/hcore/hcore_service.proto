@@ -32,6 +32,8 @@ service Core {
   rpc LogListener (LogRequest) returns (stream LogMessage); 
   rpc Close (CloseRequest) returns (hcommon.Empty);
   rpc GetLANIP (hcommon.Empty) returns (LANIPResponse);
+  rpc ListCrashReports (hcommon.Empty) returns (CrashReportList);
+  rpc ExportDiagnostics (ExportDiagnosticsRequest) returns (ExportDiagnosticsResponse);
   rpc ProbeConnection (NetworkProbeRequest) returns (NetworkProbeResponse);
 }
 

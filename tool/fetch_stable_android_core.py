@@ -23,6 +23,8 @@ REPO = "https://github.com/SawaMEN/hiddify-core"
 API = "https://api.github.com/repos/SawaMEN/hiddify-core/releases/latest"
 ASSET = "hiddify-core-android-arm64.tar.gz"
 FILES = {"hiddify-core.aar", "libhiddify-root.so", "target.json", "SHA256SUMS"}
+# Release suffixes evolve (panel9, mask1-ciphers1); immutable source hashes do not.
+RELEASE_TAG = re.compile(r"sawamen-([0-9a-f]{12})-([0-9a-f]{12})-[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*")
 ROOT = Path(__file__).resolve().parents[1]
 ANDROID_LIBS = ROOT / "android/app/libs"
 ROOT_COMPANION = ROOT / "android/app/src/main/jniLibs/arm64-v8a/libhiddify-root.so"
@@ -68,7 +70,7 @@ def latest():
     if release.get("draft") or release.get("prerelease") or not release.get("published_at"):
         raise ValueError("The latest kernel release is not stable")
     tag = release.get("tag_name", "")
-    if not re.fullmatch(r"sawamen-[0-9a-f]{12}-[0-9a-f]{12}-panel[0-9]+", tag):
+    if len(tag) > 128 or not RELEASE_TAG.fullmatch(tag):
         raise ValueError("Unexpected stable kernel release tag: " + tag)
     assets = {a["name"]: a for a in release.get("assets", [])}
     for name in (ASSET, ASSET + ".sha256"):
@@ -115,6 +117,15 @@ def validate_archive(archive, destination, tag):
     if (target.get("repository") != REPO or target.get("version") != tag
             or not re.fullmatch(r"[0-9a-f]{40}", target.get("commit", ""))):
         raise ValueError("Android release source identity mismatch")
+    tag_match = RELEASE_TAG.fullmatch(tag)
+    submodules = target.get("submodules", {})
+    sing_box = submodules.get("hiddify-sing-box", "")
+    ray2sing = submodules.get("ray2sing", "")
+    if (not tag_match or target["commit"][:12] != tag_match.group(1)
+            or not re.fullmatch(r"[0-9a-f]{40}", sing_box)
+            or sing_box[:12] != tag_match.group(2)
+            or not re.fullmatch(r"[0-9a-f]{40}", ray2sing)):
+        raise ValueError("Android release source hashes disagree with tag")
     if manifest.get("android_build") != {"platform": "android", "arch": "arm64"}:
         raise ValueError("Android release has incorrect platform/architecture")
     with (destination / "libhiddify-root.so").open("rb") as f:

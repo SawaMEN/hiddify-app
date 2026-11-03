@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -16,6 +17,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.R
 import com.hiddify.hiddify.constant.Status
+import com.hiddify.hiddify.nativeconnection.NativeChainStepPolicy
+import com.hiddify.hiddify.nativeconnection.NativeChainStepState
+import com.hiddify.hiddify.nativecore.rowState
+import com.hiddify.hiddify.nativecore.NativeProxyRowState
 import com.hiddify.hiddify.nativeconnection.NativeInternetHealth
 import com.hiddify.hiddify.nativecore.NativeChainOptions
 import com.hiddify.hiddify.nativecore.NativeOutbound
@@ -36,6 +41,7 @@ internal fun NativeConnectionHealthSheet(
     onFullDiagnostics: () -> Unit,
     onTestSelected: () -> Unit,
     onChainSettings: () -> Unit,
+    onSwitchToLowest: () -> Unit = {},
 ) {
     val motion = LocalNativeMotionEnabled.current
     var revealed by remember { mutableStateOf(false) }
@@ -53,12 +59,15 @@ internal fun NativeConnectionHealthSheet(
         NativeInternetHealth.CHECKING -> HealthTone.PENDING
         NativeInternetHealth.UNCHECKED -> HealthTone.UNKNOWN
     }
-    val proxyTone = when {
-        outbound == null || outbound.delayMs <= 0 -> HealthTone.UNKNOWN
-        outbound.delayMs > 65000 -> HealthTone.ERROR
-        else -> HealthTone.GOOD
+    val proxyTone = when (outbound?.rowState()) {
+        NativeProxyRowState.READY -> HealthTone.GOOD
+        NativeProxyRowState.FAILED, NativeProxyRowState.PING_FAILED -> HealthTone.ERROR
+        NativeProxyRowState.CONNECTING, NativeProxyRowState.RECONNECTING,
+        NativeProxyRowState.REGISTERING, NativeProxyRowState.SEARCHING -> HealthTone.PENDING
+        else -> HealthTone.UNKNOWN
     }
     val proxyDescription = when {
+        outbound != null && outbound.rowState() != NativeProxyRowState.READY -> stringResource(proxyStateLabel(outbound.rowState()))
         outbound == null -> stringResource(R.string.native_path_no_proxy)
         outbound.delayMs <= 0 -> stringResource(R.string.native_path_proxy_untested)
         outbound.delayMs > 65000 -> stringResource(R.string.native_path_proxy_timeout)
@@ -72,19 +81,48 @@ internal fun NativeConnectionHealthSheet(
         NativeInternetHealth.UNCHECKED -> R.string.native_path_probe_unknown
     })
     val configured = chain.status != "off"
-    val rows = listOf(
-        Triple(stringResource(R.string.native_path_vpn), stringResource(when (status) {
-            Status.Started -> R.string.native_status_started
-            Status.Starting -> R.string.native_status_starting
-            Status.Stopping -> R.string.native_status_stopping
-            Status.Stopped -> R.string.native_status_stopped
-        }), vpnTone),
-        Triple(stringResource(R.string.native_path_selected_proxy), proxyDescription, proxyTone),
-        Triple(stringResource(R.string.native_path_internet), healthDescription, healthTone),
-        Triple(stringResource(R.string.native_path_chain),
-            stringResource(if (configured) R.string.native_path_chain_configured else R.string.native_path_chain_off),
-            HealthTone.UNKNOWN),
-    )
+    val hop = outbound?.chainHop
+    val hopConnecting = (chain.status != "extra_security" || outbound?.rowState() == NativeProxyRowState.READY) &&
+        hop != null && hop.rowState() != NativeProxyRowState.READY &&
+        hop.rowState() != NativeProxyRowState.FAILED
+    var waited by remember(chain.status, hop?.tag, hopConnecting, outbound?.tag) { mutableLongStateOf(0L) }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(chain.status, hop?.tag, hopConnecting, outbound?.tag, lifecycle) {
+        if (configured && hopConnecting) lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            val started = android.os.SystemClock.elapsedRealtime() - waited
+            while (true) {
+                waited = android.os.SystemClock.elapsedRealtime() - started
+                kotlinx.coroutines.delay(1000)
+            }
+        }
+    }
+    val hopState = NativeChainStepPolicy.hop(hop, outbound, chain.status, waited)
+    val hopTone = when (hopState) {
+        NativeChainStepState.READY -> HealthTone.GOOD
+        NativeChainStepState.FAILED -> HealthTone.ERROR
+        NativeChainStepState.CONNECTING, NativeChainStepState.SLOW -> HealthTone.PENDING
+        else -> HealthTone.UNKNOWN
+    }
+    val hopText = stringResource(when (hopState) {
+        NativeChainStepState.WAITING -> R.string.native_chain_step_waiting
+        NativeChainStepState.CONNECTING -> R.string.native_proxy_connecting
+        NativeChainStepState.SLOW -> R.string.native_chain_step_slow
+        NativeChainStepState.READY -> R.string.native_proxy_ready
+        NativeChainStepState.FAILED -> R.string.native_proxy_failed
+        NativeChainStepState.UNKNOWN -> if (configured) R.string.native_path_chain_configured else R.string.native_path_chain_off
+    })
+    val vpnRow = Triple(stringResource(R.string.native_path_vpn), stringResource(when (status) {
+        Status.Started -> R.string.native_status_started
+        Status.Starting -> R.string.native_status_starting
+        Status.Stopping -> R.string.native_status_stopping
+        Status.Stopped -> R.string.native_status_stopped
+    }), vpnTone)
+    val serverRow = Triple(stringResource(R.string.native_path_selected_proxy), proxyDescription, proxyTone)
+    val chainRow = Triple(stringResource(R.string.native_path_chain), hopText, hopTone)
+    val rows = listOf(vpnRow) +
+        (if (chain.status == "unblocker") listOf(chainRow, serverRow) else listOf(serverRow, chainRow)) +
+        Triple(stringResource(R.string.native_path_internet), healthDescription, healthTone)
+
 
     NativeModalSheet(onDismissRequest = onDismiss, sheetMaxWidth = 480.dp) {
         Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 20.dp),
@@ -111,6 +149,8 @@ internal fun NativeConnectionHealthSheet(
                 modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.native_path_full_diagnostics))
             }
+            if (outbound?.offerLowest == true) NativeButton(onClick = { onDismiss(); onSwitchToLowest() },
+                modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.native_switch_to_fastest)) }
             if (outbound != null) NativeOutlinedButton(
                 onClick = { onDismiss(); onTestSelected() }, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.native_path_test_proxy))

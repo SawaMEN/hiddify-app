@@ -37,6 +37,9 @@ class NativeSettingsDocumentTest {
         assertTrue(runCatching { NativeSettingsDocument.merge(original, json("""{"tls-tricks":{"enable-padding":"true"}}""")) }.isFailure)
     }
     @Test fun checksIpv6MinimumAndNestedRangesWithoutRestrictingResolverSchemes() {
+        assertTrue(runCatching { NativeSettingsDocument.merge(JsonObject(), json("""{"mtu":576}""")) }.isFailure)
+        assertTrue(runCatching { NativeSettingsDocument.merge(JsonObject(), json("""{"ipv6-mode":"","mtu":576}""")) }.isFailure)
+        NativeSettingsDocument.merge(JsonObject(), json("""{"ipv6-mode":"ipv4_only","mtu":576}"""))
         assertTrue(runCatching { NativeSettingsDocument.merge(JsonObject(), json("""{"ipv6-mode":"prefer_ipv6","mtu":576}""")) }.isFailure)
         rejected("tls-tricks", """{"fragment-size":"20-1"}""")
         rejected("tls-tricks", """{"fragment-sleep":null}""")

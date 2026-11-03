@@ -27,6 +27,7 @@ fun NativeLogsScreen(
     sharingEnabled: Boolean,
     onShare: (Boolean) -> Unit,
     onPollingChanged: (Boolean) -> Unit = {},
+    onShareDiagnostics: () -> Unit = {},
 ) {
     var paused by rememberSaveable { mutableStateOf(false) }
     val pollingChanged by rememberUpdatedState(onPollingChanged)
@@ -68,14 +69,16 @@ fun NativeLogsScreen(
                 Icon(painterResource(R.drawable.native_log_clear), stringResource(R.string.native_logs_clear),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            if (sharingEnabled) Box {
+            Box {
                 IconButton(onClick = { sharingOpen = true }, enabled = !busy) {
                     Icon(painterResource(R.drawable.native_more), stringResource(R.string.native_logs_share), Modifier.size(24.dp))
                 }
                 DropdownMenu(sharingOpen, { sharingOpen = false }) {
-                    DropdownMenuItem(text = { Text(stringResource(R.string.native_logs_share_core)) },
+                    DropdownMenuItem(text = { Text(stringResource(R.string.native_logs_share_diagnostics)) },
+                        onClick = { sharingOpen = false; onShareDiagnostics() })
+                    if (sharingEnabled) DropdownMenuItem(text = { Text(stringResource(R.string.native_logs_share_core)) },
                         onClick = { sharingOpen = false; onShare(false) })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.native_logs_share_app)) },
+                    if (sharingEnabled) DropdownMenuItem(text = { Text(stringResource(R.string.native_logs_share_app)) },
                         onClick = { sharingOpen = false; onShare(true) })
                 }
             }

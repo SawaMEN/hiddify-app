@@ -7,11 +7,11 @@ import re
 import subprocess
 import sys
 
-from fetch_stable_android_core import latest, ANDROID_LIBS, ROOT
+from fetch_stable_android_core import latest, ANDROID_LIBS, ROOT, RELEASE_TAG
 
 CORE_URL = "https://github.com/SawaMEN/hiddify-core.git"
 FULL_SHA = re.compile(r"[0-9a-f]{40}")
-TAG = re.compile(r"sawamen-([0-9a-f]{12})-([0-9a-f]{12})-panel[0-9]+")
+TAG = RELEASE_TAG
 
 
 def git(*args, directory=None):
