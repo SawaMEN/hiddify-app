@@ -90,7 +90,6 @@
     <string name="native_core_log_level">Core log level</string>
     <string name="native_core_test_url">Connection test URL</string>
     <string name="native_core_clash_api_port">Clash API port</string>
-    <string name="native_core_use_xray">Use Xray core when possible</string>
     <string name="native_core_remote_dns">Remote DNS address</string>
     <string name="native_core_remote_dns_strategy">Remote DNS strategy</string>
     <string name="native_core_direct_dns">Direct DNS address</string>
@@ -355,7 +354,6 @@
     <string name="native_haptic_title">Haptic feedback</string>
     <string name="native_haptic_summary">Vibration when you connect or disconnect. Respects Android haptic settings.</string>
     <string name="native_general_options_title">Connection settings</string>
-    <string name="native_general_xray_summary">Use Xray for supported profiles when available. Requires reconnecting.</string>
     <string name="native_general_interval">Connection test interval</string>
     <string name="native_general_seconds">%1$d seconds</string>
     <string name="native_general_minutes">%1$d minutes</string>

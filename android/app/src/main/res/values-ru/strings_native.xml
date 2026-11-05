@@ -90,7 +90,6 @@
     <string name="native_core_log_level">Уровень журнала ядра</string>
     <string name="native_core_test_url">URL проверки соединения</string>
     <string name="native_core_clash_api_port">Порт Clash API</string>
-    <string name="native_core_use_xray">Использовать Xray core, когда возможно</string>
     <string name="native_core_remote_dns">Удалённый DNS</string>
     <string name="native_core_remote_dns_strategy">Стратегия удалённого DNS</string>
     <string name="native_core_direct_dns">Прямой DNS</string>
@@ -355,7 +354,6 @@
     <string name="native_haptic_title">Виброотклик</string>
     <string name="native_haptic_summary">Вибрация при подключении и отключении. Учитывает настройки виброотклика Android.</string>
     <string name="native_general_options_title">Параметры соединения</string>
-    <string name="native_general_xray_summary">Использовать Xray для поддерживаемых профилей, когда он доступен. Требуется переподключение.</string>
     <string name="native_general_interval">Интервал проверки соединения</string>
     <string name="native_general_seconds">%1$d секунд</string>
     <string name="native_general_minutes">%1$d минут</string>
