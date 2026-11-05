@@ -1654,8 +1654,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
     private fun exportProfile(
         id: String,
         toClipboard: Boolean = false,
-        writeFile: ((String) -> Unit)? = null,
         onComplete: (() -> Unit)? = null,
+        writeFile: ((String) -> Unit)? = null,
     ) {
         if (busyProfileId.value != null) {
             errorMessage.value = getString(R.string.native_profile_export_busy)
