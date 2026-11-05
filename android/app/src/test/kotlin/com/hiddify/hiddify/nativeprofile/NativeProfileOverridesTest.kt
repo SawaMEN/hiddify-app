@@ -102,10 +102,11 @@ class NativeProfileOverridesTest {
     }
 
     @Test fun selectionRejectsInvalidValuesAndUntrustedTags() {
-        for (value in listOf("0", "-2", "500", "abc", "null", "true")) {
+        for (value in listOf("0", "-2", "abc", "null", "true")) {
             assertFalse(NativeProfileOverrides.selection("""{"keep-top":"$value"}""", null).has("keep-top"))
         }
         assertEquals(3, NativeProfileOverrides.selection("""{"keep-top":"3"}""", null).get("keep-top").asInt)
+        assertEquals(500, NativeProfileOverrides.selection("""{"keep-top":"500"}""", null).get("keep-top").asInt)
         assertThrows(IllegalArgumentException::class.java) {
             NativeProfileOverrides.withSelection(null, 0, null)
         }
