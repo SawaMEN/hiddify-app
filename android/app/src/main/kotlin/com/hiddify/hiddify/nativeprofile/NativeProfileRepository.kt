@@ -98,6 +98,7 @@ class NativeProfileRepository(private val context: Context) {
                 "enable-warp",
                 "enable-psiphon",
                 "enable-fragment",
+                "keep-top",
             ) + NativeProfileOverrides.supportedHeaders
     }
 
@@ -463,6 +464,21 @@ class NativeProfileRepository(private val context: Context) {
             .map { it.id }
             .toList()
     }
+
+    /** Persist core proxy selection in the profile override; refresh of the subscription retains it. */
+    fun saveKeepSelection(id: String, keepTop: Int? = null, keepTags: List<String>? = null): NativeProfile =
+        synchronized(mutationLock) {
+            openDatabase().use { db ->
+                val profile = requireNotNull(getById(db, id)) { "Profile not found" }
+                val updated = profile.copy(userOverride = NativeProfileOverrides.withSelection(
+                    profile.userOverride, keepTop, keepTags,
+                ))
+                check(db.update("profile_entries", updated.toValues(), "id = ?", arrayOf(id)) == 1) {
+                    "Unable to store proxy selection"
+                }
+                updated
+            }
+        }
 
     /** Store the first failure only: subsequent retries must not defer the three-day limit. */
     fun recordAutoUpdateFailure(id: String) {
