@@ -825,4 +825,7 @@
     <string name="native_proxy_all">Все</string>
     <string name="native_proxy_speed_start">Начать тест</string>
     <string name="native_proxy_speed_clear">Очистить результаты тестов</string>
+    <string name="native_chain_warp_tunnel">Туннель WARP</string>
+    <string name="native_chain_warp_mtu">MTU WARP (0 — автоматически)</string>
+    <string name="native_chain_warp_auto">Авто (самый быстрый доступный)</string>
 </resources>

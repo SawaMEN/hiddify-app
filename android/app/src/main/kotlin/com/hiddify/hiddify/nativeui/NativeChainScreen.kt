@@ -79,7 +79,19 @@ fun NativeChainScreen(
             ) { value = value.copy(extraMode = it) }
 
             when (value.extraMode) {
-                "warp" ->
+                "warp" -> {
+                    ChoiceButton(
+                        title = stringResource(R.string.native_chain_warp_tunnel),
+                        selected = value.extraWarpTunnel,
+                        choices = NativeChainRepository.warpTunnelChoices,
+                        enabled = !busy,
+                        label = { nativeWarpTunnelLabel(it) },
+                    ) { value = value.copy(extraWarpTunnel = it) }
+                    IntChainField(
+                        title = stringResource(R.string.native_chain_warp_mtu),
+                        value = value.extraWarpMtu,
+                        enabled = !busy,
+                    ) { value = value.copy(extraWarpMtu = it) }
                     OutlinedTextField(
                         value = value.extraWarpLicense,
                         onValueChange = { value = value.copy(extraWarpLicense = it) },
@@ -88,6 +100,7 @@ fun NativeChainScreen(
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,
                     )
+                }
 
                 "psiphon" -> {
                     ChoiceButton(
@@ -139,6 +152,18 @@ fun NativeChainScreen(
 
             when (value.unblockerMode) {
                 "warp" -> {
+                    ChoiceButton(
+                        title = stringResource(R.string.native_chain_warp_tunnel),
+                        selected = value.unblockerWarpTunnel,
+                        choices = NativeChainRepository.warpTunnelChoices,
+                        enabled = !busy,
+                        label = { nativeWarpTunnelLabel(it) },
+                    ) { value = value.copy(unblockerWarpTunnel = it) }
+                    IntChainField(
+                        title = stringResource(R.string.native_chain_warp_mtu),
+                        value = value.unblockerWarpMtu,
+                        enabled = !busy,
+                    ) { value = value.copy(unblockerWarpMtu = it) }
                     OutlinedTextField(
                         value = value.unblockerWarpLicense,
                         onValueChange = { value = value.copy(unblockerWarpLicense = it) },
@@ -421,6 +446,15 @@ private fun chainModeLabel(value: String): String =
         "profile" -> stringResource(R.string.native_chain_profile_mode)
         else -> value
     }
+
+@Composable
+private fun nativeWarpTunnelLabel(mode: String): String = when (mode) {
+    "warp_auto" -> stringResource(R.string.native_chain_warp_auto)
+    "warp" -> "WireGuard"
+    "warp_awg" -> "AmneziaWG"
+    "warp_masque" -> "MASQUE"
+    else -> mode
+}
 
 /** Localized upstream preset names with lossless fallback for existing custom modes. */
 @Composable

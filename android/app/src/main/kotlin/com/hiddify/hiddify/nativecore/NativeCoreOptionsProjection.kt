@@ -89,8 +89,10 @@ internal object NativeCoreOptionsProjection {
                 else -> error("Invalid chain status")
             }
             val stage = root.get(stageKey)?.takeIf { it.isJsonObject }?.asJsonObject ?: JsonObject()
-            val mode = stage.get("mode")?.asString ?: if (stageKey == "extra-security") "warp" else "psiphon"
-            require(mode in listOf("warp", "psiphon", "profile")) { "Invalid chain mode: $mode" }
+            val selectedMode = stage.get("mode")?.asString ?: if (stageKey == "extra-security") "warp" else "psiphon"
+            val warpTunnels = NativeChainRepository.warpTunnelChoices
+            val mode = if (selectedMode in warpTunnels) "warp" else selectedMode
+            require(mode in listOf("warp", "psiphon", "profile")) { "Invalid chain mode: $selectedMode" }
             if (mode != "warp") {
                 for (key in listOf("warp", "warp2")) {
                     root.get(key)?.takeIf { it.isJsonObject }?.asJsonObject?.addProperty("enable", false)
@@ -119,13 +121,19 @@ internal object NativeCoreOptionsProjection {
                     require(it.toByteArray(Charsets.UTF_8).size <= 3 * 1024 * 1024) { "Chain settings exceed the local control message limit (3 MiB)" }
                 }
             }
-            val warp = root.get("warp")?.takeIf { it.isJsonObject }?.asJsonObject ?: JsonObject()
-            stage.get("warp")?.takeIf { it.isJsonObject }?.asJsonObject?.entrySet()?.forEach { (key, value) ->
-                warp.add(if (key == "license-key") "id" else key, value.deepCopy())
+            // The 5.5.5 core consumes modern chain-status + per-hop options, not legacy
+            // warp.enable + warp_over_proxy. Mixing the two can reject MASQUE/AWG modes.
+            val warpOptions = stage.get("warp")?.takeIf { it.isJsonObject }?.asJsonObject ?: JsonObject()
+            val tunnel = warpOptions.get("tunnel")?.takeUnless { it.isJsonNull }?.asString
+                ?: selectedMode.takeIf { it in warpTunnels } ?: "warp_auto"
+            require(tunnel in warpTunnels) { "Invalid WARP tunnel: $tunnel" }
+            warpOptions.remove("tunnel")
+            stage.add("warp", warpOptions)
+            stage.addProperty("mode", tunnel)
+            root.add(stageKey, stage)
+            for (key in listOf("warp", "warp2")) {
+                root.get(key)?.takeIf { it.isJsonObject }?.asJsonObject?.addProperty("enable", false)
             }
-            warp.addProperty("enable", true)
-            warp.addProperty("mode", if (chainStatus == "extra_security") "warp_over_proxy" else "proxy_over_warp")
-            root.add("warp", warp)
         }
         return root.toString()
     }

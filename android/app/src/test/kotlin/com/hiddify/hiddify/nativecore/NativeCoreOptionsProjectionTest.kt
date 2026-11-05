@@ -39,7 +39,10 @@ class NativeCoreOptionsProjectionTest {
         assertEquals(NativeDnsOptions().remoteAddress, root.get("remote-dns-address").asString)
         assertEquals(NativeDnsOptions().directAddress, root.get("direct-dns-address").asString)
         assertEquals(NativeGeneralOptions().testUrl, root.get("connection-test-url").asString)
-        assertEquals("gvisor", root.get("tun-implementation").asString)
+        assertEquals("sing15", root.get("tun-implementation").asString)
+        assertEquals("ipv4_only", root.get("ipv6-mode").asString)
+        assertEquals(0, root.get("direct-port").asInt)
+        assertFalse(root.get("use-xray-core-when-possible").asBoolean)
         assertEquals(NativeTlsOptions().fragmentSize, root.getAsJsonObject("tls-tricks").get("fragment-size").asString)
     }
 
@@ -64,14 +67,22 @@ class NativeCoreOptionsProjectionTest {
         }
     }
 
-    @Test fun warpStagesAreConvertedWithCorrectDirection() {
-        val extra = project("""{"chain-status":"extra_security","extra-security":{"mode":"warp","warp":{"license-key":"key","clean-port":443}}}""")
-        assertTrue(extra.getAsJsonObject("warp").get("enable").asBoolean)
-        assertEquals("warp_over_proxy", extra.getAsJsonObject("warp").get("mode").asString)
-        assertEquals("key", extra.getAsJsonObject("warp").get("id").asString)
-        assertEquals(443, extra.getAsJsonObject("warp").get("clean-port").asInt)
-        val unblocker = project("""{"chain-status":"unblocker","unblocker":{"mode":"warp"}}""")
-        assertEquals("proxy_over_warp", unblocker.getAsJsonObject("warp").get("mode").asString)
+    @Test fun warpStagesUseModernCoreTunnelModesAndPreserveDirection() {
+        for (stage in listOf("extra-security" to "extra_security", "unblocker" to "unblocker")) {
+            for (tunnel in NativeChainRepository.warpTunnelChoices) {
+                val root = project("""{"chain-status":"${stage.second}","warp":{"enable":true},
+                    "${stage.first}":{"mode":"warp","warp":{"tunnel":"$tunnel","license-key":"key","mtu":1300}}}""")
+                val hop = root.getAsJsonObject(stage.first)
+                assertEquals(stage.second, root.get("chain-status").asString)
+                assertEquals(tunnel, hop.get("mode").asString)
+                assertEquals("key", hop.getAsJsonObject("warp").get("license-key").asString)
+                assertEquals(1300, hop.getAsJsonObject("warp").get("mtu").asInt)
+                assertFalse(hop.getAsJsonObject("warp").has("tunnel"))
+                assertFalse(root.getAsJsonObject("warp").get("enable").asBoolean)
+            }
+        }
+        assertEquals("warp_auto", project("""{"chain-status":"unblocker","unblocker":{"mode":"warp"}}""")
+            .getAsJsonObject("unblocker").get("mode").asString)
     }
 
     @Test fun psiphonStageProjectsRegionAndDirectionWithoutEnablingLegacyWarp() {
