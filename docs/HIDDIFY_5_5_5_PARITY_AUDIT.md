@@ -24,7 +24,7 @@ The original app uses Flutter/Dart across several platforms; VetrOFF Android is 
 | Default proxy selection: balancer, lowest ping or first proxy | **Missing / unverified** | No equivalent choice confirmed in native options |
 | Local proxy without mandatory password, separate LAN port/password, keep-open in VPN mode | **Missing / partial** | `NativeInboundOptionsRepository` uses older mixed/direct + LAN model |
 | LAN sharing dialog for this device/other devices, inline edit, QR rules | **Partial** | `NativeQuickSettingsSheet` has copy/QR + switch; not unified 5.5.5 dialog |
-| Stop automatic subscription update after 3 days of failures | **Missing** | `dueRemoteProfileIds` has interval filter but no persistent failure window |
+| Stop automatic subscription update after 3 days of failures | **Aligned in this audit branch** | Native persistent first-failure timestamp suppresses only auto retries; manual retry and successful recovery clear the block |
 | Import to Android TV from phone on same LAN with short-lived code | **Missing** | Native add-profile sheet has import/QR reader; no temporary TV HTTP receiver |
 | System-services routing rule by platform + migration/duplication | **Unverified / incomplete** | Native routing screens require separate rule-by-rule inventory |
 | IPv6 opt-in/off by default and Sing 15 TUN stack defaults | **Not aligned** | `NativeTunnelOptionsRepository` defaults to `prefer_ipv4`; core projection defaults `gvisor` |
@@ -41,7 +41,7 @@ The original app uses Flutter/Dart across several platforms; VetrOFF Android is 
 1. Implement `keep-top`, `keep-tags`, persistent selection and combined proxy filters, with migration and core-contract tests.
 2. Port WARP tunnel selection and per-hop settings, clean the Extra Security override, verify core setting names and defaults.
 3. Bring inbound local/LAN proxy controls to 5.5.x behavior; document and test migration of older settings.
-4. Add durable 3-day subscription update failure suspension, successful-refresh recovery, and manual bypass.
+4. Verify the 3-day failure suspension, successful-refresh recovery, and manual bypass on real profiles; unit-test the time policy.
 5. Add secure short-lived TV LAN import or explicitly de-scope Android TV from supported platforms.
 6. Verify system-services rules, default proxy, IPv6/TUN defaults, UI accessibility and network-resume behavior.
 7. Run signed APK CI with the intended SawaMEN/hiddify-core AAR, end-to-end VPN tests on physical Android devices (TCP/UDP/DNS/IPv6), and Apple Network Extension acceptance separately.

@@ -43,6 +43,17 @@ internal suspend fun <T> runNativeProfileRefresh(
     }
 }
 
+/** A persistent 3-day failure window suspends automatic refreshes, never manual retries. */
+internal object NativeAutoRefreshFailurePolicy {
+    const val SUSPEND_AFTER_MS: Long = 3L * 24 * 60 * 60 * 1000
+
+    fun firstFailureAt(previous: Long, now: Long): Long =
+        if (previous > 0L) previous else now.coerceAtLeast(1L)
+
+    fun isSuspended(firstFailureAt: Long, now: Long): Boolean =
+        firstFailureAt > 0L && now >= firstFailureAt && now - firstFailureAt >= SUSPEND_AFTER_MS
+}
+
 /** Ordinary failures do not discard earlier successes; cancellation never starts another item. */
 internal suspend fun refreshNativeProfileBatch(
     ids: List<String>,

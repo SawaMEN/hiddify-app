@@ -115,6 +115,28 @@ class NativeProfileRepository(private val context: Context) {
             }
         }
     private val http = subscriptionHttp
+    private val refreshFailurePrefs by lazy {
+        context.getSharedPreferences("native_profile_refresh_failures", Context.MODE_PRIVATE)
+    }
+
+    private fun failureKey(id: String) = "first-failure:$id"
+
+    private fun rememberRefreshFailure(id: String) = synchronized(mutationLock) {
+        val key = failureKey(id)
+        val first = refreshFailurePrefs.getLong(key, 0L)
+        if (first <= 0L) {
+            refreshFailurePrefs.edit().putLong(key,
+                NativeAutoRefreshFailurePolicy.firstFailureAt(first, System.currentTimeMillis())).apply()
+        }
+    }
+
+    private fun clearRefreshFailure(id: String) = synchronized(mutationLock) {
+        refreshFailurePrefs.edit().remove(failureKey(id)).apply()
+    }
+
+    private fun isAutomaticRefreshSuspended(id: String): Boolean =
+        NativeAutoRefreshFailurePolicy.isSuspended(
+            refreshFailurePrefs.getLong(failureKey(id), 0L), System.currentTimeMillis())
     private val nestedHttp =
         http.newBuilder()
             .followRedirects(false)
@@ -325,6 +347,7 @@ class NativeProfileRepository(private val context: Context) {
         }
         File(configDirectory(), "$id.runtime.json").delete()
         syncSettings(nextActive)
+        clearRefreshFailure(id)
         com.hiddify.hiddify.nativecore.NativeChainRepository().replaceDeletedProfile(id)
     }
 
@@ -341,7 +364,17 @@ class NativeProfileRepository(private val context: Context) {
                 value.total, value.expire, value.webPageUrl, value.supportUrl),
         )
         val before = if (onChanged != null || onConfigChanged != null) snapshot(profile) else null
-        val refreshed = importRemote(profile.url, existingId = profile.id, existingOverride = profile.userOverride, cancellation = cancellation)
+        // Every manual refresh still runs, even after automatic retries have been paused.
+        // A successful download clears the persistent failure window.
+        val refreshed = try {
+            importRemote(profile.url, existingId = profile.id,
+                existingOverride = profile.userOverride, cancellation = cancellation)
+        } catch (error: Exception) {
+            // Cancelling a refresh is not a failed network update.
+            if (error !is kotlinx.coroutines.CancellationException) rememberRefreshFailure(id)
+            throw error
+        }
+        clearRefreshFailure(id)
         if (before != null) {
             val after = snapshot(refreshed)
             val change = classifySubscriptionRefresh(before.content, after.content, before.metadata, after.metadata)
@@ -453,6 +486,7 @@ class NativeProfileRepository(private val context: Context) {
         listProfiles()
             .asSequence()
             .filter { it.isRemote && !userOverrideAutoUpdateDisabled(it.userOverride) }
+            .filterNot { isAutomaticRefreshSuspended(it.id) }
             .filter { profile ->
                 NativeSubscriptionMetadata.isUpdateDue(profile.lastUpdate,
                     NativeSubscriptionMetadata.effectiveUpdateIntervalSeconds(profile.updateIntervalSeconds), now)
