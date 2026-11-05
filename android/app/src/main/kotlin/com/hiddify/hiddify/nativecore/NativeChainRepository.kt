@@ -31,7 +31,7 @@ class NativeChainRepository {
     companion object {
         val statusChoices = listOf("off", "extra_security", "unblocker")
         val modeChoices = listOf("psiphon", "warp", "profile")
-        val warpTunnelChoices = listOf("warp_auto", "warp", "warp_awg", "warp_masque")
+        val warpTunnelChoices = NativeConfigChoices.warpTunnelChoices
         val psiphonRegions =
             listOf(
                 "AUTO", "AT", "AU", "BE", "BG", "CA", "CH", "CZ", "DE", "DK", "EE",

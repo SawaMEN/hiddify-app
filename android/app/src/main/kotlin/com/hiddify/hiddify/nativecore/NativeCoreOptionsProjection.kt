@@ -90,7 +90,7 @@ internal object NativeCoreOptionsProjection {
             }
             val stage = root.get(stageKey)?.takeIf { it.isJsonObject }?.asJsonObject ?: JsonObject()
             val selectedMode = stage.get("mode")?.asString ?: if (stageKey == "extra-security") "warp" else "psiphon"
-            val warpTunnels = NativeChainRepository.warpTunnelChoices
+            val warpTunnels = NativeConfigChoices.warpTunnelChoices
             val mode = if (selectedMode in warpTunnels) "warp" else selectedMode
             require(mode in listOf("warp", "psiphon", "profile")) { "Invalid chain mode: $selectedMode" }
             if (mode != "warp") {
