@@ -23,6 +23,15 @@ class NativeProxySpeedPolicyTest {
         assertEquals(4, NativeProxySpeedPolicy.targets(values).size)
     }
 
+    @Test fun cachedDelayInfluencesSortButDoesNotReplaceLiveLatency() {
+        val cached = proxy("cached", 0).copy(sortDelayMs = 35)
+        val measured = proxy("measured", 90).copy(sortDelayMs = 90)
+        val unknown = proxy("unknown", 0)
+        assertEquals(listOf("cached", "measured", "unknown"),
+            presentNativeOutbounds(listOf(unknown, measured, cached), "", NativeOutboundSort.DELAY).map { it.tag })
+        assertEquals(0, cached.delayMs) // An old ping is not displayed as a new measurement.
+    }
+
     @Test fun sortPutsMeasuredSpeedsBeforeFailuresAndUntestedProxies() {
         val slow = proxy("slow", 20).copy(downloadSpeed = 100, uploadSpeed = 1_000)
         val fast = proxy("fast", 40).copy(downloadSpeed = Long.MAX_VALUE, uploadSpeed = 100)

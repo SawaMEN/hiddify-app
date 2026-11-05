@@ -801,6 +801,7 @@
     <string name="native_proxy_failed">Ошибка</string>
     <string name="native_proxy_signal_style">Индикатор сигнала</string>
     <string name="native_proxy_status">Состояние</string>
+    <string name="native_outbound_error">Причина ошибки</string>
     <string name="native_chain_step_waiting">Ожидание предыдущего этапа</string>
     <string name="native_chain_step_slow">Подключение занимает больше времени</string>
     <string name="native_switch_to_fastest">Переключиться на самый быстрый</string>

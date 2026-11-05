@@ -126,6 +126,8 @@ message OutboundInfo {
   bool download_testing = 22;
   bool upload_speed_cached = 23;
   bool download_speed_cached = 24;
+  string error = 25; // Reason for a failed or not-yet-ready outbound.
+  int32 sort_delay = 26; // Includes the core's cached delay for sorting, not display.
 }
 
 message IpInfo {

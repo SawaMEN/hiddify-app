@@ -79,6 +79,7 @@ class NativeOutboundsRepository {
         uploadSpeed = upload_speed, downloadSpeed = download_speed,
         uploadTesting = upload_testing, downloadTesting = download_testing,
         uploadSpeedCached = upload_speed_cached, downloadSpeedCached = download_speed_cached,
+        error = error, sortDelayMs = sort_delay,
         ipInfo = ipinfo?.let { info ->
             NativeOutboundIpInfo(info.ip, info.country_code, info.region, info.city,
                 info.asn, info.org, info.latitude, info.longitude, info.postal_code, info.from_cache)

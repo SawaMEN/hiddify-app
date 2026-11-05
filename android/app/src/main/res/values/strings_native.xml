@@ -801,6 +801,7 @@
     <string name="native_proxy_failed">Failed</string>
     <string name="native_proxy_signal_style">Signal style</string>
     <string name="native_proxy_status">Status</string>
+    <string name="native_outbound_error">Failure reason</string>
     <string name="native_chain_step_waiting">Waiting for the preceding step</string>
     <string name="native_chain_step_slow">Taking longer than usual</string>
     <string name="native_switch_to_fastest">Switch to fastest</string>

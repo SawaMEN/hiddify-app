@@ -44,6 +44,7 @@ internal fun NativeOutboundInfoDialog(outbound: NativeOutbound, onDismiss: () ->
                 InfoRow(R.string.native_outbound_full_tag, outbound.tag)
                 InfoRow(R.string.native_outbound_type, outbound.typeWithoutStatus())
                 InfoRow(R.string.native_proxy_status, stringResource(proxyStateLabel(outbound.rowState())))
+                if (outbound.error.isNotBlank()) InfoRow(R.string.native_outbound_error, outbound.error)
                 if (outbound.testTimestampMs > 0) InfoRow(R.string.native_outbound_test_time,
                     DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault())
                         .format(Instant.ofEpochMilli(outbound.testTimestampMs)))

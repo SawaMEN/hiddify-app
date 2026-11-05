@@ -21,11 +21,15 @@ internal fun presentNativeOutbounds(items: List<NativeOutbound>, query: String, 
         if (a.isGroup != b.isGroup) return@Comparator if (a.isGroup) -1 else 1
         when (sort) {
             NativeOutboundSort.NAME -> a.tag.compareTo(b.tag)
-            NativeOutboundSort.DELAY -> when {
-                a.delayMs == 0 && b.delayMs == 0 -> a.tag.compareTo(b.tag)
-                a.delayMs == 0 -> 1
-                b.delayMs == 0 -> -1
-                else -> a.delayMs.compareTo(b.delayMs)
+            NativeOutboundSort.DELAY -> {
+                val aDelay = a.sortDelayMs.takeIf { it > 0 } ?: a.delayMs
+                val bDelay = b.sortDelayMs.takeIf { it > 0 } ?: b.delayMs
+                when {
+                    aDelay == 0 && bDelay == 0 -> a.tag.compareTo(b.tag)
+                    aDelay == 0 -> 1
+                    bDelay == 0 -> -1
+                    else -> aDelay.compareTo(bDelay)
+                }
             }
             NativeOutboundSort.DOWNLOAD -> NativeProxySpeedPolicy.compareRates(a.downloadSpeed, b.downloadSpeed)
             NativeOutboundSort.UPLOAD -> NativeProxySpeedPolicy.compareRates(a.uploadSpeed, b.uploadSpeed)

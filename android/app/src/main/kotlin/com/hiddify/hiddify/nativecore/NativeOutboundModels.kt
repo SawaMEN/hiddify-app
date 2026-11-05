@@ -37,6 +37,10 @@ data class NativeOutbound(
     val downloadTesting: Boolean = false,
     val uploadSpeedCached: Boolean = false,
     val downloadSpeedCached: Boolean = false,
+    /** An explanatory error from the core; empty when there is none. */
+    val error: String = "",
+    /** Core-provided delay for ranking, including a cached ping from an earlier run. */
+    val sortDelayMs: Int = 0,
 )
 
 data class NativeOutboundGroup(
