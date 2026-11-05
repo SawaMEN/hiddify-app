@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import com.hiddify.hiddify.nativepreferences.NativeOutboundSort
+import com.hiddify.hiddify.nativeprofile.NativeProfile
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -25,6 +26,8 @@ internal fun NativeOutboundsSheet(
     onChangeSmartSelection: (Boolean) -> Unit,
     onDismiss: () -> Unit,
     onSelect: (String, String) -> Unit,
+    activeProfile: NativeProfile?,
+    onSaveKeepSelection: (String, Int?, List<String>?) -> Unit,
     onTest: (String) -> Unit,
     operationError: String?,
     onDismissOperationError: () -> Unit,
@@ -35,6 +38,7 @@ internal fun NativeOutboundsSheet(
                 busyTag = busyTag, smartSelection = smartSelection, smartSelectionBusy = smartSelectionBusy,
                 adaptiveNetwork = adaptiveNetwork, onChangeSmartSelection = onChangeSmartSelection,
                 onBack = onDismiss, onSelect = onSelect, onTest = onTest,
+                activeProfile = activeProfile, onSaveKeepSelection = onSaveKeepSelection,
                 operationError = operationError, onDismissOperationError = onDismissOperationError)
         }
     }

@@ -284,6 +284,7 @@ fun NativeApp(
     onShareCoreDiagnostics: () -> Unit,
     onSaveChainOptions: (NativeChainOptions) -> Unit,
     onSelectOutbound: (String, String) -> Unit,
+    onSaveProfileKeepSelection: (String, Int?, List<String>?) -> Unit,
     onTestOutbound: (String) -> Unit,
     onRefreshWifiSharingDetails: () -> Unit,
     onImportSettingsClipboard: () -> Unit,
@@ -843,6 +844,7 @@ fun NativeApp(
                 adaptiveNetwork = connectionOptions.adaptiveNetwork, onChangeSmartSelection = onChangeSmartSelection,
                 operationError = errorMessage, onDismissOperationError = onDismissError,
                 onDismiss = { outboundsOpen = false }, onSelect = onSelectOutbound, onTest = onTestOutbound,
+                activeProfile = profiles.firstOrNull { it.active }, onSaveKeepSelection = onSaveProfileKeepSelection,
             )
         }
         if (profilesSheetOpen) {

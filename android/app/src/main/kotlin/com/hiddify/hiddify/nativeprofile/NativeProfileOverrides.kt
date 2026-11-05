@@ -65,7 +65,7 @@ object NativeProfileOverrides {
         val headerTop = source.get("keep-top")?.takeIf { it.isJsonPrimitive }
         fun parseTop(value: com.google.gson.JsonElement?): Int? {
             val number = value?.let { runCatching { it.asString.trim().toIntOrNull() }.getOrNull() }
-            return number?.takeIf { it == -1 || it in 1..30 }
+            return number?.takeIf { it == -1 || it > 0 }
         }
         val keepTop = parseTop(savedTop) ?: parseTop(headerTop)
         if (keepTop != null) result.addProperty("keep-top", keepTop)
@@ -87,7 +87,7 @@ object NativeProfileOverrides {
     /** Keep the rest of the user override intact when changing a profile's proxy choices. */
     fun withSelection(previous: String?, keepTop: Int?, keepTags: List<String>?): String {
         require(keepTop != null || keepTags != null) { "Specify proxy selection" }
-        require(keepTop == null || keepTop == -1 || keepTop in 1..30) { "Invalid keep-top" }
+        require(keepTop == null || keepTop == -1 || keepTop > 0) { "Invalid keep-top" }
         require(keepTags == null || (keepTags.size <= 512 && keepTags.distinct().size == keepTags.size &&
             keepTags.all { it.length in 1..255 && it.none(Char::isISOControl) })) { "Invalid proxy tags" }
         val user = objectOrEmpty(previous).deepCopy()
