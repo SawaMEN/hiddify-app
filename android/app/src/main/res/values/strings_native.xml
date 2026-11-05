@@ -830,4 +830,18 @@
     <string name="native_default_proxy_balance">Balancer</string>
     <string name="native_default_proxy_lowest">Lowest ping</string>
     <string name="native_default_proxy_first">First profile proxy</string>
+    <string name="native_keep_open">Choose proxies to run</string>
+    <string name="native_keep_title">Run selected proxies</string>
+    <string name="native_keep_manual">Choose manually</string>
+    <string name="native_keep_fastest">Fastest</string>
+    <string name="native_keep_all">All proxies</string>
+    <string name="native_keep_selected">Only selected</string>
+    <string name="native_keep_answering">Responding</string>
+    <string name="native_keep_paused">Paused or failed</string>
+    <string name="native_keep_protocol">Protocol</string>
+    <string name="native_keep_country">Country</string>
+    <string name="native_keep_apply">Use selected</string>
+    <string name="native_keep_choose">Choose at least one proxy</string>
+    <string name="native_keep_count">Keep fastest %1$d</string>
+    <string name="native_keep_hint">Selection is stored in this profile. Other proxies stop after reconnect.</string>
 </resources>

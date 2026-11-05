@@ -830,4 +830,18 @@
     <string name="native_default_proxy_balance">Балансировщик</string>
     <string name="native_default_proxy_lowest">Минимальная задержка</string>
     <string name="native_default_proxy_first">Первый прокси профиля</string>
+    <string name="native_keep_open">Выбрать работающие серверы</string>
+    <string name="native_keep_title">Выбор работающих серверов</string>
+    <string name="native_keep_manual">Выбрать вручную</string>
+    <string name="native_keep_fastest">Самые быстрые</string>
+    <string name="native_keep_all">Все серверы</string>
+    <string name="native_keep_selected">Только выбранные</string>
+    <string name="native_keep_answering">Отвечающие</string>
+    <string name="native_keep_paused">Приостановленные или недоступные</string>
+    <string name="native_keep_protocol">Протокол</string>
+    <string name="native_keep_country">Страна</string>
+    <string name="native_keep_apply">Применить выбор</string>
+    <string name="native_keep_choose">Выберите хотя бы один сервер</string>
+    <string name="native_keep_count">Оставить %1$d самых быстрых</string>
+    <string name="native_keep_hint">Выбор сохраняется в этом профиле. Остальные серверы отключатся после следующего подключения.</string>
 </resources>
