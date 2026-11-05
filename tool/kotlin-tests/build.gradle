@@ -67,6 +67,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativecore/NativeConfigChoices.kt'
             include 'com/hiddify/hiddify/nativecore/NativeServiceModeOptions.kt'
             include 'com/hiddify/hiddify/nativecore/NativeCoreOptionsProjection.kt'
+            include 'com/hiddify/hiddify/nativecore/NativeProfileStartFormat.kt'
             include 'com/hiddify/hiddify/nativecore/NativeTrafficStats.kt'
             include 'com/hiddify/hiddify/nativecore/NativeStatsStream.kt'
             include 'com/hiddify/hiddify/nativecore/NativeSpeedSample.kt'
