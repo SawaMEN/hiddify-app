@@ -1,0 +1,50 @@
+name: Publish rolling dev macOS DMG
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "macos/**"
+      - ".github/workflows/macos-dmg.yml"
+      - ".github/workflows/macos-dev.yml"
+  workflow_dispatch:
+
+# DMG builds can queue for a macOS runner without blocking Android dev releases.
+# A newer macOS change supersedes an older in-flight DMG build.
+concurrency:
+  group: macos-dev-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build-macos:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    uses: ./.github/workflows/macos-dmg.yml
+    permissions:
+      contents: read
+      actions: read
+
+  publish-macos-dev:
+    needs: build-macos
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Download tested ARM64 DMG
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: macos-dmg
+          path: ./out
+
+      - name: Update macOS asset only (preserve the Android APK and release tag)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -s out/VetrOFF-macOS-arm64.dmg
+          gh release view dev-latest --repo "$GITHUB_REPOSITORY" > /dev/null
+          gh release upload dev-latest out/VetrOFF-macOS-arm64.dmg --clobber --repo "$GITHUB_REPOSITORY"
