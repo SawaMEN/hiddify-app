@@ -161,7 +161,7 @@ class NativeCoreOptionsProjectionTest {
         assertFalse(root.getAsJsonObject("warp2").has("wireguard-config"))
 
         val chain = project("""{"chain-status":"extra_security","extra-security":{"mode":"warp"},
-            "warp":{"wireguard-config":"{\\"private_key\\":\\"keep\\"}"},"warp2":{"wireguard-config":"invalid"}}""")
+            "warp":{"wireguard-config":"{\"private_key\":\"keep\"}"},"warp2":{"wireguard-config":"invalid"}}""")
         assertTrue(chain.getAsJsonObject("warp").get("enable").asBoolean)
         assertEquals(original, chain.getAsJsonObject("warp").get("wireguard-config").asString)
         assertFalse(chain.getAsJsonObject("warp2").has("wireguard-config"))
@@ -180,7 +180,7 @@ class NativeCoreOptionsProjectionTest {
     }
 
     @Test fun validActiveWarpJsonAndOriginalOptionsRemainUntouched() {
-        val settings = """{"warp":{"enable":true,"wireguard-config":"{\\"private_key\\":\\"keep\\"}"},
+        val settings = """{"warp":{"enable":true,"wireguard-config":"{\"private_key\":\"keep\"}"},
             "warp2":{"enable":true,"wireguard-config":"null"}}"""
         val root = project(settings)
         assertEquals("""{"private_key":"keep"}""", root.getAsJsonObject("warp").get("wireguard-config").asString)
