@@ -1303,6 +1303,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                         if (profile.active && configChanged) activeConfigurationChanged = true
                     }) { id, error ->
                         Log.w(TAG, "automatic profile update failed for $id", error)
+                        runCatching { profileRepository.recordAutoUpdateFailure(id) }
+                            .onFailure { Log.w(TAG, "could not persist subscription failure for $id", it) }
                     }
                     // Reload after attempted updates: a failure can occur after a committed DB write.
                     profileRepository.synchronizeActiveProfile()

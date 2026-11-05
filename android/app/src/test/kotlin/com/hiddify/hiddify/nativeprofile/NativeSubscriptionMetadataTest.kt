@@ -42,6 +42,17 @@ class NativeSubscriptionMetadataTest {
         assertTrue(NativeSubscriptionMetadata.isUpdateDue("bad-date", 3600, now))
     }
 
+    @Test fun repeatedFailuresSuspendAutomaticUpdatesOnlyAfterThreeFullDays() {
+        val first = java.time.Instant.parse("2026-11-01T10:00:00Z")
+        assertFalse(NativeSubscriptionMetadata.isAutoUpdateSuspended(null, first.plusSeconds(999999)))
+        assertFalse(NativeSubscriptionMetadata.isAutoUpdateSuspended("bad-date", first.plusSeconds(999999)))
+        assertFalse(NativeSubscriptionMetadata.isAutoUpdateSuspended(first.toString(), first.minusSeconds(1)))
+        assertFalse(NativeSubscriptionMetadata.isAutoUpdateSuspended(first.toString(),
+            first.plusSeconds(3 * 24 * 3600L - 1)))
+        assertTrue(NativeSubscriptionMetadata.isAutoUpdateSuspended(first.toString(),
+            first.plusSeconds(3 * 24 * 3600L)))
+    }
+
     @Test fun readsValidTrafficAndExpiration() {
         val usage = NativeSubscriptionMetadata.usage(" Upload = 10 ; DOWNLOAD=20; total=100; expire=1800000000")!!
         assertEquals(10L, usage.upload)
