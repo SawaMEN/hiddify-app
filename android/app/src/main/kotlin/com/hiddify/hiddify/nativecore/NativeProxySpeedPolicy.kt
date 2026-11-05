@@ -20,5 +20,29 @@ object NativeProxySpeedPolicy {
         }.thenBy { if (it.delayMs in 1..65534) it.delayMs else Int.MAX_VALUE }.thenBy { it.tag })
         return if (count == 0) sorted else sorted.take(count)
     }
-    fun compareRates(a: Long, b: Long): Int = b.coerceAtLeast(0).compareTo(a.coerceAtLeast(0))
+    /** Upstream 5.5.5: prefer measurements from this run, then cached measurements,
+     *  then the other direction, and finally a successful live ping.
+     *  An untested (0) and failed (-1) speed are both unmeasured.
+     */
+    fun compareBySpeeds(a: NativeOutbound, b: NativeOutbound, uploadFirst: Boolean): Int {
+        fun tier(rate: Long, cached: Boolean) = when {
+            rate <= 0L -> 2
+            cached -> 1
+            else -> 0
+        }
+        fun bySpeed(x: Long, xCached: Boolean, y: Long, yCached: Boolean): Int {
+            val byTier = tier(x, xCached).compareTo(tier(y, yCached))
+            return if (byTier != 0) byTier else if (x > 0L) y.compareTo(x) else 0
+        }
+        val up = bySpeed(a.uploadSpeed, a.uploadSpeedCached, b.uploadSpeed, b.uploadSpeedCached)
+        val down = bySpeed(a.downloadSpeed, a.downloadSpeedCached, b.downloadSpeed, b.downloadSpeedCached)
+        val first = if (uploadFirst) up else down
+        if (first != 0) return first
+        val second = if (uploadFirst) down else up
+        if (second != 0) return second
+        val aAnswers = a.delayMs in 1..64999
+        val bAnswers = b.delayMs in 1..64999
+        if (aAnswers != bAnswers) return if (aAnswers) -1 else 1
+        return if (aAnswers) a.delayMs.compareTo(b.delayMs) else 0
+    }
 }
