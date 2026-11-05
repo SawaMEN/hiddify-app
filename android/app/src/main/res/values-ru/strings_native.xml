@@ -846,4 +846,7 @@
     <string name="native_keep_hint">Выбор сохраняется в этом профиле. Остальные серверы отключатся после следующего подключения.</string>
     <string name="native_core_profile_start_failed">Не удалось запустить выбранный VPN-профиль: %1$s</string>
     <string name="native_core_regional_policy_failed">Не удалось применить настройки маршрутизации: %1$s</string>
+    <string name="native_local_proxy_auth">Требовать пароль локального прокси</string>
+    <string name="native_local_proxy_in_vpn">Оставлять локальный прокси открытым в режиме VPN</string>
+    <string name="native_lan_port">Порт доступа по LAN</string>
 </resources>

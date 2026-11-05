@@ -56,7 +56,9 @@ internal object NativeCoreOptionsProjection {
         NativeDnsOptionField.entries.forEach { putDefault(root, it.storageKey, it.value(dns)) }
         mapOf("mixed-port" to 12334, "direct-port" to 12337, "mtu" to 9000,
             "tun-implementation" to "sing15", "strict-route" to true, "ipv6-mode" to "ipv4_only",
-            "enable-direct-port" to false, "enable-tproxy-port" to false, "enable-redirect-port" to false).forEach { (key, value) -> putDefault(root, key, value) }
+            "enable-direct-port" to false, "enable-tproxy-port" to false, "enable-redirect-port" to false,
+            "lan-sharing-port" to 12338, "local-proxy-auth" to false,
+            "local-proxy-in-vpn" to false).forEach { (key, value) -> putDefault(root, key, value) }
         // 5.5.5 removes this toggle. Retain the persisted preference for import compatibility
         // but never enable the alternative engine implicitly.
         root.addProperty("use-xray-core-when-possible", false)

@@ -42,6 +42,9 @@ class NativeCoreOptionsProjectionTest {
         assertEquals("sing15", root.get("tun-implementation").asString)
         assertEquals("ipv4_only", root.get("ipv6-mode").asString)
         assertEquals(0, root.get("direct-port").asInt)
+        assertEquals(12338, root.get("lan-sharing-port").asInt)
+        assertFalse(root.get("local-proxy-auth").asBoolean)
+        assertFalse(root.get("local-proxy-in-vpn").asBoolean)
         assertFalse(root.get("use-xray-core-when-possible").asBoolean)
         assertEquals(NativeTlsOptions().fragmentSize, root.getAsJsonObject("tls-tricks").get("fragment-size").asString)
     }
