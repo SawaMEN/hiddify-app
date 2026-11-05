@@ -268,6 +268,7 @@ fun NativeApp(
     onImportFreeProfile: (com.hiddify.hiddify.nativeprofile.NativeFreeProfile, String) -> Unit,
     onCopyProfileConfig: (NativeProfile) -> Unit,
     onExportProfileConfig: (NativeProfile) -> Unit,
+    onShareProfileConfig: (NativeProfile) -> Unit,
     onPerAppModeChanged: (String) -> Unit,
     onTogglePerAppPackage: (String) -> Unit,
     onClearPerApp: () -> Unit,
@@ -478,7 +479,7 @@ fun NativeApp(
                                             openPage(PAGE_PROFILE_DETAILS)
                                         },
                                         onCopyConfig = onCopyProfileConfig,
-                                        onExportConfig = onExportProfileConfig,
+                                        onExportConfig = onExportProfileConfig, onShareConfig = onShareProfileConfig,
                                         loading = profilesLoading, loadFailed = profilesLoadFailed,
                                         onRetry = onRetryProfiles, onUpdateAll = onUpdateAllProfiles,
                                         sortByName = profileSortByName, ascending = profileSortAscending,
@@ -853,7 +854,7 @@ fun NativeApp(
                 onDismiss = { profilesSheetOpen = false }, onRetry = onRetryProfiles, onUpdateAll = onUpdateAllProfiles,
                 onSelect = ::selectProfileWithNotice, onDelete = onDeleteProfile, onRefresh = onRefreshProfile,
                 onEdit = { profile -> profilesSheetOpen = false; onOpenProfileEditor(profile); openPage(PAGE_PROFILE_DETAILS) },
-                onCopyConfig = onCopyProfileConfig, onExportConfig = onExportProfileConfig)
+                onCopyConfig = onCopyProfileConfig, onExportConfig = onExportProfileConfig, onShareConfig = onShareProfileConfig)
         }
         profiles.firstOrNull { it.id == pendingOperaSelectionId }?.let { profile ->
             NativeOperaNoticeDialog(

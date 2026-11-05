@@ -132,6 +132,7 @@ internal fun NativeOutboundsScreen(
                 modifier = Modifier.fillMaxWidth().padding(start = 20.dp, top = 8.dp, end = 20.dp),
                 singleLine = true, label = { Text(stringResource(R.string.native_outbounds_search)) },
                 leadingIcon = { Icon(painterResource(R.drawable.native_search), null) })
+            NativeProxySpeedTools(group?.items.orEmpty(), connected)
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -227,6 +228,7 @@ private fun OutboundTile(outbound: NativeOutbound, selected: Boolean, selectable
                 Text(outbound.typeWithoutStatus() + if (outbound.isGroup) " (${outbound.selectedChild.orEmpty().trim()})" else "",
                     style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     color = subtitleColor)
+                NativeProxySpeedBadge(outbound, testEnabled)
             }
             NativeProxyStatusIndicator(outbound, signalStyle, testEnabled, onTest, onToggleStyle)
         }
@@ -238,4 +240,6 @@ private fun sortTitle(sort: NativeOutboundSort): Int = when (sort) {
     NativeOutboundSort.NAME -> R.string.native_outbounds_sort_name
     NativeOutboundSort.DELAY -> R.string.native_outbounds_sort_delay
     NativeOutboundSort.USAGE -> R.string.native_outbounds_sort_usage
+    NativeOutboundSort.DOWNLOAD -> R.string.native_proxy_download_speed
+    NativeOutboundSort.UPLOAD -> R.string.native_proxy_upload_speed
 }

@@ -76,6 +76,10 @@ class NativeOutboundsRepository {
         secure = is_secure,
         detour = detour,
         status = NativeOutboundStatus.fromValue(status.value),
+        uploadSpeed = upload_speed, downloadSpeed = download_speed,
+        uploadTesting = upload_testing, downloadTesting = download_testing,
+        uploadSpeedCached = upload_speed_cached, downloadSpeedCached = download_speed_cached,
+        error = error, sortDelayMs = sort_delay,
         ipInfo = ipinfo?.let { info ->
             NativeOutboundIpInfo(info.ip, info.country_code, info.region, info.city,
                 info.asn, info.org, info.latitude, info.longitude, info.postal_code, info.from_cache)
@@ -101,6 +105,22 @@ class NativeOutboundsRepository {
         check(response.code == ResponseCode.OK) {
             response.message.ifBlank { "Unable to start URL test" }
         }
+    }
+
+    suspend fun speedTest(tag: String, bytes: Long, upload: Boolean) {
+        val size = NativeProxySpeedPolicy.validSize(bytes)
+        val call = if (upload) client().UploadTest() else client().DownloadTest()
+        call.timeout.timeout(8, java.util.concurrent.TimeUnit.SECONDS)
+        val response = try { call.execute(com.hiddify.core.api.v2.hcore.SpeedTestRequest(tag = tag, size = size)) }
+            finally { call.cancel() }
+        check(response.code == ResponseCode.OK) { response.message.ifBlank { "Unable to start speed test" } }
+    }
+
+    suspend fun clearSpeedTests() {
+        val call = client().ClearSpeedTests()
+        call.timeout.timeout(8, java.util.concurrent.TimeUnit.SECONDS)
+        val response = try { call.execute(Empty()) } finally { call.cancel() }
+        check(response.code == ResponseCode.OK) { response.message.ifBlank { "Unable to clear speed tests" } }
     }
 
 }

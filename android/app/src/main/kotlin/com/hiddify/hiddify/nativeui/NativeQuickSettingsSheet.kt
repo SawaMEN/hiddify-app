@@ -74,7 +74,9 @@ internal fun NativeQuickSettingsSheet(
                 val link = NativeLanSharingLink.create(current.host, current.port, current.password)
                 if (qr) qrLink = link
                 else {
-                    context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("LAN", link))
+                    val clipboard = context.getSystemService(ClipboardManager::class.java)
+                        ?: error("Clipboard is unavailable")
+                    clipboard.setPrimaryClip(ClipData.newPlainText("LAN", link))
                     Toast.makeText(context, R.string.native_profile_copied, Toast.LENGTH_SHORT).show()
                 }
             } catch (cancelled: CancellationException) { throw cancelled }

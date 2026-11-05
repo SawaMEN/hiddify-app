@@ -184,6 +184,7 @@
     <string name="native_profile_show_qr">Subscription QR code</string>
     <string name="native_profile_copy_config">Copy source configuration</string>
     <string name="native_profile_export_config">Save source configuration to file</string>
+    <string name="native_profile_share_config">Share configuration file</string>
     <string name="native_profile_copied">Copied to clipboard</string>
     <string name="native_profile_exported">Configuration saved</string>
     <string name="native_profile_share_failed">Could not open the share menu</string>
@@ -800,6 +801,7 @@
     <string name="native_proxy_failed">Failed</string>
     <string name="native_proxy_signal_style">Signal style</string>
     <string name="native_proxy_status">Status</string>
+    <string name="native_outbound_error">Failure reason</string>
     <string name="native_chain_step_waiting">Waiting for the preceding step</string>
     <string name="native_chain_step_slow">Taking longer than usual</string>
     <string name="native_switch_to_fastest">Switch to fastest</string>
@@ -808,4 +810,19 @@
     <string name="native_crash_offer_open">Open logs</string>
     <string name="native_logs_share_diagnostics">Export diagnostic archive</string>
     <string name="native_ipv6_preference_note">IPv4/IPv6 preference chooses which address family to try first. Single-family modes remain available for existing privacy configurations.</string>
+    <string name="native_proxy_speed_test">Test proxy speeds</string>
+    <string name="native_proxy_download_speed">Download speed</string>
+    <string name="native_proxy_upload_speed">Upload speed</string>
+    <string name="native_proxy_speed_both">Download and upload</string>
+    <string name="native_proxy_speed_testing">Testing…</string>
+    <string name="native_proxy_speed_failed">Failed</string>
+    <string name="native_proxy_speed_cached">Previous run</string>
+    <string name="native_proxy_speed_budget">%1$d proxies · up to %2$d MB of test payload</string>
+    <string name="native_proxy_speed_budget_note">The test uses your connection and mobile data. Network overhead may increase the total. Results update live in the list.</string>
+    <string name="native_proxy_speed_direction">Direction</string>
+    <string name="native_proxy_speed_size">Per proxy and direction</string>
+    <string name="native_proxy_speed_count">Fastest proxies</string>
+    <string name="native_proxy_all">All</string>
+    <string name="native_proxy_speed_start">Start test</string>
+    <string name="native_proxy_speed_clear">Clear saved speed results</string>
 </resources>
