@@ -68,7 +68,7 @@ internal fun NativeInboundOptionsScreen(
             enabled, onSelect = { if (enabled) { onServiceMode(it != ServiceMode.VPN); editor = "" } },
             onReset = { if (enabled) { onServiceMode(false); editor = "" } }, onDismiss = { editor = "" })
         "tun" -> NativeSettingPickerDialog(stringResource(R.string.native_core_tun_stack), options.tunImplementation,
-            listOf("mixed", "system", "gvisor").map { it to it }, enabled,
+            com.hiddify.hiddify.nativecore.NativeConfigChoices.tunChoices.map { it to it }, enabled,
             onSelect = { save(options.copy(tunImplementation = it)) }, onReset = { save(options.copy(tunImplementation = NativeInboundOptions().tunImplementation)) },
             onDismiss = { editor = "" })
         "mixed", "direct", "password" -> {

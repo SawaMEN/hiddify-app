@@ -75,8 +75,6 @@ internal fun NativeGeneralOptionsScreen(
                 else stringResource(R.string.native_general_seconds, options.intervalSeconds), enabled) { edit(NativeGeneralOptionField.INTERVAL) }
             NativePreferenceTile(R.string.native_core_clash_api_port, R.drawable.native_general_api,
                 options.clashPort.toString(), enabled) { edit(NativeGeneralOptionField.CLASH_PORT) }
-            NativePreferenceTile(R.string.native_core_use_xray, R.drawable.native_general_extension,
-                stringResource(R.string.native_general_xray_summary), enabled, options.useXray) { save(NativeGeneralOptionField.USE_XRAY, (!options.useXray).toString()) }
         }
     }
     val field = editor

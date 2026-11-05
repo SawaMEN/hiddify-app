@@ -20,7 +20,7 @@ class NativeGeneralOptionsRepository(context: Context) {
             resolveDestination = flag("resolve-destination"),
             logLevel = text("log-level", "warn").takeIf { it in listOf("trace", "debug", "info", "warn", "error", "fatal", "panic") } ?: "warn",
             testUrl = url, intervalSeconds = number("url-test-interval", 600, 1..86400),
-            clashPort = number("clash-api-port", 16756, 1..65535), useXray = flag("use-xray-core-when-possible"),
+            clashPort = number("clash-api-port", 16756, 1..65535), useXray = false,
         )
     }
 

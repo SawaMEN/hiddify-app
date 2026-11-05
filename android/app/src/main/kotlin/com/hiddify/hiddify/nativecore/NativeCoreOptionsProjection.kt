@@ -55,7 +55,11 @@ internal object NativeCoreOptionsProjection {
         NativeGeneralOptionField.entries.forEach { putDefault(root, it.storageKey, it.value(general)) }
         NativeDnsOptionField.entries.forEach { putDefault(root, it.storageKey, it.value(dns)) }
         mapOf("mixed-port" to 12334, "direct-port" to 12337, "mtu" to 9000,
-            "tun-implementation" to "gvisor", "strict-route" to true, "ipv6-mode" to "prefer_ipv4").forEach { (key, value) -> putDefault(root, key, value) }
+            "tun-implementation" to "sing15", "strict-route" to true, "ipv6-mode" to "ipv4_only",
+            "enable-direct-port" to false, "enable-tproxy-port" to false, "enable-redirect-port" to false).forEach { (key, value) -> putDefault(root, key, value) }
+        // 5.5.5 removes this toggle. Retain the persisted preference for import compatibility
+        // but never enable the alternative engine implicitly.
+        root.addProperty("use-xray-core-when-possible", false)
         val tricks = root.get("tls-tricks")?.takeIf { it.isJsonObject }?.asJsonObject ?: JsonObject()
         NativeTlsOptionField.entries.forEach { putDefault(tricks, it.coreKey, it.value(tls)) }
         root.add("tls-tricks", tricks)
