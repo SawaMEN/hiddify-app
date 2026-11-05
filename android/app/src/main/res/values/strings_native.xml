@@ -849,4 +849,9 @@
     <string name="native_local_proxy_auth">Require local proxy password</string>
     <string name="native_local_proxy_in_vpn">Keep local proxy open in VPN mode</string>
     <string name="native_lan_port">LAN sharing port</string>
+    <string name="native_tv_import">Import from phone</string>
+    <string name="native_tv_pairing_unavailable">Connect the TV to a local Wi-Fi or Ethernet network.</string>
+    <string name="native_tv_link_received">Subscription received from phone. Confirm to import.</string>
+    <string name="native_tv_confirm_import">Import subscription</string>
+    <string name="native_tv_scan_phone">Scan this QR code with a phone on the same Wi-Fi and paste your subscription link.</string>
 </resources>

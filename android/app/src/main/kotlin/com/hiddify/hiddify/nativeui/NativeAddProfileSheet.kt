@@ -58,6 +58,8 @@ internal fun NativeAddProfileSheet(
     var importError by remember { mutableStateOf<String?>(null) }
     var validate by rememberSaveable { mutableStateOf(false) }
     var scannerOpen by rememberSaveable { mutableStateOf(false) }
+    var tvPanelOpen by remember { mutableStateOf(false) }
+    val tvMode = remember(context) { isNativeAndroidTv(context) }
     var helpOpen by rememberSaveable { mutableStateOf(false) }
     val enabled = !busy && !fileBusy
     val canDismiss by rememberUpdatedState(enabled)
@@ -150,12 +152,17 @@ internal fun NativeAddProfileSheet(
                             Modifier.weight(1f), ::paste)
                         AddSourceTile(R.string.native_add_file, R.drawable.native_file, tileSize,
                             Modifier.weight(1f), ::chooseFile)
-                        AddSourceTile(R.string.native_add_scan, R.drawable.native_qr, tileSize,
-                            Modifier.weight(1f), { scannerOpen = true })
+                        AddSourceTile(if (tvMode) R.string.native_tv_import else R.string.native_add_scan,
+                            R.drawable.native_qr, tileSize, Modifier.weight(1f),
+                            { if (tvMode) tvPanelOpen = !tvPanelOpen else scannerOpen = true })
                         AddSourceTile(R.string.native_add_manual, R.drawable.native_add, tileSize,
                             Modifier.weight(1f), { manual = true; importError = null })
                     }
                 }
+                if (tvMode && tvPanelOpen) NativeTvImportPanel(onImport = { link ->
+                    tvPanelOpen = false
+                    importSource(link)
+                })
                 importError?.let {
                     Text(it, Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.error)
                 }

@@ -849,4 +849,9 @@
     <string name="native_local_proxy_auth">Требовать пароль локального прокси</string>
     <string name="native_local_proxy_in_vpn">Оставлять локальный прокси открытым в режиме VPN</string>
     <string name="native_lan_port">Порт доступа по LAN</string>
+    <string name="native_tv_import">Добавить с телефона</string>
+    <string name="native_tv_pairing_unavailable">Подключите телевизор к локальной сети Wi-Fi или Ethernet.</string>
+    <string name="native_tv_link_received">Подписка получена с телефона. Подтвердите импорт.</string>
+    <string name="native_tv_confirm_import">Импортировать подписку</string>
+    <string name="native_tv_scan_phone">Отсканируйте QR-код телефоном в той же сети Wi-Fi и вставьте ссылку подписки.</string>
 </resources>
