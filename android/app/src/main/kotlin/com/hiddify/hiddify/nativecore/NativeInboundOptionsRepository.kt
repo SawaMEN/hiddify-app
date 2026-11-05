@@ -7,17 +7,22 @@ import java.util.Base64
 
 data class NativeInboundOptions(
     val strictRoute: Boolean = true,
-    val tunImplementation: String = "gvisor",
+    val tunImplementation: String = "sing15",
     val mixedEnabled: Boolean = true,
     val mixedPort: Int = 12334,
-    val directEnabled: Boolean = true,
+    val directEnabled: Boolean = false,
     val directPort: Int = 12337,
     val allowLan: Boolean = false,
     val lanPassword: String = "",
+    val localProxyAuth: Boolean = false,
+    val localProxyInVpn: Boolean = false,
+    val lanPort: Int = 12338,
 ) {
     fun validated(): NativeInboundOptions {
-        require(tunImplementation in listOf("mixed", "system", "gvisor")) { "Invalid TUN implementation" }
-        require(mixedPort in 1..65535 && directPort in 1..65535) { "Ports must be between 1 and 65535" }
+        require(tunImplementation in NativeConfigChoices.tunChoices) { "Invalid TUN implementation" }
+        require(mixedPort in 1..65535 && directPort in 1..65535 && lanPort in 1..65535) { "Ports must be between 1 and 65535" }
+        require(!allowLan || mixedPort != lanPort) { "LAN port must differ from the local proxy port" }
+        require(!localProxyAuth || lanPassword.isNotBlank()) { "Set a password before requiring local proxy authentication" }
         require(!mixedEnabled || !directEnabled || mixedPort != directPort) { "Enabled listeners must use different ports" }
         require(lanPassword.length <= 128 && lanPassword.none { it.isISOControl() }) { "Invalid LAN password" }
         return this
@@ -37,13 +42,16 @@ class NativeInboundOptionsRepository(context: Context) {
         return NativeInboundOptions(
             strictRoute = flag("strict-route", true),
             tunImplementation = root.optString("tun-implementation",
-                values["flutter.tun-implementation"] as? String ?: "gvisor").takeIf { it in listOf("mixed", "system", "gvisor") } ?: "gvisor",
+                values["flutter.tun-implementation"] as? String ?: "sing15").takeIf { it in NativeConfigChoices.tunChoices } ?: "sing15",
             mixedEnabled = flag("enable-mixed-port", true) && NativeStoredNumbers.int(storedPort("mixed-port"), 0..65535) != 0,
             mixedPort = port("mixed-port", 12334),
-            directEnabled = flag("enable-direct-port", true) && NativeStoredNumbers.int(storedPort("direct-port"), 0..65535) != 0,
+            directEnabled = flag("enable-direct-port", false) && NativeStoredNumbers.int(storedPort("direct-port"), 0..65535) != 0,
             directPort = port("direct-port", 12337),
             allowLan = flag("allow-connection-from-lan", false),
             lanPassword = root.optString("lan-sharing-password", values["flutter.lan_sharing_password"] as? String ?: ""),
+            localProxyAuth = flag("local-proxy-auth", false),
+            localProxyInVpn = flag("local-proxy-in-vpn", false),
+            lanPort = port("lan-sharing-port", 12338),
         )
     }
 
@@ -59,6 +67,9 @@ class NativeInboundOptionsRepository(context: Context) {
             "enable-mixed-port" to value.mixedEnabled, "mixed-port" to value.mixedPort,
             "enable-direct-port" to value.directEnabled, "direct-port" to value.directPort,
             "allow-connection-from-lan" to value.allowLan,
+            "lan-sharing-port" to value.lanPort,
+            "local-proxy-auth" to value.localProxyAuth,
+            "local-proxy-in-vpn" to value.localProxyInVpn,
         )
         val editor = preferences.edit()
         fields.forEach { (key, item) ->

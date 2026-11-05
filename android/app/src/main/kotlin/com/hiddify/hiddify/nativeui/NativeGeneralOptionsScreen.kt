@@ -28,6 +28,8 @@ import com.hiddify.hiddify.nativecore.NativeGeneralOptions
 
 private val BalancerLabels = listOf("round-robin" to R.string.native_core_balancer_round_robin,
     "consistent-hashing" to R.string.native_core_balancer_consistent, "sticky-sessions" to R.string.native_core_balancer_sticky)
+private val DefaultProxyLabels = listOf("balance" to R.string.native_default_proxy_balance,
+    "lowest" to R.string.native_default_proxy_lowest, "first" to R.string.native_default_proxy_first)
 private val TestUrls = listOf("http://connectivitycheck.gstatic.com/generate_204", "http://www.gstatic.com/generate_204",
     "https://www.gstatic.com/generate_204", "https://redirector.googlevideo.com/generate_204", "http://cp.cloudflare.com",
     "http://kernel.org", "http://detectportal.firefox.com", "http://captive.apple.com/hotspot-detect.html",
@@ -64,6 +66,8 @@ internal fun NativeGeneralOptionsScreen(
         if (options != null) Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
             NativePreferenceTile(R.string.native_core_balancer, R.drawable.native_general_balance,
                 stringResource(BalancerLabels.first { it.first == options.balancer }.second), enabled) { edit(NativeGeneralOptionField.BALANCER) }
+            NativePreferenceTile(R.string.native_default_proxy, R.drawable.native_general_balance,
+                stringResource(DefaultProxyLabels.first { it.first == options.defaultProxy }.second), enabled) { edit(NativeGeneralOptionField.DEFAULT_PROXY) }
             NativePreferenceTile(R.string.native_core_resolve_destination, R.drawable.native_general_find_replace,
                 null, enabled, options.resolveDestination) { save(NativeGeneralOptionField.RESOLVE_DESTINATION, (!options.resolveDestination).toString()) }
             NativePreferenceTile(R.string.native_core_log_level, R.drawable.native_general_description,
@@ -75,14 +79,13 @@ internal fun NativeGeneralOptionsScreen(
                 else stringResource(R.string.native_general_seconds, options.intervalSeconds), enabled) { edit(NativeGeneralOptionField.INTERVAL) }
             NativePreferenceTile(R.string.native_core_clash_api_port, R.drawable.native_general_api,
                 options.clashPort.toString(), enabled) { edit(NativeGeneralOptionField.CLASH_PORT) }
-            NativePreferenceTile(R.string.native_core_use_xray, R.drawable.native_general_extension,
-                stringResource(R.string.native_general_xray_summary), enabled, options.useXray) { save(NativeGeneralOptionField.USE_XRAY, (!options.useXray).toString()) }
         }
     }
     val field = editor
     if (field != null && options != null) {
         val title = when (field) {
             NativeGeneralOptionField.BALANCER -> R.string.native_core_balancer
+            NativeGeneralOptionField.DEFAULT_PROXY -> R.string.native_default_proxy
             NativeGeneralOptionField.LOG_LEVEL -> R.string.native_core_log_level
             NativeGeneralOptionField.TEST_URL -> R.string.native_core_test_url
             NativeGeneralOptionField.INTERVAL -> R.string.native_general_interval
@@ -90,6 +93,7 @@ internal fun NativeGeneralOptionsScreen(
         }
         val choices = when (field) {
             NativeGeneralOptionField.BALANCER -> BalancerLabels.map { it.first }
+            NativeGeneralOptionField.DEFAULT_PROXY -> DefaultProxyLabels.map { it.first }
             NativeGeneralOptionField.LOG_LEVEL -> listOf("trace", "debug", "info", "warn")
             else -> emptyList()
         }
@@ -97,8 +101,11 @@ internal fun NativeGeneralOptionsScreen(
         val valid = runCatching { field.applyTo(options, input) }.isSuccess
         if (choices.isNotEmpty()) {
             val labels = choices.map { choice -> choice to
-                if (field == NativeGeneralOptionField.BALANCER)
-                    stringResource(BalancerLabels.first { it.first == choice }.second) else choice.uppercase() }
+                when (field) {
+                    NativeGeneralOptionField.BALANCER -> stringResource(BalancerLabels.first { it.first == choice }.second)
+                    NativeGeneralOptionField.DEFAULT_PROXY -> stringResource(DefaultProxyLabels.first { it.first == choice }.second)
+                    else -> choice.uppercase()
+                } }
             NativeSettingPickerDialog(stringResource(title), field.value(options).toString(), labels, enabled,
                 onSelect = { save(field, it) },
                 onReset = { save(field, field.value(NativeGeneralOptions()).toString()) }, onDismiss = { editor = null })

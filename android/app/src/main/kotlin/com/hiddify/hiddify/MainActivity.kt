@@ -593,6 +593,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onShareCoreDiagnostics = { shareLogs(app = false, diagnostics = true) },
                 onSaveChainOptions = ::saveChainOptions,
                 onSelectOutbound = ::selectOutbound,
+                onSaveProfileKeepSelection = ::saveProfileKeepSelection,
                 onTestOutbound = ::testOutbound,
                 onRefreshWifiSharingDetails = ::refreshWifiSharingDetails,
                 onImportSettingsClipboard = ::importSettingsFromClipboard,
@@ -1303,6 +1304,8 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                         if (profile.active && configChanged) activeConfigurationChanged = true
                     }) { id, error ->
                         Log.w(TAG, "automatic profile update failed for $id", error)
+                        runCatching { profileRepository.recordAutoUpdateFailure(id) }
+                            .onFailure { Log.w(TAG, "could not persist subscription failure for $id", it) }
                     }
                     // Reload after attempted updates: a failure can occur after a committed DB write.
                     profileRepository.synchronizeActiveProfile()
@@ -1348,6 +1351,18 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         // remains the fallback for incompatible configurations or RPC failures.
         reconnectWithSavedSettings(preferHotReload = true)
         return true
+    }
+
+    private fun saveProfileKeepSelection(id: String, top: Int?, tags: List<String>?) {
+        val existing = profiles.value.firstOrNull { it.id == id } ?: return
+        val updated = com.hiddify.hiddify.nativeprofile.NativeProfileOverrides.withSelection(
+            existing.userOverride, top, tags)
+        if (existing.userOverride == updated) return
+        runProfileOperation(id, requireDisconnected = false, onSuccess = {
+            if (existing.active) reconnectAfterSubscriptionChange()
+        }) {
+            profileRepository.saveKeepSelection(id, top, tags)
+        }
     }
 
     private fun selectProfile(profile: NativeProfile) {

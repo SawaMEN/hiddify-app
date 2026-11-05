@@ -10,8 +10,10 @@ data class NativeGeneralOptions(
     val intervalSeconds: Int = 600,
     val clashPort: Int = 16756,
     val useXray: Boolean = false,
+    val defaultProxy: String = "balance",
 ) {
     fun validated(): NativeGeneralOptions {
+        require(defaultProxy in listOf("balance", "lowest", "first")) { "Invalid default proxy" }
         require(balancer in NativeConfigChoices.balancerChoices) { "Invalid balancing strategy" }
         require(logLevel in listOf("trace", "debug", "info", "warn", "error", "fatal", "panic")) { "Invalid log level" }
         require(intervalSeconds in 1..86400 && clashPort in 1..65535) { "Invalid interval or API port" }
@@ -26,12 +28,13 @@ data class NativeGeneralOptions(
 }
 
 enum class NativeGeneralOptionField(val storageKey: String) {
-    BALANCER("balancer-strategy"), RESOLVE_DESTINATION("resolve-destination"),
+    BALANCER("balancer-strategy"), DEFAULT_PROXY("default-proxy"), RESOLVE_DESTINATION("resolve-destination"),
     LOG_LEVEL("log-level"), TEST_URL("connection-test-url"), INTERVAL("url-test-interval"),
     CLASH_PORT("clash-api-port"), USE_XRAY("use-xray-core-when-possible");
 
     fun value(options: NativeGeneralOptions): Any = when (this) {
         BALANCER -> options.balancer
+        DEFAULT_PROXY -> options.defaultProxy
         RESOLVE_DESTINATION -> options.resolveDestination
         LOG_LEVEL -> options.logLevel
         TEST_URL -> options.testUrl
@@ -42,6 +45,7 @@ enum class NativeGeneralOptionField(val storageKey: String) {
 
     fun applyTo(options: NativeGeneralOptions, input: String): NativeGeneralOptions = when (this) {
         BALANCER -> options.copy(balancer = input).also { require(input in NativeConfigChoices.balancerChoices) }
+        DEFAULT_PROXY -> options.copy(defaultProxy = input).also { require(input in listOf("balance", "lowest", "first")) }
         RESOLVE_DESTINATION -> options.copy(resolveDestination = input.toBooleanStrict())
         LOG_LEVEL -> options.copy(logLevel = input).also { require(input in listOf("trace", "debug", "info", "warn", "error", "fatal", "panic")) }
         TEST_URL -> options.copy(testUrl = NativeGeneralOptions(testUrl = input).validated().testUrl)

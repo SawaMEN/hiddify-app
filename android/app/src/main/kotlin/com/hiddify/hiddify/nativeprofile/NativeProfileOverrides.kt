@@ -1,6 +1,8 @@
 package com.hiddify.hiddify.nativeprofile
 
 import com.google.gson.JsonObject
+import com.google.gson.JsonArray
+import com.google.gson.JsonPrimitive
 
 /** Dart ProfileParser.profileOverride/applyProfileOverride, without changing global preferences. */
 object NativeProfileOverrides {
@@ -49,7 +51,52 @@ object NativeProfileOverrides {
             tricks.addProperty("enable-fragment", fragment)
             result.add("tls-tricks", tricks)
         }
+        val chosen = selection(headers, userOverride)
+        chosen.entrySet().forEach { (key, value) -> result.add(key, value) }
         return result
+    }
+
+    /** Effective profile selection; user override has priority over subscription keep-top. */
+    fun selection(headers: String?, userOverride: String?): JsonObject {
+        val source = objectOrEmpty(headers)
+        val user = objectOrEmpty(userOverride)
+        val result = JsonObject()
+        val savedTop = user.get("keepTop")?.takeIf { it.isJsonPrimitive }
+        val headerTop = source.get("keep-top")?.takeIf { it.isJsonPrimitive }
+        fun parseTop(value: com.google.gson.JsonElement?): Int? {
+            val number = value?.let { runCatching { it.asString.trim().toIntOrNull() }.getOrNull() }
+            return number?.takeIf { it == -1 || it > 0 }
+        }
+        val keepTop = parseTop(savedTop) ?: parseTop(headerTop)
+        if (keepTop != null) result.addProperty("keep-top", keepTop)
+        val tags = user.get("keepTags")?.takeIf { it.isJsonArray }?.asJsonArray
+        if (tags != null && tags.size() in 1..512) {
+            val chosen = JsonArray()
+            val seen = HashSet<String>()
+            for (tag in tags) {
+                if (!tag.isJsonPrimitive || !tag.asJsonPrimitive.isString) continue
+                val text = tag.asString
+                if (text.length !in 1..255 || text.any(Char::isISOControl) || !seen.add(text)) continue
+                chosen.add(text)
+            }
+            if (chosen.size() > 0) result.add("keep-tags", chosen)
+        }
+        return result
+    }
+
+    /** Keep the rest of the user override intact when changing a profile's proxy choices. */
+    fun withSelection(previous: String?, keepTop: Int?, keepTags: List<String>?): String {
+        require(keepTop != null || keepTags != null) { "Specify proxy selection" }
+        require(keepTop == null || keepTop == -1 || keepTop > 0) { "Invalid keep-top" }
+        require(keepTags == null || (keepTags.size <= 512 && keepTags.distinct().size == keepTags.size &&
+            keepTags.all { it.length in 1..255 && it.none(Char::isISOControl) })) { "Invalid proxy tags" }
+        val user = objectOrEmpty(previous).deepCopy()
+        if (keepTop != null) user.addProperty("keepTop", keepTop)
+        if (keepTags != null) {
+            if (keepTags.isEmpty()) user.remove("keepTags")
+            else user.add("keepTags", JsonArray().apply { keepTags.forEach(::add) })
+        }
+        return user.toString()
     }
 
     fun withFeatures(previous: String?, features: Set<String>?): String {

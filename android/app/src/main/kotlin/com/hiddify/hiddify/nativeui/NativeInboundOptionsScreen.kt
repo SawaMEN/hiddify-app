@@ -54,6 +54,12 @@ internal fun NativeInboundOptionsScreen(
             NativePreferenceTile(R.string.native_core_mixed_port, R.drawable.native_inbound_port,
                 options.mixedPort.toString(), enabled, options.mixedEnabled,
                 onToggle = { save(options.copy(mixedEnabled = it)) }) { edit("mixed", options.mixedPort.toString()) }
+            NativePreferenceTile(R.string.native_local_proxy_auth, R.drawable.native_inbound_merge,
+                null, enabled, options.localProxyAuth) { save(options.copy(localProxyAuth = !options.localProxyAuth)) }
+            NativePreferenceTile(R.string.native_local_proxy_in_vpn, R.drawable.native_inbound_merge,
+                null, enabled, options.localProxyInVpn) { save(options.copy(localProxyInVpn = !options.localProxyInVpn)) }
+            NativePreferenceTile(R.string.native_lan_port, R.drawable.native_inbound_port,
+                options.lanPort.toString(), enabled) { edit("lan-port", options.lanPort.toString()) }
             NativePreferenceTile(R.string.native_core_direct_port, R.drawable.native_inbound_port,
                 options.directPort.toString(), enabled, options.directEnabled,
                 onToggle = { save(options.copy(directEnabled = it)) }) { edit("direct", options.directPort.toString()) }
@@ -68,28 +74,30 @@ internal fun NativeInboundOptionsScreen(
             enabled, onSelect = { if (enabled) { onServiceMode(it != ServiceMode.VPN); editor = "" } },
             onReset = { if (enabled) { onServiceMode(false); editor = "" } }, onDismiss = { editor = "" })
         "tun" -> NativeSettingPickerDialog(stringResource(R.string.native_core_tun_stack), options.tunImplementation,
-            listOf("mixed", "system", "gvisor").map { it to it }, enabled,
+            com.hiddify.hiddify.nativecore.NativeConfigChoices.tunChoices.map { it to it }, enabled,
             onSelect = { save(options.copy(tunImplementation = it)) }, onReset = { save(options.copy(tunImplementation = NativeInboundOptions().tunImplementation)) },
             onDismiss = { editor = "" })
-        "mixed", "direct", "password" -> {
+        "mixed", "direct", "lan-port", "password" -> {
             val key = editor
             val password = key == "password"
             fun updated(text: String) = when (key) {
                 "mixed" -> options.copy(mixedPort = text.toIntOrNull() ?: 0)
                 "direct" -> options.copy(directPort = text.toIntOrNull() ?: 0)
+                "lan-port" -> options.copy(lanPort = text.toIntOrNull() ?: 0)
                 else -> options.copy(lanPassword = text)
             }
             val valid = runCatching { updated(input).validated() }.isSuccess
             NativeSettingInputDialog(stringResource(when (key) {
                 "mixed" -> R.string.native_core_mixed_port
                 "direct" -> R.string.native_core_direct_port
+                "lan-port" -> R.string.native_lan_port
                 else -> R.string.native_inbound_sharing_password
             }), input, onValueChange = { text ->
                 if (password) { if (text.length <= 128) input = text }
                 else if (text.length <= 5 && text.all { it in '0'..'9' }) input = text
             }, valid = valid, enabled = enabled, invalidMessage = stringResource(R.string.native_inbound_invalid),
                 onDismiss = { editor = "" }, onConfirm = { save(updated(input)) },
-                onReset = { save(updated(when (key) { "mixed" -> "12334"; "direct" -> "12337"; else -> "" })) },
+                onReset = { save(updated(when (key) { "mixed" -> "12334"; "direct" -> "12337"; "lan-port" -> "12338"; else -> "" })) },
                 keyboardOptions = KeyboardOptions(keyboardType = if (password) KeyboardType.Text else KeyboardType.Number, imeAction = ImeAction.Done))
         }
     }
@@ -139,7 +147,7 @@ private fun NativeLanSharingPreference(options: NativeInboundOptions, wifiSharin
                 // It must never be displayed as a shareable QR to another device.
                 val host = NativeLanSharingLink.reachableHost(current?.host)
                 val link = NativeLanSharingLink.named(
-                    host, current?.port ?: options.mixedPort, current?.password ?: options.lanPassword,
+                    host, current?.port ?: options.lanPort, current?.password ?: options.lanPassword,
                 )
                 if (request != shareRequest) return@launch
                 if (qr) {

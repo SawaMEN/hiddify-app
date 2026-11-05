@@ -32,6 +32,14 @@ object NativeSubscriptionMetadata {
         return Duration.between(last, now).seconds >= interval
     }
 
+    const val AUTO_UPDATE_FAILURE_SUSPEND_DAYS = 3L
+
+    fun isAutoUpdateSuspended(firstFailureUtc: String?, now: Instant): Boolean {
+        val first = firstFailureUtc?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return false
+        return !now.isBefore(first) &&
+            Duration.between(first, now) >= Duration.ofDays(AUTO_UPDATE_FAILURE_SUSPEND_DAYS)
+    }
+
     fun usage(value: String?): Usage? {
         val fields = value?.split(';')?.mapNotNull { part ->
             val pieces = part.split('=', limit = 2)

@@ -98,6 +98,7 @@ class NativeProfileRepository(private val context: Context) {
                 "enable-warp",
                 "enable-psiphon",
                 "enable-fragment",
+                "keep-top",
             ) + NativeProfileOverrides.supportedHeaders
     }
 
@@ -202,6 +203,13 @@ class NativeProfileRepository(private val context: Context) {
         for ((name, declaration) in additions) {
             if (name !in columns) db.execSQL("ALTER TABLE profile_entries ADD COLUMN $name $declaration")
         }
+        // Separate metadata table keeps the original profile schema (and backups) compatible.
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS profile_auto_update_failures (
+                profile_id TEXT NOT NULL PRIMARY KEY,
+                first_failure_utc TEXT NOT NULL
+            )
+        """.trimIndent())
         if (db.version < 6) db.version = 6
     }
 
@@ -217,7 +225,7 @@ class NativeProfileRepository(private val context: Context) {
                 null,
             ).use { cursor ->
                 buildList {
-                    while (cursor.moveToNext()) add(cursor.toProfile())
+                    while (cursor.moveToNext()) cursor.toReadableProfile()?.let(::add)
                 }
             }
         }
@@ -231,7 +239,7 @@ class NativeProfileRepository(private val context: Context) {
                 FROM profile_entries WHERE active = 1 LIMIT 1
                 """.trimIndent(),
                 null,
-            ).use { cursor -> if (cursor.moveToFirst()) cursor.toProfile() else null }
+            ).use { cursor -> if (cursor.moveToFirst()) cursor.toReadableProfile() else null }
         }
 
     fun synchronizeActiveProfile(): NativeProfile? = synchronized(mutationLock) {
@@ -275,6 +283,7 @@ class NativeProfileRepository(private val context: Context) {
                     val current = getById(db, id) ?: error("Profile not found")
                     val deleted = db.delete("profile_entries", "id = ?", arrayOf(id))
                     check(deleted == 1) { "Unable to delete profile" }
+                    db.delete("profile_auto_update_failures", "profile_id = ?", arrayOf(id))
 
                     if (current.active) {
                         db.execSQL("UPDATE profile_entries SET active = 0")
@@ -434,16 +443,53 @@ class NativeProfileRepository(private val context: Context) {
         return commit(updated, content, isNew = false, expectedProfile = existing)
     }
 
-    fun dueRemoteProfileIds(now: java.time.LocalDateTime = java.time.LocalDateTime.now()): List<String> =
-        listProfiles()
+    /** Automatic refresh pauses after three continuous days of failures. Manual refresh always works. */
+    fun dueRemoteProfileIds(now: java.time.LocalDateTime = java.time.LocalDateTime.now()): List<String> {
+        val failures = openDatabase().use { db ->
+            db.rawQuery("SELECT profile_id, first_failure_utc FROM profile_auto_update_failures", null).use { cursor ->
+                buildMap {
+                    while (cursor.moveToNext()) put(cursor.getString(0), cursor.getString(1))
+                }
+            }
+        }
+        val instant = now.atZone(ZoneId.systemDefault()).toInstant()
+        return listProfiles()
             .asSequence()
-            .filter { it.isRemote && !userOverrideAutoUpdateDisabled(it.userOverride) }
+            .filter { it.isRemote && !it.url.isNullOrBlank() && !userOverrideAutoUpdateDisabled(it.userOverride) }
+            .filter { !NativeSubscriptionMetadata.isAutoUpdateSuspended(failures[it.id], instant) }
             .filter { profile ->
                 NativeSubscriptionMetadata.isUpdateDue(profile.lastUpdate,
                     NativeSubscriptionMetadata.effectiveUpdateIntervalSeconds(profile.updateIntervalSeconds), now)
             }
             .map { it.id }
             .toList()
+    }
+
+    /** Persist core proxy selection in the profile override; refresh of the subscription retains it. */
+    fun saveKeepSelection(id: String, keepTop: Int? = null, keepTags: List<String>? = null): NativeProfile =
+        synchronized(mutationLock) {
+            openDatabase().use { db ->
+                val profile = requireNotNull(getById(db, id)) { "Profile not found" }
+                val updated = profile.copy(userOverride = NativeProfileOverrides.withSelection(
+                    profile.userOverride, keepTop, keepTags,
+                ))
+                check(db.update("profile_entries", updated.toValues(), "id = ?", arrayOf(id)) == 1) {
+                    "Unable to store proxy selection"
+                }
+                updated
+            }
+        }
+
+    /** Store the first failure only: subsequent retries must not defer the three-day limit. */
+    fun recordAutoUpdateFailure(id: String) {
+        openDatabase().use { db ->
+            db.insertWithOnConflict("profile_auto_update_failures", null,
+                ContentValues().apply {
+                    put("profile_id", id)
+                    put("first_failure_utc", nowIso())
+                }, SQLiteDatabase.CONFLICT_IGNORE)
+        }
+    }
 
     internal fun prepareInput(
         rawInput: String,
@@ -657,6 +703,7 @@ class NativeProfileRepository(private val context: Context) {
                             SQLiteDatabase.CONFLICT_REPLACE,
                         )
                     check(result != -1L) { "Unable to save profile" }
+                    db.delete("profile_auto_update_failures", "profile_id = ?", arrayOf(profile.id))
                     db.setTransactionSuccessful()
                 } finally {
                     db.endTransaction()
@@ -1080,6 +1127,20 @@ class NativeProfileRepository(private val context: Context) {
             if (populatedHeaders == null) putNull("populated_headers") else put("populated_headers", populatedHeaders)
             if (userOverride == null) putNull("user_override") else put("user_override", userOverride)
         }
+
+    /** A malformed subscription row must not make all the other profiles disappear. */
+    private fun Cursor.toReadableProfile(): NativeProfile? {
+        return try {
+            val value = toProfile()
+            if (value.isRemote && value.url.isNullOrBlank()) {
+                android.util.Log.w("NativeProfileRepository", "Ignoring remote profile without subscription URL: ${value.id}")
+                null
+            } else value
+        } catch (error: RuntimeException) {
+            android.util.Log.w("NativeProfileRepository", "Skipping unreadable stored profile", error)
+            null
+        }
+    }
 
     private fun Cursor.toProfile() =
         NativeProfile(

@@ -8,10 +8,14 @@ data class NativeChainOptions(
     val extraMode: String = "warp",
     val unblockerMode: String = "psiphon",
     val extraWarpLicense: String = "",
+    val extraWarpTunnel: String = "warp_auto",
+    val extraWarpMtu: Int = 0,
     val extraPsiphonRegion: String = "AUTO",
     val extraPsiphonConduit: String = "",
     val extraProfileId: String? = null,
     val unblockerWarpLicense: String = "",
+    val unblockerWarpTunnel: String = "warp_auto",
+    val unblockerWarpMtu: Int = 0,
     val unblockerWarpCleanIp: String = "auto",
     val unblockerWarpPort: Int = 0,
     val unblockerWarpNoise: String = "1-3",
@@ -27,6 +31,7 @@ class NativeChainRepository {
     companion object {
         val statusChoices = listOf("off", "extra_security", "unblocker")
         val modeChoices = listOf("psiphon", "warp", "profile")
+        val warpTunnelChoices = NativeConfigChoices.warpTunnelChoices
         val psiphonRegions =
             listOf(
                 "AUTO", "AT", "AU", "BE", "BG", "CA", "CH", "CZ", "DE", "DK", "EE",
@@ -49,15 +54,19 @@ class NativeChainRepository {
 
         return NativeChainOptions(
             status = root.optString("chain-status", "off").validChoice(statusChoices, "off"),
-            extraMode = extra.optString("mode", "warp").validChoice(modeChoices, "warp"),
-            unblockerMode = unblocker.optString("mode", "psiphon").validChoice(modeChoices, "psiphon"),
+            extraMode = extra.optString("mode", "warp").let { if (it in warpTunnelChoices) "warp" else it.validChoice(modeChoices, "warp") },
+            unblockerMode = unblocker.optString("mode", "psiphon").let { if (it in warpTunnelChoices) "warp" else it.validChoice(modeChoices, "psiphon") },
             extraWarpLicense = extraWarp.optString("license-key"),
+            extraWarpTunnel = extraWarp.optString("tunnel", extra.optString("mode", "warp_auto")).validChoice(warpTunnelChoices, "warp_auto"),
+            extraWarpMtu = extraWarp.optInt("mtu", 0).coerceIn(0, 65535),
             extraPsiphonRegion =
                 extraPsiphon.optString("region", "AUTO").uppercase()
                     .validChoice(psiphonRegions, "AUTO"),
             extraPsiphonConduit = extraPsiphon.optString("conduit-pairing-id"),
             extraProfileId = extraProfile.nullableString("id"),
             unblockerWarpLicense = unblockerWarp.optString("license-key"),
+            unblockerWarpTunnel = unblockerWarp.optString("tunnel", unblocker.optString("mode", "warp_auto")).validChoice(warpTunnelChoices, "warp_auto"),
+            unblockerWarpMtu = unblockerWarp.optInt("mtu", 0).coerceIn(0, 65535),
             unblockerWarpCleanIp = unblockerWarp.optString("clean-ip", "auto"),
             unblockerWarpPort = unblockerWarp.optInt("clean-port", 0).coerceIn(0, 65535),
             unblockerWarpNoise = unblockerWarp.optString("noise", "1-3"),
@@ -84,6 +93,8 @@ class NativeChainRepository {
     fun save(value: NativeChainOptions): NativeChainOptions {
         require(value.status in statusChoices && value.extraMode in modeChoices && value.unblockerMode in modeChoices) { "Invalid chain selection" }
         require(value.unblockerWarpPort in 0..65535) { "Invalid WARP port" }
+        require(value.extraWarpTunnel in warpTunnelChoices && value.unblockerWarpTunnel in warpTunnelChoices) { "Invalid WARP tunnel" }
+        require(value.extraWarpMtu in 0..65535 && value.unblockerWarpMtu in 0..65535) { "Invalid WARP MTU" }
         listOf(value.unblockerWarpNoise, value.unblockerWarpNoiseSize, value.unblockerWarpNoiseDelay)
             .forEach { NativeTlsOptions.normalizeRange(it, allowEmpty = true) }
         val root = root()
@@ -91,7 +102,11 @@ class NativeChainRepository {
 
         val extra = root.optJSONObject("extra-security") ?: JSONObject()
         extra.put("mode", value.extraMode.validChoice(modeChoices, "warp"))
-        extra.objectFor("warp").put("license-key", value.extraWarpLicense.trim())
+        extra.objectFor("warp").apply {
+            put("license-key", value.extraWarpLicense.trim())
+            put("tunnel", value.extraWarpTunnel)
+            put("mtu", value.extraWarpMtu)
+        }
         extra.objectFor("psiphon").apply {
             put("region", value.extraPsiphonRegion.uppercase().validChoice(psiphonRegions, "AUTO"))
             put("conduit-pairing-id", value.extraPsiphonConduit.trim())
@@ -103,6 +118,8 @@ class NativeChainRepository {
         unblocker.put("mode", value.unblockerMode.validChoice(modeChoices, "psiphon"))
         unblocker.objectFor("warp").apply {
             put("license-key", value.unblockerWarpLicense.trim())
+            put("tunnel", value.unblockerWarpTunnel)
+            put("mtu", value.unblockerWarpMtu)
             put("clean-ip", value.unblockerWarpCleanIp.trim().ifBlank { "auto" })
             put("clean-port", value.unblockerWarpPort.coerceIn(0, 65535))
             put("noise", value.unblockerWarpNoise.trim())

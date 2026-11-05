@@ -35,6 +35,7 @@ import com.hiddify.hiddify.nativecore.NativeOutboundsPresentationPolicy
 import com.hiddify.hiddify.nativecore.nameWithDetour
 import com.hiddify.hiddify.nativecore.presentNativeOutbounds
 import com.hiddify.hiddify.nativepreferences.NativeOutboundSort
+import com.hiddify.hiddify.nativeprofile.NativeProfile
 
 @Composable
 internal fun NativeOutboundsScreen(
@@ -48,6 +49,8 @@ internal fun NativeOutboundsScreen(
     onChangeSmartSelection: (Boolean) -> Unit,
     onBack: () -> Unit,
     onSelect: (String, String) -> Unit,
+    activeProfile: NativeProfile?,
+    onSaveKeepSelection: (String, Int?, List<String>?) -> Unit,
     onTest: (String) -> Unit,
     operationError: String?,
     onDismissOperationError: () -> Unit,
@@ -95,6 +98,7 @@ internal fun NativeOutboundsScreen(
     }
     var sortOpen by remember { mutableStateOf(false) }
     var detailsTag by rememberSaveable { mutableStateOf<String?>(null) }
+    var keepDialogOpen by remember { mutableStateOf(false) }
     val gridState = androidx.compose.foundation.lazy.grid.rememberLazyGridState()
     var previousOrder by remember(query, sort) { mutableStateOf<List<String>>(emptyList()) }
     val sorted = remember(group, query, sort) { presentNativeOutbounds(group?.items.orEmpty(), query, sort) }
@@ -133,6 +137,13 @@ internal fun NativeOutboundsScreen(
                 singleLine = true, label = { Text(stringResource(R.string.native_outbounds_search)) },
                 leadingIcon = { Icon(painterResource(R.drawable.native_search), null) })
             NativeProxySpeedTools(group?.items.orEmpty(), connected)
+            val canChooseProxies = group?.items.orEmpty().any { !it.isGroup && "§hide§" !in it.tag }
+            if (activeProfile != null && canChooseProxies) {
+                NativeTextButton(onClick = { keepDialogOpen = true },
+                    enabled = connected && !smartSelectionBusy && busyTag == null) {
+                    Text(stringResource(R.string.native_keep_open))
+                }
+            }
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -187,6 +198,16 @@ internal fun NativeOutboundsScreen(
             Icon(painterResource(R.drawable.native_flash), stringResource(R.string.native_outbounds_test))
         }
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(16.dp))
+    }
+    if (keepDialogOpen && activeProfile != null && group != null) {
+        NativeKeepProxiesDialog(
+            profile = activeProfile, items = group.items, busy = busyTag != null || smartSelectionBusy,
+            onDismiss = { keepDialogOpen = false },
+            onSave = { top, tags ->
+                onSaveKeepSelection(activeProfile.id, top, tags)
+                keepDialogOpen = false
+            },
+        )
     }
     group?.items?.firstOrNull { it.tag == detailsTag }?.let { outbound ->
         NativeOutboundInfoDialog(outbound.copy(selected = group?.selectedTag == outbound.tag), onDismiss = { detailsTag = null })

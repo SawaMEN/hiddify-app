@@ -87,6 +87,7 @@ sourceSets {
             include 'com/hiddify/hiddify/nativeprofile/NativeFreeLiveAudit.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeWarpProfilesRepository.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileOverrides.kt'
+            include 'com/hiddify/hiddify/nativeprofile/NativeTvTransferPolicy.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeSubscriptionRequestOptions.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileTlsOptions.kt'
             include 'com/hiddify/hiddify/nativeprofile/NativeProfileTlsTargets.kt'

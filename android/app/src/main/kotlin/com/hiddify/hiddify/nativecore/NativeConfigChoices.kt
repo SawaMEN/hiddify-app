@@ -4,5 +4,6 @@ package com.hiddify.hiddify.nativecore
 object NativeConfigChoices {
     val balancerChoices = listOf("round-robin", "consistent-hashing", "sticky-sessions")
     val domainStrategyChoices = listOf("", "prefer_ipv4", "prefer_ipv6", "ipv4_only", "ipv6_only")
-    val tunChoices = listOf("mixed", "system", "gvisor")
+    val tunChoices = listOf("sing15", "mixed", "system", "gvisor")
+    val warpTunnelChoices = listOf("warp_auto", "warp", "warp_awg", "warp_masque")
 }

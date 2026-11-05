@@ -90,7 +90,6 @@
     <string name="native_core_log_level">Core log level</string>
     <string name="native_core_test_url">Connection test URL</string>
     <string name="native_core_clash_api_port">Clash API port</string>
-    <string name="native_core_use_xray">Use Xray core when possible</string>
     <string name="native_core_remote_dns">Remote DNS address</string>
     <string name="native_core_remote_dns_strategy">Remote DNS strategy</string>
     <string name="native_core_direct_dns">Direct DNS address</string>
@@ -355,7 +354,6 @@
     <string name="native_haptic_title">Haptic feedback</string>
     <string name="native_haptic_summary">Vibration when you connect or disconnect. Respects Android haptic settings.</string>
     <string name="native_general_options_title">Connection settings</string>
-    <string name="native_general_xray_summary">Use Xray for supported profiles when available. Requires reconnecting.</string>
     <string name="native_general_interval">Connection test interval</string>
     <string name="native_general_seconds">%1$d seconds</string>
     <string name="native_general_minutes">%1$d minutes</string>
@@ -825,6 +823,35 @@
     <string name="native_proxy_all">All</string>
     <string name="native_proxy_speed_start">Start test</string>
     <string name="native_proxy_speed_clear">Clear saved speed results</string>
+    <string name="native_chain_warp_tunnel">WARP tunnel</string>
+    <string name="native_chain_warp_mtu">WARP MTU (0 = automatic)</string>
+    <string name="native_chain_warp_auto">Auto (fastest available)</string>
+    <string name="native_default_proxy">Default proxy</string>
+    <string name="native_default_proxy_balance">Balancer</string>
+    <string name="native_default_proxy_lowest">Lowest ping</string>
+    <string name="native_default_proxy_first">First profile proxy</string>
+    <string name="native_keep_open">Choose proxies to run</string>
+    <string name="native_keep_title">Run selected proxies</string>
+    <string name="native_keep_manual">Choose manually</string>
+    <string name="native_keep_fastest">Fastest</string>
+    <string name="native_keep_all">All proxies</string>
+    <string name="native_keep_selected">Only selected</string>
+    <string name="native_keep_answering">Responding</string>
+    <string name="native_keep_paused">Paused or failed</string>
+    <string name="native_keep_protocol">Protocol</string>
+    <string name="native_keep_country">Country</string>
+    <string name="native_keep_apply">Use selected</string>
+    <string name="native_keep_choose">Choose at least one proxy</string>
+    <string name="native_keep_count">Keep fastest %1$d</string>
+    <string name="native_keep_hint">Selection is stored in this profile. Other proxies stop after reconnect.</string>
     <string name="native_core_profile_start_failed">Unable to start the selected VPN profile: %1$s</string>
     <string name="native_core_regional_policy_failed">Unable to apply regional routing policy: %1$s</string>
+    <string name="native_local_proxy_auth">Require local proxy password</string>
+    <string name="native_local_proxy_in_vpn">Keep local proxy open in VPN mode</string>
+    <string name="native_lan_port">LAN sharing port</string>
+    <string name="native_tv_import">Import from phone</string>
+    <string name="native_tv_pairing_unavailable">Connect the TV to a local Wi-Fi or Ethernet network.</string>
+    <string name="native_tv_link_received">Subscription received from phone. Confirm to import.</string>
+    <string name="native_tv_confirm_import">Import subscription</string>
+    <string name="native_tv_scan_phone">Scan this QR code with a phone on the same Wi-Fi and paste your subscription link.</string>
 </resources>

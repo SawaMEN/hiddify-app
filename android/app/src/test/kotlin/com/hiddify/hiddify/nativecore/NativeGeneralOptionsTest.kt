@@ -8,6 +8,7 @@ class NativeGeneralOptionsTest {
     @Test fun editingOneFieldPreservesOtherImportedValues() {
         val imported = NativeGeneralOptions(balancer = "sticky-sessions", resolveDestination = true,
             logLevel = "fatal", testUrl = "legacy-invalid-url", intervalSeconds = 17, clashPort = 32100, useXray = true)
+        assertEquals(imported.copy(defaultProxy = "lowest"), NativeGeneralOptionField.DEFAULT_PROXY.applyTo(imported, "lowest"))
         assertEquals(imported.copy(clashPort = 16756), NativeGeneralOptionField.CLASH_PORT.applyTo(imported, "16756"))
         assertEquals(imported.copy(resolveDestination = false), NativeGeneralOptionField.RESOLVE_DESTINATION.applyTo(imported, "false"))
         assertEquals(imported.copy(balancer = "round-robin"), NativeGeneralOptionField.BALANCER.applyTo(imported, "round-robin"))
@@ -23,6 +24,16 @@ class NativeGeneralOptionsTest {
             assertThrows(IllegalArgumentException::class.java) {
                 NativeGeneralOptionField.TEST_URL.applyTo(imported, invalid)
             }
+        }
+    }
+
+    @Test fun defaultProxyUsesBalancerUntilChangedAndRejectsUnknownChoices() {
+        assertEquals("balance", NativeGeneralOptions().defaultProxy)
+        for (mode in listOf("balance", "lowest", "first")) {
+            assertEquals(mode, NativeGeneralOptionField.DEFAULT_PROXY.applyTo(NativeGeneralOptions(), mode).defaultProxy)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            NativeGeneralOptionField.DEFAULT_PROXY.applyTo(NativeGeneralOptions(), "unknown")
         }
     }
 

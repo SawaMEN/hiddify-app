@@ -87,6 +87,36 @@ class NativeProfileOverridesTest {
         assertEquals("none", NativeJsonDocument.parse(base).asJsonObject.getAsJsonObject("extra-security").get("mode").asString)
     }
 
+    @Test fun explicitProxySelectionOverridesSubscriptionAndPreservesUserMetadata() {
+        val headers = """{"keep-top":"10","remote-dns-address":"tcp://1.1.1.1"}"""
+        val user = NativeProfileOverrides.withSelection(
+            """{"name":"Custom","enableFragment":true}""", 5, listOf("proxy-A", "proxy-B"))
+        val kept = NativeProfileOverrides.resolve(headers, user)
+        assertEquals(5, kept.get("keep-top").asInt)
+        assertEquals(listOf("proxy-A", "proxy-B"), kept.getAsJsonArray("keep-tags").map { it.asString })
+        assertEquals("Custom", NativeJsonDocument.parse(user).asJsonObject.get("name").asString)
+        assertTrue(NativeJsonDocument.parse(user).asJsonObject.get("enableFragment").asBoolean)
+        val reset = NativeProfileOverrides.withSelection(user, -1, emptyList())
+        assertEquals(-1, NativeProfileOverrides.resolve(headers, reset).get("keep-top").asInt)
+        assertFalse(NativeProfileOverrides.resolve(headers, reset).has("keep-tags"))
+    }
+
+    @Test fun selectionRejectsInvalidValuesAndUntrustedTags() {
+        for (value in listOf("0", "-2", "abc", "null", "true")) {
+            assertFalse(NativeProfileOverrides.selection("""{"keep-top":"$value"}""", null).has("keep-top"))
+        }
+        assertEquals(3, NativeProfileOverrides.selection("""{"keep-top":"3"}""", null).get("keep-top").asInt)
+        assertEquals(500, NativeProfileOverrides.selection("""{"keep-top":"500"}""", null).get("keep-top").asInt)
+        assertThrows(IllegalArgumentException::class.java) {
+            NativeProfileOverrides.withSelection(null, 0, null)
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            NativeProfileOverrides.withSelection(null, null, listOf("same", "same"))
+        }
+        val malformed = NativeProfileOverrides.selection(null, """{"keepTags":[false,42,"", "ok", "ok"]}""")
+        assertEquals(listOf("ok"), malformed.getAsJsonArray("keep-tags").map { it.asString })
+    }
+
     @Test fun featureReplacementPreservesMetadataAndMissingListRestoresFallback() {
         val original = """{"name":"Keep","updateInterval":12,"enableWarp":true}"""
         val replaced = NativeProfileOverrides.withFeatures(original, setOf("fragment"))
