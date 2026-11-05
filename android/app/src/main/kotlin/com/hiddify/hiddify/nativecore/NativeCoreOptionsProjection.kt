@@ -111,7 +111,7 @@ internal object NativeCoreOptionsProjection {
                     runtime.addProperty("profile-content", content)
                 }
                 root.add("chain-stage", runtime)
-                stripInactiveLegacyWarpConfig(root)
+                sanitizeLegacyWarpConfig(root)
                 return root.toString().also {
                     require(it.toByteArray(Charsets.UTF_8).size <= 3 * 1024 * 1024) { "Chain settings exceed the local control message limit (3 MiB)" }
                 }
@@ -124,23 +124,36 @@ internal object NativeCoreOptionsProjection {
             warp.addProperty("mode", if (chainStatus == "extra_security") "warp_over_proxy" else "proxy_over_warp")
             root.add("warp", warp)
         }
-        stripInactiveLegacyWarpConfig(root)
+        sanitizeLegacyWarpConfig(root)
         return root.toString()
     }
 
     /**
-     * The Go core unconditionally JSON-decodes legacy wireguard-config strings when settings
-     * are applied, even if WARP is disabled. Drop unused payloads only from the runtime
-     * snapshot so stale or malformed WARP data cannot block unrelated connections.
-     * Stored preferences and enabled WARP credentials remain untouched.
+     * The released Go core unconditionally JSON-decodes warp[2].wireguard-config when
+     * applying settings. Legacy preferences may contain non-JSON text (for example "nan"
+     * or an obsolete link), which aborts VPN startup even before the profile is parsed.
+     *
+     * A disabled WARP stage never needs the payload. An enabled stage can consume only
+     * a JSON object, or JSON null; otherwise the core cannot use those credentials and
+     * must fall back to its existing WARP account/license path. Sanitize only the outgoing
+     * snapshot, never persisted settings or valid active WARP credentials.
      */
-    private fun stripInactiveLegacyWarpConfig(root: JsonObject) {
+    private fun sanitizeLegacyWarpConfig(root: JsonObject) {
         for (key in listOf("warp", "warp2")) {
             val warp = root.get(key)?.takeIf { it.isJsonObject }?.asJsonObject ?: continue
             val enabled = warp.get("enable")?.let {
                 it.isJsonPrimitive && it.asJsonPrimitive.isBoolean && it.asBoolean
             } == true
-            if (!enabled) warp.remove("wireguard-config")
+            val payload = warp.get("wireguard-config") ?: continue
+            if (!enabled || !payload.isJsonPrimitive || !payload.asJsonPrimitive.isString) {
+                warp.remove("wireguard-config")
+                continue
+            }
+            val valid = runCatching {
+                val json = NativeJsonDocument.parse(payload.asString)
+                json.isJsonObject || json.isJsonNull
+            }.getOrDefault(false)
+            if (!valid) warp.remove("wireguard-config")
         }
     }
 
