@@ -32,13 +32,14 @@ internal fun NativeProfilesSheet(
     onSelect: (NativeProfile) -> Unit, onDelete: (NativeProfile) -> Unit,
     onRefresh: (NativeProfile) -> Unit, onEdit: (NativeProfile) -> Unit,
     onCopyConfig: (NativeProfile) -> Unit, onExportConfig: (NativeProfile) -> Unit,
+    onShareConfig: (NativeProfile) -> Unit,
 ) {
     LaunchedEffect(profiles, loading, loadFailed) {
         if (!loading && !loadFailed && profiles.isEmpty()) onDismiss()
     }
     NativeModalSheet(onDismissRequest = onDismiss, sheetMaxWidth = 456.dp) {
         NativeProfilesScreen(profiles, busyProfileId, onDismiss, {}, onSelect, onDelete, onRefresh,
-            onEdit, onCopyConfig, onExportConfig, loading, loadFailed, onRetry, onUpdateAll,
+            onEdit, onCopyConfig, onExportConfig, onShareConfig, loading, loadFailed, onRetry, onUpdateAll,
             sortByName, ascending, onSort, isSheet = true, refreshFeedback = refreshFeedback)
     }
 }
@@ -56,6 +57,7 @@ fun NativeProfilesScreen(
     onEdit: (NativeProfile) -> Unit,
     onCopyConfig: (NativeProfile) -> Unit,
     onExportConfig: (NativeProfile) -> Unit,
+    onShareConfig: (NativeProfile) -> Unit,
     loading: Boolean = false,
     loadFailed: Boolean = false,
     onRetry: () -> Unit = {},
@@ -154,7 +156,8 @@ fun NativeProfilesScreen(
         }, confirmButton = { NativeTextButton(onClick = { sortOpen = false }) { Text(stringResource(android.R.string.ok)) } })
     profiles.firstOrNull { it.id == shareId }?.let { profile ->
         NativeProfileShareDialog(profile, onDismiss = { shareId = null },
-            onCopyConfig = { onCopyConfig(profile); shareId = null }, onExportConfig = { onExportConfig(profile); shareId = null })
+            onCopyConfig = { onCopyConfig(profile); shareId = null }, onExportConfig = { onExportConfig(profile); shareId = null },
+            onShareConfig = { onShareConfig(profile); shareId = null })
     }
     profiles.firstOrNull { it.id == deleteId }?.let { profile ->
         AlertDialog(onDismissRequest = { deleteId = null }, title = { Text(stringResource(R.string.native_profile_delete_title)) },

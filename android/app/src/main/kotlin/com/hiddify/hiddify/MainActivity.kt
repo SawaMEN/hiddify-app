@@ -577,6 +577,7 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                 onImportFreeProfile = ::importFreeProfile,
                 onCopyProfileConfig = ::copyProfileConfig,
                 onExportProfileConfig = ::exportProfileConfig,
+                onShareProfileConfig = ::shareProfileConfig,
                 onPerAppModeChanged = ::setPerAppMode,
                 onTogglePerAppPackage = ::togglePerAppPackage,
                 onClearPerApp = ::clearPerAppPackages,
@@ -1618,10 +1619,43 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
         }
     }
 
+    /** Export into app-private cache, then share via a time-limited URI grant. */
+    private fun shareProfileConfig(profile: NativeProfile) {
+        var sharedFile: java.io.File? = null
+        exportProfile(profile.id, writeFile = { content ->
+            val directory = java.io.File(cacheDir, "profile_shares")
+            if (!directory.isDirectory && !directory.mkdirs()) {
+                throw java.io.IOException("Could not create profile share directory")
+            }
+            val cutoff = System.currentTimeMillis() - 24L * 60 * 60 * 1000
+            directory.listFiles()?.forEach { stale ->
+                if (stale.isFile && stale.lastModified() < cutoff) stale.delete()
+            }
+            val safeName = profile.name.filter {
+                it.isLetterOrDigit() || it == ' ' || it == '-' || it == '_'
+            }.trim().take(48).ifBlank { "profile" }
+            sharedFile = java.io.File.createTempFile("$safeName-", ".txt", directory).apply {
+                writeText(content, Charsets.UTF_8)
+            }
+        }, onComplete = {
+            val file = checkNotNull(sharedFile)
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                this@MainActivity, "$packageName.privacy.files", file)
+            val send = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_STREAM, uri)
+                clipData = ClipData.newRawUri(file.name, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(send, getString(R.string.native_profile_share_config)))
+        })
+    }
+
     private fun exportProfile(
         id: String,
         toClipboard: Boolean = false,
         writeFile: ((String) -> Unit)? = null,
+        onComplete: (() -> Unit)? = null,
     ) {
         if (busyProfileId.value != null) {
             errorMessage.value = getString(R.string.native_profile_export_busy)
@@ -1643,14 +1677,19 @@ class MainActivity : ComponentActivity(), ServiceConnection.Callback {
                     }
                 }
                 if (toClipboard) {
-                    getSystemService(ClipboardManager::class.java)
-                        ?.setPrimaryClip(ClipData.newPlainText("VetrOFF profile", content))
+                    val clipboard = getSystemService(ClipboardManager::class.java)
+                        ?: error("Clipboard is unavailable")
+                    clipboard.setPrimaryClip(ClipData.newPlainText("VetrOFF profile", content))
                 }
-                Toast.makeText(
-                    this@MainActivity,
-                    if (toClipboard) R.string.native_profile_copied else R.string.native_profile_exported,
-                    Toast.LENGTH_SHORT,
-                ).show()
+                if (onComplete != null) {
+                    onComplete()
+                } else {
+                    Toast.makeText(
+                        this@MainActivity,
+                        if (toClipboard) R.string.native_profile_copied else R.string.native_profile_exported,
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {

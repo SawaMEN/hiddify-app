@@ -184,6 +184,7 @@
     <string name="native_profile_show_qr">Subscription QR code</string>
     <string name="native_profile_copy_config">Copy source configuration</string>
     <string name="native_profile_export_config">Save source configuration to file</string>
+    <string name="native_profile_share_config">Share configuration file</string>
     <string name="native_profile_copied">Copied to clipboard</string>
     <string name="native_profile_exported">Configuration saved</string>
     <string name="native_profile_share_failed">Could not open the share menu</string>

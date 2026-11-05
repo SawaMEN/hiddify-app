@@ -1,1 +1,1 @@
-<paths xmlns:android="http://schemas.android.com/apk/res/android"><cache-path name="privacy" path="privacy/" /><cache-path name="logs" path="logs/" /><external-files-path name="updates" path="Download/updates/" /></paths>
+<paths xmlns:android="http://schemas.android.com/apk/res/android"><cache-path name="privacy" path="privacy/" /><cache-path name="logs" path="logs/" /><cache-path name="profiles" path="profile_shares/" /><external-files-path name="updates" path="Download/updates/" /></paths>

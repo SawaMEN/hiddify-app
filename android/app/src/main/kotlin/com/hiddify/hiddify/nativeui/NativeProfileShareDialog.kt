@@ -40,6 +40,7 @@ fun NativeProfileShareDialog(
     onDismiss: () -> Unit,
     onCopyConfig: () -> Unit,
     onExportConfig: () -> Unit,
+    onShareConfig: () -> Unit,
 ) {
     val context = LocalContext.current
     val link = remember(profile.url, profile.name) {
@@ -76,8 +77,9 @@ fun NativeProfileShareDialog(
                         onClick = {
                             runCatching {
                                 require(link.toByteArray(Charsets.UTF_8).size <= NativeProfileTransfer.MAX_CLIPBOARD_BYTES)
-                                context.getSystemService(ClipboardManager::class.java)
-                                    ?.setPrimaryClip(ClipData.newPlainText(profile.name, link))
+                                val clipboard = context.getSystemService(ClipboardManager::class.java)
+                                    ?: error("Clipboard is unavailable")
+                                clipboard.setPrimaryClip(ClipData.newPlainText(profile.name, link))
                             }.fold(
                                 onSuccess = {
                                     Toast.makeText(context, R.string.native_profile_copied, Toast.LENGTH_SHORT).show()
@@ -129,6 +131,9 @@ fun NativeProfileShareDialog(
                 }
                 OutlinedButton(onClick = onCopyConfig, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.native_profile_copy_config))
+                }
+                OutlinedButton(onClick = onShareConfig, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.native_profile_share_config))
                 }
                 OutlinedButton(onClick = onExportConfig, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.native_profile_export_config))
