@@ -111,6 +111,7 @@ internal object NativeCoreOptionsProjection {
                     runtime.addProperty("profile-content", content)
                 }
                 root.add("chain-stage", runtime)
+                stripInactiveLegacyWarpConfig(root)
                 return root.toString().also {
                     require(it.toByteArray(Charsets.UTF_8).size <= 3 * 1024 * 1024) { "Chain settings exceed the local control message limit (3 MiB)" }
                 }
@@ -123,7 +124,24 @@ internal object NativeCoreOptionsProjection {
             warp.addProperty("mode", if (chainStatus == "extra_security") "warp_over_proxy" else "proxy_over_warp")
             root.add("warp", warp)
         }
+        stripInactiveLegacyWarpConfig(root)
         return root.toString()
+    }
+
+    /**
+     * The Go core unconditionally JSON-decodes legacy wireguard-config strings when settings
+     * are applied, even if WARP is disabled. Drop unused payloads only from the runtime
+     * snapshot so stale or malformed WARP data cannot block unrelated connections.
+     * Stored preferences and enabled WARP credentials remain untouched.
+     */
+    private fun stripInactiveLegacyWarpConfig(root: JsonObject) {
+        for (key in listOf("warp", "warp2")) {
+            val warp = root.get(key)?.takeIf { it.isJsonObject }?.asJsonObject ?: continue
+            val enabled = warp.get("enable")?.let {
+                it.isJsonPrimitive && it.asJsonPrimitive.isBoolean && it.asBoolean
+            } == true
+            if (!enabled) warp.remove("wireguard-config")
+        }
     }
 
     /** Import validates the source itself; selecting a chain is a separate runtime operation. */
