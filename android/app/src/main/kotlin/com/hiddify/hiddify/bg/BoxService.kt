@@ -848,7 +848,20 @@ class BoxService(
             com.hiddify.hiddify.nativeprofile.NativeWarpEndpoints.candidates(it.content, it.name)
         }.orEmpty()
         if (candidates.isEmpty()) {
-            startNativeProfile(configPath, "")
+            // The pinned Android SDK incorrectly treats raw share URLs/YAML as JSON
+            // at startup, despite accepting them on import. Convert once using the
+            // core's real parser; never replace or modify the saved subscription.
+            val normalized = try {
+                NativeCoreControl.normalizedProfileContent(configPath)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                throw IllegalStateException(service.getString(
+                    R.string.native_core_profile_start_failed, error.message ?: error.javaClass.simpleName,
+                ), error)
+            }
+            if (normalized == null) startNativeProfile(configPath, "")
+            else startNativeProfile("", normalized)
             return
         }
         val selected = com.hiddify.hiddify.nativeconnection.NativeWarpStartupPolicy.select(
