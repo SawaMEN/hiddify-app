@@ -69,7 +69,7 @@ class NativeCoreOptionsProjectionTest {
 
     @Test fun warpStagesUseModernCoreTunnelModesAndPreserveDirection() {
         for (stage in listOf("extra-security" to "extra_security", "unblocker" to "unblocker")) {
-            for (tunnel in NativeChainRepository.warpTunnelChoices) {
+            for (tunnel in NativeConfigChoices.warpTunnelChoices) {
                 val root = project("""{"chain-status":"${stage.second}","warp":{"enable":true},
                     "${stage.first}":{"mode":"warp","warp":{"tunnel":"$tunnel","license-key":"key","mtu":1300}}}""")
                 val hop = root.getAsJsonObject(stage.first)
