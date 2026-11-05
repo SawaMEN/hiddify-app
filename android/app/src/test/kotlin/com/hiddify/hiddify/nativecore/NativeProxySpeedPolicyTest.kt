@@ -32,6 +32,30 @@ class NativeProxySpeedPolicyTest {
         assertEquals(0, cached.delayMs) // An old ping is not displayed as a new measurement.
     }
 
+    @Test fun speedSortingPrefersNewResultsBeforeCachedAndUsesOtherDirection() {
+        val current = proxy("current", 65).copy(downloadSpeed = 1, uploadSpeed = 4)
+        val cached = proxy("cached", 10).copy(downloadSpeed = 1000, downloadSpeedCached = true)
+        val upload = proxy("upload", 8).copy(uploadSpeed = 200)
+        val ping = proxy("ping", 20)
+        val unknown = proxy("unknown", 0)
+        assertEquals(listOf("current", "cached", "upload", "ping", "unknown"),
+            presentNativeOutbounds(listOf(unknown, ping, upload, cached, current), "", NativeOutboundSort.DOWNLOAD)
+                .map { it.tag })
+        assertEquals(listOf("upload", "current", "cached", "ping", "unknown"),
+            presentNativeOutbounds(listOf(unknown, ping, upload, cached, current), "", NativeOutboundSort.UPLOAD)
+                .map { it.tag })
+    }
+
+    @Test fun speedSortingDoesNotTreatFailuresOrCachedDelaysAsFreshMeasurements() {
+        val failed = proxy("failed", 0).copy(downloadSpeed = -1, sortDelayMs = 10)
+        val untested = proxy("untested", 70)
+        val valid = proxy("valid", 5)
+        assertEquals(listOf("valid", "untested", "failed"),
+            presentNativeOutbounds(listOf(failed, untested, valid), "", NativeOutboundSort.DOWNLOAD)
+                .map { it.tag })
+        assertEquals(10, failed.sortDelayMs)
+    }
+
     @Test fun sortPutsMeasuredSpeedsBeforeFailuresAndUntestedProxies() {
         val slow = proxy("slow", 20).copy(downloadSpeed = 100, uploadSpeed = 1_000)
         val fast = proxy("fast", 40).copy(downloadSpeed = Long.MAX_VALUE, uploadSpeed = 100)
