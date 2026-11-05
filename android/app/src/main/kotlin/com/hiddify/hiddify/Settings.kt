@@ -53,7 +53,7 @@ object Settings {
     // alias. A mismatched policy makes Android omit the TUN IPv6 address while sing-box
     // still tries to bind its IPv6 TCP stack to that address.
     val privacyDisableIpv6 get() = NativeServiceModeOptions.isIpv4Only(
-        configOptions, getString("flutter.ipv6-mode", "prefer_ipv4"),
+        configOptions, getString("flutter.ipv6-mode", "ipv4_only"),
     )
     val privacyUseRootRequested get() = getBoolean("flutter.privacy-use-root", false)
 

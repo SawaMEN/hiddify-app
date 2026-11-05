@@ -826,4 +826,8 @@
     <string name="native_chain_warp_tunnel">WARP tunnel</string>
     <string name="native_chain_warp_mtu">WARP MTU (0 = automatic)</string>
     <string name="native_chain_warp_auto">Auto (fastest available)</string>
+    <string name="native_default_proxy">Default proxy</string>
+    <string name="native_default_proxy_balance">Balancer</string>
+    <string name="native_default_proxy_lowest">Lowest ping</string>
+    <string name="native_default_proxy_first">First profile proxy</string>
 </resources>

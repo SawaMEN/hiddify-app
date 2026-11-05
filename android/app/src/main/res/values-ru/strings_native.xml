@@ -826,4 +826,8 @@
     <string name="native_chain_warp_tunnel">Туннель WARP</string>
     <string name="native_chain_warp_mtu">MTU WARP (0 — автоматически)</string>
     <string name="native_chain_warp_auto">Авто (самый быстрый доступный)</string>
+    <string name="native_default_proxy">Прокси по умолчанию</string>
+    <string name="native_default_proxy_balance">Балансировщик</string>
+    <string name="native_default_proxy_lowest">Минимальная задержка</string>
+    <string name="native_default_proxy_first">Первый прокси профиля</string>
 </resources>

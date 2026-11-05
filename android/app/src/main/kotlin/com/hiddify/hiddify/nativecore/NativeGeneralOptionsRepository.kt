@@ -17,6 +17,7 @@ class NativeGeneralOptionsRepository(context: Context) {
         require(url.length <= 2048) { "Connection test URL is too large" }
         return NativeGeneralOptions(
             balancer = text("balancer-strategy", "round-robin").takeIf { it in NativeConfigChoices.balancerChoices } ?: "round-robin",
+            defaultProxy = text("default-proxy", "balance").takeIf { it in listOf("balance", "lowest", "first") } ?: "balance",
             resolveDestination = flag("resolve-destination"),
             logLevel = text("log-level", "warn").takeIf { it in listOf("trace", "debug", "info", "warn", "error", "fatal", "panic") } ?: "warn",
             testUrl = url, intervalSeconds = number("url-test-interval", 600, 1..86400),
