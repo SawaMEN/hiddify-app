@@ -161,10 +161,31 @@ class NativeCoreOptionsProjectionTest {
         assertFalse(root.getAsJsonObject("warp2").has("wireguard-config"))
 
         val chain = project("""{"chain-status":"extra_security","extra-security":{"mode":"warp"},
-            "warp":{"wireguard-config":"keep-for-active-warp"},"warp2":{"wireguard-config":"invalid"}}""")
+            "warp":{"wireguard-config":"{\"private_key\":\"keep\"}"},"warp2":{"wireguard-config":"invalid"}}""")
         assertTrue(chain.getAsJsonObject("warp").get("enable").asBoolean)
-        assertEquals("keep-for-active-warp", chain.getAsJsonObject("warp").get("wireguard-config").asString)
+        assertEquals(original, chain.getAsJsonObject("warp").get("wireguard-config").asString)
         assertFalse(chain.getAsJsonObject("warp2").has("wireguard-config"))
+    }
+
+    @Test fun malformedActiveWarpJsonCannotBlockOtherwiseValidCoreSettings() {
+        for (invalid in listOf("nan", "naive://obsolete", "{broken", "[]", "42", "\"\"", "true")) {
+            val payload = com.google.gson.JsonPrimitive(invalid).toString()
+            val settings = """{"warp":{"enable":true,"id":"existing-license","wireguard-config":$payload},"warp2":{"enable":false}}"""
+            val root = project(settings)
+            val warp = root.getAsJsonObject("warp")
+            assertTrue("WARP must stay enabled for $invalid", warp.get("enable").asBoolean)
+            assertEquals("existing-license", warp.get("id").asString)
+            assertFalse("Unparseable credentials must not be sent to Go: $invalid", warp.has("wireguard-config"))
+        }
+    }
+
+    @Test fun validActiveWarpJsonAndOriginalOptionsRemainUntouched() {
+        val settings = """{"warp":{"enable":true,"wireguard-config":"{\"private_key\":\"keep\"}"},
+            "warp2":{"enable":true,"wireguard-config":"null"}}"""
+        val root = project(settings)
+        assertEquals("""{"private_key":"keep"}""", root.getAsJsonObject("warp").get("wireguard-config").asString)
+        assertEquals("null", root.getAsJsonObject("warp2").get("wireguard-config").asString)
+        assertTrue(settings.contains("wireguard-config"))
     }
 
     @Test fun importedProfileValidationDoesNotForwardLegacyWarpPayloads() {

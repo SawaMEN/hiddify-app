@@ -825,4 +825,6 @@
     <string name="native_proxy_all">All</string>
     <string name="native_proxy_speed_start">Start test</string>
     <string name="native_proxy_speed_clear">Clear saved speed results</string>
+    <string name="native_core_profile_start_failed">Unable to start the selected VPN profile: %1$s</string>
+    <string name="native_core_regional_policy_failed">Unable to apply regional routing policy: %1$s</string>
 </resources>
