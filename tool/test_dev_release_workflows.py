@@ -10,7 +10,7 @@ WORKFLOWS = ROOT / ".github" / "workflows"
 
 def job(document: str, name: str) -> str:
     match = re.search(
-        rf"(?ms)^  {re.escape(name)}:\n(.*?)(?=^  [a-z][\\w-]*:\n|\\Z)",
+        rf"(?ms)^  {re.escape(name)}:\n(.*?)(?=^  [a-z][A-Za-z0-9_-]*:\n|\Z)",
         document,
     )
     if match is None:
