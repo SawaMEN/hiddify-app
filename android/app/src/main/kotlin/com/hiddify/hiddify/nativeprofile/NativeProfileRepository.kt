@@ -217,7 +217,22 @@ class NativeProfileRepository(private val context: Context) {
                 null,
             ).use { cursor ->
                 buildList {
-                    while (cursor.moveToNext()) add(cursor.toProfile())
+                    while (cursor.moveToNext()) {
+                        // One damaged or obsolete profile must not hide every other subscription.
+                        val profile = try {
+                            cursor.toProfile()
+                        } catch (error: Exception) {
+                            android.util.Log.w("NativeProfileRepository",
+                                "Skipping an unreadable profile row: ${error.javaClass.simpleName}")
+                            continue
+                        }
+                        if (profile.isRemote && profile.url.isNullOrBlank()) {
+                            android.util.Log.w("NativeProfileRepository",
+                                "Skipping remote profile without subscription URL")
+                            continue
+                        }
+                        add(profile)
+                    }
                 }
             }
         }
