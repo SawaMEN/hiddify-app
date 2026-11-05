@@ -117,6 +117,7 @@ internal object NativeCoreOptionsProjection {
                     runtime.addProperty("profile-content", content)
                 }
                 root.add("chain-stage", runtime)
+                sanitizeLegacyWarpConfig(root)
                 return root.toString().also {
                     require(it.toByteArray(Charsets.UTF_8).size <= 3 * 1024 * 1024) { "Chain settings exceed the local control message limit (3 MiB)" }
                 }
@@ -125,7 +126,7 @@ internal object NativeCoreOptionsProjection {
             // warp.enable + warp_over_proxy. Mixing the two can reject MASQUE/AWG modes.
             val warpOptions = stage.get("warp")?.takeIf { it.isJsonObject }?.asJsonObject ?: JsonObject()
             val tunnel = warpOptions.get("tunnel")?.takeUnless { it.isJsonNull }?.asString
-                ?: selectedMode.takeIf { it in warpTunnels } ?: "warp_auto"
+                ?: selectedMode.takeIf { it in warpTunnels && it != "warp" } ?: "warp_auto"
             require(tunnel in warpTunnels) { "Invalid WARP tunnel: $tunnel" }
             warpOptions.remove("tunnel")
             stage.add("warp", warpOptions)
@@ -135,7 +136,37 @@ internal object NativeCoreOptionsProjection {
                 root.get(key)?.takeIf { it.isJsonObject }?.asJsonObject?.addProperty("enable", false)
             }
         }
+        sanitizeLegacyWarpConfig(root)
         return root.toString()
+    }
+
+    /**
+     * The released Go core unconditionally JSON-decodes warp[2].wireguard-config when
+     * applying settings. Legacy preferences may contain non-JSON text (for example "nan"
+     * or an obsolete link), which aborts VPN startup even before the profile is parsed.
+     *
+     * A disabled WARP stage never needs the payload. An enabled stage can consume only
+     * a JSON object, or JSON null; otherwise the core cannot use those credentials and
+     * must fall back to its existing WARP account/license path. Sanitize only the outgoing
+     * snapshot, never persisted settings or valid active WARP credentials.
+     */
+    private fun sanitizeLegacyWarpConfig(root: JsonObject) {
+        for (key in listOf("warp", "warp2")) {
+            val warp = root.get(key)?.takeIf { it.isJsonObject }?.asJsonObject ?: continue
+            val enabled = warp.get("enable")?.let {
+                it.isJsonPrimitive && it.asJsonPrimitive.isBoolean && it.asBoolean
+            } == true
+            val payload = warp.get("wireguard-config") ?: continue
+            if (!enabled || !payload.isJsonPrimitive || !payload.asJsonPrimitive.isString) {
+                warp.remove("wireguard-config")
+                continue
+            }
+            val valid = runCatching {
+                val json = NativeJsonDocument.parse(payload.asString)
+                json.isJsonObject || json.isJsonNull
+            }.getOrDefault(false)
+            if (!valid) warp.remove("wireguard-config")
+        }
     }
 
     /** Import validates the source itself; selecting a chain is a separate runtime operation. */

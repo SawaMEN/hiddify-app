@@ -145,6 +145,69 @@ class NativeCoreOptionsProjectionTest {
         assertFalse(root.has("chain-stage"))
     }
 
+    @Test fun disabledWarpPayloadsAreOmittedBeforeTheCoreDecodesThem() {
+        val inputs = listOf(
+            """{"warp":{"enable":false,"wireguard-config":"naive://not-json"},"warp2":{"wireguard-config":"nan"}}""",
+            """{"chain-status":"off","warp":{"enable":true,"wireguard-config":"naive://not-json"},
+                "warp2":{"enable":true,"wireguard-config":"nan"}}""",
+            """{"chain-status":"unblocker","unblocker":{"mode":"psiphon"},
+                "warp":{"enable":true,"wireguard-config":"naive://not-json"},
+                "warp2":{"enable":true,"wireguard-config":"nan"}}""",
+        )
+        for (input in inputs) {
+            val root = project(input)
+            for (key in listOf("warp", "warp2")) {
+                val warp = root.getAsJsonObject(key)
+                assertFalse("unused $key must be disabled", warp.get("enable")?.asBoolean == true)
+                assertFalse("unused $key must not be decoded as JSON by the core", warp.has("wireguard-config"))
+            }
+        }
+    }
+
+    @Test fun enabledWarpPayloadsArePreservedWhileInactiveSecondWarpIsSanitized() {
+        val original = """{"private_key":"keep"}"""
+        val root = project("""{"warp":{"enable":true,"wireguard-config":"{\"private_key\":\"keep\"}"},
+            "warp2":{"enable":false,"wireguard-config":"naive://not-json"}}""")
+        assertEquals(original, root.getAsJsonObject("warp").get("wireguard-config").asString)
+        assertFalse(root.getAsJsonObject("warp2").has("wireguard-config"))
+
+        val chain = project("""{"chain-status":"extra_security","extra-security":{"mode":"warp"},
+            "warp":{"wireguard-config":"{\"private_key\":\"keep\"}"},"warp2":{"wireguard-config":"invalid"}}""")
+        assertEquals("warp_auto", chain.getAsJsonObject("extra-security").get("mode").asString)
+        assertFalse(chain.getAsJsonObject("warp").get("enable").asBoolean)
+        assertFalse(chain.getAsJsonObject("warp").has("wireguard-config"))
+        assertFalse(chain.getAsJsonObject("warp2").has("wireguard-config"))
+    }
+
+    @Test fun malformedActiveWarpJsonCannotBlockOtherwiseValidCoreSettings() {
+        for (invalid in listOf("nan", "naive://obsolete", "{broken", "[]", "42", "\"\"", "true")) {
+            val payload = com.google.gson.JsonPrimitive(invalid).toString()
+            val settings = """{"warp":{"enable":true,"id":"existing-license","wireguard-config":$payload},"warp2":{"enable":false}}"""
+            val root = project(settings)
+            val warp = root.getAsJsonObject("warp")
+            assertTrue("WARP must stay enabled for $invalid", warp.get("enable").asBoolean)
+            assertEquals("existing-license", warp.get("id").asString)
+            assertFalse("Unparseable credentials must not be sent to Go: $invalid", warp.has("wireguard-config"))
+        }
+    }
+
+    @Test fun validActiveWarpJsonAndOriginalOptionsRemainUntouched() {
+        val settings = """{"warp":{"enable":true,"wireguard-config":"{\"private_key\":\"keep\"}"},
+            "warp2":{"enable":true,"wireguard-config":"null"}}"""
+        val root = project(settings)
+        assertEquals("""{"private_key":"keep"}""", root.getAsJsonObject("warp").get("wireguard-config").asString)
+        assertEquals("null", root.getAsJsonObject("warp2").get("wireguard-config").asString)
+        assertTrue(settings.contains("wireguard-config"))
+    }
+
+    @Test fun importedProfileValidationDoesNotForwardLegacyWarpPayloads() {
+        val root = NativeJsonDocument.parse(NativeCoreOptionsProjection.forProfileValidation(
+            """{"warp":{"enable":true,"wireguard-config":"naive://not-json"}}""",
+        )).asJsonObject
+        assertFalse(root.getAsJsonObject("warp").get("enable").asBoolean)
+        assertFalse(root.getAsJsonObject("warp").has("wireguard-config"))
+    }
+
     @Test fun explicitOffDisablesLegacyWarpButAbsentChainSettingPreservesIt() {
         assertFalse(project("""{"chain-status":"off","warp":{"enable":true}}""").getAsJsonObject("warp").get("enable").asBoolean)
         assertTrue(project("""{"warp":{"enable":true}}""").getAsJsonObject("warp").get("enable").asBoolean)

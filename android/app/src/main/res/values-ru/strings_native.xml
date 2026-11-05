@@ -844,4 +844,8 @@
     <string name="native_keep_choose">Выберите хотя бы один сервер</string>
     <string name="native_keep_count">Оставить %1$d самых быстрых</string>
     <string name="native_keep_hint">Выбор сохраняется в этом профиле. Остальные серверы отключатся после следующего подключения.</string>
+    <string name="native_core_use_xray">Использовать Xray core, когда возможно</string>
+    <string name="native_general_xray_summary">Использовать Xray для поддерживаемых профилей, когда он доступен. Требуется переподключение.</string>
+    <string name="native_core_profile_start_failed">Не удалось запустить выбранный VPN-профиль: %1$s</string>
+    <string name="native_core_regional_policy_failed">Не удалось применить настройки маршрутизации: %1$s</string>
 </resources>

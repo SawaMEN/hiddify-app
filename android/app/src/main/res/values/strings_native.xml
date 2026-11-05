@@ -844,4 +844,8 @@
     <string name="native_keep_choose">Choose at least one proxy</string>
     <string name="native_keep_count">Keep fastest %1$d</string>
     <string name="native_keep_hint">Selection is stored in this profile. Other proxies stop after reconnect.</string>
+    <string name="native_core_use_xray">Use Xray core when possible</string>
+    <string name="native_general_xray_summary">Use Xray for supported profiles when available. Requires reconnecting.</string>
+    <string name="native_core_profile_start_failed">Unable to start the selected VPN profile: %1$s</string>
+    <string name="native_core_regional_policy_failed">Unable to apply regional routing policy: %1$s</string>
 </resources>

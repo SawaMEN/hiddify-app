@@ -453,7 +453,13 @@ class BoxService(
                 com.hiddify.hiddify.privacy.RegionalRouting.policy(service).forEach { (key, value) ->
                     policy.put(key, if (value is List<*>) org.json.JSONArray(value) else value)
                 }
-                Mobile.applyRegionalPrivacy(policy.toString())
+                try {
+                    Mobile.applyRegionalPrivacy(policy.toString())
+                } catch (error: Exception) {
+                    throw IllegalStateException(service.getString(
+                        R.string.native_core_regional_policy_failed, error.message ?: error.javaClass.simpleName,
+                    ), error)
+                }
                 if (Settings.startCoreAfterStartingService) {
                     // Stop() cancels the Go startup context before taking its lifecycle lock.
                     // It must be issued concurrently: waiting for our mutex first cannot abort Start().
@@ -819,6 +825,19 @@ class BoxService(
         }
     }
 
+    /** Keep native setup, privacy-policy and profile parsing failures distinct in the error UI. */
+    private fun startNativeProfile(path: String, content: String) {
+        try {
+            Mobile.start(path, content)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            throw IllegalStateException(service.getString(
+                R.string.native_core_profile_start_failed, error.message ?: error.javaClass.simpleName,
+            ), error)
+        }
+    }
+
     /** Probe through the core before accepting a built-in WARP endpoint. Stop between attempts,
      * keeping setup/RPC alive; no attempt falls back to the physical network for its probe. */
     private suspend fun startWithWarpEndpointRetry(configPath: String) {
@@ -829,7 +848,7 @@ class BoxService(
             com.hiddify.hiddify.nativeprofile.NativeWarpEndpoints.candidates(it.content, it.name)
         }.orEmpty()
         if (candidates.isEmpty()) {
-            Mobile.start(configPath, "")
+            startNativeProfile(configPath, "")
             return
         }
         val selected = com.hiddify.hiddify.nativeconnection.NativeWarpStartupPolicy.select(
@@ -843,7 +862,7 @@ class BoxService(
                 // The core persists its StartRequest for restart/hot reload. A deleted
                 // temporary path leaves an established WARP session unable to restart.
                 NativeVpnProcessDiagnostics.phase(NativeVpnProcessPhase.STARTING_CORE)
-                Mobile.start("", content)
+                startNativeProfile("", content)
                 Libbox.setMemoryLimit(!Settings.disableMemoryLimit)
                 if (service is VPNService && fileDescriptor == null)
                     error("Android VPN interface was not created by the core (missing TUN inbound)")
